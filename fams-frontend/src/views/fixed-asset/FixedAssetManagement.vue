@@ -47,7 +47,7 @@
             </el-form-item>
             <el-form-item label="资产类型">
               <el-select v-model="assetSearch.type" placeholder="请选择" clearable style="width: 130px">
-                <el-option v-for="t in assetTypeOptions" :key="t" :label="t" :value="t" />
+                <el-option v-for="t in assetTypeOptions" :key="t.value" :label="t.label" :value="t.value" />
               </el-select>
             </el-form-item>
             <el-form-item label="资产状态">
@@ -90,7 +90,7 @@
             <el-table-column prop="purchaseDate" label="购(建)时间" width="110" />
             <el-table-column prop="status" label="资产状态" width="90">
               <template #default="{ row }">
-                <el-tag :type="assetStatusType(row.status)" size="small">{{ row.status }}</el-tag>
+                <el-tag :type="assetStatusType(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column label="操作" width="170" fixed="right">
@@ -126,7 +126,7 @@
               </el-form-item>
               <el-form-item label="公司">
                 <el-select v-model="docLists.inbound.search.company" placeholder="请选择公司" clearable style="width: 200px">
-                  <el-option v-for="c in companyOptions" :key="c" :label="c" :value="c" />
+                  <el-option v-for="c in companyOptionList" :key="c.id" :label="c.name" :value="c.id" />
                 </el-select>
               </el-form-item>
               <el-form-item label="单据状态">
@@ -154,16 +154,16 @@
                 </template>
               </el-table-column>
               <el-table-column prop="company" label="所属公司" min-width="200" show-overflow-tooltip />
-              <el-table-column prop="createTime" label="创建时间" width="160" />
+              <el-table-column label="创建时间" width="160" ><template #default="{ row }">{{ formatDateTime(row.createTime) }}</template></el-table-column>
               <el-table-column label="完结时间" width="160">
-                <template #default="{ row }">{{ row.finishTime || '-' }}</template>
+                <template #default="{ row }">{{ row.finishTime ? formatDateTime(row.finishTime) : '-' }}</template>
               </el-table-column>
               <el-table-column label="备注" min-width="160" show-overflow-tooltip>
                 <template #default="{ row }">{{ row.remark || '-' }}</template>
               </el-table-column>
               <el-table-column prop="status" label="单据状态" width="100">
                 <template #default="{ row }">
-                  <el-tag :type="docStatusType(row.status)" size="small">{{ row.status }}</el-tag>
+                  <el-tag :type="docStatusType(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
                 </template>
               </el-table-column>
               <el-table-column label="操作" width="190" fixed="right">
@@ -227,7 +227,7 @@
             <el-table-column prop="inboundDate" label="入库日期" width="110" />
             <el-table-column prop="status" label="状态" width="90">
               <template #default="{ row }">
-                <el-tag :type="row.status === '已入库' ? 'success' : row.status === '已验收' ? 'primary' : 'warning'" size="small">{{ row.status }}</el-tag>
+                <el-tag :type="row.status === '已入库' ? 'success' : row.status === '已验收' ? 'primary' : 'warning'" size="small">{{ statusText(row.status) }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column label="操作" width="180" fixed="right">
@@ -266,7 +266,7 @@
               </el-form-item>
               <el-form-item label="公司">
                 <el-select v-model="docLists[dispatchSub].search.company" placeholder="请选择公司" clearable style="width: 200px">
-                  <el-option v-for="c in companyOptions" :key="c" :label="c" :value="c" />
+                  <el-option v-for="c in companyOptionList" :key="c.id" :label="c.name" :value="c.id" />
                 </el-select>
               </el-form-item>
               <el-form-item label="单据状态">
@@ -294,16 +294,16 @@
                 </template>
               </el-table-column>
               <el-table-column prop="company" label="所属公司" min-width="200" show-overflow-tooltip />
-              <el-table-column prop="createTime" label="创建时间" width="160" />
+              <el-table-column label="创建时间" width="160" ><template #default="{ row }">{{ formatDateTime(row.createTime) }}</template></el-table-column>
               <el-table-column label="完结时间" width="160">
-                <template #default="{ row }">{{ row.finishTime || '-' }}</template>
+                <template #default="{ row }">{{ row.finishTime ? formatDateTime(row.finishTime) : '-' }}</template>
               </el-table-column>
               <el-table-column label="备注" min-width="160" show-overflow-tooltip>
                 <template #default="{ row }">{{ row.remark || '-' }}</template>
               </el-table-column>
               <el-table-column prop="status" label="单据状态" width="100">
                 <template #default="{ row }">
-                  <el-tag :type="docStatusType(row.status)" size="small">{{ row.status }}</el-tag>
+                  <el-tag :type="docStatusType(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
                 </template>
               </el-table-column>
               <el-table-column label="操作" width="190" fixed="right">
@@ -356,7 +356,7 @@
             <el-table-column prop="location" label="存放位置" width="130" show-overflow-tooltip />
             <el-table-column prop="status" label="状态" width="90">
               <template #default="{ row }">
-                <el-tag :type="row.status === '已派发' ? 'success' : 'info'" size="small">{{ row.status }}</el-tag>
+                <el-tag :type="row.status === '已派发' ? 'success' : 'info'" size="small">{{ statusText(row.status) }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column label="操作" width="180" fixed="right">
@@ -411,7 +411,7 @@
             <el-table-column prop="expectedReturnDate" label="预计归还" width="110" />
             <el-table-column prop="status" label="状态" width="90">
               <template #default="{ row }">
-                <el-tag :type="row.status === '已归还' ? 'success' : row.status === '逾期' ? 'danger' : 'warning'" size="small">{{ row.status }}</el-tag>
+                <el-tag :type="row.status === '已归还' ? 'success' : row.status === '逾期' ? 'danger' : 'warning'" size="small">{{ statusText(row.status) }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column label="操作" width="180" fixed="right">
@@ -457,7 +457,7 @@
             <el-table-column prop="changeNo" label="变更单号" width="130" />
             <el-table-column prop="assetName" label="资产名称" min-width="150" show-overflow-tooltip />
             <el-table-column prop="assetNo" label="资产编号" width="130" />
-            <el-table-column prop="changeType" label="变更类型" width="100" />
+            <el-table-column label="变更类型" width="100" ><template #default="{ row }">{{ statusText(row.changeType) }}</template></el-table-column>
             <el-table-column prop="changeReason" label="变更原因" min-width="150" show-overflow-tooltip />
             <el-table-column prop="changeDate" label="变更日期" width="110" />
             <el-table-column prop="operator" label="操作人" width="100" />
@@ -495,7 +495,7 @@
               </el-form-item>
               <el-form-item label="公司">
                 <el-select v-model="docLists[disposeSub].search.company" placeholder="请选择公司" clearable style="width: 200px">
-                  <el-option v-for="c in companyOptions" :key="c" :label="c" :value="c" />
+                  <el-option v-for="c in companyOptionList" :key="c.id" :label="c.name" :value="c.id" />
                 </el-select>
               </el-form-item>
               <el-form-item label="单据状态">
@@ -523,16 +523,16 @@
                 </template>
               </el-table-column>
               <el-table-column prop="company" label="所属公司" min-width="200" show-overflow-tooltip />
-              <el-table-column prop="createTime" label="创建时间" width="160" />
+              <el-table-column label="创建时间" width="160" ><template #default="{ row }">{{ formatDateTime(row.createTime) }}</template></el-table-column>
               <el-table-column label="完结时间" width="160">
-                <template #default="{ row }">{{ row.finishTime || '-' }}</template>
+                <template #default="{ row }">{{ row.finishTime ? formatDateTime(row.finishTime) : '-' }}</template>
               </el-table-column>
               <el-table-column label="备注" min-width="160" show-overflow-tooltip>
                 <template #default="{ row }">{{ row.remark || '-' }}</template>
               </el-table-column>
               <el-table-column prop="status" label="单据状态" width="100">
                 <template #default="{ row }">
-                  <el-tag :type="docStatusType(row.status)" size="small">{{ row.status }}</el-tag>
+                  <el-tag :type="docStatusType(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
                 </template>
               </el-table-column>
               <el-table-column label="操作" width="190" fixed="right">
@@ -578,7 +578,7 @@
             <el-table-column prop="disposeNo" label="处置单号" width="130" />
             <el-table-column prop="assetName" label="资产名称" min-width="150" show-overflow-tooltip />
             <el-table-column prop="assetNo" label="资产编号" width="130" />
-            <el-table-column prop="disposeType" label="处置方式" width="100" />
+            <el-table-column label="处置方式" width="100" ><template #default="{ row }">{{ statusText(row.disposeType) }}</template></el-table-column>
             <el-table-column prop="disposeReason" label="处置原因" min-width="150" show-overflow-tooltip />
             <el-table-column prop="residualValue" label="残值" width="100">
               <template #default="{ row }">¥{{ row.residualValue.toLocaleString() }}</template>
@@ -586,7 +586,7 @@
             <el-table-column prop="disposeDate" label="处置日期" width="110" />
             <el-table-column prop="status" label="状态" width="90">
               <template #default="{ row }">
-                <el-tag :type="row.status === '已完成' ? 'success' : 'warning'" size="small">{{ row.status }}</el-tag>
+                <el-tag :type="row.status === '已完成' ? 'success' : 'warning'" size="small">{{ statusText(row.status) }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column label="操作" width="120" fixed="right">
@@ -622,7 +622,7 @@
               </el-form-item>
               <el-form-item label="公司">
                 <el-select v-model="invSearch.company" placeholder="请选择公司" clearable style="width: 200px">
-                  <el-option v-for="c in companyOptions" :key="c" :label="c" :value="c" />
+                  <el-option v-for="c in companyOptionList" :key="c.id" :label="c.name" :value="c.id" />
                 </el-select>
               </el-form-item>
               <el-form-item label="盘点单状态">
@@ -673,9 +673,9 @@
               </el-table-column>
               <el-table-column prop="name" label="盘点名称" min-width="160" show-overflow-tooltip />
               <el-table-column prop="company" label="所属公司" min-width="180" show-overflow-tooltip />
-              <el-table-column prop="createTime" label="创建时间" width="160" />
+              <el-table-column label="创建时间" width="160" ><template #default="{ row }">{{ formatDateTime(row.createTime) }}</template></el-table-column>
               <el-table-column label="完结时间" width="160">
-                <template #default="{ row }">{{ row.finishTime || '-' }}</template>
+                <template #default="{ row }">{{ row.finishTime ? formatDateTime(row.finishTime) : '-' }}</template>
               </el-table-column>
               <el-table-column label="资产盘点进展" width="110" align="center">
                 <template #default="{ row }">
@@ -692,7 +692,7 @@
               </el-table-column>
               <el-table-column prop="status" label="盘点单状态" width="140">
                 <template #default="{ row }">
-                  <el-tag :type="invStatusType(row.status)" size="small">{{ row.status }}</el-tag>
+                  <el-tag :type="invStatusType(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
                 </template>
               </el-table-column>
               <el-table-column label="操作" width="290" fixed="right">
@@ -747,7 +747,7 @@
             </el-table-column>
             <el-table-column prop="status" label="状态" width="100">
               <template #default="{ row }">
-                <el-tag :type="planStatusType(row.status)" size="small">{{ row.status }}</el-tag>
+                <el-tag :type="planStatusType(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column label="操作" width="230" fixed="right">
@@ -1289,7 +1289,7 @@
           <el-col :span="8">
             <el-form-item label="资产类型" required>
               <el-select v-model="assetForm.type" placeholder="请选择资产类型" style="width:100%">
-                <el-option v-for="t in assetTypeOptions" :key="t" :label="t" :value="t" />
+                <el-option v-for="t in assetTypeOptions" :key="t.value" :label="t.label" :value="t.value" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -1301,7 +1301,7 @@
           <el-col :span="8">
             <el-form-item label="租赁/购买公司">
               <el-select v-model="assetForm.company" placeholder="请选择公司" style="width:100%">
-                <el-option v-for="c in companyOptions" :key="c" :label="c" :value="c" />
+                <el-option v-for="c in companyOptionList" :key="c.id" :label="c.name" :value="c.id" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -1362,7 +1362,7 @@
             </el-form-item>
             <el-form-item label="购置方式">
               <el-select v-model="assetForm.purchaseMode" placeholder="请选择购置方式" style="width:100%">
-                <el-option v-for="m in purchaseModeOptions" :key="m" :label="m" :value="m" />
+                <el-option v-for="m in purchaseModeOptions" :key="m.value" :label="m.label" :value="m.value" />
               </el-select>
             </el-form-item>
             <el-form-item label="租赁使用期限(月)">
@@ -1443,7 +1443,7 @@
               <el-table-column prop="borrower" label="借用人" width="100" />
               <el-table-column prop="borrowTime" label="借出时间" width="120" />
               <el-table-column prop="returnTime" label="归还时间" width="120" />
-              <el-table-column prop="status" label="状态" min-width="90" />
+              <el-table-column label="状态" min-width="90" ><template #default="{ row }">{{ statusText(row.status) }}</template></el-table-column>
             </el-table>
           </el-tab-pane>
           <el-tab-pane label="资产维修" name="repair">
@@ -1452,7 +1452,7 @@
               <el-table-column prop="fault" label="故障描述" min-width="150" show-overflow-tooltip />
               <el-table-column prop="vendor" label="维修商" width="120" />
               <el-table-column prop="cost" label="维修费用(元)" width="110" />
-              <el-table-column prop="status" label="状态" width="90" />
+              <el-table-column label="状态" width="90" ><template #default="{ row }">{{ statusText(row.status) }}</template></el-table-column>
             </el-table>
           </el-tab-pane>
           <el-tab-pane label="资产调拨" name="transfer">
@@ -1461,7 +1461,7 @@
               <el-table-column prop="from" label="调出公司" min-width="170" show-overflow-tooltip />
               <el-table-column prop="to" label="调入公司" min-width="170" show-overflow-tooltip />
               <el-table-column prop="time" label="调拨时间" width="160" />
-              <el-table-column prop="status" label="状态" width="90" />
+              <el-table-column label="状态" width="90" ><template #default="{ row }">{{ statusText(row.status) }}</template></el-table-column>
             </el-table>
           </el-tab-pane>
           <el-tab-pane label="资产变更" name="change">
@@ -1478,7 +1478,7 @@
               <el-table-column prop="mode" label="处置方式" width="100" />
               <el-table-column prop="amount" label="处置金额(元)" width="120" />
               <el-table-column prop="time" label="处置时间" width="120" />
-              <el-table-column prop="status" label="状态" min-width="90" />
+              <el-table-column label="状态" min-width="90" ><template #default="{ row }">{{ statusText(row.status) }}</template></el-table-column>
             </el-table>
           </el-tab-pane>
         </el-tabs>
@@ -1492,7 +1492,7 @@
         </el-form-item>
         <el-form-item label="所属公司" required>
           <el-select v-model="docForm.company" placeholder="请选择公司" style="width:100%">
-            <el-option v-for="c in companyOptions" :key="c" :label="c" :value="c" />
+            <el-option v-for="c in companyOptionList" :key="c.id" :label="c.name" :value="c.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="备注">
@@ -1541,7 +1541,7 @@
       <el-form v-show="wizardStep === 0" :model="wizardForm" label-width="100px">
         <el-form-item label="所属公司" required>
           <el-select v-model="wizardForm.company" placeholder="请选择公司" style="width:100%">
-            <el-option v-for="c in companyOptions" :key="c" :label="c" :value="c" />
+            <el-option v-for="c in companyOptionList" :key="c.id" :label="c.name" :value="c.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="申请人" required>
@@ -1572,7 +1572,7 @@
       </div>
       <div v-show="wizardStep === 2">
         <el-descriptions :column="2" border>
-          <el-descriptions-item label="所属公司">{{ wizardForm.company || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="所属公司">{{ wizardForm.company ? (orgStore.companyName(wizardForm.company) || wizardForm.company) : '-' }}</el-descriptions-item>
           <el-descriptions-item label="申请人">{{ wizardForm.applicant || '-' }}</el-descriptions-item>
           <el-descriptions-item label="盘点名称">{{ wizardForm.name || '-' }}</el-descriptions-item>
           <el-descriptions-item label="盘点范围">{{ wizardForm.scope }}</el-descriptions-item>
@@ -1614,7 +1614,7 @@
         <el-table-column label="资产信息" align="center">
           <el-table-column prop="assetNo" label="资产编号" width="120" />
           <el-table-column prop="assetName" label="资产名称" min-width="150" show-overflow-tooltip />
-          <el-table-column prop="assetStatus" label="资产状态" width="90" />
+          <el-table-column label="资产状态" width="90" ><template #default="{ row }">{{ statusText(row.assetStatus) }}</template></el-table-column>
           <el-table-column prop="location" label="设备所在位置" width="130" show-overflow-tooltip />
         </el-table-column>
         <el-table-column label="盘点单状态" width="100">
@@ -1628,7 +1628,7 @@
         <el-table-column label="盘点人员" width="90">
           <template #default="{ row }">{{ row.checker || '-' }}</template>
         </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" width="160" />
+        <el-table-column label="创建时间" width="160" ><template #default="{ row }">{{ formatDateTime(row.createTime) }}</template></el-table-column>
         <el-table-column label="盘点时间" width="160">
           <template #default="{ row }">{{ row.checkTime || '-' }}</template>
         </el-table-column>
@@ -1650,7 +1650,7 @@
         </el-table-column>
         <el-table-column label="状态" min-width="90">
           <template #default="{ row }">
-            <el-tag :type="row.status === '已完成' ? 'success' : 'primary'" size="small">{{ row.status }}</el-tag>
+            <el-tag :type="row.status === '已完成' ? 'success' : 'primary'" size="small">{{ statusText(row.status) }}</el-tag>
           </template>
         </el-table-column>
       </el-table>
@@ -1668,6 +1668,32 @@ import { Plus, Search, ArrowLeft, Picture } from '@element-plus/icons-vue'
 import QRCode from 'qrcode'
 import { useFixedAssetStore } from '../../store/fixedAsset'
 import { useOrgStore } from '../../store/org'
+import { optionsOf, labelOf } from '../../constants/enums'
+import { formatDateTime } from '../../utils/format'
+
+/**
+ * 状态展示：数据里存的是编码，展示时按枚举翻译成文案。
+ * 依次尝试各业务枚举，未命中时原样返回（兼容已经是文案的视图模型字段）。
+ */
+const STATUS_ENUM_ORDER = [
+  'ASSET_STATUS', 'DOC_STATUS', 'INBOUND_STATUS', 'DISPATCH_STATUS', 'BORROW_STATUS',
+  'DISPOSE_STATUS', 'INVENTORY_ITEM_STATUS', 'INVENTORY_COUNTER_STATUS', 'ENABLE_STATUS',
+  'CHANGE_TYPE', 'DISPOSE_TYPE', 'PURCHASE_MODE', 'ASSET_CATEGORY'
+]
+/** 状态筛选：支持按编码或按文案匹配 */
+function matchStatus(row, value) {
+  if (!value) return true
+  return row.status === value || statusText(row.status) === value
+}
+
+function statusText(status) {
+  if (status === undefined || status === null || status === '') return ''
+  for (const name of STATUS_ENUM_ORDER) {
+    const text = labelOf(name, status)
+    if (text !== status) return text
+  }
+  return status
+}
 import { useCollection } from '../../composables/useCollection'
 import { COLLECTION } from '../../services'
 
@@ -1683,22 +1709,26 @@ const inventorySub = ref('docs')
 // 公司口径取自组织架构主数据；主数据尚未加载完成时回落示例值
 const FALLBACK_COMPANIES = ['华信科技集团有限公司', '云鼎资产管理有限公司', '恒信融资租赁有限公司', '中天建设集团有限公司']
 const companyOptions = computed(() => (orgStore.companyOptions.length ? orgStore.companyOptions : FALLBACK_COMPANIES))
-const assetTypeOptions = ['电子设备', '机械设备', '运输设备', '办公家具', '房屋建筑物', '其他设备']
-const purchaseModeOptions = ['购买', '租赁', '自建', '受赠']
+/** 公司下拉：取主数据的 id/name，表单保存公司 ID 而非名称 */
+const companyOptionList = computed(() => orgStore.companies.map(c => ({ id: c.id, name: c.name })))
+// 分类与购置方式取自统一枚举（value 为编码，label 为文案）
+const assetTypeOptions = optionsOf('ASSET_CATEGORY')
+const purchaseModeOptions = optionsOf('PURCHASE_MODE')
 const assetStatusOptions = ['空闲', '派发中', '借出中', '维修中', '处置中']
-const docStatusOptions = ['已撤销', '待提交', '已完结', '进行中', '已驳回']
+const docStatusOptions = ['已完结', '进行中', '待提交', '已驳回', '已撤销']
 
 // 入库/验收
 const inboundSearch = reactive({ name: '', category: '', status: '' })
 watch(inboundSearch, () => { inboundPage.value = 1 }, { deep: true })
 
-const inboundList = computed(() => fixedAssetStore.inboundRecords)
+// 单据取 store 的视图模型：assetId/deptId/userId 已解析为编号、名称
+const inboundList = computed(() => fixedAssetStore.inboundList)
 
 const filteredInboundList = computed(() => {
   return inboundList.value.filter(item => {
     const nameMatch = !inboundSearch.name || item.name.includes(inboundSearch.name)
     const categoryMatch = !inboundSearch.category || item.category === inboundSearch.category
-    const statusMatch = !inboundSearch.status || item.status === inboundSearch.status
+    const statusMatch = !inboundSearch.status || matchStatus(item, inboundSearch.status)
     return nameMatch && categoryMatch && statusMatch
   })
 })
@@ -1716,13 +1746,13 @@ const inboundTotal = computed(() => filteredInboundList.value.length)
 const dispatchSearch = reactive({ name: '', department: '', status: '' })
 watch(dispatchSearch, () => { dispatchPage.value = 1 }, { deep: true })
 
-const dispatchList = computed(() => fixedAssetStore.dispatchRecords)
+const dispatchList = computed(() => fixedAssetStore.dispatchList)
 
 const filteredDispatchList = computed(() => {
   return dispatchList.value.filter(item => {
     const nameMatch = !dispatchSearch.name || item.assetName.includes(dispatchSearch.name)
     const deptMatch = !dispatchSearch.department || item.department.includes(dispatchSearch.department)
-    const statusMatch = !dispatchSearch.status || item.status === dispatchSearch.status
+    const statusMatch = !dispatchSearch.status || matchStatus(item, dispatchSearch.status)
     return nameMatch && deptMatch && statusMatch
   })
 })
@@ -1740,13 +1770,13 @@ const dispatchTotal = computed(() => filteredDispatchList.value.length)
 const borrowSearch = reactive({ name: '', borrower: '', status: '' })
 watch(borrowSearch, () => { borrowPage.value = 1 }, { deep: true })
 
-const borrowList = computed(() => fixedAssetStore.borrowRecords)
+const borrowList = computed(() => fixedAssetStore.borrowList)
 
 const filteredBorrowList = computed(() => {
   return borrowList.value.filter(item => {
     const nameMatch = !borrowSearch.name || item.assetName.includes(borrowSearch.name)
     const borrowerMatch = !borrowSearch.borrower || item.borrower.includes(borrowSearch.borrower)
-    const statusMatch = !borrowSearch.status || item.status === borrowSearch.status
+    const statusMatch = !borrowSearch.status || matchStatus(item, borrowSearch.status)
     return nameMatch && borrowerMatch && statusMatch
   })
 })
@@ -1764,7 +1794,7 @@ const borrowTotal = computed(() => filteredBorrowList.value.length)
 const changeSearch = reactive({ name: '', changeType: '' })
 watch(changeSearch, () => { changePage.value = 1 }, { deep: true })
 
-const changeList = computed(() => fixedAssetStore.changeRecords)
+const changeList = computed(() => fixedAssetStore.changeList)
 
 const filteredChangeList = computed(() => {
   return changeList.value.filter(item => {
@@ -1787,7 +1817,7 @@ const changeTotal = computed(() => filteredChangeList.value.length)
 const disposeSearch = reactive({ name: '', disposeType: '' })
 watch(disposeSearch, () => { disposePage.value = 1 }, { deep: true })
 
-const disposeList = computed(() => fixedAssetStore.disposeRecords)
+const disposeList = computed(() => fixedAssetStore.disposeList)
 
 const filteredDisposeList = computed(() => {
   return disposeList.value.filter(item => {
@@ -2143,28 +2173,7 @@ function scopeLabel(scopeType, scopeValue) {
   return `${scopeType}：${scopeValue}`
 }
 
-const inventoryPlanCol = useCollection(COLLECTION.inventoryPlans, (() => {
-  const doneItems = buildPlanItems('全部', '')
-  doneItems.forEach((it, i) => {
-    it.countMethod = '小程序扫码'
-    it.countTime = `2026-06-25 ${String(9 + Math.floor(i / 3)).padStart(2, '0')}:${String((i * 7) % 60).padStart(2, '0')}:00`
-    if (i === 3) {
-      it.result = '盘亏'
-      it.countMethod = '现场核查'
-      it.remark = '现场未找到实物，待核销处置'
-    } else {
-      it.result = '已盘'
-    }
-  })
-  const runningItems = buildPlanItems('分类', '设备')
-  runningItems[0].result = '已盘'
-  runningItems[0].countMethod = '小程序扫码'
-  runningItems[0].countTime = '2026-09-16 10:20:00'
-  return [
-    { planNo: 'PD-2026-002', planName: '2026年三季度设备类专项盘点', scope: scopeLabel('分类', '设备'), counter: '李四', planDate: '2026-09-18', status: '盘点中', items: runningItems },
-    { planNo: 'PD-2026-001', planName: '2026年二季度固定资产全面盘点', scope: scopeLabel('全部', ''), counter: '张三', planDate: '2026-06-25', status: '已完成', items: doneItems }
-  ]
-})())
+const inventoryPlanCol = useCollection(COLLECTION.inventoryPlans)
 const inventoryPlans = inventoryPlanCol.items
 
 function countedOf(plan) {
@@ -2386,12 +2395,7 @@ function deletePlan(row) {
 }
 
 // ==================== 折旧管理 ====================
-const depreciationSchemeCol = useCollection(COLLECTION.depreciationSchemes, [
-  { schemeNo: 'ZJ-001', schemeName: '电子设备年限平均法', method: '年限平均法', years: 3, residualRate: 5, monthlyRate: 2.6389, applicableCategory: '设备', enabled: true },
-  { schemeNo: 'ZJ-002', schemeName: '运输工具年限平均法', method: '年限平均法', years: 5, residualRate: 5, monthlyRate: 1.5833, applicableCategory: '车辆', enabled: true },
-  { schemeNo: 'ZJ-003', schemeName: '办公家具年限平均法', method: '年限平均法', years: 5, residualRate: 5, monthlyRate: 1.5833, applicableCategory: '办公用品', enabled: true },
-  { schemeNo: 'ZJ-004', schemeName: '低值易耗品一次摊销', method: '年限平均法', years: 1, residualRate: 0, monthlyRate: 8.3333, applicableCategory: '材料', enabled: false }
-])
+const depreciationSchemeCol = useCollection(COLLECTION.depreciationSchemes)
 const depreciationSchemes = depreciationSchemeCol.items
 
 function schemeFor(category) {
@@ -2449,16 +2453,7 @@ const depreciationSummary = computed(() => {
   }
 })
 
-const depreciationReportCol = useCollection(COLLECTION.depreciationReports, ['2026-07', '2026-08'].map(period => ({
-  period,
-  openingValue: totalOriginal.value,
-  periodDepreciation: 0,
-  accumulated: 0,
-  closingNet: 0,
-  assetCount: 0,
-  operator: '系统自动',
-  runDate: `${period}-28`
-})))
+const depreciationReportCol = useCollection(COLLECTION.depreciationReports)
 const depreciationReports = depreciationReportCol.items
 
 function prevPeriod(period) {
@@ -2615,43 +2610,16 @@ function deleteScheme(row) {
   }).catch(() => {})
 }
 
-const docStatusPool = ['已完结', '进行中', '待提交', '已驳回', '已撤销']
-const docNotePool = ['按季度例行办理', '需资产管理员现场复核', '已完成实物验收', '等待财务确认金额', '附现场照片存档']
-
-function buildDocs(prefix, count, names) {
-  const docs = []
-  for (let i = 0; i < count; i++) {
-    const status = docStatusPool[i % docStatusPool.length]
-    docs.push({
-      id: `${prefix}-${i + 1}`,
-      docNo: `${prefix}2026${900 - i * 13}`,
-      name: names[i % names.length],
-      company: FALLBACK_COMPANIES[i % FALLBACK_COMPANIES.length],
-      createTime: `2026-0${(i % 8) + 1}-${String(10 + i).padStart(2, '0')} 09:${String((i * 7) % 60).padStart(2, '0')}:00`,
-      finishTime: status === '已完结' ? `2026-0${(i % 8) + 1}-${String(15 + i).padStart(2, '0')} 17:20:00` : '',
-      remark: docNotePool[i % docNotePool.length],
-      status
-    })
-  }
-  return docs
-}
-
-const DOC_SEED = {
-  inbound: buildDocs('RK', 8, ['联想笔记本采购入库', '办公设备季度补充入库', '车辆采购入库验收', '打印耗材批量入库', '会议设备采购入库']),
-  alloc: buildDocs('FP', 7, ['新员工入职设备分配', '市场部办公设备派发', '项目部现场设备派发', '财务部电脑更新派发']),
-  back: buildDocs('TK', 6, ['员工离职设备退库', '项目结束设备退库', '部门调整资产退库']),
-  transfer: buildDocs('DB', 6, ['总部调拨至分公司', '仓库间资产调拨', '跨区域调拨支援项目']),
-  repair: buildDocs('WX', 6, ['打印机故障送修', '车辆年度维修保养', '空调机组检修']),
-  dispose: buildDocs('CZ', 7, ['超期设备报废处置', '盘亏资产核销处置', '旧家具变卖处置'])
-}
+// 单据业务类型：与 seed/asset.js 中的 docLists 分组一一对应
+const DOC_TYPE_KEYS = ['inbound', 'alloc', 'back', 'transfer', 'repair', 'dispose']
 
 // 每类单据一个集合，读写统一走服务层
 const docCollections = {}
-Object.keys(DOC_SEED).forEach(k => {
-  docCollections[k] = useCollection(`${COLLECTION.docLists}-${k}`, DOC_SEED[k])
+DOC_TYPE_KEYS.forEach(k => {
+  docCollections[k] = useCollection(`${COLLECTION.docLists}-${k}`)
 })
 
-const docLists = reactive(Object.fromEntries(Object.keys(DOC_SEED).map(k => [
+const docLists = reactive(Object.fromEntries(DOC_TYPE_KEYS.map(k => [
   k,
   { docs: docCollections[k].items, search: { docNo: '', company: '', status: '' }, page: 1, pageSize: 15 }
 ])))
@@ -2660,19 +2628,28 @@ Object.keys(docLists).forEach(k => {
   watch(() => docLists[k].search, () => { docLists[k].page = 1 }, { deep: true })
 })
 
+/** 单据列表视图模型：单据编号取 code，所属公司由 companyId 解析 */
+function decorateDocRow(row) {
+  return {
+    ...row,
+    docNo: row.code || '',
+    company: row.companyId ? (orgStore.companyName(row.companyId) || row.companyId) : ''
+  }
+}
+
 function filteredDocs(key) {
   const l = docLists[key]
   return l.docs.filter(d =>
-    (!l.search.docNo || d.docNo.includes(l.search.docNo)) &&
-    (!l.search.company || d.company === l.search.company) &&
-    (!l.search.status || d.status === l.search.status)
+    (!l.search.docNo || (d.code || '').includes(l.search.docNo)) &&
+    (!l.search.company || d.companyId === l.search.company) &&
+    matchStatus(d, l.search.status)
   )
 }
 
 function pagedDocs(key) {
   const l = docLists[key]
   const start = (l.page - 1) * l.pageSize
-  return filteredDocs(key).slice(start, start + l.pageSize)
+  return filteredDocs(key).slice(start, start + l.pageSize).map(decorateDocRow)
 }
 
 function docTotal(key) {
@@ -2685,87 +2662,11 @@ function resetDocSearch(key) {
 }
 
 function docStatusType(status) {
-  const m = { '已完结': 'success', '进行中': 'primary', '待提交': 'warning', '已驳回': 'danger', '已撤销': 'info' }
+  const m = { DONE: 'success', PROCESSING: 'primary', DRAFT: 'warning', REJECTED: 'danger', REVOKED: 'info' }
   return m[status] || 'info'
 }
 
-const empPool = [
-  { name: '张志刚', dept: '资产管理部', phone: '13800000001' },
-  { name: '李秀兰', dept: '财务部', phone: '13800000002' },
-  { name: '王建军', dept: '行政部', phone: '13800000003' },
-  { name: '赵晓梅', dept: '运营部', phone: '13800000004' },
-  { name: '陈立新', dept: '技术部', phone: '13800000005' },
-  { name: '刘洋', dept: '资产管理部', phone: '13800000006' },
-  { name: '杨帆', dept: '后勤部', phone: '13800000007' },
-  { name: '徐磊', dept: '技术部', phone: '13800000008' }
-]
-
-const assetNamePool = ['联想ThinkPad笔记本', '戴尔OptiPlex台式机', '惠普激光打印机', '爱普生投影仪', '华为会议平板', '格力中央空调机组', '丰田考斯特商务车', '实木会议桌', '人体工学办公椅', '服务器机柜', '不间断电源UPS', '高速扫描仪']
-const assetStatusPool = ['空闲', '使用中', '维修中', '借出中', '派发中']
-const invLocationPool = ['总部办公楼1层', '总部办公楼2层', '总部办公楼3层', '仓库A区', '仓库B区', '数据中心机房']
-
-function buildCheckItems(total, counted, seed) {
-  const items = []
-  for (let i = 0; i < total; i++) {
-    let itemStatus = '未盘'
-    let remark = ''
-    let checker = ''
-    let checkTime = ''
-    if (i < counted) {
-      itemStatus = '已盘'
-      remark = '账实相符'
-      checker = empPool[(i + seed) % empPool.length].name
-      checkTime = `2026-09-${String(10 + (i % 8)).padStart(2, '0')} ${String(9 + (i % 8)).padStart(2, '0')}:${String((i * 7) % 60).padStart(2, '0')}:00`
-    } else if (i === counted && seed % 3 === 1) {
-      itemStatus = '盘亏'
-      remark = '现场未找到实物，待核销'
-      checker = empPool[(i + seed) % empPool.length].name
-      checkTime = `2026-09-${String(12 + (i % 6)).padStart(2, '0')} 15:30:00`
-    } else if (i === counted && seed % 3 === 2) {
-      itemStatus = '异常'
-      remark = '编号标签破损，待补贴标签'
-      checker = empPool[(i + seed) % empPool.length].name
-      checkTime = `2026-09-${String(12 + (i % 6)).padStart(2, '0')} 16:10:00`
-    }
-    items.push({
-      assetNo: `ZC2026${100 + seed * 13 + i}`,
-      assetName: assetNamePool[(i + seed) % assetNamePool.length],
-      assetStatus: assetStatusPool[(i + seed) % assetStatusPool.length],
-      location: invLocationPool[(i + seed) % invLocationPool.length],
-      itemStatus,
-      remark,
-      checker,
-      createTime: `2026-09-0${(seed % 8) + 1} 10:00:00`,
-      checkTime
-    })
-  }
-  return items
-}
-
-function buildCounters(n, doneCount, seed) {
-  const list = []
-  for (let i = 0; i < n; i++) {
-    const e = empPool[(i + seed) % empPool.length]
-    const assigned = 4 + (seed % 3)
-    list.push({
-      name: e.name,
-      dept: e.dept,
-      phone: e.phone,
-      assigned,
-      done: i < doneCount ? assigned : 0,
-      status: i < doneCount ? '已完成' : '盘点中'
-    })
-  }
-  return list
-}
-
-const inventoryDocCol = useCollection(COLLECTION.inventoryDocs, [
-  { id: 'IV1', docNo: 'PD202609001', name: '2026年三季度全面盘点', company: FALLBACK_COMPANIES[0], applicant: '张志刚', scope: '全部资产', assetTypes: [], createTime: '2026-09-01 09:00:00', finishTime: '', remark: '季度例行全面盘点', status: '盘点中', items: buildCheckItems(24, 9, 1), counters: buildCounters(8, 0, 1) },
-  { id: 'IV2', docNo: 'PD202608002', name: '车辆资产专项盘点', company: FALLBACK_COMPANIES[1], applicant: '李秀兰', scope: '按资产类型', assetTypes: ['运输设备'], createTime: '2026-08-12 10:20:00', finishTime: '', remark: '车辆专项核查', status: '盘点报告审批中', items: buildCheckItems(6, 6, 2), counters: buildCounters(3, 2, 2) },
-  { id: 'IV3', docNo: 'PD202607003', name: '2026年二季度全面盘点', company: FALLBACK_COMPANIES[0], applicant: '王建军', scope: '全部资产', assetTypes: [], createTime: '2026-07-02 09:30:00', finishTime: '2026-07-20 16:40:00', remark: '账实核对完成', status: '已完结', items: buildCheckItems(30, 30, 3), counters: buildCounters(8, 8, 3) },
-  { id: 'IV4', docNo: 'PD202606004', name: '仓库资产抽盘', company: FALLBACK_COMPANIES[2], applicant: '赵晓梅', scope: '按存放地点', assetTypes: [], createTime: '2026-06-15 14:00:00', finishTime: '2026-06-25 11:20:00', remark: '仓库抽样盘点', status: '已完结', items: buildCheckItems(12, 12, 4), counters: buildCounters(4, 4, 4) },
-  { id: 'IV5', docNo: 'PD202605005', name: '电子设备年度盘点', company: FALLBACK_COMPANIES[3], applicant: '陈立新', scope: '按资产类型', assetTypes: ['电子设备'], createTime: '2026-05-08 09:10:00', finishTime: '', remark: '年度电子设备核查', status: '盘点中', items: buildCheckItems(18, 3, 5), counters: buildCounters(5, 1, 5) }
-])
+const inventoryDocCol = useCollection(COLLECTION.inventoryDocs)
 const inventoryDocs = inventoryDocCol.items
 
 const invSearch = reactive({ docNo: '', company: '', status: '', createRange: null, finishRange: null })
@@ -2778,8 +2679,8 @@ const filteredInvDocs = computed(() => {
   const fr = invSearch.finishRange
   return inventoryDocs.value.filter(d =>
     (!invSearch.docNo || d.docNo.includes(invSearch.docNo)) &&
-    (!invSearch.company || d.company === invSearch.company) &&
-    (!invSearch.status || d.status === invSearch.status) &&
+    (!invSearch.company || d.companyId === invSearch.company) &&
+    (!invSearch.status || matchStatus(d, invSearch.status)) &&
     (!cr || cr.length !== 2 || (d.createTime.slice(0, 10) >= cr[0] && d.createTime.slice(0, 10) <= cr[1])) &&
     (!fr || fr.length !== 2 || (!!d.finishTime && d.finishTime.slice(0, 10) >= fr[0] && d.finishTime.slice(0, 10) <= fr[1]))
   )
@@ -2787,7 +2688,9 @@ const filteredInvDocs = computed(() => {
 
 const pagedInvDocs = computed(() => {
   const start = (invPage.value - 1) * invPageSize.value
+  // 补出公司名称供表格展示（库里只存 companyId）
   return filteredInvDocs.value.slice(start, start + invPageSize.value)
+    .map(d => ({ ...d, company: d.companyId ? (orgStore.companyName(d.companyId) || d.companyId) : '' }))
 })
 
 const invTotal = computed(() => filteredInvDocs.value.length)
@@ -2892,7 +2795,7 @@ function submitWizard() {
     id: `IV${Date.now()}`,
     docNo: `PD2026${String(1000 + inventoryDocs.value.length * 11).slice(0, 4)}`,
     name: wizardForm.name,
-    company: wizardForm.company,
+    companyId: wizardForm.company,
     applicant: wizardForm.applicant,
     scope: wizardForm.scope,
     assetTypes: [...wizardForm.assetTypes],
@@ -2920,7 +2823,7 @@ function openDocDialog(key, row) {
   docDialogKey.value = key
   docDialogMode.value = row ? 'edit' : 'add'
   Object.assign(docForm, row
-    ? { id: row.id, name: row.name || '', company: row.company, remark: row.remark || '' }
+    ? { id: row.id, name: row.name || '', company: row.companyId || '', remark: row.remark || '' }
     : { id: '', name: '', company: '', remark: '' })
   docDialogVisible.value = true
 }
@@ -2934,7 +2837,7 @@ function submitDocDialog() {
   if (key === 'inventory') {
     const target = inventoryDocs.value.find(d => d.id === docForm.id)
     if (target) {
-      Object.assign(target, { name: docForm.name, company: docForm.company, remark: docForm.remark })
+      Object.assign(target, { name: docForm.name, companyId: docForm.company, remark: docForm.remark })
       inventoryDocCol.update(target)
     }
     docDialogVisible.value = false
@@ -2945,7 +2848,7 @@ function submitDocDialog() {
   if (docDialogMode.value === 'edit') {
     const target = list.docs.find(d => d.id === docForm.id)
     if (target) {
-      Object.assign(target, { name: docForm.name, company: docForm.company, remark: docForm.remark })
+      Object.assign(target, { name: docForm.name, companyId: docForm.company, remark: docForm.remark })
       docCollections[key].update(target)
     }
     ElMessage.success('单据已保存')
@@ -2955,7 +2858,7 @@ function submitDocDialog() {
       id: `${prefix}-${Date.now()}`,
       docNo: `${prefix}2026${Math.floor(Math.random() * 800) + 100}`,
       name: docForm.name,
-      company: docForm.company,
+      companyId: docForm.company,
       createTime: nowText(),
       finishTime: '',
       remark: docForm.remark,
@@ -2989,7 +2892,7 @@ const approvalRecords = computed(() => {
   }
   const node2 = { node: '部门负责人审批', person: '李国强', result: '通过', time: d.createTime }
   if (d.status === '已完结') {
-    return [node1, node2, { node: '资产管理员审批', person: '张志刚', result: '通过', time: d.finishTime || d.createTime }]
+    return [node1, node2, { node: '资产管理员审批', person: '张志刚', result: '通过', time: formatDateTime(d.finishTime || d.createTime) }]
   }
   return [node1, node2, { node: '资产管理员审批', person: '张志刚', result: '审批中', time: '' }]
 })
@@ -3009,7 +2912,8 @@ function deleteDoc(key, row) {
 
 const locationOptions = ref(['总部办公楼1层', '总部办公楼2层', '总部办公楼3层', '仓库A区', '仓库B区', '车库', '数据中心机房'])
 
-const assetList = computed(() => fixedAssetStore.assets)
+/** 台账取 store 的视图模型：外键已解析为名称、状态已解析为文案 */
+const assetList = computed(() => fixedAssetStore.assetLedger)
 
 const assetSearch = reactive({ keyword: '', type: '', status: '' })
 const assetPage = ref(1)
@@ -3019,7 +2923,7 @@ watch(assetSearch, () => { assetPage.value = 1 }, { deep: true })
 const filteredAssetList = computed(() => assetList.value.filter(a =>
   (!assetSearch.keyword || a.code.includes(assetSearch.keyword) || a.name.includes(assetSearch.keyword)) &&
   (!assetSearch.type || a.type === assetSearch.type) &&
-  (!assetSearch.status || a.status === assetSearch.status)
+  (!assetSearch.status || a.statusCode === assetSearch.status || matchStatus(a, assetSearch.status))
 ))
 
 const pagedAssetList = computed(() => {
@@ -3035,7 +2939,11 @@ function resetAssetSearch() {
 }
 
 function assetStatusType(status) {
-  const m = { '空闲': 'success', '派发中': 'primary', '借出中': 'warning', '维修中': 'danger', '处置中': 'info' }
+  const m = {
+    IDLE: 'success', IN_USE: 'success', DISPATCHING: 'primary',
+    BORROWED: 'warning', REPAIRING: 'danger', DISPOSING: 'info',
+    空闲: 'success', 使用中: 'success', 派发中: 'primary', 借出中: 'warning', 维修中: 'danger', 处置中: 'info'
+  }
   return m[status] || 'info'
 }
 
@@ -3046,7 +2954,7 @@ const assetForm = reactive({ name: '', type: '', code: '', company: '', brand: '
 function openAssetDialog(row) {
   assetEditId.value = row ? row.id : ''
   Object.assign(assetForm, row ? {
-    name: row.name, type: row.type, code: row.code, company: row.company, brand: row.brand, model: row.model, location: row.location,
+    name: row.name, type: row.type, code: row.code, company: row.companyId || '', brand: row.brand, model: row.model, location: row.location,
     purchaseDate: row.purchaseDate, amount: row.amount, inboundDate: row.inboundDate, images: [], depreciate: row.depreciate,
     original: row.original, purchaseMode: row.purchaseMode, leaseMonths: row.leaseMonths, quantity: 1
   } : {
@@ -3073,7 +2981,7 @@ function submitAssetDialog() {
   if (assetEditId.value) {
     const original = assetForm.depreciate && assetForm.original ? assetForm.original : assetForm.amount
     fixedAssetStore.updateAsset(assetEditId.value, {
-      name: assetForm.name, type: assetForm.type, code: assetForm.code, company: assetForm.company,
+      name: assetForm.name, category: assetForm.type, code: assetForm.code, companyId: assetForm.company,
       brand: assetForm.brand, model: assetForm.model, location: assetForm.location, purchaseDate: assetForm.purchaseDate,
       amount: assetForm.amount, inboundDate: assetForm.inboundDate, depreciate: assetForm.depreciate, original,
       purchaseMode: assetForm.purchaseMode, leaseMonths: assetForm.leaseMonths
@@ -3086,11 +2994,11 @@ function submitAssetDialog() {
         : undefined
       fixedAssetStore.addAsset({
         name: assetForm.quantity > 1 ? `${assetForm.name}#${i + 1}` : assetForm.name,
-        type: assetForm.type,
+        category: assetForm.type,
         code,
         brand: assetForm.brand,
         model: assetForm.model,
-        company: assetForm.company || companyOptions.value[0],
+        companyId: assetForm.company || companyOptionList.value[0]?.id || '',
         location: assetForm.location || locationOptions.value[0],
         purchaseDate: assetForm.purchaseDate,
         amount: assetForm.amount,

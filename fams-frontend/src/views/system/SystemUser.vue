@@ -32,8 +32,8 @@
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="query.status" placeholder="全部" clearable style="width: 120px">
-            <el-option label="启用" value="启用" />
-            <el-option label="停用" value="停用" />
+            <el-option label="启用" value="ENABLED" />
+            <el-option label="停用" value="DISABLED" />
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -70,7 +70,7 @@
         <el-table-column prop="email" label="邮箱" min-width="180" show-overflow-tooltip />
         <el-table-column prop="status" label="状态" width="90">
           <template #default="{ row }">
-            <el-tag :type="row.status === '启用' ? 'success' : 'info'" size="small" effect="light">{{ row.status }}</el-tag>
+            <el-tag :type="row.status === 'ENABLED' ? 'success' : 'info'" size="small" effect="light">{{ labelOf('ENABLE_STATUS', row.status) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="lastLoginAt" label="最后登录" width="170" />
@@ -78,8 +78,8 @@
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="openDialog(row)">编辑</el-button>
             <el-button link type="warning" size="small" @click="handleResetPassword(row)">重置密码</el-button>
-            <el-button link :type="row.status === '启用' ? 'danger' : 'success'" size="small" @click="toggleStatus(row)">
-              {{ row.status === '启用' ? '停用' : '启用' }}
+            <el-button link :type="row.status === 'ENABLED' ? 'danger' : 'success'" size="small" @click="toggleStatus(row)">
+              {{ row.status === 'ENABLED' ? '停用' : '启用' }}
             </el-button>
             <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
           </template>
@@ -137,8 +137,8 @@
         </el-form-item>
         <el-form-item label="状态">
           <el-radio-group v-model="dialog.form.status">
-            <el-radio value="启用">启用</el-radio>
-            <el-radio value="停用">停用</el-radio>
+            <el-radio value="ENABLED">启用</el-radio>
+            <el-radio value="DISABLED">停用</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>
@@ -155,6 +155,7 @@ import { ref, reactive, computed, nextTick, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search } from '@element-plus/icons-vue'
 import { useOrgStore } from '../../store/org'
+import { labelOf } from '../../constants/enums'
 
 const orgStore = useOrgStore()
 
@@ -198,7 +199,7 @@ function handleReset() {
 }
 
 async function toggleStatus(row) {
-  const next = row.status === '启用' ? '停用' : '启用'
+  const next = row.status === 'ENABLED' ? 'DISABLED' : 'ENABLED'
   try {
     await orgStore.updateUser(row.id, { status: next })
     ElMessage.success(`用户「${row.name}」已${next}`)
@@ -245,7 +246,7 @@ const rules = {
 function emptyForm() {
   return {
     id: '', username: '', name: '', companyId: '', deptId: '', position: '',
-    roleIds: [], phone: '', email: '', password: '', status: '启用'
+    roleIds: [], phone: '', email: '', password: '', status: 'ENABLED'
   }
 }
 

@@ -134,7 +134,7 @@
 
           <el-table :data="pagedFlowSummary" style="width: 100%">
             <el-table-column prop="name" label="物品名称" min-width="180" show-overflow-tooltip />
-            <el-table-column prop="category" label="物品类别" width="110" />
+            <el-table-column prop="categoryName" label="物品类别" width="110" />
             <el-table-column prop="spec" label="规格型号" min-width="200" show-overflow-tooltip />
             <el-table-column prop="unit" label="单位" width="70" align="center" />
             <el-table-column prop="inbound" label="入库数量" width="110" align="right">

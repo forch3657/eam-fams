@@ -2,6 +2,48 @@
 
 从经营性资产管理系统中抽离出来的**固定资产 + 低值资产**独立前端工程，可单独开发、单独运行。侧边栏顺序：固定资产 → 低值资产 → 组织架构 → 系统管理。
 
+## 接口契约与 mock 切换
+
+数据层采用**契约驱动（Contract-First）**：先定义契约，mock 引擎与 HTTP 适配层都从同一份契约派生行为，二者方法签名、返回结构、错误模型完全一致。
+
+```
+视图 / store  →  dataService（统一门面）  →  mock 引擎   （VITE_USE_MOCK=true）
+                                        →  HTTP 适配层 （VITE_USE_MOCK=false）
+                        ↑
+                  src/services/contract/（单一真源：字段/枚举/查询能力/业务规则）
+```
+
+- **契约定义**：`src/services/contract/schema.js`（约 40 个集合的字段、类型、枚举、外键、查询能力、业务规则）
+- **枚举编码**：`src/constants/enums.js`（编码 → 文案，含 `labelOf()` / `optionsOf()`）
+- **错误模型**：`src/services/errors.js`（`ApiError` + 错误码）
+- **统一门面**：`src/services/index.js`（`list` / `page` / `get` / `create` / `update` / `remove` / `batch` / `clear`）
+- **种子数据**：`src/services/mock/seed/`（全部演示数据集中在此，视图与 store 不含任何 mock 代码）
+- **对外文档**：[`docs/API_CONTRACT.md`](docs/API_CONTRACT.md)（交后端按此实现）
+
+### 切换到真实后端
+
+```bash
+# .env
+VITE_USE_MOCK=false
+VITE_API_BASE_URL=http://your-backend/api
+```
+
+改完重启即可，**业务代码零改动**。返回体规范为 `{ code, message, data }`，列表分页返回 `data: { rows, total }`。
+
+### 数据语义约定
+
+- 外键存 **id**（`companyId` / `deptId` / `userId` / `assetId` / `itemId`），不存名称
+- 状态存 **枚举编码**（`IDLE` / `ENABLED` / `DONE`），展示用 `labelOf()`
+- 时间存 **ISO 8601**（`2026-09-18T10:22:31`），展示用 `formatDateTime()`
+- 含审计字段 `createBy` / `createTime` / `updateBy` / `updateTime` / `version`
+- 主键由**服务端**生成，前端不再自行拼装
+
+### 注意事项
+
+- mock 数据落在 localStorage，键为 `fams-mock-db-v2`；数据模型变更后旧键已失效，无需手动清理（如需重置：控制台执行 `localStorage.removeItem('fams-mock-db-v2')` 后刷新）。
+- 开发期若种子数据与契约不符，控制台会打印 `[契约校验]` 告警，便于在切后端前发现字段/枚举问题。
+- 可通过 `VITE_MOCK_LATENCY`（毫秒）与 `VITE_MOCK_ERROR_RATE`（0~1）模拟网络延迟与随机故障，演练 loading 与错误分支。
+
 ## 启动
 
 本机 Node 不在 PATH，工程根目录提供了启动脚本 `run.bat` / `run.ps1`，会自动加载预装 Node 运行时、按需安装依赖并启动。

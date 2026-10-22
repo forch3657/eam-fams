@@ -1,19 +1,16 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { dataService, registerSeed, COLLECTION, useMock } from '../services'
+import { dataService, COLLECTION, useMock } from '../services'
 import { LOW_VALUE_SEEDS } from '../services/mock/seed/lowValueAsset'
-
-function nowText() {
-  const d = new Date()
-  const pad = n => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-}
+import { useOrgStore } from './org'
+import { STATUS_ENABLED, LOW_VALUE_ITEM_STATUS, labelOf } from '../constants/enums'
 
 function money(value) {
   return Math.round((Number(value) || 0) * 100) / 100
 }
 
 export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
+  // 种子由 services/mock/seed/index.js 统一注册；这里仅在 mock 模式下同步取一份填充首屏
   const seedOf = key => (useMock ? JSON.parse(JSON.stringify(LOW_VALUE_SEEDS[key])) : [])
 
   const items = ref(seedOf('items'))
@@ -24,14 +21,6 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
   const locations = ref(seedOf('locations'))
   const approvalFlows = ref(seedOf('approvalFlows'))
   const loaded = ref(false)
-
-  registerSeed(COLLECTION.lowValueItems, LOW_VALUE_SEEDS.items)
-  registerSeed(COLLECTION.lowValueInbound, LOW_VALUE_SEEDS.inbound)
-  registerSeed(COLLECTION.lowValueRequisition, LOW_VALUE_SEEDS.requisition)
-  registerSeed(COLLECTION.lowValueReturn, LOW_VALUE_SEEDS.return)
-  registerSeed(COLLECTION.lowValueSettingsCategories, LOW_VALUE_SEEDS.categories)
-  registerSeed(COLLECTION.lowValueSettingsLocations, LOW_VALUE_SEEDS.locations)
-  registerSeed(COLLECTION.lowValueSettingsApprovalFlows, LOW_VALUE_SEEDS.approvalFlows)
 
   async function loadAll() {
     const [it, ib, rq, rt, cg, lc, fl] = await Promise.all([
@@ -53,9 +42,8 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     loaded.value = true
   }
 
-  /** 按 id / code / _id 定位物品 */
   function findItem(id) {
-    return items.value.find(i => i && (i.id === id || i.code === id || i._id === id)) || null
+    return items.value.find(i => i && (i.id === id || i.code === id)) || null
   }
 
   function nextDocNo(prefix, rows) {
@@ -71,12 +59,19 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     return n
   }
 
+  /** 库存变化时同步本地副本（引擎已改动库存，这里只做展示同步） */
+  async function syncItemStock(itemId) {
+    const fresh = await dataService.get(COLLECTION.lowValueItems, itemId)
+    if (!fresh) return
+    const idx = items.value.findIndex(i => i.id === itemId || i.code === itemId)
+    if (idx > -1) items.value[idx] = fresh
+  }
+
   async function addItem(data) {
     const seq = items.value.length + 1
     const item = {
-      id: `DZ${Date.now()}`,
       code: data.code || `DZ${new Date().getFullYear()}${String(seq).padStart(4, '0')}`,
-      category: data.category || '',
+      categoryId: data.categoryId || '',
       name: data.name,
       spec: data.spec || '',
       unit: data.unit || '',
@@ -84,8 +79,7 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
       stock: Number(data.stock) || 0,
       safetyStock: Number(data.safetyStock) || 0,
       location: data.location || '',
-      status: data.status || '正常',
-      updateTime: nowText()
+      status: data.status || LOW_VALUE_ITEM_STATUS.NORMAL
     }
     const created = await dataService.create(COLLECTION.lowValueItems, item)
     const row = created || item
@@ -94,44 +88,22 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
   }
 
   async function updateItem(id, data) {
-    const idx = items.value.findIndex(i => i.id === id || i.code === id || i._id === id)
+    const idx = items.value.findIndex(i => i.id === id || i.code === id)
     if (idx === -1) return null
-    const next = { ...items.value[idx], ...data, price: money(data.price ?? items.value[idx].price), updateTime: nowText() }
+    const next = { ...items.value[idx], ...data, price: money(data.price ?? items.value[idx].price) }
     items.value[idx] = next
     const saved = await dataService.update(COLLECTION.lowValueItems, id, next)
     if (saved) items.value[idx] = saved
     return items.value[idx]
   }
 
-  /** 删除保护：仍有库存或已被单据引用的物品不允许删除 */
+  /** 删除保护由引擎按契约执行（库存 / 单据引用），这里只做前置提示 */
   async function removeItem(id) {
     const item = findItem(id)
     if (!item) return false
-    if (item.stock > 0) throw new Error('该物品仍有库存，请先办理出库或退库后再删除')
-    const referenced = [...inboundRecords.value, ...requisitionRecords.value, ...returnRecords.value]
-      .some(r => r.itemId === item.id || r.itemId === item.code)
-    if (referenced) throw new Error('该物品已存在业务单据，不允许删除')
     await dataService.remove(COLLECTION.lowValueItems, id)
-    items.value = items.value.filter(i => !(i.id === id || i.code === id || i._id === id))
+    items.value = items.value.filter(i => !(i.id === id || i.code === id))
     return true
-  }
-
-  /** 库存联动：正数入库、负数出库，库存不足时抛错 */
-  async function applyStock(itemId, delta, available) {
-    const item = findItem(itemId)
-    if (!item) throw new Error('未找到对应物品，请刷新后重试')
-    if (delta < 0 && item.stock < Math.abs(delta)) {
-      throw new Error(`库存不足，当前库存 ${item.stock}${item.unit || ''}`)
-    }
-    if (available !== undefined && delta < 0 && available < Math.abs(delta)) {
-      throw new Error('库存不足，无法完成该操作')
-    }
-    const next = { ...item, stock: item.stock + delta, updateTime: nowText() }
-    const saved = await dataService.update(COLLECTION.lowValueItems, item.id || item.code, next)
-    const row = saved || next
-    const idx = items.value.findIndex(i => i.id === item.id)
-    if (idx > -1) items.value[idx] = row
-    return row
   }
 
   async function addInbound(data) {
@@ -142,22 +114,25 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     const record = {
       docNo: data.docNo || nextDocNo('RK', inboundRecords.value),
       itemId: item.id,
+      categoryId: item.categoryId || '',
+      // 快照：记录办理当时的物品信息
       itemName: item.name,
-      category: item.category,
-      spec: item.spec,
-      unit: item.unit,
+      categoryName: categoryName(item.categoryId),
+      spec: item.spec || '',
+      unit: item.unit || '',
       quantity,
       price,
       amount: money(quantity * price),
       supplier: data.supplier || '',
       inboundDate: data.inboundDate || '',
+      deptId: data.deptId || '',
       operator: data.operator || '',
       remark: data.remark || ''
     }
     const created = await dataService.create(COLLECTION.lowValueInbound, record)
     const row = created || record
     inboundRecords.value.unshift(row)
-    await applyStock(item.id, quantity)
+    await syncItemStock(item.id)
     return row
   }
 
@@ -166,19 +141,19 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     if (!item) throw new Error('请选择要领用的物品')
     const quantity = toPositiveInt(data.quantity, '领用数量')
     if (item.stock < quantity) throw new Error(`库存不足，当前库存 ${item.stock}${item.unit || ''}`)
-    const price = item.price
     const record = {
       docNo: data.docNo || nextDocNo('PY', requisitionRecords.value),
       itemId: item.id,
+      categoryId: item.categoryId || '',
       itemName: item.name,
-      category: item.category,
-      spec: item.spec,
-      unit: item.unit,
+      categoryName: categoryName(item.categoryId),
+      spec: item.spec || '',
+      unit: item.unit || '',
       quantity,
-      price,
-      amount: money(quantity * price),
+      price: item.price,
+      amount: money(quantity * item.price),
       receiver: data.receiver || '',
-      dept: data.dept || '',
+      deptId: data.deptId || '',
       requisitionDate: data.requisitionDate || '',
       purpose: data.purpose || '',
       operator: data.operator || '',
@@ -187,11 +162,11 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     const created = await dataService.create(COLLECTION.lowValueRequisition, record)
     const row = created || record
     requisitionRecords.value.unshift(row)
-    await applyStock(item.id, -quantity, item.stock)
+    await syncItemStock(item.id)
     return row
   }
 
-  /** 已领未退数量 = 领用总量 - 退库总量，防止超量退库 */
+  /** 已领未退数量 = 领用总量 - 退库总量（与引擎的退库限额规则一致） */
   function issuedQuantity(itemId) {
     const taken = requisitionRecords.value.filter(r => r.itemId === itemId).reduce((s, r) => s + (Number(r.quantity) || 0), 0)
     const back = returnRecords.value.filter(r => r.itemId === itemId).reduce((s, r) => s + (Number(r.quantity) || 0), 0)
@@ -206,19 +181,19 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     if (quantity > issued) {
       throw new Error(`退库数量超过已领未退数量（${issued}${item.unit || ''}）`)
     }
-    const price = item.price
     const record = {
       docNo: data.docNo || nextDocNo('TK', returnRecords.value),
       itemId: item.id,
+      categoryId: item.categoryId || '',
       itemName: item.name,
-      category: item.category,
-      spec: item.spec,
-      unit: item.unit,
+      categoryName: categoryName(item.categoryId),
+      spec: item.spec || '',
+      unit: item.unit || '',
       quantity,
-      price,
-      amount: money(quantity * price),
+      price: item.price,
+      amount: money(quantity * item.price),
       returner: data.returner || '',
-      dept: data.dept || '',
+      deptId: data.deptId || '',
       returnDate: data.returnDate || '',
       reason: data.reason || '',
       operator: data.operator || '',
@@ -227,20 +202,20 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     const created = await dataService.create(COLLECTION.lowValueReturn, record)
     const row = created || record
     returnRecords.value.unshift(row)
-    await applyStock(item.id, quantity)
+    await syncItemStock(item.id)
     return row
   }
 
-  // ---- 基础设置 ----
+  // ---- 基础设置（id 由服务端生成） ----
   async function addCategory(data) {
-    const row = { ...data, id: `LVC${Date.now()}` }
+    const row = { ...data, status: data.status || STATUS_ENABLED }
     const created = await dataService.create(COLLECTION.lowValueSettingsCategories, row)
     categories.value.push(created || row)
     return created || row
   }
 
   async function updateCategory(id, data) {
-    const idx = categories.value.findIndex(c => c.id === id || c.code === id || c._id === id)
+    const idx = categories.value.findIndex(c => c.id === id || c.code === id)
     if (idx === -1) return null
     const next = { ...categories.value[idx], ...data }
     categories.value[idx] = next
@@ -250,24 +225,20 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
   }
 
   async function removeCategory(id) {
-    const target = categories.value.find(c => c.id === id || c.code === id || c._id === id)
-    if (target && items.value.some(i => i.category === target.name)) {
-      throw new Error('该类别下仍有物品，不能删除')
-    }
     await dataService.remove(COLLECTION.lowValueSettingsCategories, id)
-    categories.value = categories.value.filter(c => !(c.id === id || c.code === id || c._id === id))
+    categories.value = categories.value.filter(c => !(c.id === id || c.code === id))
     return true
   }
 
   async function addLocation(data) {
-    const row = { ...data, id: `LVL${Date.now()}` }
+    const row = { ...data, status: data.status || STATUS_ENABLED }
     const created = await dataService.create(COLLECTION.lowValueSettingsLocations, row)
     locations.value.push(created || row)
     return created || row
   }
 
   async function updateLocation(id, data) {
-    const idx = locations.value.findIndex(l => l.id === id || l.code === id || l._id === id)
+    const idx = locations.value.findIndex(l => l.id === id || l.code === id)
     if (idx === -1) return null
     const next = { ...locations.value[idx], ...data }
     locations.value[idx] = next
@@ -277,24 +248,20 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
   }
 
   async function removeLocation(id) {
-    const target = locations.value.find(l => l.id === id || l.code === id || l._id === id)
-    if (target && items.value.some(i => i.location === target.name)) {
-      throw new Error('该位置下仍有物品，不能删除')
-    }
     await dataService.remove(COLLECTION.lowValueSettingsLocations, id)
-    locations.value = locations.value.filter(l => !(l.id === id || l.code === id || l._id === id))
+    locations.value = locations.value.filter(l => !(l.id === id || l.code === id))
     return true
   }
 
   async function addFlow(data) {
-    const row = { ...data, id: `LVF${Date.now()}` }
+    const row = { ...data, status: data.status || STATUS_ENABLED }
     const created = await dataService.create(COLLECTION.lowValueSettingsApprovalFlows, row)
     approvalFlows.value.push(created || row)
     return created || row
   }
 
   async function updateFlow(id, data) {
-    const idx = approvalFlows.value.findIndex(f => f.id === id || f._id === id)
+    const idx = approvalFlows.value.findIndex(f => f.id === id)
     if (idx === -1) return null
     const next = { ...approvalFlows.value[idx], ...data }
     approvalFlows.value[idx] = next
@@ -305,13 +272,29 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
 
   async function removeFlow(id) {
     await dataService.remove(COLLECTION.lowValueSettingsApprovalFlows, id)
-    approvalFlows.value = approvalFlows.value.filter(f => !(f.id === id || f._id === id))
+    approvalFlows.value = approvalFlows.value.filter(f => f.id !== id)
     return true
   }
 
   // ---- 派生数据 ----
-  const categoryOptions = computed(() => categories.value.filter(c => c.status !== '禁用').map(c => c.name))
-  const locationOptions = computed(() => locations.value.filter(l => l.status !== '禁用').map(l => l.name))
+  const categoryOptions = computed(() => categories.value
+    .filter(c => c.status === STATUS_ENABLED)
+    .map(c => ({ id: c.id, name: c.name })))
+
+  const locationOptions = computed(() => locations.value
+    .filter(l => l.status === STATUS_ENABLED)
+    .map(l => ({ id: l.id, name: l.name })))
+
+  function categoryName(id) {
+    return categories.value.find(c => c.id === id)?.name || '未分类'
+  }
+
+  /** 台账视图模型：补出类别名与状态文案，避免视图直接渲染编码 */
+  const itemRows = computed(() => items.value.map(i => ({
+    ...i,
+    categoryName: categoryName(i.categoryId),
+    statusText: labelOf('LOW_VALUE_ITEM_STATUS', i.status)
+  })))
 
   const stats = computed(() => {
     const total = items.value.length
@@ -342,7 +325,7 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
   const categoryStats = computed(() => {
     const map = new Map()
     items.value.forEach(i => {
-      const key = i.category || '未分类'
+      const key = categoryName(i.categoryId)
       const cur = map.get(key) || { name: key, count: 0, quantity: 0, amount: 0 }
       cur.count += 1
       cur.quantity += Number(i.stock) || 0
@@ -355,11 +338,12 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
       .sort((a, b) => b.amount - a.amount)
   })
 
-  /** 部门领用统计 */
+  /** 部门领用统计：deptId 解析为部门名 */
   const deptStats = computed(() => {
+    const org = useOrgStore()
     const map = new Map()
     requisitionRecords.value.forEach(r => {
-      const key = r.dept || '未指定'
+      const key = r.deptId ? (org.deptName(r.deptId) || r.deptId) : '未指定'
       const cur = map.get(key) || { dept: key, times: 0, quantity: 0, amount: 0 }
       cur.times += 1
       cur.quantity += Number(r.quantity) || 0
@@ -376,7 +360,16 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
   const flowSummary = computed(() => {
     const map = new Map()
     items.value.forEach(i => {
-      map.set(i.id, { name: i.name, category: i.category, spec: i.spec, unit: i.unit, inbound: 0, requisition: 0, return: 0, stock: Number(i.stock) || 0 })
+      map.set(i.id, {
+        name: i.name,
+        categoryName: categoryName(i.categoryId),
+        spec: i.spec,
+        unit: i.unit,
+        inbound: 0,
+        requisition: 0,
+        return: 0,
+        stock: Number(i.stock) || 0
+      })
     })
     const bump = (id, field, qty) => {
       const row = map.get(id)
@@ -401,6 +394,7 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     addItem,
     updateItem,
     removeItem,
+    issuedQuantity,
     addInbound,
     addRequisition,
     addReturn,
@@ -415,6 +409,8 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     removeFlow,
     categoryOptions,
     locationOptions,
+    categoryName,
+    itemRows,
     stats,
     categoryStats,
     deptStats,

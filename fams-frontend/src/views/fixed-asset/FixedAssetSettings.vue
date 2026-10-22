@@ -42,8 +42,8 @@
           <el-form :inline="true" class="search-form">
             <el-form-item label="分类状态">
               <el-select v-model="catSearch.status" placeholder="请选择状态" clearable style="width: 120px">
-                <el-option label="启用" value="启用" />
-                <el-option label="禁用" value="禁用" />
+                <el-option label="启用" value="ENABLED" />
+                <el-option label="禁用" value="DISABLED" />
               </el-select>
             </el-form-item>
             <el-form-item label="关键字">
@@ -71,12 +71,12 @@
             <el-table-column prop="name" label="分类名称" min-width="240" />
             <el-table-column prop="code" label="分类编码" width="140" />
             <el-table-column prop="parentName" label="上级分类" width="140" />
-            <el-table-column prop="depreciationMethod" label="默认折旧方式" width="130" />
+            <el-table-column label="默认折旧方式" width="130"><template #default="{ row }">{{ labelOf('DEPRECIATION_METHOD', row.depreciationMethod) }}</template></el-table-column>
             <el-table-column prop="usefulLife" label="默认使用年限" width="120" />
             <el-table-column prop="assetCount" label="资产数量" width="100" />
             <el-table-column prop="status" label="状态" width="90">
               <template #default="{ row }">
-                <el-tag :type="row.status === '启用' ? 'success' : 'info'" size="small">{{ row.status }}</el-tag>
+                <el-tag :type="row.status === 'ENABLED' ? 'success' : 'info'" size="small">{{ labelOf('ENABLE_STATUS', row.status) }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column prop="createTime" label="创建时间" width="170" />
@@ -85,7 +85,7 @@
               <template #default="{ row }">
                 <el-button link type="primary" size="small" @click="handleEditCategory(row)">修改</el-button>
                 <el-button link type="primary" size="small" @click="handleAddSubCategory(row)">新增下一级</el-button>
-                <el-button link type="warning" size="small" @click="handleToggleCategory(row)">{{ row.status === '启用' ? '禁用' : '启用' }}</el-button>
+                <el-button link type="warning" size="small" @click="handleToggleCategory(row)">{{ row.status === 'ENABLED' ? '停用' : '启用' }}</el-button>
                 <el-button link type="danger" size="small" @click="handleDeleteCategory(row)">删除</el-button>
               </template>
             </el-table-column>
@@ -137,7 +137,9 @@
           </el-form>
 
           <el-table :data="pagedDepreciationPlans" style="width: 100%">
-            <el-table-column prop="company" label="所属公司" min-width="200" show-overflow-tooltip />
+            <el-table-column label="所属公司" min-width="200" show-overflow-tooltip>
+              <template #default="{ row }">{{ row.companyId ? (orgStore.companyName(row.companyId) || row.companyId) : '-' }}</template>
+            </el-table-column>
             <el-table-column prop="name" label="折旧名称" min-width="180" show-overflow-tooltip />
             <el-table-column prop="createTime" label="创建时间" width="170" />
             <el-table-column prop="updateTime" label="更新时间" width="170" />
@@ -202,18 +204,18 @@
             <el-table-column prop="type" label="适用业务" width="120" />
             <el-table-column prop="steps" label="审批步骤" min-width="250">
               <template #default="{ row }">
-                <el-tag v-for="(step, idx) in row.steps.split('->')" :key="idx" size="small" style="margin-right: 8px">{{ step }}</el-tag>
+                <el-tag v-for="(step, idx) in stepList(row.steps)" :key="idx" size="small" style="margin-right: 8px">{{ step }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column prop="status" label="状态" width="90">
               <template #default="{ row }">
-                <el-tag :type="row.status === '启用' ? 'success' : 'info'" size="small">{{ row.status }}</el-tag>
+                <el-tag :type="row.status === 'ENABLED' ? 'success' : 'info'" size="small">{{ labelOf('ENABLE_STATUS', row.status) }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column label="操作" width="200">
               <template #default="{ row }">
                 <el-button link type="primary" size="small" @click="handleEditApproval(row)">编辑</el-button>
-                <el-button link type="primary" size="small" @click="handleToggleApproval(row)">{{ row.status === '启用' ? '停用' : '启用' }}</el-button>
+                <el-button link type="primary" size="small" @click="handleToggleApproval(row)">{{ row.status === 'ENABLED' ? '停用' : '启用' }}</el-button>
                 <el-button link type="danger" size="small" @click="handleDeleteApproval(row)">删除</el-button>
               </template>
             </el-table-column>
@@ -278,7 +280,7 @@
         </el-form-item>
         <el-form-item label="折旧方式">
           <el-select v-model="categoryForm.depreciationMethod" placeholder="请选择" style="width: 100%">
-            <el-option v-for="m in depreciationMethodOptions" :key="m" :label="m" :value="m" />
+            <el-option v-for="m in depreciationMethodOptions" :key="m.value" :label="m.label" :value="m.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="使用年限">
@@ -287,8 +289,8 @@
         </el-form-item>
         <el-form-item label="分类状态">
           <el-radio-group v-model="categoryForm.status">
-            <el-radio value="启用">启用</el-radio>
-            <el-radio value="禁用">禁用</el-radio>
+            <el-radio value="ENABLED">启用</el-radio>
+            <el-radio value="DISABLED">禁用</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>
@@ -348,7 +350,7 @@
           <el-col :span="12">
             <el-form-item label="折旧方法">
               <el-select v-model="planForm.method" placeholder="请选择折旧方法" style="width: 100%">
-                <el-option v-for="m in depreciationMethodOptions" :key="m" :label="m" :value="m" />
+                <el-option v-for="m in depreciationMethodOptions" :key="m.value" :label="m.label" :value="m.value" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -430,6 +432,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search } from '@element-plus/icons-vue'
 import { useCollection } from '../../composables/useCollection'
 import { useOrgStore } from '../../store/org'
+import { labelOf, optionsOf } from '../../constants/enums'
 import { COLLECTION } from '../../services'
 
 const orgStore = useOrgStore()
@@ -440,26 +443,13 @@ const companyOptions = computed(() => (orgStore.companyOptions.length ? orgStore
 const assetTypeOptions = ['电子设备', '机械设备', '运输设备', '办公家具', '房屋建筑物', '其他设备']
 const purchaseModeOptions = ['购买', '租赁', '自建', '受赠']
 const calcTimeOptions = ['按月计提', '按季计提', '按年计提']
-const depreciationMethodOptions = ['年限平均法', '直线法', '双倍余额递减法', '年数总和法', '工作量法']
+const depreciationMethodOptions = optionsOf('DEPRECIATION_METHOD')
 
 // 位置设置
-const locationCol = useCollection(COLLECTION.settingsLocations, [
-  { code: 'LOC001', name: '总部办公楼', parentName: '-', manager: '张三', assetCount: 135 },
-  { code: 'LOC001-01', name: '总部办公楼1层', parentName: '总部办公楼', manager: '张三', assetCount: 45 },
-  { code: 'LOC001-02', name: '总部办公楼2层', parentName: '总部办公楼', manager: '张三', assetCount: 38 },
-  { code: 'LOC001-03', name: '总部办公楼3层', parentName: '总部办公楼', manager: '张三', assetCount: 52 },
-  { code: 'LOC002', name: '仓库', parentName: '-', manager: '李四', assetCount: 110 },
-  { code: 'LOC002-01', name: '仓库A区', parentName: '仓库', manager: '李四', assetCount: 68 },
-  { code: 'LOC002-02', name: '仓库B区', parentName: '仓库', manager: '李四', assetCount: 42 },
-  { code: 'LOC003', name: '车库', parentName: '-', manager: '王五', assetCount: 12 }
-])
+const locationCol = useCollection(COLLECTION.settingsLocations)
 const locationList = locationCol.items
 
-const locationOptionCol = useCollection(COLLECTION.settingsLocationOptions, [
-  { code: 'LOC001', name: '总部办公楼' },
-  { code: 'LOC002', name: '仓库' },
-  { code: 'LOC003', name: '车库' }
-])
+const locationOptionCol = useCollection(COLLECTION.settingsLocationOptions)
 const locationOptions = locationOptionCol.items
 
 const locationDialogVisible = ref(false)
@@ -523,52 +513,7 @@ const handleLocationSubmit = () => {
 }
 
 // 分类设置
-const categoryCol = useCollection(COLLECTION.settingsCategories, [
-  {
-    id: 'CAT000', code: 'CAT000', name: '高价值资产', parentCode: '', parentName: '-', depreciationMethod: '年限平均法', usefulLife: 10, assetCount: 326, status: '启用', createTime: '2026-01-06 09:12:00', updateTime: '2026-09-12 14:30:21',
-    children: [
-      {
-        id: 'CAT000-01', code: 'CAT000-01', name: '机械类', parentCode: 'CAT000', parentName: '高价值资产', depreciationMethod: '年限平均法', usefulLife: 10, assetCount: 128, status: '启用', createTime: '2026-01-06 09:20:00', updateTime: '2026-09-10 11:05:33',
-        children: [
-          { id: 'CAT000-0101', code: 'CAT000-0101', name: '一般机械类', parentCode: 'CAT000-01', parentName: '机械类', depreciationMethod: '年限平均法', usefulLife: 10, assetCount: 62, status: '启用', createTime: '2026-01-06 09:26:00', updateTime: '2026-09-08 16:41:02', children: [] },
-          { id: 'CAT000-0102', code: 'CAT000-0102', name: '数控机床类', parentCode: 'CAT000-01', parentName: '机械类', depreciationMethod: '年数总和法', usefulLife: 12, assetCount: 38, status: '启用', createTime: '2026-01-06 09:28:00', updateTime: '2026-09-07 10:22:45', children: [] },
-          { id: 'CAT000-0103', code: 'CAT000-0103', name: '工程机械类', parentCode: 'CAT000-01', parentName: '机械类', depreciationMethod: '工作量法', usefulLife: 8, assetCount: 28, status: '禁用', createTime: '2026-01-06 09:30:00', updateTime: '2026-08-30 09:14:18', children: [] }
-        ]
-      },
-      {
-        id: 'CAT000-02', code: 'CAT000-02', name: '运输设备类', parentCode: 'CAT000', parentName: '高价值资产', depreciationMethod: '双倍余额递减法', usefulLife: 8, assetCount: 96, status: '启用', createTime: '2026-01-06 09:34:00', updateTime: '2026-09-05 15:38:27',
-        children: [
-          { id: 'CAT000-0201', code: 'CAT000-0201', name: '商务客车', parentCode: 'CAT000-02', parentName: '运输设备类', depreciationMethod: '双倍余额递减法', usefulLife: 8, assetCount: 41, status: '启用', createTime: '2026-01-06 09:36:00', updateTime: '2026-09-04 10:11:52', children: [] },
-          { id: 'CAT000-0202', code: 'CAT000-0202', name: '货运车辆', parentCode: 'CAT000-02', parentName: '运输设备类', depreciationMethod: '工作量法', usefulLife: 6, assetCount: 55, status: '启用', createTime: '2026-01-06 09:38:00', updateTime: '2026-09-03 14:02:09', children: [] }
-        ]
-      },
-      {
-        id: 'CAT000-03', code: 'CAT000-03', name: '房屋建筑物类', parentCode: 'CAT000', parentName: '高价值资产', depreciationMethod: '年限平均法', usefulLife: 30, assetCount: 102, status: '启用', createTime: '2026-01-06 09:40:00', updateTime: '2026-09-02 09:47:36',
-        children: [
-          { id: 'CAT000-0301', code: 'CAT000-0301', name: '办公用房', parentCode: 'CAT000-03', parentName: '房屋建筑物类', depreciationMethod: '年限平均法', usefulLife: 30, assetCount: 64, status: '启用', createTime: '2026-01-06 09:42:00', updateTime: '2026-08-28 17:20:44', children: [] },
-          { id: 'CAT000-0302', code: 'CAT000-0302', name: '生产厂房', parentCode: 'CAT000-03', parentName: '房屋建筑物类', depreciationMethod: '年限平均法', usefulLife: 25, assetCount: 38, status: '启用', createTime: '2026-01-06 09:44:00', updateTime: '2026-08-26 11:33:15', children: [] }
-        ]
-      }
-    ]
-  },
-  {
-    id: 'CAT001', code: 'CAT001', name: '办公用品', parentCode: '', parentName: '-', depreciationMethod: '直线法', usefulLife: 5, assetCount: 156, status: '启用', createTime: '2026-01-06 10:02:00', updateTime: '2026-09-11 09:26:40',
-    children: [
-      { id: 'CAT001-01', code: 'CAT001-01', name: '办公家具', parentCode: 'CAT001', parentName: '办公用品', depreciationMethod: '直线法', usefulLife: 10, assetCount: 88, status: '启用', createTime: '2026-01-06 10:04:00', updateTime: '2026-09-09 15:52:11', children: [] },
-      { id: 'CAT001-02', code: 'CAT001-02', name: '办公耗材', parentCode: 'CAT001', parentName: '办公用品', depreciationMethod: '直线法', usefulLife: 1, assetCount: 68, status: '启用', createTime: '2026-01-06 10:06:00', updateTime: '2026-09-06 08:41:57', children: [] }
-    ]
-  },
-  { id: 'CAT002', code: 'CAT002', name: '车辆', parentCode: '', parentName: '-', depreciationMethod: '双倍余额递减法', usefulLife: 8, assetCount: 12, status: '启用', createTime: '2026-01-06 10:10:00', updateTime: '2026-08-25 14:18:03', children: [] },
-  {
-    id: 'CAT003', code: 'CAT003', name: '设备', parentCode: '', parentName: '-', depreciationMethod: '直线法', usefulLife: 5, assetCount: 89, status: '启用', createTime: '2026-01-06 10:14:00', updateTime: '2026-09-13 10:07:29',
-    children: [
-      { id: 'CAT003-01', code: 'CAT003-01', name: '电子设备', parentCode: 'CAT003', parentName: '设备', depreciationMethod: '直线法', usefulLife: 5, assetCount: 65, status: '启用', createTime: '2026-01-06 10:16:00', updateTime: '2026-09-12 09:31:48', children: [] },
-      { id: 'CAT003-02', code: 'CAT003-02', name: '机械设备', parentCode: 'CAT003', parentName: '设备', depreciationMethod: '直线法', usefulLife: 10, assetCount: 24, status: '启用', createTime: '2026-01-06 10:18:00', updateTime: '2026-09-01 16:44:22', children: [] }
-    ]
-  },
-  { id: 'CAT004', code: 'CAT004', name: '材料', parentCode: '', parentName: '-', depreciationMethod: '直线法', usefulLife: 1, assetCount: 230, status: '启用', createTime: '2026-01-06 10:22:00', updateTime: '2026-08-20 11:09:36', children: [] },
-  { id: 'CAT005', code: 'CAT005', name: '其他', parentCode: '', parentName: '-', depreciationMethod: '直线法', usefulLife: 5, assetCount: 45, status: '禁用', createTime: '2026-01-06 10:26:00', updateTime: '2026-08-18 15:27:50', children: [] }
-])
+const categoryCol = useCollection(COLLECTION.settingsCategories)
 const categoryTree = categoryCol.items
 
 const catSearch = reactive({ status: '', keyword: '' })
@@ -664,7 +609,7 @@ function isCategoryLoop(rootId, parentCode) {
 const categoryDialogVisible = ref(false)
 const isEditCategory = ref(false)
 const editingCategoryId = ref('')
-const categoryForm = reactive({ code: '', name: '', parentCode: '', depreciationMethod: '年限平均法', usefulLife: 5, status: '启用' })
+const categoryForm = reactive({ code: '', name: '', parentCode: '', depreciationMethod: 'STRAIGHT_LINE', usefulLife: 5, status: 'ENABLED' })
 
 const categoryDialogTitle = computed(() => {
   if (isEditCategory.value) return '修改分类'
@@ -674,7 +619,7 @@ const categoryDialogTitle = computed(() => {
 const handleAddCategory = () => {
   isEditCategory.value = false
   editingCategoryId.value = ''
-  Object.assign(categoryForm, { code: '', name: '', parentCode: '', depreciationMethod: '年限平均法', usefulLife: 5, status: '启用' })
+  Object.assign(categoryForm, { code: '', name: '', parentCode: '', depreciationMethod: 'STRAIGHT_LINE', usefulLife: 5, status: 'ENABLED' })
   categoryDialogVisible.value = true
 }
 
@@ -688,7 +633,7 @@ const handleAddSubCategory = (row) => {
     parentCode: node ? node.code : row.code,
     depreciationMethod: node ? node.depreciationMethod : '年限平均法',
     usefulLife: node ? node.usefulLife : 5,
-    status: '启用'
+    status: 'ENABLED'
   })
   categoryDialogVisible.value = true
 }
@@ -711,7 +656,7 @@ const handleEditCategory = (row) => {
 const handleToggleCategory = (row) => {
   const node = findCategoryNode(categoryTree.value, row.id)
   if (!node) return
-  const next = node.status === '启用' ? '禁用' : '启用'
+  const next = node.status === 'ENABLED' ? 'DISABLED' : 'ENABLED'
   const applyTo = (nodes, status) => nodes.forEach(n => {
     n.status = status
     n.updateTime = nowText()
@@ -802,13 +747,7 @@ const handleCategorySubmit = () => {
 }
 
 // 折旧设置
-const depreciationRuleCol = useCollection(COLLECTION.settingsDepreciationRules, [
-  { name: '电子设备折旧', method: '直线法', usefulLife: 5, residualRate: 5, description: '适用于电脑、打印机等电子设备' },
-  { name: '车辆折旧', method: '双倍余额递减法', usefulLife: 8, residualRate: 5, description: '适用于公司车辆' },
-  { name: '办公家具折旧', method: '直线法', usefulLife: 10, residualRate: 5, description: '适用于桌椅、柜子等家具' },
-  { name: '机械设备折旧', method: '年数总和法', usefulLife: 10, residualRate: 5, description: '适用于大型机械设备' },
-  { name: '低值易耗品', method: '直线法', usefulLife: 1, residualRate: 0, description: '适用于办公用品等低值易耗品' }
-])
+const depreciationRuleCol = useCollection(COLLECTION.settingsDepreciationRules)
 const depreciationRules = depreciationRuleCol.items
 
 const depreciationDialogVisible = ref(false)
@@ -858,19 +797,7 @@ const handleDepreciationSubmit = () => {
   depreciationDialogVisible.value = false
 }
 
-const depreciationPlanCol = useCollection(COLLECTION.settingsDepreciationPlans, [
-  { id: 'DP1', company: '华信科技集团有限公司', name: '电子设备年限平均折旧', method: '年限平均法', assetTypes: ['电子设备'], residualRate: 5, calcTime: '按月计提', monthlyDay: 25, purchaseMode: '购买', remark: '每月25日计提当期折旧', createTime: '2026-01-10 09:20:00', updateTime: '2026-09-01 10:15:00' },
-  { id: 'DP2', company: '华信科技集团有限公司', name: '租赁设备按起租日折旧', method: '年限平均法', assetTypes: ['机械设备', '电子设备'], residualRate: 3, calcTime: '按月计提', monthlyDay: 28, purchaseMode: '租赁', remark: '按租赁合同起租日开始计提', createTime: '2026-02-14 14:02:00', updateTime: '2026-08-30 16:44:12' },
-  { id: 'DP3', company: '云鼎资产管理有限公司', name: '运输设备双倍余额折旧', method: '双倍余额递减法', assetTypes: ['运输设备'], residualRate: 5, calcTime: '按月计提', monthlyDay: 20, purchaseMode: '购买', remark: '车辆按双倍余额递减法计提', createTime: '2026-03-02 10:35:00', updateTime: '2026-08-28 09:26:41' },
-  { id: 'DP4', company: '云鼎资产管理有限公司', name: '房屋建筑物年度折旧', method: '年限平均法', assetTypes: ['房屋建筑物'], residualRate: 10, calcTime: '按年计提', monthlyDay: 31, purchaseMode: '自建', remark: '每年12月31日一次性计提', createTime: '2026-03-18 15:48:00', updateTime: '2026-08-25 11:03:57' },
-  { id: 'DP5', company: '恒信融资租赁有限公司', name: '机械设备工作量折旧', method: '工作量法', assetTypes: ['机械设备'], residualRate: 5, calcTime: '按季计提', monthlyDay: 15, purchaseMode: '租赁', remark: '按季度结合台班工作量计提', createTime: '2026-04-06 09:12:00', updateTime: '2026-08-20 14:37:26' },
-  { id: 'DP6', company: '恒信融资租赁有限公司', name: '办公家具直线折旧', method: '直线法', assetTypes: ['办公家具'], residualRate: 5, calcTime: '按月计提', monthlyDay: 25, purchaseMode: '购买', remark: '', createTime: '2026-05-11 11:26:00', updateTime: '2026-08-18 10:52:03' },
-  { id: 'DP7', company: '中天建设集团有限公司', name: '工程机械按台班折旧', method: '工作量法', assetTypes: ['机械设备', '运输设备'], residualRate: 4, calcTime: '按月计提', monthlyDay: 5, purchaseMode: '自建', remark: '按现场台班记录计提', createTime: '2026-06-09 08:44:00', updateTime: '2026-09-05 17:08:35' },
-  { id: 'DP8', company: '中天建设集团有限公司', name: '受赠资产季度折旧', method: '年数总和法', assetTypes: ['其他设备'], residualRate: 0, calcTime: '按季计提', monthlyDay: 30, purchaseMode: '受赠', remark: '受赠资产按年数总和法计提', createTime: '2026-07-15 16:20:00', updateTime: '2026-09-10 09:41:18' },
-  { id: 'DP9', company: '华信科技集团有限公司', name: '低值易耗品一次摊销', method: '直线法', assetTypes: ['其他设备'], residualRate: 0, calcTime: '按月计提', monthlyDay: 1, purchaseMode: '购买', remark: '单价2000元以下一次性摊销', createTime: '2026-08-03 10:05:00', updateTime: '2026-09-12 15:33:47' },
-  { id: 'DP10', company: '云鼎资产管理有限公司', name: '电子设备加速折旧', method: '双倍余额递减法', assetTypes: ['电子设备'], residualRate: 5, calcTime: '按月计提', monthlyDay: 26, purchaseMode: '租赁', remark: '租赁电子设备加速计提', createTime: '2026-08-21 13:52:00', updateTime: '2026-09-14 09:19:24' },
-  { id: 'DP11', company: '恒信融资租赁有限公司', name: '房屋建筑物直线折旧', method: '直线法', assetTypes: ['房屋建筑物'], residualRate: 8, calcTime: '按年计提', monthlyDay: 31, purchaseMode: '购买', remark: '', createTime: '2026-09-02 09:36:00', updateTime: '2026-09-15 11:47:52' }
-])
+const depreciationPlanCol = useCollection(COLLECTION.settingsDepreciationPlans)
 const depreciationPlans = depreciationPlanCol.items
 
 const depSearch = reactive({ company: '', name: '', calcTime: '', purchaseMode: '' })
@@ -900,12 +827,12 @@ function resetDepSearch() {
 const planDialogVisible = ref(false)
 const isEditPlan = ref(false)
 const editingPlanId = ref('')
-const planForm = reactive({ company: '', name: '', method: '年限平均法', assetTypes: [], residualRate: 5, calcTime: '按月计提', monthlyDay: 25, purchaseMode: '购买', remark: '' })
+const planForm = reactive({ company: '', name: '', method: 'STRAIGHT_LINE', assetTypes: [], residualRate: 5, calcTime: 'MONTHLY', monthlyDay: 25, purchaseMode: 'PURCHASE', remark: '' })
 
 const handleAddPlan = () => {
   isEditPlan.value = false
   editingPlanId.value = ''
-  Object.assign(planForm, { company: '', name: '', method: '年限平均法', assetTypes: [], residualRate: 5, calcTime: '按月计提', monthlyDay: 25, purchaseMode: '购买', remark: '' })
+  Object.assign(planForm, { company: '', name: '', method: 'STRAIGHT_LINE', assetTypes: [], residualRate: 5, calcTime: 'MONTHLY', monthlyDay: 25, purchaseMode: 'PURCHASE', remark: '' })
   planDialogVisible.value = true
 }
 
@@ -971,19 +898,19 @@ const handlePlanSubmit = () => {
 }
 
 // 审批设置
-const approvalFlowCol = useCollection(COLLECTION.settingsApprovalFlows, [
-  { name: '入库验收审批', type: '入库验收', steps: '部门经理->财务->总经理', status: '启用' },
-  { name: '派发退库审批', type: '派发退库', steps: '部门经理->行政部', status: '启用' },
-  { name: '借出归还审批', type: '借出归还', steps: '部门经理->行政部', status: '启用' },
-  { name: '资产变更审批', type: '资产变更', steps: '部门经理->财务->总经理', status: '启用' },
-  { name: '资产处置审批', type: '资产处置', steps: '部门经理->财务->副总经理->总经理', status: '启用' }
-])
+const approvalFlowCol = useCollection(COLLECTION.settingsApprovalFlows)
 const approvalFlows = approvalFlowCol.items
 
 const approvalDialogVisible = ref(false)
 const isEditApproval = ref(false)
 const editingApprovalIndex = ref(-1)
 const approvalForm = reactive({ name: '', type: '', steps: '' })
+
+/** 审批步骤统一按数组存储，兼容历史字符串（用 -> 分隔） */
+function stepList(steps) {
+  if (Array.isArray(steps)) return steps
+  return String(steps || '').split('->').map(s => s.trim()).filter(Boolean)
+}
 
 const handleAddApproval = () => {
   isEditApproval.value = false
@@ -995,12 +922,13 @@ const handleAddApproval = () => {
 const handleEditApproval = (row) => {
   isEditApproval.value = true
   editingApprovalIndex.value = approvalFlows.value.findIndex(a => a.name === row.name)
-  Object.assign(approvalForm, { name: row.name, type: row.type, steps: row.steps })
+  // 表单用 -> 分隔的文本编辑，回写时再转数组
+  Object.assign(approvalForm, { name: row.name, type: row.type, steps: stepList(row.steps).join('->') })
   approvalDialogVisible.value = true
 }
 
 const handleToggleApproval = (row) => {
-  row.status = row.status === '启用' ? '停用' : '启用'
+  row.status = row.status === 'ENABLED' ? 'DISABLED' : 'ENABLED'
   approvalFlowCol.update(row)
   ElMessage.success(`${row.status}成功`)
 }
@@ -1026,7 +954,7 @@ const handleApprovalSubmit = () => {
     Object.assign(target, {
       name: approvalForm.name,
       type: approvalForm.type,
-      steps: approvalForm.steps
+      steps: String(approvalForm.steps).split('->').map(s => s.trim()).filter(Boolean)
     })
     approvalFlowCol.update(target)
     ElMessage.success('编辑成功')
@@ -1034,8 +962,8 @@ const handleApprovalSubmit = () => {
     approvalFlowCol.add({
       name: approvalForm.name,
       type: approvalForm.type,
-      steps: approvalForm.steps,
-      status: '启用'
+      steps: String(approvalForm.steps).split('->').map(s => s.trim()).filter(Boolean),
+      status: 'ENABLED'
     })
     ElMessage.success('新增成功')
   }

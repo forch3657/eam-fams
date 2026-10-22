@@ -322,13 +322,7 @@ const itemForm = ref({ label: '', value: '', sort: 0, enabled: true, remark: '' 
 
 const typeQuery = reactive({ name: '', status: '' })
 
-const dictTypeCol = useCollection(COLLECTION.systemDictTypes, [
-  { code: 'asset_status', name: '资产状态', count: 5, status: '启用', createTime: '2024-01-05 09:00:00', updateTime: '2026-08-20 15:32:10' },
-  { code: 'asset_type', name: '资产类型', count: 4, status: '启用', createTime: '2024-01-05 09:10:00', updateTime: '2026-07-11 10:05:44' },
-  { code: 'contract_status', name: '合同状态', count: 4, status: '启用', createTime: '2024-02-18 14:20:00', updateTime: '2026-06-30 09:41:02' },
-  { code: 'fee_type', name: '费项类型', count: 3, status: '启用', createTime: '2024-02-18 14:35:00', updateTime: '2026-05-19 16:22:37' },
-  { code: 'warning_level', name: '预警级别', count: 3, status: '禁用', createTime: '2024-03-02 11:00:00', updateTime: '2026-04-08 11:47:53' },
-])
+const dictTypeCol = useCollection(COLLECTION.systemDictTypes)
 const dictTypes = dictTypeCol.items
 
 const DICT_ITEMS_SEED = {
@@ -366,12 +360,12 @@ const DICT_ITEMS_SEED = {
 // 每个字典类型对应一个集合，读写走服务层
 const dictItemCols = {}
 Object.keys(DICT_ITEMS_SEED).forEach(code => {
-  dictItemCols[code] = useCollection(`${COLLECTION.systemDictTypes}-${code}-items`, DICT_ITEMS_SEED[code])
+  dictItemCols[code] = useCollection(`${COLLECTION.systemDictTypes}-${code}-items`)
 })
 
 function dictItemCol(code) {
   if (!dictItemCols[code]) {
-    dictItemCols[code] = useCollection(`${COLLECTION.systemDictTypes}-${code}-items`, [], { immediate: false })
+    dictItemCols[code] = useCollection(`${COLLECTION.systemDictTypes}-${code}-items`)
   }
   return dictItemCols[code]
 }
@@ -478,55 +472,7 @@ const fieldForm = ref({ label: '', key: '', type: 'input', optionsText: '', defa
 const previewForm = ref(false)
 const previewData = reactive({})
 
-const assetTypeCol = useCollection(COLLECTION.systemAssetTypes, [
-  {
-    code: 'shop', name: '商铺', remark: '',
-    fields: [
-      { label: '建筑面积', key: 'buildingArea', type: 'number', required: true, sort: 1, placeholder: '单位：平方米', options: [], defaultValue: '' },
-      { label: '使用面积', key: 'usableArea', type: 'number', required: false, sort: 2, placeholder: '单位：平方米', options: [], defaultValue: '' },
-      { label: '楼层', key: 'floor', type: 'select', required: false, sort: 3, placeholder: '请选择楼层', options: ['一楼', '二楼', '三楼', '四楼及以上'], defaultValue: '' },
-      { label: '门面宽度', key: 'frontWidth', type: 'number', required: false, sort: 4, placeholder: '单位：米', options: [], defaultValue: '' },
-      { label: '是否有夹层', key: 'hasMezzanine', type: 'switch', required: false, sort: 5, placeholder: '', options: [], defaultValue: '' },
-      { label: '业态限制', key: 'businessLimit', type: 'radio', required: false, sort: 6, placeholder: '', options: ['餐饮', '零售', '不限'], defaultValue: '不限' },
-    ]
-  },
-  {
-    code: 'office', name: '写字楼', remark: '',
-    fields: [
-      { label: '建筑面积', key: 'buildingArea', type: 'number', required: true, sort: 1, placeholder: '单位：平方米', options: [], defaultValue: '' },
-      { label: '所在楼层', key: 'floor', type: 'input', required: false, sort: 2, placeholder: '如：15F', options: [], defaultValue: '' },
-      { label: '总楼层', key: 'totalFloors', type: 'number', required: false, sort: 3, placeholder: '楼栋总楼层数', options: [], defaultValue: '' },
-      { label: '装修状况', key: 'decoration', type: 'select', required: false, sort: 4, placeholder: '请选择', options: ['毛坯', '简装', '精装', '豪华装修'], defaultValue: '' },
-      { label: '是否含车位', key: 'hasParking', type: 'switch', required: false, sort: 5, placeholder: '', options: [], defaultValue: '' },
-      { label: '车位数量', key: 'parkingCount', type: 'number', required: false, sort: 6, placeholder: '含车位时填写', options: [], defaultValue: '' },
-    ]
-  },
-  {
-    code: 'factory', name: '厂房', remark: '',
-    fields: [
-      { label: '建筑面积', key: 'buildingArea', type: 'number', required: true, sort: 1, placeholder: '单位：平方米', options: [], defaultValue: '' },
-      { label: '占地面积', key: 'landArea', type: 'number', required: true, sort: 2, placeholder: '单位：平方米', options: [], defaultValue: '' },
-      { label: '层高', key: 'ceilingHeight', type: 'number', required: false, sort: 3, placeholder: '单位：米', options: [], defaultValue: '' },
-      { label: '承重能力', key: 'loadCapacity', type: 'number', required: false, sort: 4, placeholder: '单位：吨/平方米', options: [], defaultValue: '' },
-      { label: '配电容量', key: 'powerCapacity', type: 'number', required: false, sort: 5, placeholder: '单位：KVA', options: [], defaultValue: '' },
-      { label: '消防等级', key: 'fireRating', type: 'select', required: false, sort: 6, placeholder: '请选择', options: ['甲级', '乙级', '丙级', '丁级'], defaultValue: '' },
-      { label: '有无行车', key: 'hasCrane', type: 'switch', required: false, sort: 7, placeholder: '', options: [], defaultValue: '' },
-      { label: '备注说明', key: 'remarks', type: 'textarea', required: false, sort: 8, placeholder: '其他特殊说明', options: [], defaultValue: '' },
-    ]
-  },
-  {
-    code: 'land', name: '土地', remark: '',
-    fields: [
-      { label: '土地面积', key: 'landArea', type: 'number', required: true, sort: 1, placeholder: '单位：平方米', options: [], defaultValue: '' },
-      { label: '土地性质', key: 'landNature', type: 'select', required: true, sort: 2, placeholder: '请选择', options: ['出让', '划拨', '租赁'], defaultValue: '' },
-      { label: '用地类型', key: 'landUsage', type: 'select', required: true, sort: 3, placeholder: '请选择', options: ['住宅用地', '商业用地', '工业用地', '综合用地'], defaultValue: '' },
-      { label: '容积率', key: 'plotRatio', type: 'number', required: false, sort: 4, placeholder: '', options: [], defaultValue: '' },
-      { label: '建筑密度', key: 'buildingDensity', type: 'number', required: false, sort: 5, placeholder: '单位：%', options: [], defaultValue: '' },
-      { label: '使用年限', key: 'usageYears', type: 'number', required: false, sort: 6, placeholder: '单位：年', options: [], defaultValue: '' },
-      { label: '使用期限', key: 'usagePeriod', type: 'daterange', required: false, sort: 7, placeholder: '', options: [], defaultValue: '' },
-    ]
-  },
-])
+const assetTypeCol = useCollection(COLLECTION.systemAssetTypes)
 const assetTypes = assetTypeCol.items
 
 const currentAssetType = computed(() => assetTypes.value.find(at => at.code === selectedAssetType.value))

@@ -96,16 +96,7 @@ const now = (offsetDays = 0) => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
-const paramCol = useCollection(COLLECTION.systemParams, [
-  { id: 1, name: '欠费预警天数', key: 'sys.rent.warn.days', value: '90', type: '系统内置', remark: '超过该天数未缴费触发欠费预警', updateTime: now(2) },
-  { id: 2, name: '闲置预警天数', key: 'sys.idle.warn.days', value: '180', type: '系统内置', remark: '资产闲置超过该天数触发闲置预警', updateTime: now(5) },
-  { id: 3, name: '合同临期提前天数', key: 'sys.contract.expire.days', value: '30', type: '系统内置', remark: '合同到期前该天数触发临期提醒', updateTime: now(5) },
-  { id: 4, name: '单页默认条数', key: 'sys.page.size', value: '10', type: '自定义', remark: '列表页默认分页大小', updateTime: now(12) },
-  { id: 5, name: '密码最短长度', key: 'sys.pwd.min.length', value: '8', type: '系统内置', remark: '用户密码最小长度限制', updateTime: now(20) },
-  { id: 6, name: '登录失败锁定次数', key: 'sys.login.lock.times', value: '5', type: '系统内置', remark: '连续失败该次数后锁定账号', updateTime: now(20) },
-  { id: 7, name: '会话超时时间(分钟)', key: 'sys.session.timeout', value: '30', type: '自定义', remark: '无操作自动退出时长', updateTime: now(33) },
-  { id: 8, name: '资产编号前缀', key: 'sys.asset.code.prefix', value: 'ZC', type: '自定义', remark: '新增资产编号默认前缀', updateTime: now(41) },
-])
+const paramCol = useCollection(COLLECTION.systemParams)
 const rows = paramCol.items
 
 const filtered = computed(() => {

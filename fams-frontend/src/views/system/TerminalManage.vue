@@ -187,12 +187,7 @@ function msg(t) { ElMessage.success(t) }
 
 const devKeyword = ref('')
 const devStatus = ref('')
-const deviceCol = useCollection(COLLECTION.systemDevices, [
-  { code: 'T-2024-001', name: '收费大厅1号终端', type: '收款终端', location: '安东大厦一楼收费大厅', bindAccount: '城投集团 工行 1402****8834', status: '在线', lastActive: '2026-09-16 09:12:33', vendor: '新大陆', model: 'NLS-FR88', sn: 'NLSCF88202401001', ip: '192.168.10.21', installDate: '2024-01-15', maintainer: '林工', maintainerPhone: '13905911001', remark: '主力收款终端，日交易量最大' },
-  { code: 'T-2024-002', name: '大厅扫码盒子', type: '扫码盒子', location: '安东大厦一楼收费大厅', bindAccount: '城投集团 工行 1402****8834', status: '在线', lastActive: '2026-09-16 09:10:01', vendor: '商米', model: 'SUNMI-S2', sn: 'SM2S22024020035', ip: '192.168.10.22', installDate: '2024-02-20', maintainer: '林工', maintainerPhone: '13905911001', remark: '' },
-  { code: 'T-2024-003', name: '壹城红寓自助缴费机', type: '自助缴费机', location: '红联壹城物业中心', bindAccount: '城投集团 建行 3505****1120', status: '离线', lastActive: '2026-09-15 18:44:20', vendor: '广电运通', model: 'GRG-A200', sn: 'GRGA22024030107', ip: '192.168.21.30', installDate: '2024-03-10', maintainer: '陈工', maintainerPhone: '13905911002', remark: '网络不稳定，待排查' },
-  { code: 'T-2024-004', name: '招商部POS机', type: 'POS机', location: '航城商务楼3F招商部', bindAccount: '产投集团 招行 5919****0067', status: '停用', lastActive: '2026-08-30 16:02:11', vendor: '百富', model: 'PAX-D200', sn: 'PAXD22024040088', ip: '192.168.30.41', installDate: '2024-04-18', maintainer: '黄工', maintainerPhone: '13905911003', remark: '曾因违规收款停用' },
-])
+const deviceCol = useCollection(COLLECTION.systemDevices)
 const devices = deviceCol.items
 const filteredDevices = computed(() => devices.value.filter(d => {
   if (devKeyword.value && !(d.code.includes(devKeyword.value) || d.name.includes(devKeyword.value) || d.location.includes(devKeyword.value))) return false
@@ -271,10 +266,7 @@ function delDevice(row) {
 const misuseTypes = ['私自收款', '挪用资金', '违规减免', '冒用账户', '设备外借', '其他']
 const misKeyword = ref('')
 const misType = ref('')
-const misuseCol = useCollection(COLLECTION.systemMisuse, [
-  { recordNo: 'MIS-2024-001', person: '刘××', terminalCode: 'T-2024-004', type: '私自收款', detail: '使用个人微信收取租户租金未入公司账户', amount: 6500, handled: true, createTime: '2026-08-30 16:20:00' },
-  { recordNo: 'MIS-2024-002', person: '陈××', terminalCode: 'T-2024-003', type: '违规减免', detail: '未经审批擅自减免物业费', amount: 1200, handled: false, createTime: '2026-09-10 11:05:41' },
-])
+const misuseCol = useCollection(COLLECTION.systemMisuse)
 const misuse = misuseCol.items
 const filteredMisuse = computed(() => misuse.value.filter(m => {
   if (misKeyword.value && !(m.person.includes(misKeyword.value) || m.terminalCode.includes(misKeyword.value))) return false

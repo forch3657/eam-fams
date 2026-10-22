@@ -28,9 +28,9 @@
         <el-tab-pane label="库存台账" name="item">
           <el-form :inline="true" class="search-form">
             <el-form-item label="类别">
-              <el-select v-model="itemSearch.category" placeholder="请选择" clearable style="width: 140px">
+              <el-select v-model="itemSearch.categoryId" placeholder="请选择" clearable style="width: 140px">
                 <el-option label="全部" value="" />
-                <el-option v-for="c in categoryOptions" :key="c" :label="c" :value="c" />
+                <el-option v-for="c in categoryOptions" :key="c.id" :label="c.name" :value="c.id" />
               </el-select>
             </el-form-item>
             <el-form-item label="关键字">
@@ -54,7 +54,7 @@
               <template #default="{ $index }">{{ (itemPage - 1) * itemPageSize + $index + 1 }}</template>
             </el-table-column>
             <el-table-column prop="code" label="物品编码" width="120" />
-            <el-table-column prop="category" label="物品类别" width="110" />
+            <el-table-column prop="categoryName" label="物品类别" width="110" />
             <el-table-column prop="name" label="物品名称" min-width="200" show-overflow-tooltip />
             <el-table-column prop="spec" label="规格型号" min-width="220" show-overflow-tooltip />
             <el-table-column prop="unit" label="单位" width="70" align="center" />
@@ -69,7 +69,7 @@
             </el-table-column>
             <el-table-column prop="safetyStock" label="安全库存" width="100" align="right" />
             <el-table-column prop="location" label="存放位置" width="140" show-overflow-tooltip />
-            <el-table-column prop="status" label="状态" width="90" />
+            <el-table-column prop="statusText" label="状态" width="90" />
             <el-table-column label="操作" width="150" fixed="right">
               <template #default="{ row }">
                 <el-button link type="primary" size="small" @click="openItemDialog(row)">编辑</el-button>
@@ -117,7 +117,7 @@
             </el-table-column>
             <el-table-column prop="docNo" label="单据编号" width="130" />
             <el-table-column prop="itemName" label="物品名称" min-width="180" show-overflow-tooltip />
-            <el-table-column prop="category" label="物品类别" width="110" />
+            <el-table-column prop="categoryName" label="物品类别" width="110" />
             <el-table-column prop="spec" label="规格型号" min-width="200" show-overflow-tooltip />
             <el-table-column prop="unit" label="单位" width="70" align="center" />
             <el-table-column prop="quantity" label="入库数量" width="100" align="right" />
@@ -175,7 +175,7 @@
             </el-table-column>
             <el-table-column prop="docNo" label="单据编号" width="130" />
             <el-table-column prop="itemName" label="物品名称" min-width="180" show-overflow-tooltip />
-            <el-table-column prop="category" label="物品类别" width="110" />
+            <el-table-column prop="categoryName" label="物品类别" width="110" />
             <el-table-column prop="spec" label="规格型号" min-width="200" show-overflow-tooltip />
             <el-table-column prop="unit" label="单位" width="70" align="center" />
             <el-table-column prop="quantity" label="领用数量" width="100" align="right" />
@@ -183,7 +183,9 @@
               <template #default="{ row }"><span class="num">{{ Number(row.amount || 0).toLocaleString() }}</span></template>
             </el-table-column>
             <el-table-column prop="receiver" label="领用人" width="100" />
-            <el-table-column prop="dept" label="领用部门" width="120" />
+            <el-table-column label="领用部门" width="140">
+              <template #default="{ row }">{{ deptNameOf(row.deptId) }}</template>
+            </el-table-column>
             <el-table-column prop="requisitionDate" label="领用日期" width="120" />
             <el-table-column prop="purpose" label="用途" min-width="160" show-overflow-tooltip />
             <el-table-column prop="operator" label="经办人" width="100" />
@@ -228,7 +230,7 @@
             </el-table-column>
             <el-table-column prop="docNo" label="单据编号" width="130" />
             <el-table-column prop="itemName" label="物品名称" min-width="180" show-overflow-tooltip />
-            <el-table-column prop="category" label="物品类别" width="110" />
+            <el-table-column prop="categoryName" label="物品类别" width="110" />
             <el-table-column prop="spec" label="规格型号" min-width="200" show-overflow-tooltip />
             <el-table-column prop="unit" label="单位" width="70" align="center" />
             <el-table-column prop="quantity" label="退库数量" width="100" align="right" />
@@ -236,7 +238,9 @@
               <template #default="{ row }"><span class="num">{{ Number(row.amount || 0).toLocaleString() }}</span></template>
             </el-table-column>
             <el-table-column prop="returner" label="退库人" width="100" />
-            <el-table-column prop="dept" label="退库部门" width="120" />
+            <el-table-column label="退库部门" width="140">
+              <template #default="{ row }">{{ deptNameOf(row.deptId) }}</template>
+            </el-table-column>
             <el-table-column prop="returnDate" label="退库日期" width="120" />
             <el-table-column prop="reason" label="退库原因" min-width="180" show-overflow-tooltip />
             <el-table-column prop="operator" label="经办人" width="100" />
@@ -261,9 +265,9 @@
         <el-form-item label="物品编码">
           <el-input v-model="itemDialog.form.code" placeholder="留空自动生成" />
         </el-form-item>
-        <el-form-item label="物品类别" prop="category">
-          <el-select v-model="itemDialog.form.category" placeholder="请选择类别" style="width: 100%">
-            <el-option v-for="c in categoryOptions" :key="c" :label="c" :value="c" />
+        <el-form-item label="物品类别" prop="categoryId">
+          <el-select v-model="itemDialog.form.categoryId" placeholder="请选择类别" style="width: 100%">
+            <el-option v-for="c in categoryOptions" :key="c.id" :label="c.name" :value="c.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="物品名称" prop="name">
@@ -286,13 +290,12 @@
         </el-form-item>
         <el-form-item label="存放位置">
           <el-select v-model="itemDialog.form.location" placeholder="请选择存放位置" clearable style="width: 100%">
-            <el-option v-for="l in locationOptions" :key="l" :label="l" :value="l" />
+            <el-option v-for="l in locationOptions" :key="l.id" :label="l.name" :value="l.name" />
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="itemDialog.form.status" style="width: 160px">
-            <el-option label="正常" value="正常" />
-            <el-option label="停用" value="停用" />
+            <el-option v-for="s in itemStatusOptions" :key="s.value" :label="s.label" :value="s.value" />
           </el-select>
         </el-form-item>
       </el-form>
@@ -357,9 +360,9 @@
         <el-form-item label="领用人" prop="receiver">
           <el-input v-model="requisitionDialog.form.receiver" placeholder="请输入领用人" />
         </el-form-item>
-        <el-form-item label="领用部门" prop="dept">
-          <el-select v-model="requisitionDialog.form.dept" placeholder="请选择领用部门" filterable style="width: 100%">
-            <el-option v-for="d in deptOptions" :key="d.id" :label="d.label" :value="d.name" />
+        <el-form-item label="领用部门" prop="deptId">
+          <el-select v-model="requisitionDialog.form.deptId" placeholder="请选择领用部门" filterable style="width: 100%">
+            <el-option v-for="d in deptOptions" :key="d.id" :label="d.label" :value="d.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="领用日期" prop="requisitionDate">
@@ -396,9 +399,9 @@
         <el-form-item label="退库人" prop="returner">
           <el-input v-model="returnDialog.form.returner" placeholder="请输入退库人" />
         </el-form-item>
-        <el-form-item label="退库部门" prop="dept">
-          <el-select v-model="returnDialog.form.dept" placeholder="请选择退库部门" filterable style="width: 100%">
-            <el-option v-for="d in deptOptions" :key="d.id" :label="d.label" :value="d.name" />
+        <el-form-item label="退库部门" prop="deptId">
+          <el-select v-model="returnDialog.form.deptId" placeholder="请选择退库部门" filterable style="width: 100%">
+            <el-option v-for="d in deptOptions" :key="d.id" :label="d.label" :value="d.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="退库日期" prop="returnDate">
@@ -425,6 +428,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Download } from '@element-plus/icons-vue'
 import { useLowValueAssetStore } from '../../store/lowValueAsset'
 import { useOrgStore } from '../../store/org'
+import { labelOf, optionsOf } from '../../constants/enums'
 
 const store = useLowValueAssetStore()
 const orgStore = useOrgStore()
@@ -432,24 +436,46 @@ const orgStore = useOrgStore()
 const activeTab = ref('item')
 const categoryOptions = computed(() => store.categoryOptions)
 const locationOptions = computed(() => store.locationOptions)
+const itemStatusOptions = optionsOf('LOW_VALUE_ITEM_STATUS')
 /** 部门口径取自组织架构主数据，同名部门以公司名区分 */
 const deptOptions = computed(() => orgStore.departmentOptions.map(d => ({ ...d, label: `${d.name}（${d.companyName}）` })))
+
+/** 部门 id -> 部门名（展示用） */
+function deptNameOf(deptId) {
+  return deptId ? (orgStore.deptName(deptId) || deptId) : ''
+}
 
 function today() {
   return new Date().toISOString().slice(0, 10)
 }
 
 // ---------- 库存台账 ----------
-const itemSearch = reactive({ category: '', keyword: '' })
+const itemSearch = reactive({ categoryId: '', keyword: '' })
 watch(itemSearch, () => { itemPage.value = 1 }, { deep: true })
 
 const itemPage = ref(1)
 const itemPageSize = ref(15)
 
+/**
+ * 单据视图模型：优先用单据里的快照字段，缺失时（历史数据）从物品主数据回填，
+ * 保证物品名称/类别/规格/单位不会出现空白列。
+ */
+function decorateDoc(r) {
+  const item = store.items.find(i => i.id === r.itemId)
+  return {
+    ...r,
+    itemName: r.itemName || item?.name || '',
+    categoryName: r.categoryName || (item ? store.categoryName(item.categoryId) : ''),
+    spec: r.spec || item?.spec || '',
+    unit: r.unit || item?.unit || ''
+  }
+}
+
+/** 台账用 store 的视图模型：已带出类别名与状态文案 */
 const filteredItemList = computed(() => {
   const kw = itemSearch.keyword.trim()
-  return store.items.filter(i => {
-    const categoryMatch = !itemSearch.category || i.category === itemSearch.category
+  return store.itemRows.filter(i => {
+    const categoryMatch = !itemSearch.categoryId || i.categoryId === itemSearch.categoryId
     const kwMatch = !kw || i.name.includes(kw) || (i.spec || '').includes(kw) || i.code.includes(kw)
     return categoryMatch && kwMatch
   })
@@ -461,7 +487,7 @@ const pagedItemList = computed(() => {
 })
 
 function resetItemSearch() {
-  itemSearch.category = ''
+  itemSearch.categoryId = ''
   itemSearch.keyword = ''
   itemPage.value = 1
 }
@@ -478,7 +504,7 @@ const filteredInboundList = computed(() => {
     const nameMatch = !inboundSearch.name || (r.itemName || '').includes(inboundSearch.name)
     const supplierMatch = !inboundSearch.supplier || (r.supplier || '').includes(inboundSearch.supplier)
     return nameMatch && supplierMatch
-  })
+  }).map(decorateDoc)
 })
 
 const pagedInboundList = computed(() => {
@@ -502,10 +528,10 @@ const requisitionPageSize = ref(15)
 const filteredRequisitionList = computed(() => {
   return store.requisitionRecords.filter(r => {
     const nameMatch = !requisitionSearch.name || (r.itemName || '').includes(requisitionSearch.name)
-    const deptMatch = !requisitionSearch.dept || (r.dept || '').includes(requisitionSearch.dept)
+    const deptMatch = !requisitionSearch.dept || deptNameOf(r.deptId).includes(requisitionSearch.dept)
     const receiverMatch = !requisitionSearch.receiver || (r.receiver || '').includes(requisitionSearch.receiver)
     return nameMatch && deptMatch && receiverMatch
-  })
+  }).map(decorateDoc)
 })
 
 const pagedRequisitionList = computed(() => {
@@ -532,7 +558,7 @@ const filteredReturnList = computed(() => {
     const nameMatch = !returnSearch.name || (r.itemName || '').includes(returnSearch.name)
     const returnerMatch = !returnSearch.returner || (r.returner || '').includes(returnSearch.returner)
     return nameMatch && returnerMatch
-  })
+  }).map(decorateDoc)
 })
 
 const pagedReturnList = computed(() => {
@@ -561,7 +587,7 @@ function downloadCsv(headers, rows, filename) {
 
 function exportItems() {
   const headers = ['物品编码', '物品类别', '物品名称', '规格型号', '单位', '物品单价(元)', '物品数量', '安全库存', '存放位置', '状态']
-  const rows = filteredItemList.value.map(i => [i.code, i.category, i.name, i.spec, i.unit, i.price, i.stock, i.safetyStock, i.location, i.status])
+  const rows = filteredItemList.value.map(i => [i.code, i.categoryName, i.name, i.spec, i.unit, i.price, i.stock, i.safetyStock, i.location, i.statusText])
   downloadCsv(headers, rows, `导出_低值资产台账_${today()}.csv`)
 }
 
@@ -569,19 +595,19 @@ const DOC_EXPORT = {
   inbound: {
     name: '低值资产入库',
     headers: ['单据编号', '物品名称', '物品类别', '规格型号', '单位', '入库数量', '单价(元)', '金额(元)', '供应商', '入库日期', '经办人', '备注'],
-    fields: r => [r.docNo, r.itemName, r.category, r.spec, r.unit, r.quantity, r.price, r.amount, r.supplier, r.inboundDate, r.operator, r.remark],
+    fields: r => [r.docNo, r.itemName, r.categoryName, r.spec, r.unit, r.quantity, r.price, r.amount, r.supplier, r.inboundDate, r.operator, r.remark],
     list: () => filteredInboundList.value
   },
   requisition: {
     name: '低值资产领用',
     headers: ['单据编号', '物品名称', '物品类别', '规格型号', '单位', '领用数量', '金额(元)', '领用人', '领用部门', '领用日期', '用途', '经办人'],
-    fields: r => [r.docNo, r.itemName, r.category, r.spec, r.unit, r.quantity, r.amount, r.receiver, r.dept, r.requisitionDate, r.purpose, r.operator],
+    fields: r => [r.docNo, r.itemName, r.categoryName, r.spec, r.unit, r.quantity, r.amount, r.receiver, deptNameOf(r.deptId), r.requisitionDate, r.purpose, r.operator],
     list: () => filteredRequisitionList.value
   },
   return: {
     name: '低值资产退库',
     headers: ['单据编号', '物品名称', '物品类别', '规格型号', '单位', '退库数量', '金额(元)', '退库人', '退库部门', '退库日期', '退库原因', '经办人'],
-    fields: r => [r.docNo, r.itemName, r.category, r.spec, r.unit, r.quantity, r.amount, r.returner, r.dept, r.returnDate, r.reason, r.operator],
+    fields: r => [r.docNo, r.itemName, r.categoryName, r.spec, r.unit, r.quantity, r.amount, r.returner, deptNameOf(r.deptId), r.returnDate, r.reason, r.operator],
     list: () => filteredReturnList.value
   }
 }
@@ -596,17 +622,17 @@ const itemFormRef = ref()
 const itemDialog = reactive({
   visible: false,
   isEdit: false,
-  form: { id: '', code: '', category: '', name: '', spec: '', unit: '', price: 0, stock: 0, safetyStock: 0, location: '', status: '正常' }
+  form: { id: '', code: '', categoryId: '', name: '', spec: '', unit: '', price: 0, stock: 0, safetyStock: 0, location: '', status: 'NORMAL' }
 })
 
 const itemRules = {
-  category: [{ required: true, message: '请选择物品类别', trigger: 'change' }],
+  categoryId: [{ required: true, message: '请选择物品类别', trigger: 'change' }],
   name: [{ required: true, message: '请输入物品名称', trigger: 'blur' }],
   unit: [{ required: true, message: '请输入单位', trigger: 'blur' }]
 }
 
 function emptyItemForm() {
-  return { id: '', code: '', category: categoryOptions.value[0] || '', name: '', spec: '', unit: '', price: 0, stock: 0, safetyStock: 0, location: locationOptions.value[0] || '', status: '正常' }
+  return { id: '', code: '', categoryId: categoryOptions.value[0]?.id || '', name: '', spec: '', unit: '', price: 0, stock: 0, safetyStock: 0, location: locationOptions.value[0]?.name || '', status: 'NORMAL' }
 }
 
 function openItemDialog(row) {
@@ -654,11 +680,11 @@ const inboundDialog = reactive({
 })
 const requisitionDialog = reactive({
   visible: false,
-  form: { itemId: '', quantity: 1, receiver: '', dept: '', requisitionDate: today(), purpose: '', operator: '' }
+  form: { itemId: '', quantity: 1, receiver: '', deptId: '', requisitionDate: today(), purpose: '', operator: '' }
 })
 const returnDialog = reactive({
   visible: false,
-  form: { itemId: '', quantity: 1, returner: '', dept: '', returnDate: today(), reason: '', operator: '' }
+  form: { itemId: '', quantity: 1, returner: '', deptId: '', returnDate: today(), reason: '', operator: '' }
 })
 
 const docRules = {
@@ -669,7 +695,7 @@ const docRules = {
   returnDate: [{ required: true, message: '请选择退库日期', trigger: 'change' }],
   receiver: [{ required: true, message: '请输入领用人', trigger: 'blur' }],
   returner: [{ required: true, message: '请输入退库人', trigger: 'blur' }],
-  dept: [{ required: true, message: '请输入部门', trigger: 'blur' }],
+  deptId: [{ required: true, message: '请选择部门', trigger: 'change' }],
   reason: [{ required: true, message: '请输入退库原因', trigger: 'blur' }]
 }
 
@@ -696,13 +722,13 @@ function openInboundDialog() {
 }
 
 function openRequisitionDialog() {
-  Object.assign(requisitionDialog.form, { itemId: '', quantity: 1, receiver: '', dept: '', requisitionDate: today(), purpose: '', operator: '' })
+  Object.assign(requisitionDialog.form, { itemId: '', quantity: 1, receiver: '', deptId: '', requisitionDate: today(), purpose: '', operator: '' })
   requisitionDialog.visible = true
   nextTick(() => requisitionFormRef.value?.clearValidate())
 }
 
 function openReturnDialog() {
-  Object.assign(returnDialog.form, { itemId: '', quantity: 1, returner: '', dept: '', returnDate: today(), reason: '', operator: '' })
+  Object.assign(returnDialog.form, { itemId: '', quantity: 1, returner: '', deptId: '', returnDate: today(), reason: '', operator: '' })
   returnDialog.visible = true
   nextTick(() => returnFormRef.value?.clearValidate())
 }

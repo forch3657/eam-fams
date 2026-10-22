@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="page-container">
     <div class="page-header">
       <h2>固定资产报表</h2>
@@ -273,17 +273,20 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Download, Search } from '@element-plus/icons-vue'
+import { labelOf } from '../../constants/enums'
 import { useFixedAssetStore } from '../../store/fixedAsset'
+import { useOrgStore } from '../../store/org'
 import { useCollection } from '../../composables/useCollection'
 import { COLLECTION } from '../../services'
 
 const fixedAssetStore = useFixedAssetStore()
+const orgStore = useOrgStore()
 
 const activeTab = ref('category')
 
 const categoryStats = computed(() => {
   const grouped = {}
-  fixedAssetStore.assets.forEach(a => {
+  fixedAssetStore.assetLedger.forEach(a => {
     const key = a.type || '其他'
     if (!grouped[key]) grouped[key] = { name: key, count: 0, amount: 0 }
     grouped[key].count++
@@ -298,7 +301,7 @@ const categoryStats = computed(() => {
 
 const locationStats = computed(() => {
   const grouped = {}
-  fixedAssetStore.assets.forEach(a => {
+  fixedAssetStore.assetLedger.forEach(a => {
     const key = a.location || '未指定'
     if (!grouped[key]) grouped[key] = { location: key, count: 0, amount: 0, depts: new Set() }
     grouped[key].count++
@@ -317,7 +320,7 @@ const locationStats = computed(() => {
 
 const departmentStats = computed(() => {
   const grouped = {}
-  fixedAssetStore.assets.forEach(a => {
+  fixedAssetStore.assetLedger.forEach(a => {
     const key = a.dept || '未分配'
     if (!grouped[key]) grouped[key] = { department: key, assetCount: 0, assetAmount: 0, users: new Set() }
     grouped[key].assetCount++
@@ -344,7 +347,7 @@ watch(userSearch, () => { userPage.value = 1 }, { deep: true })
 
 const userStats = computed(() => {
   const grouped = {}
-  fixedAssetStore.assets.forEach(a => {
+  fixedAssetStore.assetLedger.forEach(a => {
     const key = a.user || '未分配'
     if (!grouped[key]) grouped[key] = { name: key, department: a.dept || '未分配', assetCount: 0, assetAmount: 0, assets: [] }
     grouped[key].assetCount++
@@ -354,7 +357,7 @@ const userStats = computed(() => {
   return Object.values(grouped).map(g => ({
     name: g.name,
     department: g.department,
-    position: '',
+    position: orgStore.users.find(u => u.name === g.name)?.position || '',
     assetCount: g.assetCount,
     assetAmount: g.assetAmount,
     assetDetail: g.assets.join('、')
@@ -382,15 +385,7 @@ const userTotal = computed(() => filteredUserStats.value.length)
 const depreciationSearch = reactive({ name: '', method: '' })
 watch(depreciationSearch, () => { depreciationPage.value = 1 }, { deep: true })
 
-const depreciationDetailCol = useCollection(COLLECTION.reportDepreciationDetails, [
-  { assetNo: 'ZC2024001', name: '联想ThinkPad笔记本电脑', originalValue: 85000, depreciationMethod: '直线法', usefulLife: 5, accumulatedDepreciation: 34000, netValue: 51000, depreciationRate: 40, purchaseDate: '2024-01-15' },
-  { assetNo: 'ZC2024002', name: '惠普打印机', originalValue: 16000, depreciationMethod: '直线法', usefulLife: 5, accumulatedDepreciation: 4800, netValue: 11200, depreciationRate: 30, purchaseDate: '2024-06-01' },
-  { assetNo: 'ZC2023001', name: '丰田凯美瑞轿车', originalValue: 360000, depreciationMethod: '双倍余额递减法', usefulLife: 8, accumulatedDepreciation: 135000, netValue: 225000, depreciationRate: 37.5, purchaseDate: '2023-03-20' },
-  { assetNo: 'ZC2023002', name: '办公桌', originalValue: 24000, depreciationMethod: '直线法', usefulLife: 10, accumulatedDepreciation: 7200, netValue: 16800, depreciationRate: 30, purchaseDate: '2023-08-10' },
-  { assetNo: 'ZC2022001', name: '旧款联想台式机', originalValue: 50000, depreciationMethod: '直线法', usefulLife: 5, accumulatedDepreciation: 50000, netValue: 0, depreciationRate: 100, purchaseDate: '2022-01-05' },
-  { assetNo: 'ZC2025001', name: 'A4复印纸', originalValue: 2500, depreciationMethod: '直线法', usefulLife: 1, accumulatedDepreciation: 1250, netValue: 1250, depreciationRate: 50, purchaseDate: '2025-09-01' },
-  { assetNo: 'ZC2025002', name: '服务器', originalValue: 120000, depreciationMethod: '年数总和法', usefulLife: 5, accumulatedDepreciation: 48000, netValue: 72000, depreciationRate: 40, purchaseDate: '2025-02-15' }
-])
+const depreciationDetailCol = useCollection(COLLECTION.reportDepreciationDetails)
 const depreciationList = depreciationDetailCol.items
 
 const filteredDepreciationList = computed(() => {
@@ -403,7 +398,12 @@ const filteredDepreciationList = computed(() => {
 
 const displayDepreciationList = computed(() => {
   const start = (depreciationPage.value - 1) * depreciationPageSize.value
-  return filteredDepreciationList.value.slice(start, start + depreciationPageSize.value)
+  // 补出资产编号与折旧方式文案（库里只存 assetId / 枚举编码）
+  return filteredDepreciationList.value.slice(start, start + depreciationPageSize.value).map(r => ({
+    ...r,
+    assetNo: fixedAssetStore.assets.find(a => a.id === r.assetId)?.code || '',
+    depreciationMethod: labelOf('DEPRECIATION_METHOD', r.depreciationMethod)
+  }))
 })
 
 const depreciationPage = ref(1)
@@ -478,32 +478,21 @@ const pagedDepartmentStats = computed(() => {
   return departmentStats.value.slice(start, start + deptPageSize.value)
 })
 
-const depreciationPlanDetailCol = useCollection(COLLECTION.reportDepreciationPlanDetails, [
-  { planName: '电子设备年限平均折旧', assetCode: 'GD20260001', assetName: '联想ThinkPad笔记本电脑', assetType: '电子设备', company: '华信科技集团有限公司', original: 8500, residualRate: 5, totalLife: 36, usedLife: 6, depDate: '2026-09-25', finished: false },
-  { planName: '电子设备年限平均折旧', assetCode: 'GD20260006', assetName: '华为会议平板', assetType: '电子设备', company: '华信科技集团有限公司', original: 26800, residualRate: 5, totalLife: 36, usedLife: 5, depDate: '2026-09-25', finished: false },
-  { planName: '租赁设备按起租日折旧', assetCode: 'GD20260010', assetName: '服务器机柜', assetType: '电子设备', company: '恒信融资租赁有限公司', original: 42000, residualRate: 5, totalLife: 36, usedLife: 22, depDate: '2026-09-28', finished: false },
-  { planName: '运输设备双倍余额折旧', assetCode: 'GD20260004', assetName: '丰田考斯特商务车', assetType: '运输设备', company: '中天建设集团有限公司', original: 385000, residualRate: 5, totalLife: 60, usedLife: 15, depDate: '2026-09-20', finished: false },
-  { planName: '机械设备工作量折旧', assetCode: 'GD20260005', assetName: '数控车床CK6140', assetType: '机械设备', company: '恒信融资租赁有限公司', original: 268000, residualRate: 5, totalLife: 48, usedLife: 24, depDate: '2026-09-15', finished: false },
-  { planName: '办公家具直线折旧', assetCode: 'GD20260008', assetName: '实木会议桌', assetType: '办公家具', company: '中天建设集团有限公司', original: 12800, residualRate: 5, totalLife: 60, usedLife: 9, depDate: '2026-09-25', finished: false },
-  { planName: '房屋建筑物年度折旧', assetCode: 'GD20250021', assetName: '总部办公楼附属用房', assetType: '房屋建筑物', company: '云鼎资产管理有限公司', original: 1280000, residualRate: 10, totalLife: 240, usedLife: 66, depDate: '2026-09-30', finished: false },
-  { planName: '电子设备年限平均折旧', assetCode: 'GD20240018', assetName: '旧款联想台式机', assetType: '电子设备', company: '华信科技集团有限公司', original: 5600, residualRate: 5, totalLife: 36, usedLife: 36, depDate: '2026-09-25', finished: true },
-  { planName: '电子设备年限平均折旧', assetCode: 'GD20260012', assetName: '爱普生投影仪', assetType: '电子设备', company: '云鼎资产管理有限公司', original: 4600, residualRate: 5, totalLife: 36, usedLife: 3, depDate: '2026-08-25', finished: false },
-  { planName: '机械设备工作量折旧', assetCode: 'GD20260011', assetName: '合力3吨叉车', assetType: '机械设备', company: '中天建设集团有限公司', original: 96000, residualRate: 5, totalLife: 60, usedLife: 13, depDate: '2026-08-15', finished: false },
-  { planName: '租赁设备按起租日折旧', assetCode: 'GD20260007', assetName: '格力中央空调机组', assetType: '机械设备', company: '云鼎资产管理有限公司', original: 158000, residualRate: 5, totalLife: 120, usedLife: 18, depDate: '2026-08-28', finished: false },
-  { planName: '电子设备年限平均折旧', assetCode: 'GD20260013', assetName: '不间断电源UPS', assetType: '电子设备', company: '华信科技集团有限公司', original: 18600, residualRate: 5, totalLife: 48, usedLife: 11, depDate: '2026-08-25', finished: false },
-  { planName: '运输设备双倍余额折旧', assetCode: 'GD20250009', assetName: '别克GL8商务车', assetType: '运输设备', company: '云鼎资产管理有限公司', original: 268000, residualRate: 5, totalLife: 60, usedLife: 26, depDate: '2026-07-20', finished: false },
-  { planName: '办公家具直线折旧', assetCode: 'GD20260009', assetName: '人体工学办公椅', assetType: '办公家具', company: '华信科技集团有限公司', original: 1580, residualRate: 5, totalLife: 24, usedLife: 8, depDate: '2026-07-25', finished: false },
-  { planName: '房屋建筑物年度折旧', assetCode: 'GD20240006', assetName: '一号生产厂房', assetType: '房屋建筑物', company: '中天建设集团有限公司', original: 2600000, residualRate: 10, totalLife: 300, usedLife: 92, depDate: '2026-07-31', finished: false },
-  { planName: '电子设备年限平均折旧', assetCode: 'GD20230012', assetName: '惠普激光打印机', assetType: '电子设备', company: '恒信融资租赁有限公司', original: 3200, residualRate: 5, totalLife: 24, usedLife: 24, depDate: '2026-07-25', finished: true }
-])
+const depreciationPlanDetailCol = useCollection(COLLECTION.reportDepreciationPlanDetails)
 const depreciationDetailSource = depreciationPlanDetailCol.items
 
 const depreciationDetails = computed(() => depreciationDetailSource.value.map(r => {
   const monthly = r.original * (1 - r.residualRate / 100) / r.totalLife
   const cap = r.original * (1 - r.residualRate / 100)
   const accumulated = Math.min(monthly * r.usedLife, cap)
+  const asset = fixedAssetStore.assets.find(a => a.id === r.assetId)
   return {
     ...r,
+    // 展示用：资产编码、所属公司名称、资产类型文案（库里只存 id / 编码）
+    assetCode: asset ? asset.code : (r.assetCode || ''),
+    assetNo: asset ? asset.code : (r.assetNo || ''),
+    company: r.companyId ? (orgStore.companyName(r.companyId) || r.companyId) : '',
+    assetType: labelOf('ASSET_CATEGORY', r.assetType),
     periodAmount: r.finished ? 0 : Math.round(monthly * 100) / 100,
     accumulatedDepreciation: Math.round(accumulated * 100) / 100,
     netValue: Math.round((r.original - accumulated) * 100) / 100,

@@ -154,32 +154,7 @@ const bizType = ref('')
 const statusFilter = ref('')
 
 let stepSeq = 100
-const flowCol = useCollection(COLLECTION.systemFlows, [
-  {
-    id: 1, code: 'FLOW-001', name: '合同审批流程', bizType: '合同审批', initiator: '招商经办人', enabled: true,
-    steps: [
-      { key: 1, name: '部门初审', approver: '部门负责人', mode: '或签', amountLimit: 0, condition: '' },
-      { key: 2, name: '法务审核', approver: '法务专员', mode: '依次', amountLimit: 0, condition: '' },
-      { key: 3, name: '财务复核', approver: '财务经理', mode: '依次', amountLimit: 0, condition: '' },
-      { key: 4, name: '领导审批', approver: '总经理', mode: '或签', amountLimit: 500000, condition: '年租金>50万' },
-    ]
-  },
-  {
-    id: 2, code: 'FLOW-002', name: '资产处置流程', bizType: '资产处置', initiator: '资产管理员', enabled: true,
-    steps: [
-      { key: 5, name: '处置申请', approver: '部门负责人', mode: '或签', amountLimit: 0, condition: '' },
-      { key: 6, name: '评估复核', approver: '风控专员', mode: '依次', amountLimit: 0, condition: '' },
-      { key: 7, name: '董事会决议', approver: '董事长', mode: '会签', amountLimit: 0, condition: '土地类资产' },
-    ]
-  },
-  {
-    id: 3, code: 'FLOW-003', name: '保证金退还流程', bizType: '保证金退还', initiator: '财务经办人', enabled: false,
-    steps: [
-      { key: 8, name: '财务核对', approver: '财务经理', mode: '依次', amountLimit: 0, condition: '' },
-      { key: 9, name: '分管领导', approver: '分管副总', mode: '或签', amountLimit: 100000, condition: '金额>10万' },
-    ]
-  },
-])
+const flowCol = useCollection(COLLECTION.systemFlows)
 const flows = flowCol.items
 
 const filtered = computed(() => flows.value.filter(p => {

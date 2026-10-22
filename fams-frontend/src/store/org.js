@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { dataService, registerSeed, COLLECTION, useMock } from '../services'
+import { dataService, COLLECTION, useMock } from '../services'
 import { ORG_SEEDS } from '../services/mock/seed/org'
+import { STATUS_ENABLED } from '../constants/enums'
 
 function nowText() {
   const d = new Date()
@@ -37,10 +38,7 @@ export const useOrgStore = defineStore('org', () => {
   const roles = ref(seedOf('roles'))
   const loaded = ref(false)
 
-  registerSeed(COLLECTION.orgCompanies, ORG_SEEDS.companies)
-  registerSeed(COLLECTION.orgDepartments, ORG_SEEDS.departments)
-  registerSeed(COLLECTION.orgUsers, ORG_SEEDS.users)
-  registerSeed(COLLECTION.orgRoles, ORG_SEEDS.roles)
+  // 种子由 services/mock/seed/index.js 统一注册，这里不再重复登记
 
   async function loadAll() {
     const [c, d, u, r] = await Promise.all([
@@ -110,13 +108,13 @@ export const useOrgStore = defineStore('org', () => {
   })
 
   /** 供业务模块下拉使用：仅启用状态 */
-  const companyOptions = computed(() => companies.value.filter(c => c.status === '启用').map(c => c.name))
+  const companyOptions = computed(() => companies.value.filter(c => c.status === STATUS_ENABLED).map(c => c.name))
 
   const departmentOptions = computed(() => departments.value
-    .filter(d => d.status === '启用')
+    .filter(d => d.status === STATUS_ENABLED)
     .map(d => ({ id: d.id, name: d.name, companyId: d.companyId, companyName: companyName(d.companyId) })))
 
-  const roleOptions = computed(() => roles.value.filter(r => r.status === '启用').map(r => ({ id: r.id, name: r.name })))
+  const roleOptions = computed(() => roles.value.filter(r => r.status === STATUS_ENABLED).map(r => ({ id: r.id, name: r.name })))
 
   /** 部门在职人数：由用户表统计，部门表不再冗余人员字段 */
   const deptMemberCount = computed(() => {
@@ -139,7 +137,8 @@ export const useOrgStore = defineStore('org', () => {
   // ---------------- 公司 ----------------
   async function addCompany(data) {
     if (companies.value.some(c => c.name === data.name)) throw new Error('公司名称已存在')
-    const row = { ...data, id: `C${Date.now()}`, code: data.code || nextCode('GS', companies.value), status: data.status || '启用' }
+    // 主键由服务端生成，前端不再自行拼装 id
+    const row = { ...data, code: data.code || nextCode('GS', companies.value), status: data.status || STATUS_ENABLED }
     const created = await dataService.create(COLLECTION.orgCompanies, row)
     companies.value.push(created || row)
     return created || row
@@ -171,9 +170,8 @@ export const useOrgStore = defineStore('org', () => {
     if (data.parentId === data.companyId) throw new Error('上级部门不能是所属公司本身')
     const row = {
       ...data,
-      id: `D${Date.now()}`,
       code: data.code || nextCode('BM', departments.value),
-      status: data.status || '启用'
+      status: data.status || STATUS_ENABLED
     }
     const created = await dataService.create(COLLECTION.orgDepartments, row)
     departments.value.push(created || row)
@@ -229,10 +227,9 @@ export const useOrgStore = defineStore('org', () => {
     if (users.value.some(u => u.username === data.username)) throw new Error('用户名已存在')
     const row = {
       ...data,
-      id: `U${Date.now()}`,
       roleIds: data.roleIds || [],
-      status: data.status || '启用',
-      createdAt: nowText(),
+      status: data.status || STATUS_ENABLED,
+      createdAt: new Date().toISOString(),
       lastLoginAt: ''
     }
     const created = await dataService.create(COLLECTION.orgUsers, row)
@@ -270,7 +267,7 @@ export const useOrgStore = defineStore('org', () => {
   async function addRole(data) {
     if (roles.value.some(r => r.code === data.code)) throw new Error('角色编码已存在')
     if (roles.value.some(r => r.name === data.name)) throw new Error('角色名称已存在')
-    const row = { ...data, id: `R${Date.now()}`, permissions: data.permissions || [], status: data.status || '启用' }
+    const row = { ...data, permissions: data.permissions || [], status: data.status || STATUS_ENABLED }
     const created = await dataService.create(COLLECTION.orgRoles, row)
     roles.value.push(created || row)
     return created || row
