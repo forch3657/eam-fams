@@ -1,0 +1,166 @@
+# 资产管理系统（fams-frontend）
+
+从经营性资产管理系统中抽离出来的**固定资产 + 低值资产**独立前端工程，可单独开发、单独运行。侧边栏顺序：固定资产 → 低值资产 → 组织架构 → 系统管理。
+
+## 启动
+
+本机 Node 不在 PATH，工程根目录提供了启动脚本 `run.bat` / `run.ps1`，会自动加载预装 Node 运行时、按需安装依赖并启动。
+
+```powershell
+cd f:/work/EAM-FAMS/fams-frontend
+.\run.bat            # 启动 dev 服务器 -> http://localhost:5174/
+.\run.bat install    # 强制重新安装依赖后启动（依赖异常/首次克隆后）
+.\run.bat build      # 构建生产包
+.\run.bat preview    # 预览构建产物
+```
+
+脚本行为：
+
+- 自动把预装 Node（`$env:USERPROFILE\.workbuddy\binaries\node\versions\22.22.2-6`）加入 PATH，无需手动配置。
+- `node_modules` 不存在时自动执行 `npm install`；`run.bat install` 可强制重装。
+- `run.bat` 以 `powershell -ExecutionPolicy Bypass` 运行 `run.ps1`，双击即可，不受系统执行策略限制。
+- 也可用 `.\run.ps1`（支持 `-Install` / `-Build` / `-Preview` 参数）直接运行。
+
+如需手动启动（不使用脚本）：
+
+```powershell
+$env:Path = "$env:USERPROFILE\.workbuddy\binaries\node\versions\22.22.2-6;$env:Path"
+cd f:/work/EAM-FAMS/fams-frontend
+npm install
+npm run dev     # http://localhost:5174/
+```
+
+演示账号：`admin / 123456`（系统管理员）、`asset / 123456`（资产管理员）。
+
+## 功能范围
+
+| 路由 | 页面 | 内容 |
+| --- | --- | --- |
+| `/fixed-assets` | 资产管理 | 固定资产、入库/验收、派发/退库、借出使用、资产变更、资产处置、资产盘点、折旧管理 |
+| `/fixed-asset-reports` | 资产报表 | 分类/位置/部门/使用人统计、折旧明细与导出 |
+| `/fixed-asset-settings` | 基础设置 | 位置、分类、折旧规则、折旧方案、审批流程 |
+| `/low-value-assets` | 低值资产管理 | 库存台账（类别/关键字筛选、低库存预警、导出）、入库、领用、退库 |
+| `/low-value-asset-reports` | 低值资产报表 | 类别统计、部门领用统计、出入库汇总与导出 |
+| `/low-value-asset-settings` | 低值资产基础设置 | 类别、存放位置、审批流程（低值资产不计提折旧，无折旧页签） |
+| `/system/company` | 公司管理 | 公司层级树（集团→子公司）、公司增删改、启停用、删除保护 |
+| `/system/dept` | 部门管理 | 公司→部门→子部门树、部门增删改、启停用、部门人员维护 |
+| `/system/user` | 用户管理 | 统一用户主数据、公司/部门/角色归属、重置密码、启停用 |
+| `/system/role` | 角色管理 | 角色增删改、启停用、按真实模块的权限树配置 |
+| `/system/dict` | 数据字典 | 字典类型、字典项、资产类型字段 |
+| `/system/log` | 操作日志 | 页面访问与业务操作留痕 |
+| `/system/workflow` | 流程配置 | 审批流程与环节编排 |
+| `/system/params` | 系统参数 | 系统内置/自定义参数 |
+| `/system/message-center` | 消息中心 | 站内消息、未读提醒 |
+| `/system/message-template` | 消息模板 | 模板维护与变量渲染 |
+| `/system/terminal` | 终端管理 | 终端设备台账、违规使用记录 |
+
+## 目录结构
+
+```
+src/
+├── main.js / App.vue          入口
+├── router/index.js            登录 + 三条业务路由（含登录守卫）
+├── layouts/MainLayout.vue     侧边栏（固定资产 / 低值资产 / 组织架构 / 系统管理）+ 顶栏 + 页签栏
+├── views/Login.vue            轻量登录页（sessionStorage 存登录态）
+├── views/fixed-asset/         固定资产三个业务页面
+├── views/low-value-asset/     低值资产三个业务页面
+├── views/system/              组织架构（公司/部门/用户/角色）与系统管理页面
+├── config/permissions.js      权限树定义（固定资产/低值资产/组织架构/系统管理）
+├── store/
+│   ├── user.js                登录/登出
+│   ├── app.js                 侧边栏折叠、页签栈
+│   ├── fixedAsset.js          资产与六类业务单据
+│   ├── lowValueAsset.js       低值资产物品、入库/领用/退库单据、基础设置与报表统计
+│   └── org.js                 组织架构主数据：公司/部门/用户/角色的唯一数据源
+│   ├── notify.js              消息中心与消息模板
+│   └── audit.js               操作日志
+├── composables/useCollection.js  集合读写封装（load/add/update/remove/save）
+└── services/
+    ├── index.js               数据服务出口：按 .env 在 mock / HTTP 间切换
+    ├── http.js                fetch 封装（baseURL、超时、统一错误）
+    ├── collections.js         集合 key 常量
+    └── mock/
+        ├── index.js           内存版 CRUD
+        ├── seed/asset.js      固定资产类种子数据
+        ├── seed/lowValueAsset.js  低值资产种子数据（物品、单据、类别、位置、流程）
+        └── seed/org.js        组织架构主数据种子（公司、部门、用户、角色）
+```
+
+## 组织架构主数据
+
+公司、部门、用户、角色统一由 `store/org.js` 维护，是**唯一数据源**：资产模块的公司、部门下拉一律取自这里，不再各页硬编码。
+
+| 集合 | 关键字段 |
+| --- | --- |
+| `org-companies` | code、name、shortName、parentId（集团→子公司）、type、creditCode、legalPerson、contact、phone、address、status、sort |
+| `org-departments` | code、name、parentId、companyId、leader、headcount（编制）、phone、status、sort |
+| `org-users` | username、name、companyId、deptId、position、roleIds[]、phone、email、status、createdAt、lastLoginAt |
+| `org-roles` | code、name、orgScope、dataScope、status、remark、permissions[] |
+
+设计约定：
+
+- 部门**不冗余**人员字段，在职人数由 `users.deptId` 统计，避免双写不一致。
+- 删除保护：有子公司/部门/用户的公司、有子部门或人员的部门、有关联用户的角色，均禁止删除。
+- 角色权限以权限编码（如 `fa:view`、`lv:requisition`）存储，权限树见 `config/permissions.js`。
+- 用户新增默认密码 `123456`，重置密码生成随机口令并回显给管理员。
+- mock 数据落在 localStorage，旧版 `system-*` 集合已废弃；如浏览器残留旧数据，清空 `fams-mock-db-v1` 即可。
+
+## 低值资产模块
+
+### 业务规则
+
+- 库存联动：入库 `库存 += 数量`；领用 `库存 -= 数量`（不足时拒绝并提示）；退库 `库存 += 数量`。
+- 退库校验：退库数量不得超过「已领未退数量」（领用总量 − 退库总量）。
+- 金额按提交时的单价快照计算，后续改价不影响历史单据。
+- 删除保护：仍有库存或已产生单据的物品不可删除；仍被物品引用的类别/位置不可删除。
+- 低库存预警：库存 ≤ 安全库存时在台账标记「预警」。
+
+### 集合 key
+
+| Key | 说明 |
+| --- | --- |
+| `low-value-items` | 低值资产台账（code、category、name、spec、unit、price、stock、safetyStock、location、status） |
+| `low-value-inbound` | 入库单据（docNo、itemId、quantity、price、amount、supplier、inboundDate、operator） |
+| `low-value-requisition` | 领用单据（docNo、itemId、quantity、amount、receiver、dept、requisitionDate、purpose） |
+| `low-value-return` | 退库单据（docNo、itemId、quantity、returner、dept、returnDate、reason） |
+| `low-value-settings-categories` | 类别设置（办公用品 / 水 / 劳保用品 / 纸品） |
+| `low-value-settings-locations` | 存放位置设置 |
+| `low-value-settings-approval-flows` | 审批流程设置（适用业务：入库 / 领用 / 退库） |
+
+编号规则：物品编码 `DZ + 年份 + 序号`，单据编号 `RK / PY / TK + 年份 + 序号`（可留空自动生成）。
+
+## 数据层：mock 与后端切换
+
+页面与 store 只依赖 `services/index.js` 暴露的 `dataService`，界面代码不感知数据来源。
+
+`.env`：
+
+```
+VITE_USE_MOCK=true      # true：内置 mock；false：调用后端接口
+VITE_API_BASE_URL=      # 后端根地址，为空时自动回落 mock，避免误配白屏
+```
+
+切后端步骤：复制 `.env.example` 为 `.env`，设置 `VITE_USE_MOCK=false` 与 `VITE_API_BASE_URL=http://host/api` 即可，无需改业务代码。
+
+后端需提供的 REST 接口（key 见 `src/services/collections.js`）：
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/{key}` | 列表 |
+| POST | `/{key}` | 新增，body 为行对象 |
+| PUT | `/{key}/{id}` | 修改，body 为行对象 |
+| DELETE | `/{key}/{id}` | 删除 |
+| PUT | `/{key}/batch` | 整表回写（树形分类等批量改动） |
+
+请求头自动带上 `Authorization: Bearer <sessionStorage.token>`；返回体支持裸数组或 `{ data: ... }`。
+
+### 两条实现约定
+
+- mock 与 HTTP 行为一致：读取返回深拷贝、写入只落库，页面/store 维护自己的响应式副本（避免同一条数据被插入两次）。
+- 业务写入统一走 `useCollection().add/update/remove`；行内嵌套字段（如盘点明细、分类树、流程环节）就地修改后需调用 `update()` 或 `save()` 回写。
+- mock 数据落 `localStorage`（键名 `fams-mock-db-v1`），刷新后仍保留改动；清空该键即可恢复种子数据。
+
+## 与原系统的关系
+
+- 原项目 `f:/work/FAMS` 未被修改，固定资产模块仍是其中一部分，两边可同时运行。
+- 本工程剥离了审计留痕、GIS 地图、echarts 大屏等无关能力，依赖精简为 vue / vue-router / pinia / element-plus / icons / qrcode。

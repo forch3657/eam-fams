@@ -1,0 +1,7 @@
+node_modules/
+dist/
+dist-single/
+.playwright-cli/
+*.log
+*.err
+.DS_Store
