@@ -171,15 +171,25 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.workbench-page { display: block; }
+/**
+ * 一屏布局：整页锁定为内容区高度，不再产生整页纵向滚动。
+ * 纵向分配固定（页头 / 指标条 / 概览）+ 弹性（主体），
+ * 主体内部各自滚动，因此概览看板始终可见，无需下拉。
+ */
+.workbench-page {
+  height: 100%;
+  min-height: 0 !important; /* 覆盖 .page-container 的 min-height:100%，否则内容会被撑高 */
+  gap: 12px;                /* 原 16px，收紧以给主体留出高度 */
+  overflow: hidden;
+}
 
 /* 页头：去掉独立卡片底，标题行直接坐在页面背景上，避免与下方指标条连成一片白块 */
 .wb-header {
-  height: auto;
+  height: 30px;
+  flex-shrink: 0;
   background: transparent;
   border: none;
   padding: 0 2px;
-  margin-bottom: 14px;
 }
 .wb-head-left { display: flex; align-items: center; gap: 12px; }
 .wb-greet { font-size: 13px; color: var(--t-weak); }
@@ -187,27 +197,40 @@ onMounted(async () => {
 .wb-ops { display: flex; align-items: center; gap: 12px; }
 .wb-updated { font-size: 12px; color: var(--t-weak); }
 
-/* 指标条：一行紧凑卡片 */
-.wb-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 12px; }
+/* 指标条：一行紧凑卡片（压缩内边距与字号，为概览腾高度） */
+.wb-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; flex-shrink: 0; }
 .wb-stat {
   display: flex; flex-direction: column; justify-content: center;
-  padding: 10px 14px; background: var(--bg-card, #fff);
+  padding: 7px 14px; background: var(--bg-card, #fff);
   border: 1px solid var(--bd); border-radius: var(--r-md); cursor: pointer;
 }
 .wb-stat:hover { border-color: var(--c-primary); }
-.wb-stat .v { font-size: 22px; font-weight: 700; line-height: 1.3; color: var(--c-primary); }
-.wb-stat .k { font-size: 12px; color: var(--t-weak); }
+.wb-stat .v { font-size: 20px; font-weight: 700; line-height: 1.25; color: var(--c-primary); }
+.wb-stat .k { font-size: 12px; color: var(--t-weak); line-height: 1.4; }
 .wb-stat.danger .v { color: var(--c-danger); }
 
-/* 主体：左右等高（列内卡片撑满，右侧内容超高时内部滚动） */
-.wb-main { align-items: stretch; margin-bottom: 12px; }
-.wb-main :deep(.el-col) { display: flex; flex-direction: column; }
-.wb-panel { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+/* 主体：吃掉剩余高度，卡片撑满，内容超高时卡片内部滚动 */
+.wb-main {
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+  /* 关键：el-row 默认 flex-wrap:wrap，固定高度容器里「行高由内容决定」，
+     会让左右两列撑到内容高度并溢出到概览看板上方。必须禁止换行。 */
+  flex-wrap: nowrap;
+}
+.wb-main :deep(.el-col) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden; /* 双保险：列高被父级约束后，超出部分不得溢出 */
+}
+.wb-panel { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 .wb-panel :deep(.el-card__body) { flex: 1; min-height: 0; }
-.wb-panel-todo :deep(.el-card__body) { padding-top: 8px; }
+/* 窗口偏矮时滚动卡片内部而非整页，保证概览看板始终在视野内 */
+.wb-panel-todo :deep(.el-card__body) { padding-top: 8px; overflow-y: auto; }
 .wb-panel-side :deep(.el-card__body) { padding-top: 4px; overflow-y: auto; }
-.wb-side-tabs { display: flex; flex-direction: column; height: 100%; }
-.wb-side-tabs :deep(.el-tabs__header) { margin-bottom: 6px; }
-.wb-side-tabs :deep(.el-tabs__content) { flex: 1; min-height: 0; }
+.wb-side-tabs { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.wb-side-tabs :deep(.el-tabs__header) { margin-bottom: 6px; flex-shrink: 0; }
+.wb-side-tabs :deep(.el-tabs__content) { flex: 1; min-height: 0; overflow-y: auto; }
 .panel-hd { display: flex; justify-content: space-between; align-items: center; }
 </style>

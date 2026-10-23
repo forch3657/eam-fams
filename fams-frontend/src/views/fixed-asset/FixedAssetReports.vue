@@ -275,11 +275,13 @@ import { Download, Search } from '@element-plus/icons-vue'
 import { labelOf, optionsOf } from '../../constants/enums'
 import { useFixedAssetStore } from '../../store/fixedAsset'
 import { useOrgStore } from '../../store/org'
+import { useUserStore } from '../../store/user'
 import { useCollection } from '../../composables/useCollection'
 import { COLLECTION } from '../../services'
 
 const fixedAssetStore = useFixedAssetStore()
 const orgStore = useOrgStore()
+const userStore = useUserStore()
 
 /** 折旧方式选项取自数据字典：下拉展示中文，筛选与落库存编码 */
 const depreciationMethodOptions = computed(() => optionsOf('DEPRECIATION_METHOD'))
