@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { dataService, COLLECTION, useMock } from '../services'
+import { paramValue, paramNumber } from '../services/sysParams'
 import { LOW_VALUE_SEEDS } from '../services/mock/seed/lowValueAsset'
 import { useOrgStore } from './org'
 import { STATUS_ENABLED, LOW_VALUE_ITEM_STATUS, labelOf } from '../constants/enums'
@@ -19,18 +20,16 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
   const returnRecords = ref(seedOf('return'))
   const categories = ref(seedOf('categories'))
   const locations = ref(seedOf('locations'))
-  const approvalFlows = ref(seedOf('approvalFlows'))
   const loaded = ref(false)
 
   async function loadAll() {
-    const [it, ib, rq, rt, cg, lc, fl] = await Promise.all([
+    const [it, ib, rq, rt, cg, lc] = await Promise.all([
       dataService.list(COLLECTION.lowValueItems),
       dataService.list(COLLECTION.lowValueInbound),
       dataService.list(COLLECTION.lowValueRequisition),
       dataService.list(COLLECTION.lowValueReturn),
       dataService.list(COLLECTION.lowValueSettingsCategories),
-      dataService.list(COLLECTION.lowValueSettingsLocations),
-      dataService.list(COLLECTION.lowValueSettingsApprovalFlows)
+      dataService.list(COLLECTION.lowValueSettingsLocations)
     ])
     items.value = it
     inboundRecords.value = ib
@@ -38,7 +37,6 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     returnRecords.value = rt
     categories.value = cg
     locations.value = lc
-    approvalFlows.value = fl
     loaded.value = true
   }
 
@@ -69,8 +67,10 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
 
   async function addItem(data) {
     const seq = items.value.length + 1
+    // 编号前缀取自系统参数（sys.lowvalue.code.prefix）
+    const prefix = paramValue('sys.lowvalue.code.prefix', 'DZ')
     const item = {
-      code: data.code || `DZ${new Date().getFullYear()}${String(seq).padStart(4, '0')}`,
+      code: data.code || `${prefix}${new Date().getFullYear()}${String(seq).padStart(4, '0')}`,
       categoryId: data.categoryId || '',
       name: data.name,
       spec: data.spec || '',
@@ -253,29 +253,6 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     return true
   }
 
-  async function addFlow(data) {
-    const row = { ...data, status: data.status || STATUS_ENABLED }
-    const created = await dataService.create(COLLECTION.lowValueSettingsApprovalFlows, row)
-    approvalFlows.value.push(created || row)
-    return created || row
-  }
-
-  async function updateFlow(id, data) {
-    const idx = approvalFlows.value.findIndex(f => f.id === id)
-    if (idx === -1) return null
-    const next = { ...approvalFlows.value[idx], ...data }
-    approvalFlows.value[idx] = next
-    const saved = await dataService.update(COLLECTION.lowValueSettingsApprovalFlows, id, next)
-    if (saved) approvalFlows.value[idx] = saved
-    return approvalFlows.value[idx]
-  }
-
-  async function removeFlow(id) {
-    await dataService.remove(COLLECTION.lowValueSettingsApprovalFlows, id)
-    approvalFlows.value = approvalFlows.value.filter(f => f.id !== id)
-    return true
-  }
-
   // ---- 派生数据 ----
   const categoryOptions = computed(() => categories.value
     .filter(c => c.status === STATUS_ENABLED)
@@ -301,6 +278,13 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     const stockQuantity = items.value.reduce((s, i) => s + (Number(i.stock) || 0), 0)
     const stockAmount = items.value.reduce((s, i) => s + (Number(i.stock) || 0) * (Number(i.price) || 0), 0)
     const lowStock = items.value.filter(i => (Number(i.stock) || 0) <= (Number(i.safetyStock) || 0)).length
+    // 库存预警：低于安全库存的指定比例即预警（系统参数 sys.lowvalue.safetyRatio）
+    const safetyRatio = paramNumber('sys.lowvalue.safetyRatio', 0.2)
+    const warning = items.value.filter(i => {
+      const safety = Number(i.safetyStock) || 0
+      if (safety <= 0) return false
+      return (Number(i.stock) || 0) <= safety * safetyRatio
+    }).length
     const inboundQuantity = inboundRecords.value.reduce((s, r) => s + (Number(r.quantity) || 0), 0)
     const inboundAmount = inboundRecords.value.reduce((s, r) => s + (Number(r.amount) || 0), 0)
     const requisitionQuantity = requisitionRecords.value.reduce((s, r) => s + (Number(r.quantity) || 0), 0)
@@ -312,6 +296,8 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
       stockQuantity,
       stockAmount: money(stockAmount),
       lowStock,
+      warning,
+      safetyRatio,
       inboundQuantity,
       inboundAmount: money(inboundAmount),
       requisitionQuantity,
@@ -388,7 +374,6 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     returnRecords,
     categories,
     locations,
-    approvalFlows,
     loaded,
     loadAll,
     addItem,
@@ -404,9 +389,6 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     addLocation,
     updateLocation,
     removeLocation,
-    addFlow,
-    updateFlow,
-    removeFlow,
     categoryOptions,
     locationOptions,
     categoryName,

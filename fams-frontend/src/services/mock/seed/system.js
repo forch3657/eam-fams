@@ -1,60 +1,34 @@
 // 系统管理与消息/日志类种子（原内联在 SystemDict / SystemParams / TerminalManage / WorkflowConfig 视图，
 // 以及 store/notify.js、store/audit.js 中的常量）
-// 语义约定：状态存枚举编码；时间存 ISO 8601
+// 语义约定：状态存枚举编码；时间存 ISO 8601；外键存 id
+import { ENUMS, ENUM_DICT_META } from '../../../constants/enums'
 
 const AUDIT = (createTime, updateTime) => ({ createTime, updateTime, version: 1 })
 
 // ---------------------------------------------------------------- 数据字典
-const SEED_DICT_TYPES = [
-  { code: 'asset_status', name: '资产状态', count: 6, status: 'ENABLED', ...AUDIT('2026-01-06T09:00:00', '2026-09-12T14:30:21') },
-  { code: 'asset_type', name: '资产类型', count: 6, status: 'ENABLED', ...AUDIT('2026-01-06T09:05:00', '2026-09-10T11:05:33') },
-  { code: 'contract_status', name: '合同状态', count: 4, status: 'ENABLED', ...AUDIT('2026-01-06T09:10:00', '2026-09-08T16:41:02') },
-  { code: 'fee_type', name: '费用类型', count: 3, status: 'ENABLED', ...AUDIT('2026-01-06T09:15:00', '2026-09-07T10:22:45') },
-  { code: 'warning_level', name: '预警级别', count: 3, status: 'ENABLED', ...AUDIT('2026-01-06T09:20:00', '2026-09-06T08:41:57') }
-]
+// 字典是业务枚举的统一维护入口：字典类型与字典项由 constants/enums.js 自动派生，
+// 保证「字典里的编码」与「代码里的枚举」永远一致（页面上改字典 = 改全站文案）。
+const DICT_ITEMS_SEED = ENUM_DICT_META.reduce((acc, meta) => {
+  const enumValues = ENUMS[meta.enumName] || {}
+  acc[meta.code] = Object.entries(enumValues).map(([value, label], idx) => ({
+    id: `DI_${meta.code}_${value}`,
+    label,
+    value,
+    sort: idx + 1,
+    status: 'ENABLED',
+    remark: '',
+    ...AUDIT('2026-01-06T09:00:00', '2026-09-12T14:30:21')
+  }))
+  return acc
+}, {})
 
-/** 字典项按字典类型分集合存放，value 与业务枚举编码保持一致 */
-const SEED_DICT_ITEMS = {
-  asset_status: [
-    { id: 'DI0101', label: '空闲', value: 'IDLE', sort: 1, status: 'ENABLED', remark: '未派发、未借出', ...AUDIT('2026-01-06T09:00:00', '2026-09-12T14:30:21') },
-    { id: 'DI0102', label: '使用中', value: 'IN_USE', sort: 2, status: 'ENABLED', remark: '', ...AUDIT('2026-01-06T09:00:00', '2026-09-12T14:30:21') },
-    { id: 'DI0103', label: '派发中', value: 'DISPATCHING', sort: 3, status: 'ENABLED', remark: '', ...AUDIT('2026-01-06T09:00:00', '2026-09-12T14:30:21') },
-    { id: 'DI0104', label: '借出中', value: 'BORROWED', sort: 4, status: 'ENABLED', remark: '', ...AUDIT('2026-01-06T09:00:00', '2026-09-12T14:30:21') },
-    { id: 'DI0105', label: '维修中', value: 'REPAIRING', sort: 5, status: 'ENABLED', remark: '', ...AUDIT('2026-01-06T09:00:00', '2026-09-12T14:30:21') },
-    { id: 'DI0106', label: '处置中', value: 'DISPOSING', sort: 6, status: 'ENABLED', remark: '', ...AUDIT('2026-01-06T09:00:00', '2026-09-12T14:30:21') }
-  ],
-  asset_type: [
-    { id: 'DI0201', label: '电子设备', value: 'ELECTRONIC', sort: 1, status: 'ENABLED', remark: '', ...AUDIT('2026-01-06T09:05:00', '2026-09-10T11:05:33') },
-    { id: 'DI0202', label: '机械设备', value: 'MACHINE', sort: 2, status: 'ENABLED', remark: '', ...AUDIT('2026-01-06T09:05:00', '2026-09-10T11:05:33') },
-    { id: 'DI0203', label: '运输设备', value: 'VEHICLE', sort: 3, status: 'ENABLED', remark: '', ...AUDIT('2026-01-06T09:05:00', '2026-09-10T11:05:33') },
-    { id: 'DI0204', label: '办公家具', value: 'FURNITURE', sort: 4, status: 'ENABLED', remark: '', ...AUDIT('2026-01-06T09:05:00', '2026-09-10T11:05:33') },
-    { id: 'DI0205', label: '房屋建筑物', value: 'BUILDING', sort: 5, status: 'ENABLED', remark: '', ...AUDIT('2026-01-06T09:05:00', '2026-09-10T11:05:33') },
-    { id: 'DI0206', label: '其他设备', value: 'OTHER', sort: 6, status: 'ENABLED', remark: '', ...AUDIT('2026-01-06T09:05:00', '2026-09-10T11:05:33') }
-  ],
-  contract_status: [
-    { id: 'DI0301', label: '待签订', value: 'DRAFT', sort: 1, status: 'ENABLED', remark: '', ...AUDIT('2026-01-06T09:10:00', '2026-09-08T16:41:02') },
-    { id: 'DI0302', label: '履行中', value: 'PROCESSING', sort: 2, status: 'ENABLED', remark: '', ...AUDIT('2026-01-06T09:10:00', '2026-09-08T16:41:02') },
-    { id: 'DI0303', label: '已终止', value: 'REVOKED', sort: 3, status: 'ENABLED', remark: '', ...AUDIT('2026-01-06T09:10:00', '2026-09-08T16:41:02') },
-    { id: 'DI0304', label: '已完结', value: 'DONE', sort: 4, status: 'ENABLED', remark: '', ...AUDIT('2026-01-06T09:10:00', '2026-09-08T16:41:02') }
-  ],
-  fee_type: [
-    { id: 'DI0401', label: '租金', value: 'RENT', sort: 1, status: 'ENABLED', remark: '', ...AUDIT('2026-01-06T09:15:00', '2026-09-07T10:22:45') },
-    { id: 'DI0402', label: '物业费', value: 'PROPERTY', sort: 2, status: 'ENABLED', remark: '', ...AUDIT('2026-01-06T09:15:00', '2026-09-07T10:22:45') },
-    { id: 'DI0403', label: '保证金', value: 'DEPOSIT', sort: 3, status: 'ENABLED', remark: '', ...AUDIT('2026-01-06T09:15:00', '2026-09-07T10:22:45') }
-  ],
-  warning_level: [
-    { id: 'DI0501', label: '普通', value: 'NORMAL', sort: 1, status: 'ENABLED', remark: '', ...AUDIT('2026-01-06T09:20:00', '2026-09-06T08:41:57') },
-    { id: 'DI0502', label: '重要', value: 'IMPORTANT', sort: 2, status: 'ENABLED', remark: '', ...AUDIT('2026-01-06T09:20:00', '2026-09-06T08:41:57') },
-    { id: 'DI0503', label: '紧急', value: 'URGENT', sort: 3, status: 'ENABLED', remark: '', ...AUDIT('2026-01-06T09:20:00', '2026-09-06T08:41:57') }
-  ]
-}
-
-const SEED_ASSET_TYPES = [
-  { code: 'OFFICE', name: '办公用房', remark: '用于办公的房屋资产', ...AUDIT('2026-01-06T10:00:00', '2026-09-12T14:30:21'), fields: [{ label: '所在楼层', key: 'floor', type: 'select', required: true, sort: 1, options: ['一楼', '二楼', '三楼', '四楼及以上'], defaultValue: '' }] },
-  { code: 'SHOP', name: '商业用房', remark: '用于经营的商铺资产', ...AUDIT('2026-01-06T10:05:00', '2026-09-10T11:05:33'), fields: [{ label: '适营业态', key: 'bizType', type: 'select', required: false, sort: 1, options: ['餐饮', '零售', '不限'], defaultValue: '' }, { label: '装修情况', key: 'decoration', type: 'select', required: false, sort: 2, options: ['毛坯', '简装', '精装', '豪华装修'], defaultValue: '' }] },
-  { code: 'LAND', name: '土地资产', remark: '土地使用权类资产', ...AUDIT('2026-01-06T10:10:00', '2026-09-08T16:41:02'), fields: [{ label: '土地等级', key: 'landLevel', type: 'select', required: true, sort: 1, options: ['甲级', '乙级', '丙级', '丁级'], defaultValue: '' }, { label: '取得方式', key: 'acquire', type: 'select', required: true, sort: 2, options: ['出让', '划拨', '租赁'], defaultValue: '' }] },
-  { code: 'EQUIP', name: '设备类', remark: '通用设备资产', ...AUDIT('2026-01-06T10:15:00', '2026-09-07T10:22:45'), fields: [{ label: '是否特种设备', key: 'special', type: 'switch', required: false, sort: 1, defaultValue: false }] }
-]
+const SEED_DICT_TYPES = ENUM_DICT_META.map(meta => ({
+  code: meta.code,
+  name: meta.name,
+  count: DICT_ITEMS_SEED[meta.code].length,
+  status: 'ENABLED',
+  ...AUDIT('2026-01-06T09:00:00', '2026-09-12T14:30:21')
+}))
 
 // ---------------------------------------------------------------- 系统参数
 const SEED_PARAMS = [
@@ -65,27 +39,31 @@ const SEED_PARAMS = [
   { id: 'SP05', name: '附件大小上限(MB)', key: 'sys.upload.maxSize', value: '20', type: 'SYSTEM', remark: '单个附件上传大小上限', ...AUDIT('2026-01-06T11:20:00', '2026-10-16T11:25:00') },
   { id: 'SP06', name: '消息保留天数', key: 'sys.message.keepDays', value: '90', type: 'CUSTOM', remark: '站内消息保留天数，超时自动清理', ...AUDIT('2026-03-01T09:00:00', '2026-10-15T09:00:00') },
   { id: 'SP07', name: '低库存预警阈值', key: 'sys.lowvalue.safetyRatio', value: '0.2', type: 'CUSTOM', remark: '库存低于安全库存比例时预警', ...AUDIT('2026-03-01T09:05:00', '2026-10-14T15:20:00') },
-  { id: 'SP08', name: '终端心跳超时(分钟)', key: 'sys.terminal.heartbeat', value: '5', type: 'CUSTOM', remark: '超过该时间未心跳视为离线', ...AUDIT('2026-03-01T09:10:00', '2026-10-13T13:45:00') }
+  { id: 'SP08', name: '盘点终端心跳超时(分钟)', key: 'sys.terminal.heartbeat', value: '5', type: 'CUSTOM', remark: '盘点终端超过该时间未心跳视为离线', ...AUDIT('2026-03-01T09:10:00', '2026-10-13T13:45:00') }
 ]
 
-// ---------------------------------------------------------------- 工作流程
+// ---------------------------------------------------------------- 工作流程（全局审批流，模块只引用不另存）
 const SEED_FLOWS = [
-  { id: 'WF1', code: 'FLOW_DISPOSE', name: '资产处置流程', bizType: '资产处置', initiator: '资产管理员', enabled: true, ...AUDIT('2026-01-06T12:00:00', '2026-09-12T14:30:21'), steps: [{ key: 's1', name: '部门负责人审批', approver: '部门负责人', mode: 'ANY', amountLimit: 0, condition: '' }, { key: 's2', name: '财务复核', approver: '财务经理', mode: 'SEQUENCE', amountLimit: 50000, condition: '原值大于5万' }, { key: 's3', name: '分管领导审批', approver: '分管副总', mode: 'ALL', amountLimit: 200000, condition: '原值大于20万' }] },
-  { id: 'WF2', code: 'FLOW_TRANSFER', name: '资产调拨流程', bizType: '资产调拨', initiator: '资产使用人', enabled: true, ...AUDIT('2026-01-06T12:05:00', '2026-09-10T11:05:33'), steps: [{ key: 's1', name: '调出部门审批', approver: '部门负责人', mode: 'ANY', amountLimit: 0, condition: '' }, { key: 's2', name: '资产管理员确认', approver: '资产管理员', mode: 'SEQUENCE', amountLimit: 0, condition: '' }] },
-  { id: 'WF3', code: 'FLOW_DEPOSIT', name: '保证金退还流程', bizType: '保证金退还', initiator: '财务人员', enabled: false, ...AUDIT('2026-01-06T12:10:00', '2026-09-08T16:41:02'), steps: [{ key: 's1', name: '风控审核', approver: '风控专员', mode: 'ANY', amountLimit: 0, condition: '' }, { key: 's2', name: '总经理审批', approver: '总经理', mode: 'SEQUENCE', amountLimit: 100000, condition: '金额大于10万' }] }
+  { id: 'WF1', code: 'FLOW_DISPOSE', name: '资产处置流程', bizType: 'DISPOSE', initiator: '资产管理员', enabled: true, ...AUDIT('2026-01-06T12:00:00', '2026-09-12T14:30:21'), steps: [{ key: 's1', name: '部门负责人审批', approver: '部门负责人', mode: 'ANY', amountLimit: 0, condition: '' }, { key: 's2', name: '财务复核', approver: '财务经理', mode: 'SEQUENCE', amountLimit: 50000, condition: '原值大于5万' }, { key: 's3', name: '分管领导审批', approver: '分管副总', mode: 'ALL', amountLimit: 200000, condition: '原值大于20万' }] },
+  { id: 'WF2', code: 'FLOW_CHANGE', name: '资产变更流程', bizType: 'CHANGE', initiator: '资产使用人', enabled: true, ...AUDIT('2026-01-06T12:05:00', '2026-09-10T11:05:33'), steps: [{ key: 's1', name: '调出部门审批', approver: '部门负责人', mode: 'ANY', amountLimit: 0, condition: '' }, { key: 's2', name: '资产管理员确认', approver: '资产管理员', mode: 'SEQUENCE', amountLimit: 0, condition: '' }] },
+  { id: 'WF3', code: 'FLOW_DISPATCH', name: '资产派发流程', bizType: 'DISPATCH', initiator: '资产管理员', enabled: true, ...AUDIT('2026-01-06T12:10:00', '2026-09-08T16:41:02'), steps: [{ key: 's1', name: '使用部门确认', approver: '部门负责人', mode: 'ANY', amountLimit: 0, condition: '' }] },
+  { id: 'WF4', code: 'FLOW_BORROW', name: '资产借出流程', bizType: 'BORROW', initiator: '资产使用人', enabled: true, ...AUDIT('2026-01-06T12:15:00', '2026-09-07T10:22:45'), steps: [{ key: 's1', name: '资产管理员审核', approver: '资产管理员', mode: 'ANY', amountLimit: 0, condition: '' }] },
+  { id: 'WF5', code: 'FLOW_INVENTORY', name: '资产盘点流程', bizType: 'INVENTORY', initiator: '资产管理员', enabled: false, ...AUDIT('2026-01-06T12:20:00', '2026-09-06T08:41:57'), steps: [{ key: 's1', name: '盘点差异复核', approver: '资产管理员', mode: 'ANY', amountLimit: 0, condition: '存在盘盈盘亏' }] },
+  { id: 'WF6', code: 'FLOW_LV_REQUISITION', name: '低值领用流程', bizType: 'REQUISITION', initiator: '申请人', enabled: true, ...AUDIT('2026-01-06T12:25:00', '2026-09-05T15:38:27'), steps: [{ key: 's1', name: '部门负责人审批', approver: '部门负责人', mode: 'ANY', amountLimit: 0, condition: '' }, { key: 's2', name: '出库确认', approver: '仓管员', mode: 'SEQUENCE', amountLimit: 0, condition: '' }] }
 ]
 
-// ---------------------------------------------------------------- 终端设备
+// ---------------------------------------------------------------- 盘点终端
 const SEED_DEVICES = [
-  { code: 'TER001', name: '前台收款终端', type: 'POS', location: '总部办公楼1层', bindAccount: 'cashier01', status: 'ONLINE', lastActive: '2026-10-21T09:12:30', vendor: '商米', model: 'T2s', sn: 'SM-T2S-0001', ip: '192.168.10.21', installDate: '2025-06-18', maintainer: '张三', maintainerPhone: '13800000001', remark: '', ...AUDIT('2025-06-18T09:00:00', '2026-10-21T09:12:30') },
-  { code: 'TER002', name: '二号窗口扫码盒子', type: 'SCAN_BOX', location: '总部办公楼2层', bindAccount: 'cashier02', status: 'OFFLINE', lastActive: '2026-10-19T17:40:02', vendor: '收钱吧', model: 'SQB-A1', sn: 'SQB-A1-0007', ip: '192.168.10.22', installDate: '2025-08-02', maintainer: '李四', maintainerPhone: '13800000002', remark: '网络不稳定，待检修', ...AUDIT('2025-08-02T10:00:00', '2026-10-19T17:40:02') },
-  { code: 'TER003', name: '大厅自助缴费机', type: 'KIOSK', location: '总部办公楼1层', bindAccount: 'kiosk01', status: 'ONLINE', lastActive: '2026-10-21T08:55:11', vendor: '广电运通', model: 'KT-200', sn: 'KT200-0033', ip: '192.168.10.23', installDate: '2025-11-20', maintainer: '王五', maintainerPhone: '13800000003', remark: '', ...AUDIT('2025-11-20T14:00:00', '2026-10-21T08:55:11') },
-  { code: 'TER004', name: '备用POS机', type: 'POS_MACHINE', location: '仓库', bindAccount: '', status: 'DISABLED', lastActive: '2026-08-11T16:02:44', vendor: '新大陆', model: 'NL-8300', sn: 'NL8300-0012', ip: '192.168.10.24', installDate: '2024-12-05', maintainer: '张三', maintainerPhone: '13800000001', remark: '设备老化，已停用', ...AUDIT('2024-12-05T09:00:00', '2026-08-11T16:02:44') }
+  { code: 'PD001', name: '盘点手持终端 01', type: 'PDA', location: '总部办公楼1层', bindUserId: 'U8', status: 'ONLINE', lastActive: '2026-10-21T09:12:30', vendor: '东集', model: 'PDA-20', sn: 'DS-PDA-0001', ip: '192.168.10.31', installDate: '2025-06-18', maintainer: '张伟', maintainerPhone: '13800000002', remark: '配发仓储部日常盘点', ...AUDIT('2025-06-18T09:00:00', '2026-10-21T09:12:30') },
+  { code: 'PD002', name: '盘点无线扫码枪', type: 'SCANNER', location: '仓库A区', bindUserId: 'U8', status: 'OFFLINE', lastActive: '2026-10-19T17:40:02', vendor: '霍尼韦尔', model: 'HH-SR36', sn: 'HN-SR36-0007', ip: '192.168.10.32', installDate: '2025-08-02', maintainer: '王强', maintainerPhone: '13800000004', remark: '网络不稳定，待检修', ...AUDIT('2025-08-02T10:00:00', '2026-10-19T17:40:02') },
+  { code: 'PD003', name: '盘点平板', type: 'TABLET', location: '总部办公楼2层', bindUserId: 'U2', status: 'MAINTENANCE', lastActive: '2026-10-18T11:22:41', vendor: '联想', model: 'TB-X306', sn: 'LX-TB-0033', ip: '192.168.10.33', installDate: '2025-11-20', maintainer: '李娜', maintainerPhone: '13800000003', remark: '电池故障，送修中', ...AUDIT('2025-11-20T14:00:00', '2026-10-18T11:22:41') },
+  { code: 'PD004', name: '固定读码器', type: 'FIXED', location: '行政库房', status: 'DISABLED', lastActive: '2026-08-11T16:02:44', vendor: '新大陆', model: 'NL-8300', sn: 'NL8300-0012', ip: '192.168.10.34', installDate: '2024-12-05', maintainer: '张伟', maintainerPhone: '13800000002', remark: '设备老化，已停用', ...AUDIT('2024-12-05T09:00:00', '2026-08-11T16:02:44') }
 ]
 
-const SEED_MISUSE = [
-  { recordNo: 'MS2026001', person: '陈某某', terminalCode: 'TER002', type: 'PRIVATE_COLLECTION', detail: '使用个人收款码收取租金，未入账', amount: 12600, handled: true, createTime: '2026-09-12T10:20:00', ...AUDIT('2026-09-12T10:20:00', '2026-09-20T15:30:00') },
-  { recordNo: 'MS2026002', person: '林某某', terminalCode: 'TER001', type: 'ILLEGAL_REDUCTION', detail: '违规减免物业费，未走审批流程', amount: 3800, handled: false, createTime: '2026-10-08T14:05:00', ...AUDIT('2026-10-08T14:05:00', '2026-10-08T14:05:00') }
+/** 盘点终端异常记录（原「终端违规记录」，已对齐资产盘点场景） */
+const SEED_DEVICE_ABNORMAL = [
+  { recordNo: 'AB2026001', deviceCode: 'PD002', operatorId: 'U8', type: 'OFFLINE_UPLOAD', detail: '离线盘点数据超过 24 小时未上报', affectedCount: 12, handled: true, createTime: '2026-09-12T10:20:00', ...AUDIT('2026-09-12T10:20:00', '2026-09-20T15:30:00') },
+  { recordNo: 'AB2026002', deviceCode: 'PD001', operatorId: 'U2', type: 'UNAUTHORIZED_BIND', detail: '终端被绑定到非盘点责任人账号', affectedCount: 0, handled: false, createTime: '2026-10-08T14:05:00', ...AUDIT('2026-10-08T14:05:00', '2026-10-08T14:05:00') }
 ]
 
 // ---------------------------------------------------------------- 消息与日志
@@ -141,12 +119,11 @@ const SEED_OPERATION_LOGS = [
 
 export const SYSTEM_SEEDS = {
   dictTypes: SEED_DICT_TYPES,
-  dictItems: SEED_DICT_ITEMS,
-  assetTypes: SEED_ASSET_TYPES,
+  dictItems: DICT_ITEMS_SEED,
   params: SEED_PARAMS,
   flows: SEED_FLOWS,
   devices: SEED_DEVICES,
-  misuse: SEED_MISUSE,
+  deviceAbnormal: SEED_DEVICE_ABNORMAL,
   notifyTemplates: SEED_NOTIFY_TEMPLATES,
   notifyMessages: SEED_NOTIFY_MESSAGES,
   operationLogs: SEED_OPERATION_LOGS

@@ -148,7 +148,12 @@ const DEFAULT_KEYS = new Set([
 const isDefaultKey = k => DEFAULT_KEYS.has(k)
 
 const channelOptions = ['站内信', '短信', '站内信+短信', '邮件', '微信推送']
-const commonVars = ['asset', 'company', 'contractNo', 'tenant', 'arrears', 'days', 'amount', 'date']
+/** 模板可用变量（资产/低值业务域） */
+const commonVars = [
+  'asset', 'assetNo', 'billNo', 'company', 'dept', 'user', 'date', 'days',
+  'amount', 'count', 'period', 'reason', 'task', 'gain', 'loss',
+  'changeType', 'disposeType'
+]
 
 const filter = reactive({ keyword: '', channel: '', enabled: '' })
 const page = ref(1)

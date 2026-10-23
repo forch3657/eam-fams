@@ -40,7 +40,7 @@ VITE_API_BASE_URL=http://your-backend/api
 
 ### 注意事项
 
-- mock 数据落在 localStorage，键为 `fams-mock-db-v2`；数据模型变更后旧键已失效，无需手动清理（如需重置：控制台执行 `localStorage.removeItem('fams-mock-db-v2')` 后刷新）。
+- mock 数据落在 localStorage，键为 `fams-mock-db-v3`；数据模型变更后旧键已失效，无需手动清理（如需重置：控制台执行 `localStorage.removeItem('fams-mock-db-v3')` 后刷新）。
 - 开发期若种子数据与契约不符，控制台会打印 `[契约校验]` 告警，便于在切后端前发现字段/枚举问题。
 - 可通过 `VITE_MOCK_LATENCY`（毫秒）与 `VITE_MOCK_ERROR_RATE`（0~1）模拟网络延迟与随机故障，演练 loading 与错误分支。
 
@@ -83,18 +83,18 @@ npm run dev     # http://localhost:5174/
 | `/fixed-asset-settings` | 基础设置 | 位置、分类、折旧规则、折旧方案、审批流程 |
 | `/low-value-assets` | 低值资产管理 | 库存台账（类别/关键字筛选、低库存预警、导出）、入库、领用、退库 |
 | `/low-value-asset-reports` | 低值资产报表 | 类别统计、部门领用统计、出入库汇总与导出 |
-| `/low-value-asset-settings` | 低值资产基础设置 | 类别、存放位置、审批流程（低值资产不计提折旧，无折旧页签） |
+| `/low-value-asset-settings` | 低值资产基础设置 | 类别、存放位置、审批流程（只读引用全局流程，低值资产不计提折旧，无折旧页签） |
 | `/system/company` | 公司管理 | 公司层级树（集团→子公司）、公司增删改、启停用、删除保护 |
 | `/system/dept` | 部门管理 | 公司→部门→子部门树、部门增删改、启停用、部门人员维护 |
 | `/system/user` | 用户管理 | 统一用户主数据、公司/部门/角色归属、重置密码、启停用 |
 | `/system/role` | 角色管理 | 角色增删改、启停用、按真实模块的权限树配置 |
-| `/system/dict` | 数据字典 | 字典类型、字典项、资产类型字段 |
+| `/system/dict` | 数据字典 | **业务枚举的统一维护入口**：字典类型/字典项，改动即时作用于全站文案 |
 | `/system/log` | 操作日志 | 页面访问与业务操作留痕 |
-| `/system/workflow` | 流程配置 | 审批流程与环节编排 |
-| `/system/params` | 系统参数 | 系统内置/自定义参数 |
+| `/system/workflow` | 流程配置 | 全局审批流程与环节编排（资产/低值模块的审批设置页只读引用） |
+| `/system/params` | 系统参数 | 系统内置/自定义参数（编号前缀、库存预警比例、盘点提醒天数等已被业务消费） |
 | `/system/message-center` | 消息中心 | 站内消息、未读提醒 |
-| `/system/message-template` | 消息模板 | 模板维护与变量渲染 |
-| `/system/terminal` | 终端管理 | 终端设备台账、违规使用记录 |
+| `/system/message-template` | 消息模板 | 模板维护与变量渲染（变量为资产域：asset/assetNo/billNo/dept/user 等） |
+| `/system/terminal` | 盘点终端 | 盘点终端台账（PDA/扫码枪/平板）、终端异常登记 |
 
 ## 目录结构
 
@@ -144,8 +144,10 @@ src/
 - 部门**不冗余**人员字段，在职人数由 `users.deptId` 统计，避免双写不一致。
 - 删除保护：有子公司/部门/用户的公司、有子部门或人员的部门、有关联用户的角色，均禁止删除。
 - 角色权限以权限编码（如 `fa:view`、`lv:requisition`）存储，权限树见 `config/permissions.js`。
+- 权限**已实际生效**：路由级（`meta.permission` + 路由守卫）、菜单级（按权限过滤）、按钮级（`v-if="can('fa:add')"`）三层控制。
+- 登录账号通过 `roleId` 关联组织架构中的角色，权限取该角色勾选的权限编码；组织主数据未加载完成时先按全部放行，加载后自动收敛。
 - 用户新增默认密码 `123456`，重置密码生成随机口令并回显给管理员。
-- mock 数据落在 localStorage，旧版 `system-*` 集合已废弃；如浏览器残留旧数据，清空 `fams-mock-db-v1` 即可。
+- mock 数据落在 localStorage，旧版 `system-*` 集合已废弃；如浏览器残留旧数据，清空对应存储键即可。
 
 ## 低值资产模块
 

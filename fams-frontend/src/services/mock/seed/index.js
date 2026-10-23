@@ -42,7 +42,6 @@ export function registerAllSeeds() {
   registerSeed(COLLECTION.settingsCategories, SETTINGS_SEEDS.categories)
   registerSeed(COLLECTION.settingsDepreciationRules, SETTINGS_SEEDS.depreciationRules)
   registerSeed(COLLECTION.settingsDepreciationPlans, SETTINGS_SEEDS.depreciationPlans)
-  registerSeed(COLLECTION.settingsApprovalFlows, SETTINGS_SEEDS.approvalFlows)
   registerSeed(COLLECTION.reportDepreciationDetails, REPORT_SEEDS.depreciationDetails)
   registerSeed(COLLECTION.reportDepreciationPlanDetails, REPORT_SEEDS.depreciationPlanDetails)
 
@@ -53,7 +52,6 @@ export function registerAllSeeds() {
   registerSeed(COLLECTION.lowValueReturn, LOW_VALUE_SEEDS.return)
   registerSeed(COLLECTION.lowValueSettingsCategories, LOW_VALUE_SEEDS.categories)
   registerSeed(COLLECTION.lowValueSettingsLocations, LOW_VALUE_SEEDS.locations)
-  registerSeed(COLLECTION.lowValueSettingsApprovalFlows, LOW_VALUE_SEEDS.approvalFlows)
 
   // 组织架构主数据
   registerSeed(COLLECTION.orgCompanies, ORG_SEEDS.companies)
@@ -66,11 +64,10 @@ export function registerAllSeeds() {
   Object.entries(SYSTEM_SEEDS.dictItems).forEach(([dictCode, items]) => {
     registerSeed(`${COLLECTION.systemDictTypes}-${dictCode}-items`, items)
   })
-  registerSeed(COLLECTION.systemAssetTypes, SYSTEM_SEEDS.assetTypes)
   registerSeed(COLLECTION.systemParams, SYSTEM_SEEDS.params)
   registerSeed(COLLECTION.systemFlows, SYSTEM_SEEDS.flows)
   registerSeed(COLLECTION.systemDevices, SYSTEM_SEEDS.devices)
-  registerSeed(COLLECTION.systemMisuse, SYSTEM_SEEDS.misuse)
+  registerSeed(COLLECTION.systemTerminalAbnormal, SYSTEM_SEEDS.deviceAbnormal)
 
   // 消息与日志
   registerSeed(COLLECTION.notifyTemplates, SYSTEM_SEEDS.notifyTemplates)

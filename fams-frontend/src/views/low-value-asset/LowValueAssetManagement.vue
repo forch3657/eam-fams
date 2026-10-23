@@ -3,19 +3,19 @@
     <div class="page-header">
       <h2>低值资产管理</h2>
       <div>
-        <el-button v-if="activeTab === 'item'" type="primary" @click="openItemDialog()">
+        <el-button v-if="activeTab === 'item' && can('lv:edit')" type="primary" @click="openItemDialog()">
           <el-icon><Plus /></el-icon>
           新增物品
         </el-button>
-        <el-button v-if="activeTab === 'inbound'" type="primary" @click="openInboundDialog">
+        <el-button v-if="activeTab === 'inbound' && can('lv:inbound')" type="primary" @click="openInboundDialog">
           <el-icon><Plus /></el-icon>
           新增入库
         </el-button>
-        <el-button v-if="activeTab === 'requisition'" type="primary" @click="openRequisitionDialog">
+        <el-button v-if="activeTab === 'requisition' && can('lv:requisition')" type="primary" @click="openRequisitionDialog">
           <el-icon><Plus /></el-icon>
           新增领用
         </el-button>
-        <el-button v-if="activeTab === 'return'" type="primary" @click="openReturnDialog">
+        <el-button v-if="activeTab === 'return' && can('lv:return')" type="primary" @click="openReturnDialog">
           <el-icon><Plus /></el-icon>
           新增退库
         </el-button>
@@ -428,10 +428,14 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Download } from '@element-plus/icons-vue'
 import { useLowValueAssetStore } from '../../store/lowValueAsset'
 import { useOrgStore } from '../../store/org'
+import { useUserStore } from '../../store/user'
 import { labelOf, optionsOf } from '../../constants/enums'
 
 const store = useLowValueAssetStore()
 const orgStore = useOrgStore()
+const userStore = useUserStore()
+/** 权限判定：按钮级鉴权 */
+const can = code => userStore.can(code)
 
 const activeTab = ref('item')
 const categoryOptions = computed(() => store.categoryOptions)

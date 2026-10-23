@@ -31,6 +31,11 @@
               <div class="stat-amount num">低于安全库存</div>
             </el-card>
             <el-card shadow="hover" class="stat-card">
+              <div class="stat-name">严重低库存</div>
+              <div class="stat-value"><span class="num">{{ store.stats.warning }}</span> <span class="stat-unit">种</span></div>
+              <div class="stat-amount num">低于安全库存的 {{ Math.round((store.stats.safetyRatio || 0) * 100) }}%</div>
+            </el-card>
+            <el-card shadow="hover" class="stat-card">
               <div class="stat-name">累计领用金额</div>
               <div class="stat-value"><span class="num">¥{{ store.stats.requisitionAmount.toLocaleString() }}</span></div>
               <div class="stat-amount num">领用 {{ store.stats.requisitionQuantity }} 件</div>

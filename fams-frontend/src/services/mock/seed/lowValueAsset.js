@@ -52,20 +52,13 @@ const SEED_RETURN = [
   { id: 'LVT2', docNo: 'TK2026002', itemId: 'DZ04', categoryId: 'LVC01', itemName: '晨光ADM94897按钮文件袋', categoryName: '办公用品', spec: 'A4透明文件袋', unit: '个', quantity: 7, price: 1.5, amount: 10.5, returner: '王强', deptId: 'D3', returnDate: '2026-09-16', reason: '项目取消，退回剩余', operator: '李四', remark: '', ...AUDIT('2026-09-16T14:00:00', '2026-09-16T16:10:00') }
 ]
 
-const SEED_APPROVAL_FLOWS = [
-  { id: 'LVF01', name: '低值资产入库审批', businessType: 'INBOUND', steps: ['部门负责人审批', '行政部审核', '库管确认入库'], status: 'ENABLED', ...AUDIT('2026-01-06T11:00:00', '2026-09-02T09:47:36') },
-  { id: 'LVF02', name: '低值资产领用审批', businessType: 'REQUISITION', steps: ['部门负责人审批', '行政部审核'], status: 'ENABLED', ...AUDIT('2026-01-06T11:05:00', '2026-09-01T17:20:44') },
-  { id: 'LVF03', name: '低值资产退库审批', businessType: 'RETURN', steps: ['部门负责人审批', '库管验收'], status: 'ENABLED', ...AUDIT('2026-01-06T11:10:00', '2026-08-28T11:33:15') }
-]
-
 export const LOW_VALUE_SEEDS = {
   items: SEED_ITEMS,
   inbound: SEED_INBOUND,
   requisition: SEED_REQUISITION,
   return: SEED_RETURN,
   categories: SEED_CATEGORIES,
-  locations: SEED_LOCATIONS,
-  approvalFlows: SEED_APPROVAL_FLOWS
+  locations: SEED_LOCATIONS
 }
 
 export default LOW_VALUE_SEEDS

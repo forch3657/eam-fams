@@ -57,7 +57,7 @@ const SEED_ROLES = [
   {
     id: 'R2', code: 'ROLE_ASSET', name: '资产管理员', orgScope: 'COMPANY', dataScope: 'COMPANY', status: 'ENABLED', sort: 2,
     remark: '负责资产台账、入库、派发、处置、盘点与低值资产出入库',
-    permissions: ['fa:view', 'fa:add', 'fa:edit', 'fa:export', 'fa:inbound', 'fa:dispatch', 'fa:borrow', 'fa:change', 'fa:dispose', 'fa:inventory', 'fa:report', 'lv:view', 'lv:edit', 'lv:export', 'lv:inbound', 'lv:requisition', 'lv:return', 'lv:report'],
+    permissions: ['fa:view', 'fa:add', 'fa:edit', 'fa:export', 'fa:inbound', 'fa:dispatch', 'fa:borrow', 'fa:change', 'fa:dispose', 'fa:inventory', 'fa:depreciation', 'fa:report', 'lv:view', 'lv:edit', 'lv:export', 'lv:inbound', 'lv:requisition', 'lv:return', 'lv:report'],
     createTime: '2024-01-05T09:05:00', updateTime: '2026-09-17T15:40:12', version: 1
   },
   {

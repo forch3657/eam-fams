@@ -86,33 +86,38 @@
           </div>
         </el-tab-pane>
 
-        <!-- 审批设置 -->
+        <!-- 审批设置：引用「系统管理 > 流程配置」的全局流程 -->
         <el-tab-pane label="审批设置" name="approval">
-          <el-button type="primary" style="margin-bottom: 16px" @click="openFlowDialog()">
-            <el-icon><Plus /></el-icon>
-            新增流程
+          <el-alert type="info" :closable="false" show-icon style="margin-bottom: 16px">
+            <template #title>
+              审批流程统一在「系统管理 &gt; 流程配置」维护，本页只读引用并可启停；改动对全站生效。
+            </template>
+          </el-alert>
+          <el-button type="primary" style="margin-bottom: 16px" @click="goWorkflowConfig">
+            <el-icon><Setting /></el-icon>
+            前往流程配置
           </el-button>
 
           <el-table :data="pagedFlowList" style="width: 100%">
             <el-table-column prop="name" label="流程名称" min-width="180" />
-            <el-table-column prop="businessType" label="适用业务" width="120" />
-            <el-table-column label="审批步骤" min-width="260">
+            <el-table-column label="适用业务" width="120">
+              <template #default="{ row }">{{ labelOf('BUSINESS_TYPE', row.bizType) }}</template>
+            </el-table-column>
+            <el-table-column label="审批环节" min-width="260">
               <template #default="{ row }">
-                <span>{{ (row.steps || []).join(' → ') }}</span>
+                <el-tag v-for="(step, idx) in flowStepNames(row)" :key="idx" size="small" style="margin-right: 8px">{{ step }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="status" label="状态" width="90">
+            <el-table-column label="状态" width="90">
               <template #default="{ row }">
-                <el-tag :type="row.status === 'ENABLED' ? 'success' : 'info'" size="small" effect="light">{{ labelOf('ENABLE_STATUS', row.status) }}</el-tag>
+                <el-tag :type="row.enabled ? 'success' : 'info'" size="small" effect="light">{{ row.enabled ? '启用' : '停用' }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="200" fixed="right">
+            <el-table-column label="操作" width="120" fixed="right">
               <template #default="{ row }">
-                <el-button link type="primary" size="small" @click="openFlowDialog(row)">编辑</el-button>
-                <el-button link :type="row.status === 'ENABLED' ? 'warning' : 'success'" size="small" @click="toggleFlow(row)">
-                  {{ row.status === 'ENABLED' ? '停用' : '启用' }}
+                <el-button link :type="row.enabled ? 'warning' : 'success'" size="small" @click="toggleFlow(row)">
+                  {{ row.enabled ? '停用' : '启用' }}
                 </el-button>
-                <el-button link type="danger" size="small" @click="removeFlow(row)">删除</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -122,7 +127,7 @@
               v-model:current-page="flowPage"
               v-model:page-size="flowPageSize"
               :page-sizes="[10, 20, 50, 100]"
-              :total="store.approvalFlows.length"
+              :total="globalFlows.length"
               layout="total, sizes, prev, pager, next, jumper"
             />
           </div>
@@ -189,43 +194,20 @@
     </el-dialog>
 
     <!-- 流程对话框 -->
-    <el-dialog v-model="flowDialog.visible" :title="flowDialog.isEdit ? '编辑流程' : '新增流程'" width="500px">
-      <el-form ref="flowFormRef" :model="flowDialog.form" :rules="flowRules" label-width="90px">
-        <el-form-item label="流程名称" prop="name">
-          <el-input v-model="flowDialog.form.name" placeholder="请输入流程名称" />
-        </el-form-item>
-        <el-form-item label="适用业务" prop="businessType">
-          <el-select v-model="flowDialog.form.businessType" placeholder="请选择适用业务" style="width: 100%">
-            <el-option label="入库" value="入库" />
-            <el-option label="领用" value="领用" />
-            <el-option label="退库" value="退库" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="审批步骤" prop="stepsText">
-          <el-input v-model="flowDialog.form.stepsText" type="textarea" :rows="4" placeholder="每行一个步骤，例如：&#10;部门负责人审批&#10;行政部审核" />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="flowDialog.form.status" style="width: 160px">
-            <el-option label="启用" value="ENABLED" />
-            <el-option label="禁用" value="DISABLED" />
-          </el-select>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="flowDialog.visible = false">取消</el-button>
-        <el-button type="primary" @click="submitFlow">确定</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Setting } from '@element-plus/icons-vue'
 import { useLowValueAssetStore } from '../../store/lowValueAsset'
+import { useCollection } from '../../composables/useCollection'
+import { COLLECTION } from '../../services'
 import { labelOf, optionsOf } from '../../constants/enums'
 
+const router = useRouter()
 const store = useLowValueAssetStore()
 const activeTab = ref('category')
 
@@ -252,7 +234,7 @@ const flowPage = ref(1)
 const flowPageSize = ref(15)
 const pagedFlowList = computed(() => {
   const start = (flowPage.value - 1) * flowPageSize.value
-  return store.approvalFlows.slice(start, start + flowPageSize.value)
+  return globalFlows.value.slice(start, start + flowPageSize.value)
 })
 
 // ---------- 类别 ----------
@@ -365,70 +347,21 @@ async function removeLocation(row) {
   }
 }
 
-// ---------- 审批流程 ----------
-const flowFormRef = ref()
-const flowDialog = reactive({
-  visible: false,
-  isEdit: false,
-  form: { id: '', name: '', businessType: '领用', stepsText: '', status: 'ENABLED' }
-})
+// ---------- 审批流程：引用全局流程（系统管理 > 流程配置） ----------
+const LOW_VALUE_BIZ_TYPES = ['REQUISITION', 'RETURN']
+const globalFlowCol = useCollection(COLLECTION.systemFlows)
+const globalFlows = computed(() => globalFlowCol.items.value.filter(f => LOW_VALUE_BIZ_TYPES.includes(f.bizType)))
 
-const flowRules = {
-  name: [{ required: true, message: '请输入流程名称', trigger: 'blur' }],
-  businessType: [{ required: true, message: '请选择适用业务', trigger: 'change' }],
-  stepsText: [{ required: true, message: '请输入审批步骤', trigger: 'blur' }]
-}
-
-function openFlowDialog(row) {
-  flowDialog.isEdit = !!row
-  Object.assign(flowDialog.form, row
-    ? { ...row, stepsText: (row.steps || []).join('\n') }
-    : { id: '', name: '', businessType: '领用', stepsText: '部门负责人审批\n行政部审核', status: 'ENABLED' })
-  flowDialog.visible = true
-  nextTick(() => flowFormRef.value?.clearValidate())
-}
-
-async function submitFlow() {
-  const valid = await flowFormRef.value.validate().catch(() => false)
-  if (!valid) return
-  const steps = flowDialog.form.stepsText.split('\n').map(s => s.trim()).filter(Boolean)
-  if (!steps.length) {
-    ElMessage.warning('请至少配置一个审批步骤')
-    return
-  }
-  const payload = { name: flowDialog.form.name, businessType: flowDialog.form.businessType, steps, status: flowDialog.form.status }
-  try {
-    if (flowDialog.isEdit) {
-      await store.updateFlow(flowDialog.form.id, payload)
-      ElMessage.success('流程更新成功')
-    } else {
-      await store.addFlow(payload)
-      ElMessage.success('流程新增成功')
-    }
-    flowDialog.visible = false
-  } catch (e) {
-    ElMessage.error(e.message || '保存失败')
-  }
-}
+/** 环节名（全局流程环节为对象数组） */
+const flowStepNames = row => (row.steps || []).map(s => s?.name || s).filter(Boolean)
 
 async function toggleFlow(row) {
-  try {
-    await store.updateFlow(row.id, { status: row.status === 'ENABLED' ? 'DISABLED' : 'ENABLED' })
-    ElMessage.success('状态已更新')
-  } catch (e) {
-    ElMessage.error(e.message || '操作失败')
-  }
+  row.enabled = !row.enabled
+  await globalFlowCol.update(row)
+  ElMessage.success(`流程「${row.name}」已${row.enabled ? '启用' : '停用'}`)
 }
 
-async function removeFlow(row) {
-  try {
-    await ElMessageBox.confirm(`确认删除流程「${row.name}」？`, '提示', { type: 'warning' })
-    await store.removeFlow(row.id)
-    ElMessage.success('删除成功')
-  } catch (e) {
-    if (e !== 'cancel' && e?.message) ElMessage.error(e.message)
-  }
-}
+const goWorkflowConfig = () => router.push('/system/workflow')
 </script>
 
 <style scoped>

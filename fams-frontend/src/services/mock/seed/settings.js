@@ -84,21 +84,12 @@ const SEED_DEPRECIATION_PLANS = [
   { id: 'DP11', companyId: 'C1', name: '华信科技-房屋建筑年折旧', method: 'STRAIGHT_LINE', assetTypes: ['BUILDING'], residualRate: 3, calcTime: 'YEARLY', monthlyDay: 1, purchaseMode: 'PURCHASE', remark: '总部办公楼', ...AUDIT('2026-01-06T12:50:00', '2026-08-26T11:33:15') }
 ]
 
-const SEED_APPROVAL_FLOWS = [
-  { name: '资产入库审批', type: 'INBOUND', steps: ['部门负责人审批', '资产管理员验收', '财务确认'], status: 'ENABLED', ...AUDIT('2026-01-06T13:00:00', '2026-09-12T14:30:21') },
-  { name: '资产派发审批', type: 'DISPATCH', steps: ['部门负责人审批', '资产管理员确认'], status: 'ENABLED', ...AUDIT('2026-01-06T13:05:00', '2026-09-10T11:05:33') },
-  { name: '资产借出审批', type: 'BORROW', steps: ['部门负责人审批'], status: 'ENABLED', ...AUDIT('2026-01-06T13:10:00', '2026-09-08T16:41:02') },
-  { name: '资产处置审批', type: 'DISPOSE', steps: ['部门负责人审批', '资产管理员核实', '财务复核', '分管领导审批'], status: 'ENABLED', ...AUDIT('2026-01-06T13:15:00', '2026-09-07T10:22:45') },
-  { name: '资产变更审批', type: 'CHANGE', steps: ['部门负责人审批', '资产管理员确认'], status: 'DISABLED', ...AUDIT('2026-01-06T13:20:00', '2026-09-06T08:41:57') }
-]
-
 export const SETTINGS_SEEDS = {
   locations: SEED_LOCATIONS,
   locationOptions: SEED_LOCATION_OPTIONS,
   categories: SEED_CATEGORIES,
   depreciationRules: SEED_DEPRECIATION_RULES,
-  depreciationPlans: SEED_DEPRECIATION_PLANS,
-  approvalFlows: SEED_APPROVAL_FLOWS
+  depreciationPlans: SEED_DEPRECIATION_PLANS
 }
 
 export default SETTINGS_SEEDS

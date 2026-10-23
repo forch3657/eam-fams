@@ -16,7 +16,6 @@ export const COLLECTION = {
   settingsCategories: 'fixed-asset-settings-categories',
   settingsDepreciationRules: 'fixed-asset-settings-depreciation-rules',
   settingsDepreciationPlans: 'fixed-asset-settings-depreciation-plans',
-  settingsApprovalFlows: 'fixed-asset-settings-approval-flows',
   reportDepreciationDetails: 'fixed-asset-report-depreciation-details',
   reportDepreciationPlanDetails: 'fixed-asset-report-depreciation-plan-details',
 
@@ -27,7 +26,6 @@ export const COLLECTION = {
   lowValueReturn: 'low-value-return',
   lowValueSettingsCategories: 'low-value-settings-categories',
   lowValueSettingsLocations: 'low-value-settings-locations',
-  lowValueSettingsApprovalFlows: 'low-value-settings-approval-flows',
 
   // 组织架构（v2：公司/部门/用户/角色统一主数据，取代旧 system-* 五张表）
   orgCompanies: 'org-companies',
@@ -37,11 +35,10 @@ export const COLLECTION = {
 
   // 系统管理
   systemDictTypes: 'system-dict-types',
-  systemAssetTypes: 'system-asset-types',
   systemParams: 'system-params',
   systemFlows: 'system-workflow-flows',
   systemDevices: 'system-terminal-devices',
-  systemMisuse: 'system-terminal-misuse',
+  systemTerminalAbnormal: 'system-terminal-abnormal',
   notifyMessages: 'notify-messages',
   notifyTemplates: 'notify-templates',
   operationLogs: 'operation-logs'

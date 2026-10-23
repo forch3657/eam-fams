@@ -2,580 +2,355 @@
   <div class="page-container">
     <div class="page-header">
       <h2>数据字典</h2>
+      <span class="sub">业务枚举的统一维护入口 · 修改字典项即时作用于全站文案</span>
     </div>
 
-    <el-tabs v-model="activeTab" type="border-card">
-      <el-tab-pane label="字典管理" name="dict">
-        <div class="dict-split">
-          <el-card shadow="never">
-            <template #header>
-              <span>字典类型</span>
-            </template>
-            <el-form inline style="margin-bottom:4px">
-              <el-form-item>
-                <el-input v-model="typeQuery.name" placeholder="请输入名称" clearable style="width:150px" />
-              </el-form-item>
-              <el-form-item>
-                <el-select v-model="typeQuery.status" placeholder="请选择状态" clearable style="width:130px">
-                  <el-option label="启用" value="启用" />
-                  <el-option label="禁用" value="禁用" />
-                </el-select>
-              </el-form-item>
-              <el-form-item>
-                <el-button type="primary" :icon="Search" @click="typePage = 1">查询</el-button>
-                <el-button type="primary" plain :icon="Plus" @click="showCreate = true">新增</el-button>
-              </el-form-item>
-            </el-form>
-            <el-table :data="pagedTypes" border stripe :row-class-name="typeRowClass" style="width:100%;cursor:pointer" @row-click="handleTypeRowClick">
-              <el-table-column prop="name" label="名称" min-width="100" />
-              <el-table-column prop="code" label="编码" min-width="120" show-overflow-tooltip />
-              <el-table-column prop="count" label="项数" width="60" align="center" class-name="num" />
-              <el-table-column prop="status" label="状态" width="70" align="center">
-                <template #default="{ row }">
-                  <el-tag :type="row.status === '启用' ? 'success' : 'danger'" size="small">{{ row.status }}</el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column prop="createTime" label="创建时间" width="150" />
-              <el-table-column prop="updateTime" label="更新时间" width="150" />
-              <template #empty>
-                <el-empty description="暂无数据" :image-size="60" />
-              </template>
-            </el-table>
-            <div class="pager">
-              <el-pagination
-                v-model:current-page="typePage"
-                v-model:page-size="typePageSize"
-                :total="filteredTypes.length"
-                :page-sizes="[10, 20, 50]"
-                layout="total, sizes, prev, pager, next, jumper"
-                size="small"
-              />
-            </div>
-          </el-card>
-          <el-card shadow="never">
-            <template #header>
-              <div class="card-head">
-                <span>字典项 <span v-if="currentType" class="sub-hint">（{{ currentType.name }}）</span></span>
-                <el-button type="primary" size="small" @click="showAddItem = true" :disabled="!currentType">新增字典项</el-button>
-              </div>
-            </template>
-            <el-table :data="pagedItems" border stripe>
-              <el-table-column prop="label" label="标签" width="120" />
-              <el-table-column prop="value" label="值" width="110" />
-              <el-table-column prop="sort" label="排序" width="70" align="right" class-name="num" />
-              <el-table-column prop="status" label="状态" width="80">
-                <template #default="{ row }">
-                  <el-tag :type="row.status === '启用' ? 'success' : 'danger'" size="small">{{ row.status }}</el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column prop="remark" label="备注" min-width="130" show-overflow-tooltip />
-              <el-table-column prop="createTime" label="创建时间" width="150" />
-              <el-table-column prop="updateTime" label="更新时间" width="150" />
-              <el-table-column label="操作" width="130" fixed="right">
-                <template #default="{ row }">
-                  <el-button type="primary" link size="small" @click="editItem(row)">编辑</el-button>
-                  <el-button type="danger" link size="small" @click="deleteItem(row)">删除</el-button>
-                </template>
-              </el-table-column>
-              <template #empty>
-                <el-empty description="暂无数据" :image-size="60" />
-              </template>
-            </el-table>
-            <div class="pager">
-              <el-pagination
-                v-model:current-page="itemPage"
-                v-model:page-size="itemPageSize"
-                :total="currentItems.length"
-                :page-sizes="[10, 20, 50]"
-                layout="total, sizes, prev, pager, next, jumper"
-                size="small"
-              />
-            </div>
-          </el-card>
+    <div class="dict-layout">
+      <!-- 左：字典类型 -->
+      <div class="dict-side">
+        <div class="toolbar">
+          <el-input v-model="typeQuery.name" placeholder="字典名称" clearable style="width:150px" prefix-icon="Search" />
+          <el-button type="primary" :icon="Plus" @click="openType()">新增</el-button>
         </div>
-      </el-tab-pane>
-
-      <el-tab-pane label="资产类型表单配置" name="formSchema">
-        <div class="schema-split">
-          <el-card shadow="never">
-            <template #header>
-              <div class="card-head">
-                <span>资产类型</span>
-                <el-button type="primary" size="small" @click="showAddAssetType = true">新增类型</el-button>
-              </div>
+        <el-table :data="pagedTypes" border highlight-current-row size="small" @current-change="handleTypeRowClick">
+          <el-table-column prop="name" label="字典名称" min-width="130" />
+          <el-table-column prop="code" label="字典编码" min-width="150" show-overflow-tooltip />
+          <el-table-column prop="count" label="项数" width="60" align="center" />
+          <el-table-column label="状态" width="70" align="center">
+            <template #default="{ row }">
+              <el-tag :type="row.status === 'ENABLED' ? 'success' : 'info'" size="small">{{ labelOf('ENABLE_STATUS', row.status) }}</el-tag>
             </template>
-            <el-menu :default-active="selectedAssetType" @select="handleAssetTypeSelect">
-              <el-menu-item v-for="at in assetTypes" :key="at.code" :index="at.code">
-                <div class="node-row">
-                  <span>{{ at.name }}</span>
-                  <el-tag size="small" type="info">{{ at.fields.length }} 字段</el-tag>
-                </div>
-              </el-menu-item>
-            </el-menu>
-          </el-card>
-          <el-card shadow="never">
-            <template #header>
-              <div class="card-head">
-                <span>字段配置 <span v-if="currentAssetType" class="sub-hint">（{{ currentAssetType.name }}）</span></span>
-                <div>
-                  <el-button type="success" size="small" @click="previewForm = true" :disabled="!currentAssetType">预览表单</el-button>
-                  <el-button type="primary" size="small" @click="showAddField = true" :disabled="!currentAssetType">新增字段</el-button>
-                </div>
-              </div>
-            </template>
-            <el-table :data="pagedFields" border stripe>
-              <el-table-column prop="label" label="字段名称" width="140" />
-              <el-table-column prop="key" label="字段标识" width="130">
-                <template #default="{ row }">
-                  <code class="code-key">{{ row.key }}</code>
-                </template>
-              </el-table-column>
-              <el-table-column prop="type" label="控件类型" width="110">
-                <template #default="{ row }">
-                  <el-tag size="small">{{ controlTypeLabel(row.type) }}</el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column prop="required" label="必填" width="70" align="center">
-                <template #default="{ row }">
-                  <el-tag :type="row.required ? 'danger' : 'info'" size="small">{{ row.required ? '是' : '否' }}</el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column prop="options" label="选项/默认值" min-width="180">
-                <template #default="{ row }">
-                  <span v-if="row.type === 'select' || row.type === 'radio'">{{ (row.options || []).join('、') || '-' }}</span>
-                  <span v-else-if="row.defaultValue">{{ row.defaultValue }}</span>
-                  <span v-else class="muted">-</span>
-                </template>
-              </el-table-column>
-              <el-table-column prop="placeholder" label="提示文字" width="140" />
-              <el-table-column prop="sort" label="排序" width="70" align="right" class-name="num" />
-              <el-table-column label="操作" width="150" fixed="right">
-                <template #default="{ row }">
-                  <el-button type="primary" link size="small" @click="editField(row)">编辑</el-button>
-                  <el-button type="danger" link size="small" @click="deleteField(row)">删除</el-button>
-                </template>
-              </el-table-column>
-              <template #empty>
-                <el-empty description="暂无数据" :image-size="60" />
-              </template>
-            </el-table>
-            <div class="pager">
-              <el-pagination
-                v-model:current-page="fieldPage"
-                v-model:page-size="fieldPageSize"
-                :total="currentFields.length"
-                :page-sizes="[10, 20, 50]"
-                layout="total, sizes, prev, pager, next, jumper"
-              />
-            </div>
-          </el-card>
+          </el-table-column>
+        </el-table>
+        <div class="pager">
+          <el-pagination
+            v-model:current-page="typePage"
+            v-model:page-size="typePageSize"
+            :total="filteredTypes.length"
+            :page-sizes="[10, 20, 50]"
+            layout="total, prev, pager, next"
+          />
         </div>
-      </el-tab-pane>
-    </el-tabs>
+      </div>
 
-    <el-dialog v-model="showCreate" title="新增字典类型" width="500px">
+      <!-- 右：字典项 -->
+      <div class="dict-main">
+        <div class="dict-main-head">
+          <div>
+            <h3>{{ currentType ? currentType.name : '字典项' }}</h3>
+            <span class="muted">{{ currentType ? `编码 ${currentType.code}` : '请先选择左侧字典类型' }}</span>
+            <el-tag v-if="boundEnum" type="warning" size="small" effect="plain" class="bound-tag">
+              已绑定枚举 {{ boundEnum }}：修改后全站文案即时生效
+            </el-tag>
+          </div>
+          <div class="toolbar">
+            <el-input v-model="itemQuery.keyword" placeholder="标签/编码" clearable style="width:160px" prefix-icon="Search" />
+            <el-button type="primary" :icon="Plus" :disabled="!currentType" @click="openItem()">新增字典项</el-button>
+            <el-button :disabled="!currentType" @click="openType(currentType)">编辑类型</el-button>
+          </div>
+        </div>
+
+        <el-table :data="pagedItems" border stripe>
+          <el-table-column prop="label" label="标签" min-width="140" />
+          <el-table-column prop="value" label="值（枚举编码）" min-width="150">
+            <template #default="{ row }"><code class="code">{{ row.value }}</code></template>
+          </el-table-column>
+          <el-table-column prop="sort" label="排序" width="70" align="right" />
+          <el-table-column label="状态" width="90" align="center">
+            <template #default="{ row }">
+              <el-tag :type="row.status === 'ENABLED' ? 'success' : 'info'" size="small">{{ labelOf('ENABLE_STATUS', row.status) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="remark" label="备注" min-width="160" show-overflow-tooltip />
+          <el-table-column label="更新时间" width="170">
+            <template #default="{ row }">{{ formatDateTime(row.updateTime) }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="180" align="center" fixed="right">
+            <template #default="{ row }">
+              <el-button type="primary" link size="small" @click="openItem(row)">编辑</el-button>
+              <el-button type="warning" link size="small" @click="toggleItem(row)">{{ row.status === 'ENABLED' ? '停用' : '启用' }}</el-button>
+              <el-button type="danger" link size="small" @click="deleteItem(row)">删除</el-button>
+            </template>
+          </el-table-column>
+          <template #empty>
+            <el-empty description="暂无字典项" :image-size="70" />
+          </template>
+        </el-table>
+        <div class="pager">
+          <el-pagination
+            v-model:current-page="itemPage"
+            v-model:page-size="itemPageSize"
+            :total="filteredItems.length"
+            :page-sizes="[10, 20, 50]"
+            layout="total, sizes, prev, pager, next, jumper"
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- 字典类型弹窗 -->
+    <el-dialog v-model="showType" :title="editingType ? '编辑字典类型' : '新增字典类型'" width="480px">
       <el-form :model="typeForm" label-width="100px">
-        <el-form-item label="字典名称" required>
-          <el-input v-model="typeForm.name" />
-        </el-form-item>
+        <el-form-item label="字典名称" required><el-input v-model="typeForm.name" placeholder="如：资产状态" /></el-form-item>
         <el-form-item label="字典编码" required>
-          <el-input v-model="typeForm.code" placeholder="如：asset_status" />
+          <el-input v-model="typeForm.code" :disabled="editingType" placeholder="如：asset_status" />
+          <div class="muted hint">编码为枚举绑定依据，创建后不建议修改</div>
         </el-form-item>
-        <el-form-item label="备注">
-          <el-input v-model="typeForm.remark" type="textarea" :rows="2" />
+        <el-form-item label="状态">
+          <el-select v-model="typeForm.status" style="width:100%">
+            <el-option label="启用" value="ENABLED" />
+            <el-option label="停用" value="DISABLED" />
+          </el-select>
         </el-form-item>
+        <el-form-item label="备注"><el-input v-model="typeForm.remark" type="textarea" :rows="2" /></el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showCreate = false">取消</el-button>
+        <el-button @click="showType = false">取消</el-button>
         <el-button type="primary" @click="saveType">保存</el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="showAddItem" :title="editingItem ? '编辑字典项' : '新增字典项'" width="500px">
-      <el-form :model="itemForm" label-width="100px">
-        <el-form-item label="标签" required>
-          <el-input v-model="itemForm.label" />
-        </el-form-item>
+    <!-- 字典项弹窗 -->
+    <el-dialog v-model="showItem" :title="editingItem ? '编辑字典项' : '新增字典项'" width="480px">
+      <el-form :model="itemForm" label-width="110px">
+        <el-form-item label="标签" required><el-input v-model="itemForm.label" placeholder="展示文案，如：空闲" /></el-form-item>
         <el-form-item label="值" required>
-          <el-input v-model="itemForm.value" />
+          <el-input v-model="itemForm.value" :disabled="editingItem" placeholder="枚举编码，如：IDLE" />
+          <div class="muted hint">值即存储编码，一经使用不可修改</div>
         </el-form-item>
-        <el-form-item label="排序">
-          <el-input-number v-model="itemForm.sort" :min="0" />
-        </el-form-item>
+        <el-form-item label="排序"><el-input-number v-model="itemForm.sort" :min="0" style="width:100%" /></el-form-item>
         <el-form-item label="状态">
-          <el-switch v-model="itemForm.enabled" active-text="启用" inactive-text="禁用" />
-        </el-form-item>
-        <el-form-item label="备注">
-          <el-input v-model="itemForm.remark" type="textarea" :rows="2" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showAddItem = false">取消</el-button>
-        <el-button type="primary" @click="saveItem">保存</el-button>
-      </template>
-    </el-dialog>
-
-    <el-dialog v-model="showAddAssetType" :title="editingAssetType ? '编辑资产类型' : '新增资产类型'" width="500px">
-      <el-form :model="assetTypeForm" label-width="100px">
-        <el-form-item label="类型名称" required>
-          <el-input v-model="assetTypeForm.name" placeholder="如：商铺、写字楼、厂房" />
-        </el-form-item>
-        <el-form-item label="类型编码" required>
-          <el-input v-model="assetTypeForm.code" placeholder="如：shop、office、factory" :disabled="!!editingAssetType" />
-        </el-form-item>
-        <el-form-item label="备注">
-          <el-input v-model="assetTypeForm.remark" type="textarea" :rows="2" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showAddAssetType = false">取消</el-button>
-        <el-button type="primary" @click="saveAssetType">保存</el-button>
-      </template>
-    </el-dialog>
-
-    <el-dialog v-model="showAddField" :title="editingField ? '编辑字段' : '新增字段'" width="620px" destroy-on-close>
-      <el-form :model="fieldForm" label-width="100px">
-        <el-form-item label="字段名称" required>
-          <el-input v-model="fieldForm.label" placeholder="如：建筑面积、楼层、朝向" />
-        </el-form-item>
-        <el-form-item label="字段标识" required>
-          <el-input v-model="fieldForm.key" placeholder="英文标识，如：buildingArea、floor、orientation" :disabled="!!editingField" />
-        </el-form-item>
-        <el-form-item label="控件类型" required>
-          <el-select v-model="fieldForm.type" style="width:100%">
-            <el-option label="单行文本" value="input" />
-            <el-option label="多行文本" value="textarea" />
-            <el-option label="数字" value="number" />
-            <el-option label="下拉选择" value="select" />
-            <el-option label="单选" value="radio" />
-            <el-option label="日期" value="date" />
-            <el-option label="日期范围" value="daterange" />
-            <el-option label="开关" value="switch" />
+          <el-select v-model="itemForm.status" style="width:100%">
+            <el-option label="启用" value="ENABLED" />
+            <el-option label="停用" value="DISABLED" />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="fieldForm.type === 'select' || fieldForm.type === 'radio'" label="选项列表" required>
-          <el-input v-model="fieldForm.optionsText" type="textarea" :rows="3" placeholder="每行一个选项，如：&#10;一楼&#10;二楼&#10;三楼" />
-          <div class="form-tip">每行一个选项</div>
-        </el-form-item>
-        <el-form-item label="默认值">
-          <el-input v-model="fieldForm.defaultValue" placeholder="选填" />
-        </el-form-item>
-        <el-form-item label="提示文字">
-          <el-input v-model="fieldForm.placeholder" placeholder="输入框提示，选填" />
-        </el-form-item>
-        <el-form-item label="必填">
-          <el-switch v-model="fieldForm.required" active-text="是" inactive-text="否" />
-        </el-form-item>
-        <el-form-item label="排序">
-          <el-input-number v-model="fieldForm.sort" :min="0" />
-        </el-form-item>
+        <el-form-item label="备注"><el-input v-model="itemForm.remark" type="textarea" :rows="2" /></el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showAddField = false">取消</el-button>
-        <el-button type="primary" @click="saveField">保存</el-button>
-      </template>
-    </el-dialog>
-
-    <el-dialog v-model="previewForm" title="表单预览" width="650px" destroy-on-close>
-      <template v-if="currentAssetType">
-        <el-alert :title="`资产类型：${currentAssetType.name}`" type="info" :closable="false" show-icon style="margin-bottom:16px" />
-        <el-form :model="previewData" label-width="110px">
-          <el-form-item v-for="field in currentFields" :key="field.key" :label="field.label" :required="field.required">
-            <el-input v-if="field.type === 'input'" v-model="previewData[field.key]" :placeholder="field.placeholder || `请输入${field.label}`" />
-            <el-input v-else-if="field.type === 'textarea'" v-model="previewData[field.key]" type="textarea" :rows="3" :placeholder="field.placeholder || `请输入${field.label}`" />
-            <el-input-number v-else-if="field.type === 'number'" v-model="previewData[field.key]" :placeholder="field.placeholder" style="width:100%" />
-            <el-select v-else-if="field.type === 'select'" v-model="previewData[field.key]" :placeholder="field.placeholder || `请选择${field.label}`" style="width:100%">
-              <el-option v-for="opt in field.options" :key="opt" :label="opt" :value="opt" />
-            </el-select>
-            <el-radio-group v-else-if="field.type === 'radio'" v-model="previewData[field.key]">
-              <el-radio v-for="opt in field.options" :key="opt" :value="opt">{{ opt }}</el-radio>
-            </el-radio-group>
-            <el-date-picker v-else-if="field.type === 'date'" v-model="previewData[field.key]" type="date" :placeholder="field.placeholder || `请选择${field.label}`" style="width:100%" />
-            <el-date-picker v-else-if="field.type === 'daterange'" v-model="previewData[field.key]" type="daterange" start-placeholder="开始日期" end-placeholder="结束日期" style="width:100%" />
-            <el-switch v-else-if="field.type === 'switch'" v-model="previewData[field.key]" />
-          </el-form-item>
-        </el-form>
-      </template>
-      <template #footer>
-        <el-button @click="previewForm = false">关闭</el-button>
+        <el-button @click="showItem = false">取消</el-button>
+        <el-button type="primary" @click="saveItem">保存</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, reactive } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Plus } from '@element-plus/icons-vue'
+import { Plus, Search } from '@element-plus/icons-vue'
 import { useCollection } from '../../composables/useCollection'
-import { COLLECTION } from '../../services'
+import { COLLECTION, dataService } from '../../services'
+import { labelOf, DICT_CODE_TO_ENUM } from '../../constants/enums'
+import { loadDictEnums } from '../../services/dictEnums'
+import { formatDateTime } from '../../utils/format'
 
-const activeTab = ref('dict')
-
-const selectedType = ref('asset_status')
-const showCreate = ref(false)
-const showAddItem = ref(false)
-const editingItem = ref(null)
-
-const typeForm = ref({ name: '', code: '', remark: '' })
-const itemForm = ref({ label: '', value: '', sort: 0, enabled: true, remark: '' })
-
-const typeQuery = reactive({ name: '', status: '' })
-
+// ---------------------------------------------------------------- 字典类型
 const dictTypeCol = useCollection(COLLECTION.systemDictTypes)
 const dictTypes = dictTypeCol.items
 
-const DICT_ITEMS_SEED = {
-  asset_status: [
-    { id: 1, label: '已出租', value: 'rented', sort: 1, status: '启用', remark: '', createTime: '2024-01-05 09:30:00', updateTime: '2026-08-20 15:32:10' },
-    { id: 2, label: '闲置', value: 'idle', sort: 2, status: '启用', remark: '', createTime: '2024-01-05 09:31:00', updateTime: '2026-08-20 15:32:10' },
-    { id: 3, label: '自用', value: 'selfuse', sort: 3, status: '启用', remark: '', createTime: '2024-01-05 09:32:00', updateTime: '2026-03-14 09:18:26' },
-    { id: 4, label: '未办证', value: 'uncert', sort: 4, status: '启用', remark: '', createTime: '2024-01-05 09:33:00', updateTime: '2026-03-14 09:18:26' },
-    { id: 5, label: '已处置', value: 'disposed', sort: 5, status: '禁用', remark: '停用中', createTime: '2024-01-05 09:34:00', updateTime: '2026-02-01 17:02:19' },
-  ],
-  asset_type: [
-    { id: 1, label: '商业用房', value: 'commercial', sort: 1, status: '启用', remark: '', createTime: '2024-01-05 10:00:00', updateTime: '2026-07-11 10:05:44' },
-    { id: 2, label: '工业厂房', value: 'industrial', sort: 2, status: '启用', remark: '', createTime: '2024-01-05 10:01:00', updateTime: '2026-07-11 10:05:44' },
-    { id: 3, label: '办公用房', value: 'office', sort: 3, status: '启用', remark: '', createTime: '2024-01-05 10:02:00', updateTime: '2026-01-22 14:36:08' },
-    { id: 4, label: '其他', value: 'other', sort: 4, status: '启用', remark: '', createTime: '2024-01-05 10:03:00', updateTime: '2026-01-22 14:36:08' },
-  ],
-  contract_status: [
-    { id: 1, label: '履行中', value: 'active', sort: 1, status: '启用', remark: '', createTime: '2024-02-18 15:00:00', updateTime: '2026-06-30 09:41:02' },
-    { id: 2, label: '已到期', value: 'expired', sort: 2, status: '启用', remark: '', createTime: '2024-02-18 15:01:00', updateTime: '2026-06-30 09:41:02' },
-    { id: 3, label: '已终止', value: 'terminated', sort: 3, status: '启用', remark: '', createTime: '2024-02-18 15:02:00', updateTime: '2025-12-09 10:11:45' },
-    { id: 4, label: '欠费', value: 'arrears', sort: 4, status: '启用', remark: '', createTime: '2024-02-18 15:03:00', updateTime: '2025-12-09 10:11:45' },
-  ],
-  fee_type: [
-    { id: 1, label: '租金', value: 'rent', sort: 1, status: '启用', remark: '', createTime: '2024-02-18 16:00:00', updateTime: '2026-05-19 16:22:37' },
-    { id: 2, label: '管理费', value: 'management', sort: 2, status: '启用', remark: '', createTime: '2024-02-18 16:01:00', updateTime: '2026-05-19 16:22:37' },
-    { id: 3, label: '水电费', value: 'utility', sort: 3, status: '启用', remark: '', createTime: '2024-02-18 16:02:00', updateTime: '2025-11-27 09:03:52' },
-  ],
-  warning_level: [
-    { id: 1, label: '高', value: 'high', sort: 1, status: '启用', remark: '', createTime: '2024-03-02 11:20:00', updateTime: '2026-04-08 11:47:53' },
-    { id: 2, label: '中', value: 'medium', sort: 2, status: '启用', remark: '', createTime: '2024-03-02 11:21:00', updateTime: '2026-04-08 11:47:53' },
-    { id: 3, label: '低', value: 'low', sort: 3, status: '启用', remark: '', createTime: '2024-03-02 11:22:00', updateTime: '2025-10-16 15:29:31' },
-  ],
-}
-
-// 每个字典类型对应一个集合，读写走服务层
-const dictItemCols = {}
-Object.keys(DICT_ITEMS_SEED).forEach(code => {
-  dictItemCols[code] = useCollection(`${COLLECTION.systemDictTypes}-${code}-items`)
-})
-
-function dictItemCol(code) {
-  if (!dictItemCols[code]) {
-    dictItemCols[code] = useCollection(`${COLLECTION.systemDictTypes}-${code}-items`)
-  }
-  return dictItemCols[code]
-}
-
-const dictItems = reactive(Object.fromEntries(Object.keys(DICT_ITEMS_SEED).map(code => [code, dictItemCols[code].items])))
-
+const typeQuery = reactive({ name: '', status: '' })
 const filteredTypes = computed(() => dictTypes.value.filter(t => {
   if (typeQuery.name && !t.name.includes(typeQuery.name)) return false
   if (typeQuery.status && t.status !== typeQuery.status) return false
   return true
 }))
-
 const typePage = ref(1)
 const typePageSize = ref(10)
 const pagedTypes = computed(() => filteredTypes.value.slice((typePage.value - 1) * typePageSize.value, typePage.value * typePageSize.value))
 
-const currentType = computed(() => dictTypes.value.find(t => t.code === selectedType.value))
-const currentItems = computed(() => dictItems[selectedType.value] || [])
+const selectedType = ref('')
+const currentType = computed(() => dictTypes.value.find(t => t.code === selectedType.value) || null)
+/** 该字典是否绑定了业务枚举（绑定后改动即时作用全站） */
+const boundEnum = computed(() => (currentType.value ? DICT_CODE_TO_ENUM[currentType.value.code] : ''))
 
-const itemPage = ref(1)
-const itemPageSize = ref(10)
-const pagedItems = computed(() => currentItems.value.slice((itemPage.value - 1) * itemPageSize.value, itemPage.value * itemPageSize.value))
-
-const typeRowClass = ({ row }) => row.code === selectedType.value ? 'current-row' : ''
-
-const handleTypeRowClick = (row) => {
+function handleTypeRowClick(row) {
   selectedType.value = row.code
   itemPage.value = 1
+  itemQuery.keyword = ''
+  loadItems(row.code)
 }
 
-const editItem = (row) => {
-  editingItem.value = row
-  itemForm.value = { label: row.label, value: row.value, sort: row.sort, enabled: row.status === '启用', remark: row.remark }
-  showAddItem.value = true
-}
-
-const deleteItem = (row) => {
-  ElMessageBox.confirm(`确认删除字典项"${row.label}"？`, '提示', { type: 'warning' }).then(() => {
-    dictItemCol(selectedType.value).remove(row)
-    const t = dictTypes.value.find(t => t.code === selectedType.value)
-    if (t) {
-      t.count = Math.max(0, t.count - 1)
-      t.updateTime = new Date().toLocaleString('zh-CN', { hour12: false })
-      dictTypeCol.update(t)
-    }
-    ElMessage.success('删除成功')
-  }).catch(() => {})
-}
-
-const saveType = () => {
-  if (!typeForm.value.name || !typeForm.value.code) { ElMessage.warning('请填写完整信息'); return }
-  if (!dictTypes.value.some(t => t.code === typeForm.value.code)) {
-    const now = new Date().toLocaleString('zh-CN', { hour12: false })
-    dictTypeCol.add({ code: typeForm.value.code, name: typeForm.value.name, count: 0, status: '启用', createTime: now, updateTime: now })
-    dictItems[typeForm.value.code] = dictItemCol(typeForm.value.code).items
+// 首次加载后自动选中第一个字典类型
+watch(dictTypes, list => {
+  if (!selectedType.value && list.length) {
+    selectedType.value = list[0].code
+    loadItems(list[0].code)
   }
-  showCreate.value = false
-  typeForm.value = { name: '', code: '', remark: '' }
-  ElMessage.success('保存成功')
-}
+}, { immediate: true })
 
-const saveItem = () => {
-  if (!itemForm.value.label || !itemForm.value.value) { ElMessage.warning('请填写完整信息'); return }
-  const col = dictItemCol(selectedType.value)
-  const now = new Date().toLocaleString('zh-CN', { hour12: false })
-  if (editingItem.value) {
-    Object.assign(editingItem.value, {
-      label: itemForm.value.label, value: itemForm.value.value, sort: itemForm.value.sort,
-      status: itemForm.value.enabled ? '启用' : '禁用', remark: itemForm.value.remark, updateTime: now
-    })
-    col.update(editingItem.value)
-  } else {
-    col.add({
-      id: Date.now(), label: itemForm.value.label, value: itemForm.value.value, sort: itemForm.value.sort,
-      status: itemForm.value.enabled ? '启用' : '禁用', remark: itemForm.value.remark, createTime: now, updateTime: now
-    })
-    const t = dictTypes.value.find(t => t.code === selectedType.value)
-    if (t) {
-      t.count = col.items.value.length
-      t.updateTime = now
-      dictTypeCol.update(t)
-    }
+// ---------------------------------------------------------------- 字典项
+/** 每个字典类型一个集合：system-dict-types-{code}-items（按需加载，不预建全部集合） */
+const itemRows = ref([])
+const itemsCollection = code => `${COLLECTION.systemDictTypes}-${code}-items`
+
+async function loadItems(code) {
+  if (!code) { itemRows.value = []; return }
+  try {
+    itemRows.value = await dataService.list(itemsCollection(code))
+  } catch (e) {
+    itemRows.value = []
   }
-  showAddItem.value = false
-  editingItem.value = null
-  itemForm.value = { label: '', value: '', sort: 0, enabled: true, remark: '' }
-  ElMessage.success('保存成功')
 }
 
-const controlTypeLabel = (type) => {
-  const map = { input: '单行文本', textarea: '多行文本', number: '数字', select: '下拉选择', radio: '单选', date: '日期', daterange: '日期范围', switch: '开关' }
-  return map[type] || type
+const itemQuery = reactive({ keyword: '' })
+const filteredItems = computed(() => itemRows.value.filter(i => {
+  const kw = itemQuery.keyword.trim()
+  if (kw && !(`${i.label} ${i.value}`.includes(kw))) return false
+  return true
+}))
+const itemPage = ref(1)
+const itemPageSize = ref(10)
+const pagedItems = computed(() => filteredItems.value.slice((itemPage.value - 1) * itemPageSize.value, itemPage.value * itemPageSize.value))
+
+/** 字典项变更后刷新全站枚举文案 */
+async function refreshEnums() {
+  await loadDictEnums()
 }
 
-const selectedAssetType = ref('shop')
-const showAddAssetType = ref(false)
-const editingAssetType = ref(null)
-const assetTypeForm = ref({ name: '', code: '', remark: '' })
+// ---------------------------------------------------------------- 字典类型维护
+const showType = ref(false)
+const editingType = ref(false)
+const typeForm = ref({ code: '', name: '', status: 'ENABLED', remark: '' })
 
-const showAddField = ref(false)
-const editingField = ref(null)
-const fieldForm = ref({ label: '', key: '', type: 'input', optionsText: '', defaultValue: '', placeholder: '', required: false, sort: 0 })
-
-const previewForm = ref(false)
-const previewData = reactive({})
-
-const assetTypeCol = useCollection(COLLECTION.systemAssetTypes)
-const assetTypes = assetTypeCol.items
-
-const currentAssetType = computed(() => assetTypes.value.find(at => at.code === selectedAssetType.value))
-const currentFields = computed(() => currentAssetType.value ? [...currentAssetType.value.fields].sort((a, b) => a.sort - b.sort) : [])
-
-const fieldPage = ref(1)
-const fieldPageSize = ref(10)
-const pagedFields = computed(() => currentFields.value.slice((fieldPage.value - 1) * fieldPageSize.value, fieldPage.value * fieldPageSize.value))
-
-const handleAssetTypeSelect = (code) => {
-  selectedAssetType.value = code
-  fieldPage.value = 1
+function openType(row) {
+  editingType.value = !!row
+  typeForm.value = row
+    ? { code: row.code, name: row.name, status: row.status || 'ENABLED', remark: row.remark || '' }
+    : { code: '', name: '', status: 'ENABLED', remark: '' }
+  showType.value = true
 }
 
-const saveAssetType = () => {
-  if (!assetTypeForm.value.name || !assetTypeForm.value.code) { ElMessage.warning('请填写完整信息'); return }
-  if (editingAssetType.value) {
-    Object.assign(editingAssetType.value, { name: assetTypeForm.value.name, remark: assetTypeForm.value.remark })
-    assetTypeCol.update(editingAssetType.value)
-    ElMessage.success('资产类型已更新')
-  } else {
-    assetTypeCol.add({ code: assetTypeForm.value.code, name: assetTypeForm.value.name, remark: assetTypeForm.value.remark, fields: [] })
-    ElMessage.success('资产类型已添加')
-  }
-  showAddAssetType.value = false
-  editingAssetType.value = null
-}
-
-const editField = (field) => {
-  editingField.value = field
-  fieldForm.value = {
-    label: field.label, key: field.key, type: field.type,
-    optionsText: (field.options || []).join('\n'),
-    defaultValue: field.defaultValue || '',
-    placeholder: field.placeholder || '',
-    required: field.required, sort: field.sort
-  }
-  showAddField.value = true
-}
-
-const deleteField = (field) => {
-  ElMessageBox.confirm('确认删除该字段配置？', '提示', { type: 'warning' }).then(() => {
-    const fields = currentAssetType.value.fields
-    const idx = fields.findIndex(f => f === field)
-    if (idx > -1) fields.splice(idx, 1)
-    assetTypeCol.update(currentAssetType.value)
-    ElMessage.success('字段已删除')
-  }).catch(() => {})
-}
-
-const saveField = () => {
-  if (!fieldForm.value.label || !fieldForm.value.key) { ElMessage.warning('请填写字段名称和标识'); return }
-  if ((fieldForm.value.type === 'select' || fieldForm.value.type === 'radio') && !fieldForm.value.optionsText.trim()) {
-    ElMessage.warning('下拉/单选类型必须配置选项')
+async function saveType() {
+  const { code, name } = typeForm.value
+  if (!code || !name) { ElMessage.warning('请填写字典名称与编码'); return }
+  if (!editingType.value && dictTypes.value.some(t => t.code === code)) {
+    ElMessage.warning('字典编码已存在')
     return
   }
-  const fieldData = {
-    label: fieldForm.value.label,
-    key: fieldForm.value.key,
-    type: fieldForm.value.type,
-    required: fieldForm.value.required,
-    sort: fieldForm.value.sort,
-    placeholder: fieldForm.value.placeholder,
-    defaultValue: fieldForm.value.defaultValue,
-    options: fieldForm.value.optionsText ? fieldForm.value.optionsText.split('\n').filter(Boolean) : []
-  }
-  if (editingField.value) {
-    Object.assign(editingField.value, fieldData)
-    assetTypeCol.update(currentAssetType.value)
-    ElMessage.success('字段已更新')
+  if (editingType.value) {
+    const t = dictTypes.value.find(x => x.code === code)
+    if (t) {
+      Object.assign(t, {
+        name,
+        status: typeForm.value.status,
+        remark: typeForm.value.remark,
+        updateTime: new Date().toISOString()
+      })
+      await dictTypeCol.update(t)
+    }
   } else {
-    currentAssetType.value.fields.push(fieldData)
-    assetTypeCol.update(currentAssetType.value)
-    ElMessage.success('字段已添加')
+    const created = await dictTypeCol.add({
+      code,
+      name,
+      count: 0,
+      status: typeForm.value.status,
+      remark: typeForm.value.remark,
+      createTime: new Date().toISOString(),
+      updateTime: new Date().toISOString()
+    })
+    selectedType.value = created?.code || code
+    await loadItems(code)
   }
-  showAddField.value = false
-  editingField.value = null
+  showType.value = false
+  await refreshEnums()
+  ElMessage.success('保存成功')
+}
+
+// ---------------------------------------------------------------- 字典项维护
+const showItem = ref(false)
+const editingItem = ref(false)
+const itemForm = ref({ label: '', value: '', sort: 1, status: 'ENABLED', remark: '' })
+
+function openItem(row) {
+  if (!selectedType.value) { ElMessage.warning('请先选择字典类型'); return }
+  editingItem.value = !!row
+  itemForm.value = row
+    ? { label: row.label, value: row.value, sort: row.sort || 1, status: row.status || 'ENABLED', remark: row.remark || '' }
+    : { label: '', value: '', sort: (itemRows.value.length || 0) + 1, status: 'ENABLED', remark: '' }
+  showItem.value = true
+}
+
+async function saveItem() {
+  const { label, value } = itemForm.value
+  if (!label || !value) { ElMessage.warning('请填写标签与值'); return }
+  const col = itemsCollection(selectedType.value)
+  const now = new Date().toISOString()
+  if (editingItem.value) {
+    const row = itemRows.value.find(i => i.id === itemForm.value.id)
+    if (row) {
+      Object.assign(row, {
+        label,
+        sort: itemForm.value.sort,
+        status: itemForm.value.status,
+        remark: itemForm.value.remark,
+        updateTime: now
+      })
+      await dataService.update(col, row.id, { ...row })
+    }
+  } else {
+    if (itemRows.value.some(i => i.value === value)) { ElMessage.warning('该编码已存在'); return }
+    await dataService.create(col, {
+      id: `DI_${selectedType.value}_${value}`,
+      label,
+      value,
+      sort: itemForm.value.sort,
+      status: itemForm.value.status,
+      remark: itemForm.value.remark,
+      createTime: now,
+      updateTime: now
+    })
+  }
+  showItem.value = false
+  await loadItems(selectedType.value)
+  await refreshEnums()
+  await syncTypeCount()
+  ElMessage.success('保存成功')
+}
+
+/** 字典项增删改后同步字典类型的项数 */
+async function syncTypeCount() {
+  const t = dictTypes.value.find(x => x.code === selectedType.value)
+  if (!t) return
+  const count = itemRows.value.length
+  if (t.count !== count) {
+    t.count = count
+    t.updateTime = new Date().toISOString()
+    await dictTypeCol.update(t)
+  }
+}
+
+async function toggleItem(row) {
+  row.status = row.status === 'ENABLED' ? 'DISABLED' : 'ENABLED'
+  row.updateTime = new Date().toISOString()
+  await dataService.update(itemsCollection(selectedType.value), row.id, { ...row })
+  await loadItems(selectedType.value)
+  await refreshEnums()
+  ElMessage.success(row.status === 'ENABLED' ? '已启用' : '已停用')
+}
+
+async function deleteItem(row) {
+  ElMessageBox.confirm(`确认删除字典项「${row.label}」？`, '提示', { type: 'warning' }).then(async () => {
+    await dataService.remove(itemsCollection(selectedType.value), row.id)
+    await loadItems(selectedType.value)
+    await refreshEnums()
+    await syncTypeCount()
+    ElMessage.success('已删除')
+  }).catch(() => {})
 }
 </script>
 
 <style scoped>
-/* 两栏一律"定宽/比例 + 自适应"，右栏吃满剩余宽度，中间不留大洞 */
-.dict-split {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: minmax(0, 11fr) minmax(0, 13fr);
-}
-
-.schema-split {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: 280px minmax(0, 1fr);
-}
-
-@media (max-width: 1200px) {
-  .dict-split,
-  .schema-split { grid-template-columns: minmax(0, 1fr); }
-}
-
-.card-head { display: flex; justify-content: space-between; align-items: center; }
-.node-row { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-.sub-hint { color: var(--t-weak); font-size: 13px; }
+.page-header { display: flex; align-items: baseline; gap: 12px; }
+.page-header h2 { margin: 0; font-size: 20px; }
+.page-header .sub { color: var(--t-weak); font-size: 13px; }
+.dict-layout { display: grid; grid-template-columns: 320px 1fr; gap: 16px; align-items: start; }
+.dict-side, .dict-main { background: var(--t-card, #fff); border: 1px solid var(--t-border, #ebeef5); border-radius: 8px; padding: 12px; }
+.dict-main-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.dict-main-head h3 { margin: 0 0 4px; font-size: 16px; }
+.bound-tag { margin-left: 10px; }
+.toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
 .muted { color: var(--t-weak); }
-.code-key { color: var(--c-primary); font-family: var(--font-mono); }
-.form-tip { color: var(--t-weak); font-size: 12px; margin-top: 4px; }
+.hint { font-size: 12px; line-height: 1.4; margin-top: 2px; }
+.code { background: var(--t-bg-soft, #f5f7fa); padding: 1px 6px; border-radius: 4px; font-size: 12px; }
 </style>

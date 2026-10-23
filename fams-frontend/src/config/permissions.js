@@ -52,7 +52,7 @@ export const PERMISSION_TREE = [
       { id: 'sys:params', label: '系统参数' },
       { id: 'sys:message', label: '消息中心' },
       { id: 'sys:template', label: '消息模板' },
-      { id: 'sys:terminal', label: '终端管理' }
+      { id: 'sys:terminal', label: '盘点终端' }
     ]
   }
 ]

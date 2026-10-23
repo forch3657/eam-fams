@@ -5,7 +5,9 @@
  * - 数据层（mock / 后端）一律存储、传输**编码**（如 'IDLE'），不存中文展示词。
  * - 视图展示统一经 labelOf()/optionsOf() 取文案，禁止在视图里硬编码中文状态判断。
  * - 新增枚举请同时登记到 ENUMS，契约校验才能生效。
+ * - 枚举文案可被「系统管理 > 数据字典」在线维护（见 ENUM_DICT_META 与 applyDictEnums）。
  */
+import { ref } from 'vue'
 
 /** 资产状态（收敛原 assetStatusOptions 与 assetStatusPool 两套值域） */
 export const ASSET_STATUS = {
@@ -167,29 +169,38 @@ export const APPROVE_MODE = {
   ALL: '会签'
 }
 
-/** 终端状态 */
+/** 盘点终端状态 */
 export const DEVICE_STATUS = {
   ONLINE: '在线',
   OFFLINE: '离线',
+  MAINTENANCE: '维护中',
   DISABLED: '停用'
 }
 
-/** 终端类型 */
+/** 盘点终端类型（原收银终端类型，已对齐资产盘点场景） */
 export const DEVICE_TYPE = {
-  POS: '收款终端',
-  SCAN_BOX: '扫码盒子',
-  KIOSK: '自助缴费机',
-  POS_MACHINE: 'POS机'
+  PDA: '手持盘点终端',
+  SCANNER: '无线扫码枪',
+  TABLET: '盘点平板',
+  FIXED: '固定读码器',
+  OTHER: '其他'
 }
 
-/** 终端违规类型 */
-export const MISUSE_TYPE = {
-  PRIVATE_COLLECTION: '私自收款',
-  MISAPPROPRIATION: '挪用资金',
-  ILLEGAL_REDUCTION: '违规减免',
-  ACCOUNT_FRAUD: '冒用账户',
-  DEVICE_LEND: '设备外借',
+/** 盘点终端异常类型（原违规收款类型，已对齐盘点场景） */
+export const DEVICE_ABNORMAL_TYPE = {
+  UNAUTHORIZED_BIND: '未授权绑定',
+  OUT_OF_SCOPE: '越权盘点',
+  OFFLINE_UPLOAD: '离线数据未上报',
+  TAMPERED: '设备异常拆装',
+  DATA_ABNORMAL: '盘点数据异常',
   OTHER: '其他'
+}
+
+/** 消息级别 */
+export const MESSAGE_LEVEL = {
+  NORMAL: '普通',
+  IMPORTANT: '重要',
+  URGENT: '紧急'
 }
 
 /** 系统参数类型 */
@@ -237,21 +248,92 @@ export const ENUMS = {
   APPROVE_MODE,
   DEVICE_STATUS,
   DEVICE_TYPE,
-  MISUSE_TYPE,
+  DEVICE_ABNORMAL_TYPE,
+  MESSAGE_LEVEL,
   PARAM_TYPE,
   DATA_SCOPE,
   ORG_SCOPE
 }
 
+/**
+ * 字典（系统管理 > 数据字典）↔ 枚举 的绑定表。
+ *
+ * 约定：**数据字典是业务枚举的统一维护入口**。
+ * - 每条绑定把一个枚举登记为可在页面上维护的字典类型（code 与字典类型编码一致）；
+ * - 应用启动/字典变更后，由 services/dictEnums.js 把字典项灌入运行时覆盖表，
+ *   从而"改字典 = 改全站文案"，无需改代码；
+ * - 未绑定字典的枚举仍以内置值为准（内置值同时是契约校验的取值范围）。
+ */
+export const ENUM_DICT_META = [
+  { enumName: 'ASSET_STATUS', code: 'asset_status', name: '资产状态' },
+  { enumName: 'ASSET_CATEGORY', code: 'asset_type', name: '资产分类' },
+  { enumName: 'ENABLE_STATUS', code: 'enable_status', name: '启停状态' },
+  { enumName: 'DOC_STATUS', code: 'doc_status', name: '单据状态' },
+  { enumName: 'INBOUND_STATUS', code: 'inbound_status', name: '入库单状态' },
+  { enumName: 'DISPATCH_STATUS', code: 'dispatch_status', name: '派发退库单状态' },
+  { enumName: 'BORROW_STATUS', code: 'borrow_status', name: '借出单状态' },
+  { enumName: 'DISPOSE_STATUS', code: 'dispose_status', name: '处置单状态' },
+  { enumName: 'DISPOSE_TYPE', code: 'dispose_type', name: '处置方式' },
+  { enumName: 'CHANGE_TYPE', code: 'change_type', name: '资产变更类型' },
+  { enumName: 'PURCHASE_MODE', code: 'purchase_mode', name: '购置方式' },
+  { enumName: 'LOW_VALUE_ITEM_STATUS', code: 'low_value_status', name: '低值物品状态' },
+  { enumName: 'INVENTORY_RESULT', code: 'inventory_result', name: '盘点结果' },
+  { enumName: 'INVENTORY_ITEM_STATUS', code: 'inventory_item_status', name: '盘点明细状态' },
+  { enumName: 'INVENTORY_COUNTER_STATUS', code: 'inventory_counter_status', name: '盘点单状态' },
+  { enumName: 'DEPRECIATION_METHOD', code: 'depreciation_method', name: '折旧方法' },
+  { enumName: 'CALC_TIME', code: 'calc_time', name: '计提频率' },
+  { enumName: 'BUSINESS_TYPE', code: 'business_type', name: '审批业务' },
+  { enumName: 'APPROVE_MODE', code: 'approve_mode', name: '审批模式' },
+  { enumName: 'MESSAGE_LEVEL', code: 'message_level', name: '消息级别' },
+  { enumName: 'DEVICE_STATUS', code: 'device_status', name: '盘点终端状态' },
+  { enumName: 'DEVICE_TYPE', code: 'device_type', name: '盘点终端类型' },
+  { enumName: 'DEVICE_ABNORMAL_TYPE', code: 'device_abnormal_type', name: '终端异常类型' },
+  { enumName: 'PARAM_TYPE', code: 'param_type', name: '参数类型' },
+  { enumName: 'DATA_SCOPE', code: 'data_scope', name: '角色数据范围' },
+  { enumName: 'ORG_SCOPE', code: 'org_scope', name: '角色组织范围' }
+]
+
+/** 字典类型编码 → 枚举名 */
+export const DICT_CODE_TO_ENUM = ENUM_DICT_META.reduce((m, d) => { m[d.code] = d.enumName; return m }, {})
+
+/** 枚举名 → 字典类型编码 */
+export const ENUM_TO_DICT_CODE = ENUM_DICT_META.reduce((m, d) => { m[d.enumName] = d.code; return m }, {})
+
+/**
+ * 运行时字典覆盖：{ ASSET_STATUS: { IDLE: '空闲', ... } }，只含"启用"状态的字典项。
+ * 由 services/dictEnums.js 在应用启动与字典变更后灌入。
+ */
+const runtimeEnums = ref({})
+
+/** 灌入字典维护后的枚举文案（数据字典 = 枚举统一维护入口） */
+export function applyDictEnums(map) {
+  runtimeEnums.value = map && typeof map === 'object' ? map : {}
+}
+
+/** 清空运行时覆盖，回到内置枚举 */
+export function clearDictEnums() {
+  runtimeEnums.value = {}
+}
+
+/** 当前已被字典接管的枚举名列表 */
+export function dictManagedEnums() {
+  return Object.keys(runtimeEnums.value)
+}
+
 /** 取枚举文案：labelOf('ASSET_STATUS', 'IDLE') -> '空闲'；未知编码原样返回，避免白屏 */
 export function labelOf(enumName, code) {
+  if (code === undefined || code === null || code === '') return ''
+  const override = runtimeEnums.value[enumName]
+  if (override && override[code] !== undefined) return override[code]
   const dict = ENUMS[enumName]
-  if (!dict || code === undefined || code === null || code === '') return ''
+  if (!dict) return code
   return dict[code] ?? code
 }
 
-/** 取枚举下拉选项：[{ value: 'IDLE', label: '空闲' }] */
+/** 取枚举下拉选项：[{ value: 'IDLE', label: '空闲' }]（字典停用的项不再出现在下拉里） */
 export function optionsOf(enumName) {
+  const override = runtimeEnums.value[enumName]
+  if (override) return Object.entries(override).map(([value, label]) => ({ value, label }))
   const dict = ENUMS[enumName]
   if (!dict) return []
   return Object.entries(dict).map(([value, label]) => ({ value, label }))
@@ -259,6 +341,8 @@ export function optionsOf(enumName) {
 
 /** 取枚举编码列表 */
 export function codesOf(enumName) {
+  const override = runtimeEnums.value[enumName]
+  if (override) return Object.keys(override)
   const dict = ENUMS[enumName]
   return dict ? Object.keys(dict) : []
 }

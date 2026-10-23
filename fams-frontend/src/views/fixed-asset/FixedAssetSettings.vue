@@ -193,30 +193,35 @@
           </div>
         </el-tab-pane>
 
-        <!-- 审批设置 -->
+        <!-- 审批设置：引用「系统管理 > 流程配置」的全局流程 -->
         <el-tab-pane label="审批设置" name="approval">
-          <el-button type="primary" style="margin-bottom: 16px" @click="handleAddApproval">
-            <el-icon><Plus /></el-icon>
-            新增审批流程
+          <el-alert type="info" :closable="false" show-icon style="margin-bottom: 16px">
+            <template #title>
+              审批流程统一在「系统管理 &gt; 流程配置」维护，本页只读引用并可启停；改动对全站生效。
+            </template>
+          </el-alert>
+          <el-button type="primary" style="margin-bottom: 16px" @click="goWorkflowConfig">
+            <el-icon><Setting /></el-icon>
+            前往流程配置
           </el-button>
           <el-table :data="pagedApprovalFlows" style="width: 100%">
             <el-table-column prop="name" label="流程名称" min-width="150" />
-            <el-table-column prop="type" label="适用业务" width="120" />
-            <el-table-column prop="steps" label="审批步骤" min-width="250">
+            <el-table-column label="适用业务" width="130">
+              <template #default="{ row }">{{ labelOf('BUSINESS_TYPE', row.bizType) }}</template>
+            </el-table-column>
+            <el-table-column label="审批环节" min-width="300">
               <template #default="{ row }">
-                <el-tag v-for="(step, idx) in stepList(row.steps)" :key="idx" size="small" style="margin-right: 8px">{{ step }}</el-tag>
+                <el-tag v-for="(step, idx) in flowStepNames(row)" :key="idx" size="small" style="margin-right: 8px">{{ step }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="status" label="状态" width="90">
+            <el-table-column label="状态" width="90">
               <template #default="{ row }">
-                <el-tag :type="row.status === 'ENABLED' ? 'success' : 'info'" size="small">{{ labelOf('ENABLE_STATUS', row.status) }}</el-tag>
+                <el-tag :type="row.enabled ? 'success' : 'info'" size="small">{{ row.enabled ? '启用' : '停用' }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="200">
+            <el-table-column label="操作" width="120">
               <template #default="{ row }">
-                <el-button link type="primary" size="small" @click="handleEditApproval(row)">编辑</el-button>
-                <el-button link type="primary" size="small" @click="handleToggleApproval(row)">{{ row.status === 'ENABLED' ? '停用' : '启用' }}</el-button>
-                <el-button link type="danger" size="small" @click="handleDeleteApproval(row)">删除</el-button>
+                <el-button link type="primary" size="small" @click="handleToggleApproval(row)">{{ row.enabled ? '停用' : '启用' }}</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -399,42 +404,20 @@
       </template>
     </el-dialog>
 
-    <!-- 审批流程编辑对话框 -->
-    <el-dialog v-model="approvalDialogVisible" :title="isEditApproval ? '编辑审批流程' : '新增审批流程'" width="600px">
-      <el-form :model="approvalForm" label-width="100px">
-        <el-form-item label="流程名称">
-          <el-input v-model="approvalForm.name" placeholder="请输入名称" />
-        </el-form-item>
-        <el-form-item label="适用业务">
-          <el-select v-model="approvalForm.type" placeholder="请选择" style="width: 100%">
-            <el-option label="入库验收" value="入库验收" />
-            <el-option label="派发退库" value="派发退库" />
-            <el-option label="借出归还" value="借出归还" />
-            <el-option label="资产变更" value="资产变更" />
-            <el-option label="资产处置" value="资产处置" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="审批步骤">
-          <el-input v-model="approvalForm.steps" placeholder="用->分隔，如：部门经理->财务->总经理" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="approvalDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleApprovalSubmit">确定</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search } from '@element-plus/icons-vue'
+import { Plus, Search, Setting } from '@element-plus/icons-vue'
 import { useCollection } from '../../composables/useCollection'
 import { useOrgStore } from '../../store/org'
 import { labelOf, optionsOf } from '../../constants/enums'
 import { COLLECTION } from '../../services'
 
+const router = useRouter()
 const orgStore = useOrgStore()
 const activeTab = ref('location')
 
@@ -897,78 +880,22 @@ const handlePlanSubmit = () => {
   planDialogVisible.value = false
 }
 
-// 审批设置
-const approvalFlowCol = useCollection(COLLECTION.settingsApprovalFlows)
-const approvalFlows = approvalFlowCol.items
+// 审批设置：引用全局流程（系统管理 > 流程配置），本页只读 + 启停
+const APPROVAL_BIZ_TYPES = ['INBOUND', 'DISPATCH', 'BORROW', 'CHANGE', 'DISPOSE', 'INVENTORY']
+const globalFlowCol = useCollection(COLLECTION.systemFlows)
+const globalFlows = globalFlowCol.items
+const approvalFlows = computed(() => globalFlows.value.filter(f => APPROVAL_BIZ_TYPES.includes(f.bizType)))
 
-const approvalDialogVisible = ref(false)
-const isEditApproval = ref(false)
-const editingApprovalIndex = ref(-1)
-const approvalForm = reactive({ name: '', type: '', steps: '' })
+/** 环节名（全局流程环节为对象数组） */
+const flowStepNames = row => (row.steps || []).map(s => s?.name || s).filter(Boolean)
 
-/** 审批步骤统一按数组存储，兼容历史字符串（用 -> 分隔） */
-function stepList(steps) {
-  if (Array.isArray(steps)) return steps
-  return String(steps || '').split('->').map(s => s.trim()).filter(Boolean)
+const handleToggleApproval = row => {
+  row.enabled = !row.enabled
+  globalFlowCol.update(row)
+  ElMessage.success(`流程「${row.name}」已${row.enabled ? '启用' : '停用'}`)
 }
 
-const handleAddApproval = () => {
-  isEditApproval.value = false
-  editingApprovalIndex.value = -1
-  Object.assign(approvalForm, { name: '', type: '', steps: '' })
-  approvalDialogVisible.value = true
-}
-
-const handleEditApproval = (row) => {
-  isEditApproval.value = true
-  editingApprovalIndex.value = approvalFlows.value.findIndex(a => a.name === row.name)
-  // 表单用 -> 分隔的文本编辑，回写时再转数组
-  Object.assign(approvalForm, { name: row.name, type: row.type, steps: stepList(row.steps).join('->') })
-  approvalDialogVisible.value = true
-}
-
-const handleToggleApproval = (row) => {
-  row.status = row.status === 'ENABLED' ? 'DISABLED' : 'ENABLED'
-  approvalFlowCol.update(row)
-  ElMessage.success(`${row.status}成功`)
-}
-
-const handleDeleteApproval = (row) => {
-  ElMessageBox.confirm(`确定要删除审批流程"${row.name}"吗？`, '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(() => {
-    approvalFlowCol.remove(row)
-    ElMessage.success('删除成功')
-  }).catch(() => {})
-}
-
-const handleApprovalSubmit = () => {
-  if (!approvalForm.name || !approvalForm.type || !approvalForm.steps) {
-    ElMessage.warning('请填写完整信息')
-    return
-  }
-  if (isEditApproval.value && editingApprovalIndex.value > -1) {
-    const target = approvalFlows.value[editingApprovalIndex.value]
-    Object.assign(target, {
-      name: approvalForm.name,
-      type: approvalForm.type,
-      steps: String(approvalForm.steps).split('->').map(s => s.trim()).filter(Boolean)
-    })
-    approvalFlowCol.update(target)
-    ElMessage.success('编辑成功')
-  } else {
-    approvalFlowCol.add({
-      name: approvalForm.name,
-      type: approvalForm.type,
-      steps: String(approvalForm.steps).split('->').map(s => s.trim()).filter(Boolean),
-      status: 'ENABLED'
-    })
-    ElMessage.success('新增成功')
-  }
-  approvalDialogVisible.value = false
-}
+const goWorkflowConfig = () => router.push('/system/workflow')
 
 const locPage = ref(1)
 const locPageSize = ref(15)

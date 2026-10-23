@@ -8,35 +8,35 @@
       <el-menu :default-active="activeMenu" :collapse="appStore.sidebarCollapsed" router class="sidebar-menu">
         <el-sub-menu index="fixed-asset-group">
           <template #title><el-icon><Monitor /></el-icon><span>固定资产</span></template>
-          <el-menu-item index="/fixed-assets">资产管理</el-menu-item>
-          <el-menu-item index="/fixed-asset-reports">资产报表</el-menu-item>
-          <el-menu-item index="/fixed-asset-settings">基础设置</el-menu-item>
+          <el-menu-item v-if="can('fa:view')" index="/fixed-assets">资产管理</el-menu-item>
+          <el-menu-item v-if="can('fa:report')" index="/fixed-asset-reports">资产报表</el-menu-item>
+          <el-menu-item v-if="can('fa:view')" index="/fixed-asset-settings">基础设置</el-menu-item>
         </el-sub-menu>
 
         <el-sub-menu index="low-value-asset-group">
           <template #title><el-icon><Box /></el-icon><span>低值资产</span></template>
-          <el-menu-item index="/low-value-assets">资产管理</el-menu-item>
-          <el-menu-item index="/low-value-asset-reports">资产报表</el-menu-item>
-          <el-menu-item index="/low-value-asset-settings">基础设置</el-menu-item>
+          <el-menu-item v-if="can('lv:view')" index="/low-value-assets">资产管理</el-menu-item>
+          <el-menu-item v-if="can('lv:report')" index="/low-value-asset-reports">资产报表</el-menu-item>
+          <el-menu-item v-if="can('lv:view')" index="/low-value-asset-settings">基础设置</el-menu-item>
         </el-sub-menu>
 
         <el-sub-menu index="org-group">
           <template #title><el-icon><User /></el-icon><span>组织架构</span></template>
-          <el-menu-item index="/system/company">公司管理</el-menu-item>
-          <el-menu-item index="/system/dept">部门管理</el-menu-item>
-          <el-menu-item index="/system/user">用户管理</el-menu-item>
-          <el-menu-item index="/system/role">角色管理</el-menu-item>
+          <el-menu-item v-if="can('org:company')" index="/system/company">公司管理</el-menu-item>
+          <el-menu-item v-if="can('org:dept')" index="/system/dept">部门管理</el-menu-item>
+          <el-menu-item v-if="can('org:user')" index="/system/user">用户管理</el-menu-item>
+          <el-menu-item v-if="can('org:role')" index="/system/role">角色管理</el-menu-item>
         </el-sub-menu>
 
         <el-sub-menu index="system-group">
           <template #title><el-icon><Setting /></el-icon><span>系统管理</span></template>
-          <el-menu-item index="/system/dict">数据字典</el-menu-item>
-          <el-menu-item index="/system/log">操作日志</el-menu-item>
-          <el-menu-item index="/system/workflow">流程配置</el-menu-item>
-          <el-menu-item index="/system/params">系统参数</el-menu-item>
-          <el-menu-item index="/system/message-center">消息中心</el-menu-item>
-          <el-menu-item index="/system/message-template">消息模板</el-menu-item>
-          <el-menu-item index="/system/terminal">终端管理</el-menu-item>
+          <el-menu-item v-if="can('sys:dict')" index="/system/dict">数据字典</el-menu-item>
+          <el-menu-item v-if="can('sys:log')" index="/system/log">操作日志</el-menu-item>
+          <el-menu-item v-if="can('sys:workflow')" index="/system/workflow">流程配置</el-menu-item>
+          <el-menu-item v-if="can('sys:params')" index="/system/params">系统参数</el-menu-item>
+          <el-menu-item v-if="can('sys:message')" index="/system/message-center">消息中心</el-menu-item>
+          <el-menu-item v-if="can('sys:template')" index="/system/message-template">消息模板</el-menu-item>
+          <el-menu-item v-if="can('sys:terminal')" index="/system/terminal">盘点终端</el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>
@@ -91,6 +91,8 @@ import { useNotifyStore } from '../store/notify'
 import { useAuditStore } from '../store/audit'
 import TagsView from '../components/TagsView.vue'
 import { dataMode } from '../services'
+import { loadDictEnums } from '../services/dictEnums'
+import { loadSysParams } from '../services/sysParams'
 import { Monitor, Setting, User, Box, Fold, Expand, OfficeBuilding, CaretBottom } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -104,6 +106,8 @@ const notifyStore = useNotifyStore()
 const auditStore = useAuditStore()
 
 const activeMenu = computed(() => route.path)
+/** 权限判定（角色在组织架构中维护，登录后按角色解析） */
+const can = code => userStore.can(code)
 const modeLabel = computed(() => (dataMode === 'mock' ? '演示数据' : '后端接口'))
 
 watch(
@@ -120,6 +124,10 @@ onMounted(() => {
   if (!orgStore.loaded) orgStore.loadAll()
   if (!notifyStore.loaded) notifyStore.loadAll()
   if (!auditStore.loaded) auditStore.loadAll()
+  // 数据字典是业务枚举的统一维护入口：启动时装载一次，字典改动后字典页会再次装载
+  loadDictEnums()
+  // 系统参数需被业务真正消费（编号前缀/预警阈值/盘点提醒等）
+  loadSysParams()
 })
 
 function handleCommand(cmd) {

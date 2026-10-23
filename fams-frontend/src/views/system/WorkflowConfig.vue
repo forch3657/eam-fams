@@ -11,7 +11,7 @@
       <div class="grid-3">
         <el-input v-model="keyword" placeholder="流程名称/编号" clearable prefix-icon="Search" />
         <el-select v-model="bizType" placeholder="业务类型" clearable>
-          <el-option v-for="b in bizTypes" :key="b" :label="b" :value="b" />
+          <el-option v-for="b in bizTypes" :key="b.value" :label="b.label" :value="b.value" />
         </el-select>
         <el-select v-model="statusFilter" placeholder="状态" clearable>
           <el-option label="启用" :value="true" />
@@ -37,7 +37,7 @@
               <el-switch v-model="p.enabled" size="small" @click.stop @change="onToggle(p)" />
             </div>
             <div class="flow-meta">
-              <el-tag size="small" effect="plain">{{ p.bizType }}</el-tag>
+              <el-tag size="small" effect="plain">{{ labelOf('BUSINESS_TYPE', p.bizType) }}</el-tag>
               <span class="flow-no">{{ p.code }}</span>
               <span class="flow-steps">{{ p.steps.length }} 个环节</span>
             </div>
@@ -98,7 +98,7 @@
         <el-form-item label="流程名称" required><el-input v-model="flowForm.name" placeholder="如：合同审批流程" /></el-form-item>
         <el-form-item label="业务类型" required>
           <el-select v-model="flowForm.bizType" style="width:100%">
-            <el-option v-for="b in bizTypes" :key="b" :label="b" :value="b" />
+            <el-option v-for="b in bizTypes" :key="b.value" :label="b.label" :value="b.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="发起人"><el-input v-model="flowForm.initiator" placeholder="如：经办人 / 部门负责人" /></el-form-item>
@@ -145,9 +145,10 @@ import { ref, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useCollection } from '../../composables/useCollection'
 import { COLLECTION } from '../../services'
+import { labelOf, optionsOf } from '../../constants/enums'
 
-const bizTypes = ['合同审批', '资产处置', '保证金退还', '资产调拨', '股权投资变更', '无形资产处置', '督办事项']
-const approvers = ['部门负责人', '法务专员', '财务经理', '分管副总', '总经理', '董事长', '风控专员']
+const bizTypes = optionsOf('BUSINESS_TYPE')
+const approvers = ['部门负责人', '资产管理员', '盘点员', '仓管员', '财务经理', '分管副总', '总经理']
 
 const keyword = ref('')
 const bizType = ref('')
@@ -175,10 +176,10 @@ function onToggle(p) {
 // ===== 新建/编辑流程 =====
 const showCreate = ref(false)
 const editingFlowId = ref(null)
-const flowForm = ref({ name: '', bizType: '合同审批', initiator: '经办人' })
+const flowForm = ref({ name: '', bizType: 'DISPOSE', initiator: '经办人' })
 function openCreate() {
   editingFlowId.value = null
-  flowForm.value = { name: '', bizType: '合同审批', initiator: '经办人' }
+  flowForm.value = { name: '', bizType: 'DISPOSE', initiator: '经办人' }
   showCreate.value = true
 }
 function saveFlow() {

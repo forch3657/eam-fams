@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { dataService, COLLECTION, useMock } from '../services'
+import { paramValue, paramNumber } from '../services/sysParams'
 import { ASSET_SEEDS } from '../services/mock/seed/asset'
 import { useOrgStore } from './org'
 import { ASSET_STATUS, labelOf } from '../constants/enums'
@@ -36,8 +37,11 @@ export const useFixedAssetStore = defineStore('fixedAsset', () => {
   }
 
   function nextCode() {
+    // 编号前缀取自系统参数（系统管理 > 系统参数 → sys.asset.code.prefix）
+    const prefix = paramValue('sys.asset.code.prefix', 'GD')
+    const year = new Date().getFullYear()
     const seq = 200 + assets.value.length
-    return `GD2026${seq}`
+    return `${prefix}${year}${seq}`
   }
 
   async function addAsset(data) {
@@ -221,6 +225,9 @@ export const useFixedAssetStore = defineStore('fixedAsset', () => {
     return { total, totalValue, netValue, byStatus, byType, byCompany, byDept }
   })
 
+  /** 盘点提醒提前天数（系统参数 sys.inventory.remind.days） */
+  const inventoryRemindDays = computed(() => paramNumber('sys.inventory.remind.days', 7))
+
   return {
     assets,
     assetLedger,
@@ -244,6 +251,7 @@ export const useFixedAssetStore = defineStore('fixedAsset', () => {
     addBorrow,
     addChange,
     addDispose,
+    inventoryRemindDays,
     stats
   }
 })

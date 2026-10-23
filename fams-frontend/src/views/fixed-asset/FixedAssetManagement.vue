@@ -3,35 +3,35 @@
     <div class="page-header">
       <h2>固定资产管理</h2>
       <div>
-        <el-button type="primary" @click="openAssetDialog()" v-if="activeTab === 'asset'">
+        <el-button type="primary" @click="openAssetDialog()" v-if="activeTab === 'asset' && can('fa:add')">
           <el-icon><Plus /></el-icon>
           新增资产
         </el-button>
-        <el-button type="primary" @click="handleAddAsset" v-if="activeTab === 'inbound'">
+        <el-button type="primary" @click="handleAddAsset" v-if="activeTab === 'inbound' && can('fa:inbound')">
           <el-icon><Plus /></el-icon>
           新增入库
         </el-button>
-        <el-button type="primary" @click="handleDispatch" v-if="activeTab === 'dispatch'">
+        <el-button type="primary" @click="handleDispatch" v-if="activeTab === 'dispatch' && can('fa:dispatch')">
           <el-icon><Plus /></el-icon>
           新增派发
         </el-button>
-        <el-button type="primary" @click="handleBorrow" v-if="activeTab === 'borrow'">
+        <el-button type="primary" @click="handleBorrow" v-if="activeTab === 'borrow' && can('fa:borrow')">
           <el-icon><Plus /></el-icon>
           新增借出
         </el-button>
-        <el-button type="primary" @click="handleChange" v-if="activeTab === 'change'">
+        <el-button type="primary" @click="handleChange" v-if="activeTab === 'change' && can('fa:change')">
           <el-icon><Plus /></el-icon>
           新增变更
         </el-button>
-        <el-button type="primary" @click="handleDispose" v-if="activeTab === 'dispose'">
+        <el-button type="primary" @click="handleDispose" v-if="activeTab === 'dispose' && can('fa:dispose')">
           <el-icon><Plus /></el-icon>
           新增处置
         </el-button>
-        <el-button type="primary" @click="handleCreatePlan" v-if="activeTab === 'inventory'">
+        <el-button type="primary" @click="handleCreatePlan" v-if="activeTab === 'inventory' && can('fa:inventory')">
           <el-icon><Plus /></el-icon>
           生成盘点计划
         </el-button>
-        <el-button type="primary" @click="handleCreateScheme" v-if="activeTab === 'depreciation'">
+        <el-button type="primary" @click="handleCreateScheme" v-if="activeTab === 'depreciation' && can('fa:depreciation')">
           <el-icon><Plus /></el-icon>
           新增折旧方案
         </el-button>
@@ -95,7 +95,7 @@
             </el-table-column>
             <el-table-column label="操作" width="170" fixed="right">
               <template #default="{ row }">
-                <el-button link type="primary" size="small" @click="openAssetDialog(row)">修改</el-button>
+                <el-button v-if="can('fa:edit')" link type="primary" size="small" @click="openAssetDialog(row)">修改</el-button>
                 <el-button link type="primary" size="small" @click="downloadAssetQr(row)">下载二维码</el-button>
               </template>
             </el-table-column>
@@ -733,6 +733,11 @@
             <el-table-column prop="scope" label="盘点范围" width="130" />
             <el-table-column prop="counter" label="盘点人" width="90" />
             <el-table-column prop="planDate" label="盘点日期" width="110" />
+            <el-table-column label="盘点提醒" width="120">
+              <template #default="{ row }">
+                <el-tag :type="remindTagType(row)" size="small">{{ remindText(row) }}</el-tag>
+              </template>
+            </el-table-column>
             <el-table-column label="盘点进度" min-width="180">
               <template #default="{ row }">
                 <el-progress :percentage="progressOf(row)" :status="progressOf(row) === 100 ? 'success' : ''" />
@@ -1668,6 +1673,7 @@ import { Plus, Search, ArrowLeft, Picture } from '@element-plus/icons-vue'
 import QRCode from 'qrcode'
 import { useFixedAssetStore } from '../../store/fixedAsset'
 import { useOrgStore } from '../../store/org'
+import { useUserStore } from '../../store/user'
 import { optionsOf, labelOf } from '../../constants/enums'
 import { formatDateTime } from '../../utils/format'
 
@@ -1698,6 +1704,10 @@ import { useCollection } from '../../composables/useCollection'
 import { COLLECTION } from '../../services'
 
 const fixedAssetStore = useFixedAssetStore()
+const userStore = useUserStore()
+/** 权限判定：按钮级鉴权 */
+const can = code => userStore.can(code)
+
 const orgStore = useOrgStore()
 
 const activeTab = ref('asset')
@@ -2183,6 +2193,33 @@ function countedOf(plan) {
 function progressOf(plan) {
   if (!plan || !plan.items.length) return 0
   return Math.round(countedOf(plan) / plan.items.length * 100)
+}
+
+/** 距盘点日期的天数（负数=已逾期） */
+function daysToPlan(row) {
+  if (!row?.planDate) return null
+  const target = new Date(`${row.planDate}T00:00:00`)
+  if (Number.isNaN(target.getTime())) return null
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return Math.round((target - today) / 86400000)
+}
+
+/** 提醒文案：提醒窗口由系统参数 sys.inventory.remind.days 决定 */
+function remindText(row) {
+  const d = daysToPlan(row)
+  if (d === null) return '—'
+  if (d < 0) return `已逾期 ${Math.abs(d)} 天`
+  if (d === 0) return '今天盘点'
+  return `剩 ${d} 天`
+}
+
+function remindTagType(row) {
+  const d = daysToPlan(row)
+  if (d === null) return 'info'
+  if (d < 0) return 'danger'
+  if (d <= fixedAssetStore.inventoryRemindDays) return 'warning'
+  return 'info'
 }
 
 const inventoryStats = computed(() => {

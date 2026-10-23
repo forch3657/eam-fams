@@ -7,6 +7,7 @@
  *
  * 字段类型：string / number / boolean / date(ISO 8601) / enum / array / object
  */
+import { ENUM_DICT_META } from '../../constants/enums'
 
 /** 字段构造器，减少样板代码 */
 const f = {
@@ -387,21 +388,6 @@ const SETTINGS_DEPRECIATION_PLANS = {
   rules: { unique: ['name'], refs: [{ field: 'companyId', collection: 'org-companies' }] }
 }
 
-const SETTINGS_APPROVAL_FLOWS = {
-  key: 'fixed-asset-settings-approval-flows',
-  label: '审批流程',
-  idField: 'name',
-  audit: true,
-  fields: {
-    name: f.str({ required: true, unique: true }),
-    type: f.enum('BUSINESS_TYPE', { required: true }),
-    steps: f.arr(),
-    status: f.enum('ENABLE_STATUS', { required: true })
-  },
-  query: { keyword: ['name'], filters: ['type', 'status'], sort: ['name'], page: true },
-  rules: { unique: ['name'] }
-}
-
 // ---------------------------------------------------------------- 低值资产
 
 const LOW_VALUE_ITEMS = {
@@ -522,21 +508,6 @@ const LOW_VALUE_LOCATIONS = {
   },
   query: { keyword: ['name', 'code'], filters: ['status', 'parentCode'], sort: ['code'], page: true },
   rules: { unique: ['code'] }
-}
-
-const LOW_VALUE_APPROVAL_FLOWS = {
-  key: 'low-value-settings-approval-flows',
-  label: '低值资产审批流程',
-  idField: 'id',
-  audit: true,
-  fields: {
-    name: f.str({ required: true, unique: true }),
-    businessType: f.enum('BUSINESS_TYPE', { required: true }),
-    steps: f.arr(),
-    status: f.enum('ENABLE_STATUS', { required: true })
-  },
-  query: { keyword: ['name'], filters: ['businessType', 'status'], sort: ['name'], page: true },
-  rules: { unique: ['name'] }
 }
 
 // ---------------------------------------------------------------- 组织架构
@@ -671,21 +642,6 @@ const SYSTEM_DICT_TYPES = {
   rules: { unique: ['code', 'name'] }
 }
 
-const SYSTEM_ASSET_TYPES = {
-  key: 'system-asset-types',
-  label: '资产类型',
-  idField: 'code',
-  audit: true,
-  fields: {
-    code: f.str({ required: true, unique: true }),
-    name: f.str({ required: true }),
-    remark: f.str(),
-    fields: f.arr()
-  },
-  query: { keyword: ['name', 'code'], filters: [], sort: ['code'], page: true },
-  rules: { unique: ['code'] }
-}
-
 const SYSTEM_PARAMS = {
   key: 'system-params',
   label: '系统参数',
@@ -710,7 +666,7 @@ const SYSTEM_FLOWS = {
   fields: {
     code: f.str({ required: true, unique: true }),
     name: f.str({ required: true }),
-    bizType: f.str(),
+    bizType: f.enum('BUSINESS_TYPE', { required: true }),
     initiator: f.str(),
     enabled: f.bool(),
     steps: f.arr()
@@ -721,15 +677,15 @@ const SYSTEM_FLOWS = {
 
 const SYSTEM_DEVICES = {
   key: 'system-terminal-devices',
-  label: '终端设备',
+  label: '盘点终端',
   idField: 'code',
   audit: true,
   fields: {
     code: f.str({ required: true, unique: true }),
     name: f.str({ required: true }),
-    type: f.enum('DEVICE_TYPE'),
+    type: f.enum('DEVICE_TYPE', { required: true }),
     location: f.str(),
-    bindAccount: f.str(),
+    bindUserId: f.ref('org-users'),
     status: f.enum('DEVICE_STATUS', { required: true }),
     lastActive: f.date(),
     vendor: f.str(),
@@ -742,26 +698,26 @@ const SYSTEM_DEVICES = {
     remark: f.str()
   },
   query: { keyword: ['name', 'code', 'sn', 'ip'], filters: ['status', 'type'], sort: ['code'], page: true },
-  rules: { unique: ['code'] }
+  rules: { unique: ['code'], refs: [{ field: 'bindUserId', collection: 'org-users' }] }
 }
 
-const SYSTEM_MISUSE = {
-  key: 'system-terminal-misuse',
-  label: '终端违规记录',
+const SYSTEM_DEVICE_ABNORMAL = {
+  key: 'system-terminal-abnormal',
+  label: '终端异常记录',
   idField: 'recordNo',
   audit: true,
   fields: {
     recordNo: f.str({ required: true, unique: true }),
-    person: f.str(),
-    terminalCode: f.ref('system-terminal-devices'),
-    type: f.enum('MISUSE_TYPE'),
+    deviceCode: f.ref('system-terminal-devices', { required: true }),
+    operatorId: f.ref('org-users'),
+    type: f.enum('DEVICE_ABNORMAL_TYPE', { required: true }),
     detail: f.str(),
-    amount: f.num(),
+    affectedCount: f.num(),
     handled: f.bool(),
     createTime: f.date()
   },
-  query: { keyword: ['recordNo', 'person'], filters: ['type', 'handled'], sort: ['createTime'], page: true },
-  rules: { unique: ['recordNo'] }
+  query: { keyword: ['recordNo', 'detail'], filters: ['type', 'handled'], sort: ['createTime'], page: true },
+  rules: { unique: ['recordNo'], refs: [{ field: 'deviceCode', collection: 'system-terminal-devices' }] }
 }
 
 const NOTIFY_MESSAGES = {
@@ -831,12 +787,12 @@ const CONTRACT_LIST = [
   DEPRECIATION_SCHEMES, DEPRECIATION_REPORTS,
   REPORT_DEPRECIATION_DETAILS, REPORT_DEPRECIATION_PLAN_DETAILS,
   SETTINGS_LOCATIONS, SETTINGS_LOCATION_OPTIONS, SETTINGS_CATEGORIES,
-  SETTINGS_DEPRECIATION_RULES, SETTINGS_DEPRECIATION_PLANS, SETTINGS_APPROVAL_FLOWS,
+  SETTINGS_DEPRECIATION_RULES, SETTINGS_DEPRECIATION_PLANS,
   LOW_VALUE_ITEMS, LOW_VALUE_INBOUND, LOW_VALUE_REQUISITION, LOW_VALUE_RETURN,
-  LOW_VALUE_CATEGORIES, LOW_VALUE_LOCATIONS, LOW_VALUE_APPROVAL_FLOWS,
+  LOW_VALUE_CATEGORIES, LOW_VALUE_LOCATIONS,
   ORG_COMPANIES, ORG_DEPARTMENTS, ORG_USERS, ORG_ROLES,
-  SYSTEM_DICT_TYPES, SYSTEM_ASSET_TYPES, SYSTEM_PARAMS, SYSTEM_FLOWS,
-  SYSTEM_DEVICES, SYSTEM_MISUSE,
+  SYSTEM_DICT_TYPES, SYSTEM_PARAMS, SYSTEM_FLOWS,
+  SYSTEM_DEVICES, SYSTEM_DEVICE_ABNORMAL,
   NOTIFY_MESSAGES, NOTIFY_TEMPLATES, OPERATION_LOGS
 ]
 
@@ -903,7 +859,8 @@ export const CONTRACT_PATTERNS = [
 /** 已知的动态集合 key（供种子注册与文档生成使用） */
 export const DYNAMIC_KEYS = [
   ...DOC_LIST_KEYS.map(k => `fixed-asset-doc-lists-${k}`),
-  ...['asset_status', 'asset_type', 'contract_status', 'fee_type', 'warning_level'].map(c => `system-dict-types-${c}-items`)
+  // 字典项集合由「数据字典」页动态创建：每个绑定枚举的字典类型一个集合
+  ...ENUM_DICT_META.map(d => `system-dict-types-${d.code}-items`)
 ]
 
 export { DOC_LIST_KEYS, DOC_LIST_LABELS }
