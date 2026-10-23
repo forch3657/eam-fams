@@ -1,4 +1,4 @@
-import { ENUMS } from '../../constants/enums'
+import { allowedEnumCodes } from '../../constants/enums'
 import { ApiError, ERROR_CODES } from '../errors'
 import { getContract } from './index'
 
@@ -43,8 +43,9 @@ export function validateFields(contract, row, { partial = false } = {}) {
     }
 
     if (def.type === 'enum') {
-      const dict = ENUMS[def.enum]
-      if (dict && !(value in dict)) {
+      // 取值范围 = 内置枚举 ∪ 运行时字典项（字典页新增的编码同样合法）
+      const allowed = allowedEnumCodes(def.enum)
+      if (allowed.length && !allowed.includes(value)) {
         errors.push({ field: name, message: `${name} 取值 ${value} 不在枚举 ${def.enum} 中` })
       }
     }

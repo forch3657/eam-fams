@@ -28,8 +28,34 @@ export const DOC_BIZ_TYPE = {
   change: 'CHANGE',
   dispose: 'DISPOSE',
   inventory: 'INVENTORY',
-  requisition: 'REQUISITION'
+  requisition: 'REQUISITION',
+  return: 'LV_RETURN'
 }
+
+/**
+ * 业务类型 -> 单据注册表
+ *
+ * 「业务类型 ↔ 单据集合 ↔ 跳转入口」的唯一定义处：
+ * 审批引擎按 bizType 找流程，工作台按 bizType 找单据集合与去处理入口。
+ * 各处不再硬编码集合名，避免新增业务类型时漏改。
+ * tab/sub 为主页面与子标签页（工作台"去处理"据此深链定位）。
+ */
+export const BIZ_DOC_REGISTRY = {
+  INBOUND: { docKey: 'inbound', collection: 'fixed-asset-doc-lists-inbound', scope: 'fixed-asset', route: '/fixed-assets', tab: 'inbound' },
+  DISPATCH: { docKey: 'alloc', collection: 'fixed-asset-doc-lists-alloc', scope: 'fixed-asset', route: '/fixed-assets', tab: 'dispatch', sub: 'alloc' },
+  RETURN: { docKey: 'back', collection: 'fixed-asset-doc-lists-back', scope: 'fixed-asset', route: '/fixed-assets', tab: 'dispatch', sub: 'back' },
+  BORROW: { docKey: 'borrow', collection: 'fixed-asset-doc-lists-borrow', scope: 'fixed-asset', route: '/fixed-assets', tab: 'borrow' },
+  TRANSFER: { docKey: 'transfer', collection: 'fixed-asset-doc-lists-transfer', scope: 'fixed-asset', route: '/fixed-assets', tab: 'dispose', sub: 'transfer' },
+  REPAIR: { docKey: 'repair', collection: 'fixed-asset-doc-lists-repair', scope: 'fixed-asset', route: '/fixed-assets', tab: 'dispose', sub: 'repair' },
+  CHANGE: { docKey: 'change', collection: 'fixed-asset-doc-lists-change', scope: 'fixed-asset', route: '/fixed-assets', tab: 'change' },
+  DISPOSE: { docKey: 'dispose', collection: 'fixed-asset-doc-lists-dispose', scope: 'fixed-asset', route: '/fixed-assets', tab: 'dispose', sub: 'dispose' },
+  INVENTORY: { docKey: 'inventory', collection: 'fixed-asset-inventory-docs', scope: 'fixed-asset', route: '/fixed-assets', tab: 'inventory', sub: 'docs' },
+  REQUISITION: { docKey: 'requisition', collection: 'low-value-requisition', scope: 'low-value', route: '/low-value-assets', tab: 'requisition' },
+  LV_RETURN: { docKey: 'return', collection: 'low-value-return', scope: 'low-value', route: '/low-value-assets', tab: 'return' }
+}
+
+/** 全部业务类型（工作台遍历用） */
+export const ALL_BIZ_TYPES = Object.keys(BIZ_DOC_REGISTRY)
 
 /** 环节审批方式 -> 中文 */
 export const MODE_TEXT = { ANY: '或签', SEQUENCE: '依次', ALL: '会签' }

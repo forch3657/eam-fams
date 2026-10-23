@@ -39,7 +39,9 @@ const SEED_PARAMS = [
   { id: 'SP05', name: '附件大小上限(MB)', key: 'sys.upload.maxSize', value: '20', type: 'SYSTEM', remark: '单个附件上传大小上限', ...AUDIT('2026-01-06T11:20:00', '2026-10-16T11:25:00') },
   { id: 'SP06', name: '消息保留天数', key: 'sys.message.keepDays', value: '90', type: 'CUSTOM', remark: '站内消息保留天数，超时自动清理', ...AUDIT('2026-03-01T09:00:00', '2026-10-15T09:00:00') },
   { id: 'SP07', name: '低库存预警阈值', key: 'sys.lowvalue.safetyRatio', value: '0.2', type: 'CUSTOM', remark: '库存低于安全库存比例时预警', ...AUDIT('2026-03-01T09:05:00', '2026-10-14T15:20:00') },
-  { id: 'SP08', name: '盘点终端心跳超时(分钟)', key: 'sys.terminal.heartbeat', value: '5', type: 'CUSTOM', remark: '盘点终端超过该时间未心跳视为离线', ...AUDIT('2026-03-01T09:10:00', '2026-10-13T13:45:00') }
+  { id: 'SP08', name: '盘点终端心跳超时(分钟)', key: 'sys.terminal.heartbeat', value: '5', type: 'CUSTOM', remark: '盘点终端超过该时间未心跳视为离线', ...AUDIT('2026-03-01T09:10:00', '2026-10-13T13:45:00') },
+  { id: 'SP09', name: '审批滞留超时天数', key: 'sys.approval.timeout.days', value: '5', type: 'CUSTOM', remark: '单据在审批中停留超过该天数仍未处理，工作台预警中心提示', ...AUDIT('2026-03-01T09:15:00', '2026-10-12T09:15:00') },
+  { id: 'SP10', name: '驳回重提期限(天)', key: 'sys.approval.reject.retryDays', value: '3', type: 'CUSTOM', remark: '单据被驳回后超过该天数未重新提交，工作台预警中心提示', ...AUDIT('2026-03-01T09:20:00', '2026-10-11T09:20:00') }
 ]
 
 // ---------------------------------------------------------------- 工作流程（全局审批流，模块只引用不另存）
@@ -203,7 +205,9 @@ const SEED_NOTIFY_TEMPLATES = [
   { key: 'depreciation_done', scene: '折旧计提完成', channel: '站内信', title: '{period} 折旧计提完成', content: '本期计提折旧 {amount} 元，涉及资产 {count} 项，请核对折旧报表。', enabled: true, ...AUDIT('2026-01-06T13:00:00', '2026-09-12T14:30:21') },
   { key: 'warning_idle', scene: '资产闲置预警', channel: '站内信', title: '资产闲置预警：{asset}', content: '「{asset}」已闲置 {days} 天，建议纳入调拨或处置计划。', enabled: true, ...AUDIT('2026-01-06T13:00:00', '2026-09-12T14:30:21') },
   { key: 'warning_unregistered', scene: '未入账预警', channel: '站内信', title: '资产未入账预警：{asset}', content: '「{asset}」已验收 {days} 天仍未生成资产卡片，请核查。', enabled: true, ...AUDIT('2026-01-06T13:00:00', '2026-09-12T14:30:21') },
-  { key: 'asset_return', scene: '资产退库', channel: '站内信', title: '资产退库已确认：{asset}', content: '「{asset}」已由 {dept} 退回仓库，当前状态：空闲。', enabled: true, ...AUDIT('2026-01-06T13:00:00', '2026-09-12T14:30:21') }
+  { key: 'asset_return', scene: '资产退库', channel: '站内信', title: '资产退库已确认：{asset}', content: '「{asset}」已由 {dept} 退回仓库，当前状态：空闲。', enabled: true, ...AUDIT('2026-01-06T13:00:00', '2026-09-12T14:30:21') },
+  { key: 'approval_todo', scene: '审批待办', channel: '站内信', title: '待你审批：{billNo}', content: '单据 {billNo}（{bizType}）已提交，当前环节「{step}」需由你审批。', enabled: true, ...AUDIT('2026-10-23T09:00:00', '2026-10-23T09:00:00') },
+  { key: 'approval_result', scene: '审批结果通知', channel: '站内信', title: '审批结果：{billNo}', content: '你提交的 {billNo}（{bizType}）审批结果为「{result}」，{comment}', enabled: true, ...AUDIT('2026-10-23T09:05:00', '2026-10-23T09:05:00') }
 ]
 
 const SEED_NOTIFY_MESSAGES = [

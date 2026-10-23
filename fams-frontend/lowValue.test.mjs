@@ -14,6 +14,8 @@ import { useUserStore } from './src/store/user.js'
 import { useApprovalStore } from './src/store/approval.js'
 import { useLowValueAssetStore } from './src/store/lowValueAsset.js'
 import { runApproval } from './src/services/approval.js'
+import { loadDictEnums } from './src/services/dictEnums.js'
+import { optionsOf, labelOf } from './src/constants/enums.js'
 
 let pass = 0
 const fails = []
@@ -237,6 +239,54 @@ ok(blocked, '审批中单据占用的库存不应被重复领用')
 const stats = lv.stats
 ok(stats.requisitionQuantity >= 50, '领用统计应包含已生效单据')
 ok(stats.requisitionPendingQuantity >= 15, '在途领用数量应单独统计')
+
+// ---------------------------------------------------------------- 13. 类别字典化
+const DICT_COL = 'system-dict-types-low_value_category-items'
+
+await loadDictEnums()
+const dictItems = await dataService.list(DICT_COL)
+eq(dictItems.length, 4, '低值资产类别字典项数量')
+ok(dictItems.every(i => i.status === 'ENABLED'), '字典项默认启用')
+ok(dictItems.some(i => i.value === 'OFFICE' && i.label === '办公用品'), '字典项含办公用品')
+
+// 下拉选项与文案统一走字典
+eq(lv.categoryOptions.length, 4, 'store 类别选项应来自字典')
+eq(lv.categoryOptions[0].value, 'OFFICE', '类别选项为字典编码')
+eq(lv.categoryOptions[0].label, '办公用品', '类别选项为字典文案')
+eq(lv.categoryName('PAPER'), '纸品', '类别编码应转成字典文案')
+eq(labelOf('LOW_VALUE_CATEGORY', 'PPE'), '劳保用品', 'labelOf 应读字典')
+
+// 物品：存编码、展示文案
+const paper = lv.itemRows.find(i => i.code === 'DZ20260008')
+eq(paper.category, 'PAPER', '物品应存字典编码')
+eq(paper.categoryName, '纸品', '物品视图应展示字典文案')
+ok(lv.categoryStats.some(s => s.name === '纸品'), '类别统计应按字典文案聚合')
+
+// 字典新增类别后，可直接用于业务数据（枚举校验放行字典项）
+await dataService.create(DICT_COL, {
+  id: 'DI_low_value_category_UNIFORM',
+  label: '劳保服',
+  value: 'UNIFORM',
+  sort: 5,
+  status: 'ENABLED',
+  remark: '',
+  createTime: '2026-10-23T09:00:00',
+  updateTime: '2026-10-23T09:00:00'
+})
+await loadDictEnums()
+ok(optionsOf('LOW_VALUE_CATEGORY').some(o => o.value === 'UNIFORM'), '字典新增项应进入下拉')
+const uniform = await lv.addItem({
+  category: 'UNIFORM',
+  name: '反光背心',
+  unit: '件',
+  price: 88,
+  stock: 5,
+  safetyStock: 2,
+  location: '行政库房'
+})
+eq(uniform.category, 'UNIFORM', '应能保存字典新增的类别')
+eq(lv.categoryName('UNIFORM'), '劳保服', '字典文案即时生效')
+ok(lv.itemRows.some(i => i.name === '反光背心' && i.categoryName === '劳保服'), '台账应展示新类别文案')
 
 // ---------------------------------------------------------------- 输出
 console.log(`\n低值库存语义测试：通过 ${pass} 项，失败 ${fails.length} 项`)

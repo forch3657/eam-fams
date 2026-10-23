@@ -1,6 +1,17 @@
 // 系统权限树：按本系统实际模块组织，角色权限勾选的叶子节点即权限编码
 export const PERMISSION_TREE = [
   {
+    id: 'workbench',
+    label: '工作台',
+    children: [
+      { id: 'wm:view', label: '工作台访问' },
+      { id: 'wm:todo', label: '我的待办' },
+      { id: 'wm:alert', label: '预警中心' },
+      { id: 'wm:overview', label: '概览看板' },
+      { id: 'wm:message', label: '我的消息' }
+    ]
+  },
+  {
     id: 'fixedAsset',
     label: '固定资产',
     children: [

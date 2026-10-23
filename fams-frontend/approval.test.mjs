@@ -67,7 +67,7 @@ for (const bt of bizTypes) {
   const flow = getFlow(bt, approval.flows)
   ok(!!flow, `业务类型 ${bt} 没有启用的审批流程`)
 }
-eq(Object.keys(DOC_BIZ_TYPE).length, 10, '单据类型到业务类型的映射条数')
+eq(Object.keys(DOC_BIZ_TYPE).length, 11, '单据类型到业务类型的映射条数')
 eq(Object.keys(ENUMS.BUSINESS_TYPE).length, 11, '审批业务类型条数')
 
 for (const flow of approval.flows) {

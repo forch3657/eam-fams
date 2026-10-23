@@ -6,6 +6,11 @@
         <span v-else>固资</span>
       </div>
       <el-menu :default-active="activeMenu" :collapse="appStore.sidebarCollapsed" router class="sidebar-menu">
+        <el-menu-item v-if="can('wm:view')" index="/workbench">
+          <el-icon><HomeFilled /></el-icon>
+          <span>工作台</span>
+        </el-menu-item>
+
         <el-sub-menu v-if="groupVisible(['fa:view', 'fa:report'])" index="fixed-asset-group">
           <template #title><el-icon><Monitor /></el-icon><span>固定资产</span></template>
           <el-menu-item v-if="can('fa:view')" index="/fixed-assets">资产管理</el-menu-item>
@@ -54,6 +59,26 @@
           </span>
         </div>
         <div class="header-right">
+          <el-tooltip v-if="can('wm:todo')" content="待我审批" placement="bottom">
+            <el-badge
+              :value="workbench.pendingCount"
+              :hidden="!workbench.pendingCount"
+              class="hdr-badge"
+              @click="goWorkbench"
+            >
+              <el-icon class="hdr-icon"><Bell /></el-icon>
+            </el-badge>
+          </el-tooltip>
+          <el-tooltip v-if="can('wm:message')" content="我的消息" placement="bottom">
+            <el-badge
+              :value="notifyStore.unreadCount"
+              :hidden="!notifyStore.unreadCount"
+              class="hdr-badge"
+              @click="goWorkbench"
+            >
+              <el-icon class="hdr-icon"><ChatDotRound /></el-icon>
+            </el-badge>
+          </el-tooltip>
           <el-tag class="role-tag" type="primary" effect="dark" size="small">{{ modeLabel }}</el-tag>
           <el-dropdown @command="handleCommand">
             <span class="user-info">
@@ -70,7 +95,7 @@
         </div>
       </el-header>
 
-      <TagsView home="/fixed-assets" />
+      <TagsView home="/workbench" />
 
       <el-main class="main-content">
         <router-view />
@@ -89,11 +114,12 @@ import { useLowValueAssetStore } from '../store/lowValueAsset'
 import { useOrgStore } from '../store/org'
 import { useNotifyStore } from '../store/notify'
 import { useAuditStore } from '../store/audit'
+import { useWorkbenchStore } from '../store/workbench'
 import TagsView from '../components/TagsView.vue'
 import { dataMode } from '../services'
 import { loadDictEnums } from '../services/dictEnums'
 import { loadSysParams } from '../services/sysParams'
-import { Monitor, Setting, User, Box, Fold, Expand, OfficeBuilding, CaretBottom } from '@element-plus/icons-vue'
+import { Monitor, Setting, User, Box, Fold, Expand, OfficeBuilding, CaretBottom, HomeFilled, Bell, ChatDotRound } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -104,6 +130,7 @@ const lowValueAssetStore = useLowValueAssetStore()
 const orgStore = useOrgStore()
 const notifyStore = useNotifyStore()
 const auditStore = useAuditStore()
+const workbench = useWorkbenchStore()
 
 const activeMenu = computed(() => route.path)
 /** 权限判定（角色在组织架构中维护，登录后按角色解析） */
@@ -126,6 +153,8 @@ onMounted(() => {
   if (!orgStore.loaded) orgStore.loadAll()
   if (!notifyStore.loaded) notifyStore.loadAll()
   if (!auditStore.loaded) auditStore.loadAll()
+  // 工作台聚合数据（顶栏待办徽标依赖它）
+  if (!workbench.loaded) workbench.load()
   // 数据字典是业务枚举的统一维护入口：启动时装载一次，字典改动后字典页会再次装载
   loadDictEnums()
   // 系统参数需被业务真正消费（编号前缀/预警阈值/盘点提醒等）
@@ -137,5 +166,10 @@ function handleCommand(cmd) {
     userStore.logout()
     router.push('/login')
   }
+}
+
+/** 顶栏徽标 → 工作台 */
+function goWorkbench() {
+  router.push('/workbench')
 }
 </script>

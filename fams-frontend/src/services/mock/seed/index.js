@@ -45,7 +45,6 @@ export function registerAllSeeds() {
   registerSeed(COLLECTION.lowValueInbound, LOW_VALUE_SEEDS.inbound)
   registerSeed(COLLECTION.lowValueRequisition, LOW_VALUE_SEEDS.requisition)
   registerSeed(COLLECTION.lowValueReturn, LOW_VALUE_SEEDS.return)
-  registerSeed(COLLECTION.lowValueSettingsCategories, LOW_VALUE_SEEDS.categories)
   registerSeed(COLLECTION.lowValueSettingsLocations, LOW_VALUE_SEEDS.locations)
 
   // 组织架构主数据

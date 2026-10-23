@@ -123,7 +123,7 @@ async function handleLogin() {
     return
   }
   ElMessage.success(`欢迎回来，${userStore.user.name}`)
-  router.replace('/fixed-assets')
+  router.replace('/workbench')
 }
 </script>
 

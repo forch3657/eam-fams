@@ -5,7 +5,7 @@ import { paramValue, paramNumber } from '../services/sysParams'
 import { LOW_VALUE_SEEDS } from '../services/mock/seed/lowValueAsset'
 import { useOrgStore } from './org'
 import { useUserStore } from './user'
-import { STATUS_ENABLED, LOW_VALUE_ITEM_STATUS, labelOf } from '../constants/enums'
+import { STATUS_ENABLED, LOW_VALUE_ITEM_STATUS, labelOf, optionsOf, codeOf } from '../constants/enums'
 
 function money(value) {
   return Math.round((Number(value) || 0) * 100) / 100
@@ -24,24 +24,21 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
   const inboundRecords = ref(seedOf('inbound'))
   const requisitionRecords = ref(seedOf('requisition'))
   const returnRecords = ref(seedOf('return'))
-  const categories = ref(seedOf('categories'))
   const locations = ref(seedOf('locations'))
   const loaded = ref(false)
 
   async function loadAll() {
-    const [it, ib, rq, rt, cg, lc] = await Promise.all([
+    const [it, ib, rq, rt, lc] = await Promise.all([
       dataService.list(COLLECTION.lowValueItems),
       dataService.list(COLLECTION.lowValueInbound),
       dataService.list(COLLECTION.lowValueRequisition),
       dataService.list(COLLECTION.lowValueReturn),
-      dataService.list(COLLECTION.lowValueSettingsCategories),
       dataService.list(COLLECTION.lowValueSettingsLocations)
     ])
     items.value = it
     inboundRecords.value = ib
     requisitionRecords.value = rq
     returnRecords.value = rt
-    categories.value = cg
     locations.value = lc
     loaded.value = true
   }
@@ -77,7 +74,8 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     const prefix = paramValue('sys.lowvalue.code.prefix', 'DZ')
     const item = {
       code: data.code || `${prefix}${new Date().getFullYear()}${String(seq).padStart(4, '0')}`,
-      categoryId: data.categoryId || '',
+      // 类别存字典编码（写入前把中文文案转回编码）
+      category: codeOf('LOW_VALUE_CATEGORY', data.category),
       name: data.name,
       spec: data.spec || '',
       unit: data.unit || '',
@@ -97,6 +95,7 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     const idx = items.value.findIndex(i => i.id === id || i.code === id)
     if (idx === -1) return null
     const next = { ...items.value[idx], ...data, price: money(data.price ?? items.value[idx].price) }
+    if (data.category !== undefined) next.category = codeOf('LOW_VALUE_CATEGORY', data.category)
     items.value[idx] = next
     const saved = await dataService.update(COLLECTION.lowValueItems, id, next)
     if (saved) items.value[idx] = saved
@@ -120,10 +119,10 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     const record = {
       docNo: data.docNo || nextDocNo('RK', inboundRecords.value),
       itemId: item.id,
-      categoryId: item.categoryId || '',
+      category: item.category || '',
       // 快照：记录办理当时的物品信息
       itemName: item.name,
-      categoryName: categoryName(item.categoryId),
+      categoryName: categoryName(item.category),
       spec: item.spec || '',
       unit: item.unit || '',
       quantity,
@@ -164,9 +163,9 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     const record = {
       docNo: data.docNo || nextDocNo('PY', requisitionRecords.value),
       itemId: item.id,
-      categoryId: item.categoryId || '',
+      category: item.category || '',
       itemName: item.name,
-      categoryName: categoryName(item.categoryId),
+      categoryName: categoryName(item.category),
       spec: item.spec || '',
       unit: item.unit || '',
       quantity,
@@ -239,9 +238,9 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     const record = {
       docNo: data.docNo || nextDocNo('TK', returnRecords.value),
       itemId: item.id,
-      categoryId: item.categoryId || '',
+      category: item.category || '',
       itemName: item.name,
-      categoryName: categoryName(item.categoryId),
+      categoryName: categoryName(item.category),
       spec: item.spec || '',
       unit: item.unit || '',
       quantity,
@@ -297,29 +296,6 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
   }
 
   // ---- 基础设置（id 由服务端生成） ----
-  async function addCategory(data) {
-    const row = { ...data, status: data.status || STATUS_ENABLED }
-    const created = await dataService.create(COLLECTION.lowValueSettingsCategories, row)
-    categories.value.push(created || row)
-    return created || row
-  }
-
-  async function updateCategory(id, data) {
-    const idx = categories.value.findIndex(c => c.id === id || c.code === id)
-    if (idx === -1) return null
-    const next = { ...categories.value[idx], ...data }
-    categories.value[idx] = next
-    const saved = await dataService.update(COLLECTION.lowValueSettingsCategories, id, next)
-    if (saved) categories.value[idx] = saved
-    return categories.value[idx]
-  }
-
-  async function removeCategory(id) {
-    await dataService.remove(COLLECTION.lowValueSettingsCategories, id)
-    categories.value = categories.value.filter(c => !(c.id === id || c.code === id))
-    return true
-  }
-
   async function addLocation(data) {
     const row = { ...data, status: data.status || STATUS_ENABLED }
     const created = await dataService.create(COLLECTION.lowValueSettingsLocations, row)
@@ -344,22 +320,22 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
   }
 
   // ---- 派生数据 ----
-  const categoryOptions = computed(() => categories.value
-    .filter(c => c.status === STATUS_ENABLED)
-    .map(c => ({ id: c.id, name: c.name })))
+  /** 类别选项来自数据字典（系统管理 > 数据字典 > 低值资产类别） */
+  const categoryOptions = computed(() => optionsOf('LOW_VALUE_CATEGORY'))
 
   const locationOptions = computed(() => locations.value
     .filter(l => l.status === STATUS_ENABLED)
     .map(l => ({ id: l.id, name: l.name })))
 
-  function categoryName(id) {
-    return categories.value.find(c => c.id === id)?.name || '未分类'
+  /** 类别编码 → 展示文案 */
+  function categoryName(code) {
+    return labelOf('LOW_VALUE_CATEGORY', code) || '未分类'
   }
 
   /** 台账视图模型：补出类别名与状态文案，避免视图直接渲染编码 */
   const itemRows = computed(() => items.value.map(i => ({
     ...i,
-    categoryName: categoryName(i.categoryId),
+    categoryName: categoryName(i.category),
     statusText: labelOf('LOW_VALUE_ITEM_STATUS', i.status),
     // 在库 / 审批占用 / 可用
     reservedQty: Number(i.reserved || 0),
@@ -416,7 +392,7 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
   const categoryStats = computed(() => {
     const map = new Map()
     items.value.forEach(i => {
-      const key = categoryName(i.categoryId)
+      const key = categoryName(i.category)
       const cur = map.get(key) || { name: key, count: 0, quantity: 0, amount: 0 }
       cur.count += 1
       cur.quantity += Number(i.stock) || 0
@@ -453,7 +429,8 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     items.value.forEach(i => {
       map.set(i.id, {
         name: i.name,
-        categoryName: categoryName(i.categoryId),
+        category: i.category || '',
+        categoryName: categoryName(i.category),
         spec: i.spec,
         unit: i.unit,
         inbound: 0,
@@ -477,7 +454,6 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     inboundRecords,
     requisitionRecords,
     returnRecords,
-    categories,
     locations,
     loaded,
     loadAll,
@@ -494,9 +470,6 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     addReturn,
     updateRequisitionDoc,
     updateReturnDoc,
-    addCategory,
-    updateCategory,
-    removeCategory,
     addLocation,
     updateLocation,
     removeLocation,

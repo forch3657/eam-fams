@@ -20,7 +20,6 @@ export const COLLECTION = {
   lowValueInbound: 'low-value-inbound',
   lowValueRequisition: 'low-value-requisition',
   lowValueReturn: 'low-value-return',
-  lowValueSettingsCategories: 'low-value-settings-categories',
   lowValueSettingsLocations: 'low-value-settings-locations',
 
   // 组织架构（v2：公司/部门/用户/角色统一主数据，取代旧 system-* 五张表）

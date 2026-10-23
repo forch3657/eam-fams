@@ -28,9 +28,9 @@
         <el-tab-pane label="库存台账" name="item">
           <el-form :inline="true" class="search-form">
             <el-form-item label="类别">
-              <el-select v-model="itemSearch.categoryId" placeholder="请选择" clearable style="width: 140px">
+              <el-select v-model="itemSearch.category" placeholder="请选择" clearable style="width: 140px">
                 <el-option label="全部" value="" />
-                <el-option v-for="c in categoryOptions" :key="c.id" :label="c.name" :value="c.id" />
+                <el-option v-for="c in categoryOptions" :key="c.value" :label="c.label" :value="c.value" />
               </el-select>
             </el-form-item>
             <el-form-item label="关键字">
@@ -301,9 +301,9 @@
         <el-form-item label="物品编码">
           <el-input v-model="itemDialog.form.code" placeholder="留空自动生成" />
         </el-form-item>
-        <el-form-item label="物品类别" prop="categoryId">
-          <el-select v-model="itemDialog.form.categoryId" placeholder="请选择类别" style="width: 100%">
-            <el-option v-for="c in categoryOptions" :key="c.id" :label="c.name" :value="c.id" />
+        <el-form-item label="物品类别" prop="category">
+          <el-select v-model="itemDialog.form.category" placeholder="请选择类别" style="width: 100%">
+            <el-option v-for="c in categoryOptions" :key="c.value" :label="c.label" :value="c.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="物品名称" prop="name">
@@ -478,6 +478,7 @@
 import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Download } from '@element-plus/icons-vue'
+import { useRoute } from 'vue-router'
 import { useLowValueAssetStore } from '../../store/lowValueAsset'
 import { useOrgStore } from '../../store/org'
 import { useUserStore } from '../../store/user'
@@ -497,6 +498,17 @@ const approvalStore = useApprovalStore()
 const can = code => userStore.can(code)
 
 const activeTab = ref('item')
+
+/** 深链定位：工作台「去处理」按 ?tab= 直接落到对应页签（例：/low-value-assets?tab=requisition） */
+const route = useRoute()
+function applyDeepLink() {
+  const t = route?.query?.tab
+  if (t) activeTab.value = String(t)
+}
+onMounted(applyDeepLink)
+// 同页面内通过 query 切换页签时也要响应
+watch(() => route.query, applyDeepLink)
+/** 类别选项取自数据字典（系统管理 > 数据字典 > 低值资产类别） */
 const categoryOptions = computed(() => store.categoryOptions)
 const locationOptions = computed(() => store.locationOptions)
 const itemStatusOptions = computed(() => optionsOf('LOW_VALUE_ITEM_STATUS'))
@@ -513,7 +525,7 @@ function today() {
 }
 
 // ---------- 库存台账 ----------
-const itemSearch = reactive({ categoryId: '', keyword: '' })
+const itemSearch = reactive({ category: '', keyword: '' })
 watch(itemSearch, () => { itemPage.value = 1 }, { deep: true })
 
 const itemPage = ref(1)
@@ -528,7 +540,7 @@ function decorateDoc(r) {
   return {
     ...r,
     itemName: r.itemName || item?.name || '',
-    categoryName: r.categoryName || (item ? store.categoryName(item.categoryId) : ''),
+    categoryName: r.categoryName || (item ? store.categoryName(item.category) : ''),
     spec: r.spec || item?.spec || '',
     unit: r.unit || item?.unit || ''
   }
@@ -538,7 +550,7 @@ function decorateDoc(r) {
 const filteredItemList = computed(() => {
   const kw = itemSearch.keyword.trim()
   return store.itemRows.filter(i => {
-    const categoryMatch = !itemSearch.categoryId || i.categoryId === itemSearch.categoryId
+    const categoryMatch = !itemSearch.category || i.category === itemSearch.category
     const kwMatch = !kw || i.name.includes(kw) || (i.spec || '').includes(kw) || i.code.includes(kw)
     return categoryMatch && kwMatch
   })
@@ -550,7 +562,7 @@ const pagedItemList = computed(() => {
 })
 
 function resetItemSearch() {
-  itemSearch.categoryId = ''
+  itemSearch.category = ''
   itemSearch.keyword = ''
   itemPage.value = 1
 }
@@ -803,17 +815,17 @@ const itemFormRef = ref()
 const itemDialog = reactive({
   visible: false,
   isEdit: false,
-  form: { id: '', code: '', categoryId: '', name: '', spec: '', unit: '', price: 0, stock: 0, safetyStock: 0, location: '', status: 'NORMAL' }
+  form: { id: '', code: '', category: '', name: '', spec: '', unit: '', price: 0, stock: 0, safetyStock: 0, location: '', status: 'NORMAL' }
 })
 
 const itemRules = {
-  categoryId: [{ required: true, message: '请选择物品类别', trigger: 'change' }],
+  category: [{ required: true, message: '请选择物品类别', trigger: 'change' }],
   name: [{ required: true, message: '请输入物品名称', trigger: 'blur' }],
   unit: [{ required: true, message: '请输入单位', trigger: 'blur' }]
 }
 
 function emptyItemForm() {
-  return { id: '', code: '', categoryId: categoryOptions.value[0]?.id || '', name: '', spec: '', unit: '', price: 0, stock: 0, safetyStock: 0, location: locationOptions.value[0]?.name || '', status: 'NORMAL' }
+  return { id: '', code: '', category: categoryOptions.value[0]?.value || '', name: '', spec: '', unit: '', price: 0, stock: 0, safetyStock: 0, location: locationOptions.value[0]?.name || '', status: 'NORMAL' }
 }
 
 function openItemDialog(row) {

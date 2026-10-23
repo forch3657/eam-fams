@@ -1,4 +1,4 @@
-﻿// 固定资产种子数据（仅在 mock 模式下使用）
+// 固定资产种子数据（仅在 mock 模式下使用）
 // 语义约定：外键存 id（companyId/deptId/userId/assetId）；状态存枚举编码；时间存 ISO 8601；含审计字段
 // 原写在 FixedAssetManagement.vue 里的演示数据构造器（buildDocs / buildCheckItems / buildCounters）已迁到此处
 // 其中 buildCheckItems / buildCounters 视图侧（生成盘点计划）也要用，已抽到 utils/demoBuilders.js
@@ -25,8 +25,8 @@ const SEED_ASSETS = [
 
 // ---------------------------------------------------------------- 业务单据（均引用 assetId）
 const SEED_INVENTORY_DOCS = [
-  { id: 'IV1', docNo: 'PD202609001', name: '2026年三季度全面盘点', companyId: 'C1', applicant: '张伟', scope: '全部资产', assetTypes: [], createTime: '2026-09-01T09:00:00', finishTime: '', remark: '季度例行全面盘点', status: 'PROCESSING', items: buildCheckItems(24, 9, 1, SEED_ASSETS), counters: buildCounters(8, 0, 1), ...AUDIT('2026-09-01T09:00:00', '2026-09-18T10:22:31') },
-  { id: 'IV2', docNo: 'PD202608002', name: '车辆资产专项盘点', companyId: 'C2', applicant: '李娜', scope: '按资产类型', assetTypes: ['VEHICLE'], createTime: '2026-08-12T10:20:00', finishTime: '', remark: '车辆专项核查', status: 'PROCESSING', items: buildCheckItems(6, 6, 2, SEED_ASSETS), counters: buildCounters(3, 2, 2), ...AUDIT('2026-08-12T10:20:00', '2026-09-12T14:51:29') },
+  { id: 'IV1', docNo: 'PD202609001', name: '2026年三季度全面盘点', companyId: 'C1', applicant: '张伟', scope: '全部资产', assetTypes: [], createTime: '2026-10-19T09:00:00', finishTime: '', remark: '季度例行全面盘点', status: 'PROCESSING', items: buildCheckItems(24, 9, 1, SEED_ASSETS), counters: buildCounters(8, 0, 1), ...AUDIT('2026-09-01T09:00:00', '2026-09-18T10:22:31') },
+  { id: 'IV2', docNo: 'PD202608002', name: '车辆资产专项盘点', companyId: 'C2', applicant: '李娜', scope: '按资产类型', assetTypes: ['VEHICLE'], createTime: '2026-10-21T10:20:00', finishTime: '', remark: '车辆专项核查', status: 'PROCESSING', items: buildCheckItems(6, 6, 2, SEED_ASSETS), counters: buildCounters(3, 2, 2), ...AUDIT('2026-08-12T10:20:00', '2026-09-12T14:51:29') },
   { id: 'IV3', docNo: 'PD202607003', name: '2026年二季度全面盘点', companyId: 'C1', applicant: '王强', scope: '全部资产', assetTypes: [], createTime: '2026-07-02T09:30:00', finishTime: '2026-07-20T16:40:00', remark: '账实核对完成', status: 'DONE', items: buildCheckItems(30, 30, 3, SEED_ASSETS), counters: buildCounters(8, 8, 3), ...AUDIT('2026-07-02T09:30:00', '2026-07-20T16:40:00') },
   { id: 'IV4', docNo: 'PD202606004', name: '仓库资产抽盘', companyId: 'C3', applicant: '刘洋', scope: '按存放地点', assetTypes: [], createTime: '2026-06-15T14:00:00', finishTime: '2026-06-25T11:20:00', remark: '仓库抽样盘点', status: 'DONE', items: buildCheckItems(12, 12, 4, SEED_ASSETS), counters: buildCounters(4, 4, 4), ...AUDIT('2026-06-15T14:00:00', '2026-06-25T11:20:00') },
   { id: 'IV5', docNo: 'PD202605005', name: '电子设备年度盘点', companyId: 'C4', applicant: '高翔', scope: '按资产类型', assetTypes: ['ELECTRONIC'], createTime: '2026-05-08T09:10:00', finishTime: '', remark: '年度电子设备核查', status: 'PROCESSING', items: buildCheckItems(18, 3, 5, SEED_ASSETS), counters: buildCounters(5, 1, 5), ...AUDIT('2026-05-08T09:10:00', '2026-09-05T13:26:47') }
@@ -66,6 +66,10 @@ function buildDocs(prefix, count, names, creators = ['U17', 'U2', 'U10']) {
   const docs = []
   for (let i = 0; i < count; i++) {
     const status = DOC_STATUS_POOL[i % DOC_STATUS_POOL.length]
+    // 审批中的单据时间贴近当前（便于演示待办与停留天数）；其余保留历史时间
+    const createTime = status === 'PROCESSING'
+      ? `2026-10-${pad2(18 + (i % 5))}T09:${pad2((i * 7) % 60)}:00`
+      : `2026-0${(i % 8) + 1}-${pad2(10 + i)}T09:${pad2((i * 7) % 60)}:00`
     docs.push({
       id: `${prefix}-${i + 1}`,
       code: `${prefix}2026${900 - i * 13}`,
@@ -73,7 +77,7 @@ function buildDocs(prefix, count, names, creators = ['U17', 'U2', 'U10']) {
       companyId: COMPANY_POOL[i % COMPANY_POOL.length],
       assetId: ASSET_POOL[i % ASSET_POOL.length],
       creatorId: creators[i % creators.length],
-      createTime: `2026-0${(i % 8) + 1}-${pad2(10 + i)}T09:${pad2((i * 7) % 60)}:00`,
+      createTime,
       finishTime: status === 'DONE' ? `2026-0${(i % 8) + 1}-${pad2(15 + i)}T17:20:00` : '',
       remark: DOC_NOTE_POOL[i % DOC_NOTE_POOL.length],
       status

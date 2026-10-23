@@ -902,9 +902,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, nextTick } from 'vue'
+import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, ArrowLeft, Picture } from '@element-plus/icons-vue'
+import { useRoute } from 'vue-router'
 import QRCode from 'qrcode'
 import FixedAssetDocList from './FixedAssetDocList.vue'
 import DocApprovalDialog from './DocApprovalDialog.vue'
@@ -957,11 +958,29 @@ const can = code => userStore.can(code)
 
 const orgStore = useOrgStore()
 const approvalStore = useApprovalStore()
+const route = useRoute()
 
 const activeTab = ref('asset')
 const dispatchSub = ref('alloc')
 const disposeSub = ref('transfer')
 const inventorySub = ref('docs')
+
+/**
+ * 深链定位：工作台「去处理」按 ?tab=&sub= 直接落到对应页签
+ * 例：/fixed-assets?tab=dispose&sub=repair
+ */
+function applyDeepLink() {
+  const q = route?.query || {}
+  if (q.tab) activeTab.value = String(q.tab)
+  if (q.sub) {
+    if (activeTab.value === 'dispatch') dispatchSub.value = String(q.sub)
+    if (activeTab.value === 'dispose') disposeSub.value = String(q.sub)
+    if (activeTab.value === 'inventory') inventorySub.value = String(q.sub)
+  }
+}
+onMounted(applyDeepLink)
+// 同页面内通过 query 切换页签时也要响应（工作台"去处理"跳转）
+watch(() => route.query, applyDeepLink)
 
 // 公司口径取自组织架构主数据；主数据尚未加载完成时回落示例值
 const FALLBACK_COMPANIES = ['华信科技集团有限公司', '云鼎资产管理有限公司', '恒信融资租赁有限公司', '中天建设集团有限公司']

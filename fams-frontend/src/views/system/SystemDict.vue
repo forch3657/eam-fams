@@ -165,6 +165,8 @@ const currentType = computed(() => dictTypes.value.find(t => t.code === selected
 const boundEnum = computed(() => (currentType.value ? DICT_CODE_TO_ENUM[currentType.value.code] : ''))
 
 function handleTypeRowClick(row) {
+  // el-table 在数据翻页时，若高亮行不在新一页会以 null 触发 current-change
+  if (!row) return
   selectedType.value = row.code
   itemPage.value = 1
   itemQuery.keyword = ''

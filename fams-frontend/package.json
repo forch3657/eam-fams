@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --experimental-loader ./.test-loader.mjs ./approval.test.mjs && node --experimental-loader ./.test-loader.mjs ./lowValue.test.mjs"
+    "test": "node --experimental-loader ./.test-loader.mjs ./approval.test.mjs && node --experimental-loader ./.test-loader.mjs ./lowValue.test.mjs && node --experimental-loader ./.test-loader.mjs ./workbench.test.mjs",
+    "check": "node .chkfn.cjs"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",

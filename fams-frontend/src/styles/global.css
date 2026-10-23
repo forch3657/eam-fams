@@ -217,6 +217,22 @@ body {
   cursor: pointer;
 }
 
+/* 顶栏徽标：待我审批 / 我的消息 */
+.hdr-badge {
+  cursor: pointer;
+  line-height: 1;
+}
+
+.hdr-icon {
+  font-size: 18px;
+  color: var(--t-text, #303133);
+  vertical-align: middle;
+}
+
+.hdr-icon:hover {
+  color: var(--c-primary);
+}
+
 .main-content {
   background: var(--bg-page);
   padding: 24px;

@@ -133,7 +133,7 @@
             </el-form-item>
             <el-form-item label="物品类别">
               <el-select v-model="flowSearch.category" placeholder="全部" clearable style="width: 140px">
-                <el-option v-for="c in store.categoryOptions" :key="c" :label="c" :value="c" />
+                <el-option v-for="c in categoryOptions" :key="c.value" :label="c.label" :value="c.value" />
               </el-select>
             </el-form-item>
             <el-form-item>
@@ -187,6 +187,8 @@ import { useLowValueAssetStore } from '../../store/lowValueAsset'
 
 const store = useLowValueAssetStore()
 const activeTab = ref('category')
+/** 类别选项取自数据字典（系统管理 > 数据字典 > 低值资产类别） */
+const categoryOptions = computed(() => store.categoryOptions)
 
 const tabNames = { category: '类别统计', dept: '部门领用统计', flow: '出入库汇总' }
 
@@ -263,7 +265,7 @@ function handleExport() {
     downloadCsv(headers, rows, `导出_${tabNames.dept}_${date}.csv`)
   } else {
     const headers = ['物品名称', '物品类别', '规格型号', '单位', '入库数量', '领用数量', '退库数量', '当前库存']
-    const rows = filteredFlowSummary.value.map(r => [r.name, r.category, r.spec, r.unit, r.inbound, r.requisition, r.return, r.stock])
+    const rows = filteredFlowSummary.value.map(r => [r.name, r.categoryName, r.spec, r.unit, r.inbound, r.requisition, r.return, r.stock])
     downloadCsv(headers, rows, `导出_${tabNames.flow}_${date}.csv`)
   }
 }

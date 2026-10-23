@@ -105,7 +105,6 @@
 | `low-value-inbound` | 低值资产入库单 | `id` |
 | `low-value-requisition` | 低值资产领用单 | `id` |
 | `low-value-return` | 低值资产退库单 | `id` |
-| `low-value-settings-categories` | 低值资产类别 | `id` |
 | `low-value-settings-locations` | 低值资产存放位置 | `id` |
 | `org-companies` | 公司 | `id` |
 | `org-departments` | 部门 | `id` |
@@ -165,7 +164,7 @@
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `id` / `code` * | string | 主键 / 物品编码（唯一） |
-| `categoryId` | ref | → `low-value-settings-categories` |
+| `category` * | enum | `LOW_VALUE_CATEGORY`（字典：低值资产类别，存编码） |
 | `name` * | string | 物品名称 |
 | `spec` / `unit` | string | 规格型号 / 单位 |
 | `price` / `stock` / `safetyStock` | number | 单价 / 库存 / 安全库存 |
@@ -178,7 +177,7 @@
 | --- | --- | --- |
 | `docNo` * | string | 单据编号（唯一） |
 | `itemId` * | ref | → `low-value-items` |
-| `categoryId` | ref | → 类别 |
+| `category` | enum | 类别编码（`LOW_VALUE_CATEGORY`） |
 | `itemName`/`categoryName`/`spec`/`unit` | string | **办理当时快照**，后续改价改名不影响历史单据 |
 | `quantity` * / `price` / `amount` | number | 数量 / 单价 / 金额 |
 | `deptId` | ref | 领用/退库部门 |
@@ -237,6 +236,7 @@ VITE_API_BASE_URL=http://your-backend/api
 | --- | --- |
 | `ASSET_STATUS` | IDLE 空闲 / IN_USE 使用中 / DISPATCHING 派发中 / BORROWED 借出中 / REPAIRING 维修中 / DISPOSING 处置中 |
 | `ASSET_CATEGORY` | ELECTRONIC 电子设备 / MACHINE 机械设备 / VEHICLE 运输设备 / FURNITURE 办公家具 / BUILDING 房屋建筑物 / SUPPLIES 办公用品 / MATERIAL 材料 / OTHER 其他设备 |
+| `LOW_VALUE_CATEGORY` | OFFICE 办公用品 / WATER 水 / PPE 劳保用品 / PAPER 纸品 |
 | `PURCHASE_MODE` | PURCHASE 购买 / LEASE 租赁 / SELF_BUILD 自建 / DONATION 受赠 |
 | `ENABLE_STATUS` | ENABLED 启用 / DISABLED 停用 |
 | `INBOUND_STATUS` | PENDING 待验收 / ACCEPTED 已验收 / STORED 已入库 |
@@ -272,6 +272,7 @@ VITE_API_BASE_URL=http://your-backend/api
 | 装载 | 前端启动与字典变更后装载至运行时覆盖表（`constants/enums.js` 的 `applyDictEnums`），`labelOf()/optionsOf()` 优先取字典文案 |
 | 停用项 | `status=DISABLED` 的字典项不再出现在下拉选项中；已存储的历史数据仍按内置文案兜底 |
 | 编码约束 | 字典项的 `value` 即枚举编码，**不可修改**（改动等价于改契约） |
+| 新增项 | 字典页可**新增**字典项；新增编码与内置枚举并集构成契约校验的合法取值范围（后端需同步放行该编码） |
 
 后端对接时：字典相关接口沿用 `system-dict-types` 与 `system-dict-types-{code}-items` 两类端点即可，前端无需改动。
 

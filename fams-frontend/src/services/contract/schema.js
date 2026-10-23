@@ -306,7 +306,8 @@ const LOW_VALUE_ITEMS = {
   audit: true,
   fields: {
     code: f.str({ required: true, unique: true }),
-    categoryId: f.ref('low-value-settings-categories'),
+    // 类别取字典编码（LOW_VALUE_CATEGORY，见 constants/enums.js）
+    category: f.enum('LOW_VALUE_CATEGORY', { required: true }),
     name: f.str({ required: true }),
     spec: f.str(),
     unit: f.str(),
@@ -318,10 +319,9 @@ const LOW_VALUE_ITEMS = {
     location: f.str(),
     status: f.enum('LOW_VALUE_ITEM_STATUS', { required: true })
   },
-  query: { keyword: ['name', 'code', 'spec'], filters: ['categoryId', 'status', 'location'], sort: ['updateTime', 'code'], page: true },
+  query: { keyword: ['name', 'code', 'spec'], filters: ['category', 'status', 'location'], sort: ['updateTime', 'code'], page: true },
   rules: {
     unique: ['code'],
-    refs: [{ field: 'categoryId', collection: 'low-value-settings-categories' }],
     // 仍有库存或已产生单据时禁止删除
     protect: [
       { collection: 'low-value-inbound', field: 'itemId', message: '该物品已产生入库单据，不能删除' },
@@ -353,7 +353,8 @@ function lowValueDoc(key, label, effect, extra = {}, stockExtra = {}) {
     fields: {
       docNo: f.str({ required: true, unique: true }),
       itemId: f.ref('low-value-items', { required: true }),
-      categoryId: f.ref('low-value-settings-categories'),
+      // 类别取字典编码（办理当时的快照文案另存 categoryName）
+      category: f.enum('LOW_VALUE_CATEGORY'),
       // 单据快照：记录办理当时的物品信息，后续改价改名不影响历史单据
       itemName: f.str(),
       categoryName: f.str(),
@@ -372,12 +373,11 @@ function lowValueDoc(key, label, effect, extra = {}, stockExtra = {}) {
       settleTime: f.date(),
       ...extra
     },
-    query: { keyword: ['docNo'], filters: ['itemId', 'categoryId', 'deptId', 'status'], sort: ['createTime'], page: true },
+    query: { keyword: ['docNo'], filters: ['itemId', 'category', 'deptId', 'status'], sort: ['createTime'], page: true },
     rules: {
       unique: ['docNo'],
       refs: [
         { field: 'itemId', collection: 'low-value-items' },
-        { field: 'categoryId', collection: 'low-value-settings-categories' },
         { field: 'deptId', collection: 'org-departments' },
         { field: 'creatorId', collection: 'org-users' }
       ],
@@ -414,25 +414,6 @@ const LOW_VALUE_RETURN = lowValueDoc('low-value-return', '低值资产退库单'
   returnDate: f.date(),
   reason: f.str()
 })
-
-const LOW_VALUE_CATEGORIES = {
-  key: 'low-value-settings-categories',
-  label: '低值资产类别',
-  idField: 'id',
-  audit: true,
-  fields: {
-    code: f.str({ required: true, unique: true }),
-    name: f.str({ required: true, unique: true }),
-    status: f.enum('ENABLE_STATUS', { required: true }),
-    sort: f.num(),
-    remark: f.str()
-  },
-  query: { keyword: ['name', 'code'], filters: ['status'], sort: ['sort'], page: true },
-  rules: {
-    unique: ['code', 'name'],
-    protect: [{ collection: 'low-value-items', field: 'categoryId', message: '该类别下仍有物品，不能删除' }]
-  }
-}
 
 const LOW_VALUE_LOCATIONS = {
   key: 'low-value-settings-locations',
@@ -762,7 +743,7 @@ const CONTRACT_LIST = [
   SETTINGS_LOCATIONS, SETTINGS_LOCATION_OPTIONS, SETTINGS_CATEGORIES,
   SETTINGS_DEPRECIATION_RULES, SETTINGS_DEPRECIATION_PLANS,
   LOW_VALUE_ITEMS, LOW_VALUE_INBOUND, LOW_VALUE_REQUISITION, LOW_VALUE_RETURN,
-  LOW_VALUE_CATEGORIES, LOW_VALUE_LOCATIONS,
+  LOW_VALUE_LOCATIONS,
   ORG_COMPANIES, ORG_DEPARTMENTS, ORG_USERS, ORG_ROLES,
   SYSTEM_DICT_TYPES, SYSTEM_PARAMS, SYSTEM_FLOWS, DOC_APPROVALS,
   SYSTEM_DEVICES, SYSTEM_DEVICE_ABNORMAL,

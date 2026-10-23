@@ -113,6 +113,17 @@ export const LOW_VALUE_ITEM_STATUS = {
   DISABLED: '停用'
 }
 
+/**
+ * 低值资产类别（字典化）
+ * 统一在「系统管理 > 数据字典」的「低值资产类别」中维护，改文案即时作用于全站。
+ */
+export const LOW_VALUE_CATEGORY = {
+  OFFICE: '办公用品',
+  WATER: '水',
+  PPE: '劳保用品',
+  PAPER: '纸品'
+}
+
 /** 盘点结果 */
 export const INVENTORY_RESULT = {
   UNCHECKED: '未盘点',
@@ -257,6 +268,7 @@ export const ENUMS = {
   CHANGE_TYPE,
   DOC_STATUS,
   LOW_VALUE_ITEM_STATUS,
+  LOW_VALUE_CATEGORY,
   INVENTORY_RESULT,
   INVENTORY_ITEM_STATUS,
   INVENTORY_COUNTER_STATUS,
@@ -297,6 +309,7 @@ export const ENUM_DICT_META = [
   { enumName: 'CHANGE_TYPE', code: 'change_type', name: '资产变更类型' },
   { enumName: 'PURCHASE_MODE', code: 'purchase_mode', name: '购置方式' },
   { enumName: 'LOW_VALUE_ITEM_STATUS', code: 'low_value_status', name: '低值物品状态' },
+  { enumName: 'LOW_VALUE_CATEGORY', code: 'low_value_category', name: '低值资产类别' },
   { enumName: 'INVENTORY_RESULT', code: 'inventory_result', name: '盘点结果' },
   { enumName: 'INVENTORY_ITEM_STATUS', code: 'inventory_item_status', name: '盘点明细状态' },
   { enumName: 'INVENTORY_COUNTER_STATUS', code: 'inventory_counter_status', name: '盘点单状态' },
@@ -387,6 +400,21 @@ export function codesOf(enumName) {
   if (override) return Object.keys(override)
   const dict = ENUMS[enumName]
   return dict ? Object.keys(dict) : []
+}
+
+/**
+ * 取契约校验允许的编码集合 = 内置枚举 ∪ 运行时字典项
+ *
+ * 背景：数据字典是枚举的统一维护入口，用户可在字典页**新增字典项**。
+ * 若校验只认内置枚举，新增的编码会被判为非法值，导致业务数据存不进去。
+ * 因此字典接管的枚举以"内置 + 字典"为合法取值范围（停用项仍保留在集合内，
+ * 避免历史数据因停用而无法编辑）。
+ */
+export function allowedEnumCodes(enumName) {
+  const base = Object.keys(ENUMS[enumName] || {})
+  const override = runtimeEnums.value[enumName]
+  if (!override) return base
+  return [...new Set([...base, ...Object.keys(override)])]
 }
 
 export default ENUMS

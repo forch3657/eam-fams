@@ -83,7 +83,7 @@ npm run dev     # http://localhost:5174/
 | `/fixed-asset-settings` | 基础设置 | 位置、分类、折旧规则、折旧方案、审批流程 |
 | `/low-value-assets` | 低值资产管理 | 库存台账（类别/关键字筛选、低库存预警、导出）、入库、领用、退库 |
 | `/low-value-asset-reports` | 低值资产报表 | 类别统计、部门领用统计、出入库汇总与导出 |
-| `/low-value-asset-settings` | 低值资产基础设置 | 类别、存放位置、审批流程（只读引用全局流程，低值资产不计提折旧，无折旧页签） |
+| `/low-value-asset-settings` | 低值资产基础设置 | 存放位置、审批流程（只读引用全局流程，低值资产不计提折旧，无折旧页签）；**物品类别在「数据字典」维护** |
 | `/system/company` | 公司管理 | 公司层级树（集团→子公司）、公司增删改、启停用、删除保护 |
 | `/system/dept` | 部门管理 | 公司→部门→子部门树、部门增删改、启停用、部门人员维护 |
 | `/system/user` | 用户管理 | 统一用户主数据、公司/部门/角色归属、重置密码、启停用 |
@@ -124,7 +124,7 @@ src/
     └── mock/
         ├── index.js           内存版 CRUD
         ├── seed/asset.js      固定资产类种子数据
-        ├── seed/lowValueAsset.js  低值资产种子数据（物品、单据、类别、位置、流程）
+        ├── seed/lowValueAsset.js  低值资产种子数据（物品、单据、位置；类别取字典编码）
         └── seed/org.js        组织架构主数据种子（公司、部门、用户、角色）
 ```
 
@@ -157,7 +157,7 @@ src/
 - 库存联动：入库 `库存 += 数量`；领用 `库存 -= 数量`（不足时拒绝并提示）；退库 `库存 += 数量`。
 - 退库校验：退库数量不得超过「已领未退数量」（领用总量 − 退库总量）。
 - 金额按提交时的单价快照计算，后续改价不影响历史单据。
-- 删除保护：仍有库存或已产生单据的物品不可删除；仍被物品引用的类别/位置不可删除。
+- 删除保护：仍有库存或已产生单据的物品不可删除；仍被物品引用的位置不可删除。
 - 低库存预警：库存 ≤ 安全库存时在台账标记「预警」。
 
 ### 集合 key
@@ -168,7 +168,6 @@ src/
 | `low-value-inbound` | 入库单据（docNo、itemId、quantity、price、amount、supplier、inboundDate、operator） |
 | `low-value-requisition` | 领用单据（docNo、itemId、quantity、amount、receiver、dept、requisitionDate、purpose） |
 | `low-value-return` | 退库单据（docNo、itemId、quantity、returner、dept、returnDate、reason） |
-| `low-value-settings-categories` | 类别设置（办公用品 / 水 / 劳保用品 / 纸品） |
 | `low-value-settings-locations` | 存放位置设置 |
 | `low-value-settings-approval-flows` | 审批流程设置（适用业务：入库 / 领用 / 退库） |
 

@@ -54,49 +54,49 @@ const SEED_ROLES = [
   {
     id: 'R1', code: 'ROLE_ADMIN', name: '系统管理员', orgScope: 'GROUP', dataScope: 'ALL', status: 'ENABLED', sort: 1,
     remark: '拥有全部模块权限，负责系统配置与组织架构维护',
-    permissions: ['fa:view', 'fa:add', 'fa:edit', 'fa:delete', 'fa:export', 'fa:inbound', 'fa:dispatch', 'fa:borrow', 'fa:change', 'fa:dispose', 'fa:inventory', 'fa:depreciation', 'fa:report', 'lv:view', 'lv:edit', 'lv:export', 'lv:inbound', 'lv:requisition', 'lv:return', 'lv:report', 'org:company', 'org:dept', 'org:user', 'org:role', 'sys:dict', 'sys:log', 'sys:workflow', 'sys:params', 'sys:message', 'sys:template', 'sys:terminal'],
+    permissions: ['fa:view', 'fa:add', 'fa:edit', 'fa:delete', 'fa:export', 'fa:inbound', 'fa:dispatch', 'fa:borrow', 'fa:change', 'fa:dispose', 'fa:inventory', 'fa:depreciation', 'fa:report', 'lv:view', 'lv:edit', 'lv:export', 'lv:inbound', 'lv:requisition', 'lv:return', 'lv:report', 'wm:view', 'wm:todo', 'wm:alert', 'wm:overview', 'wm:message', 'org:company', 'org:dept', 'org:user', 'org:role', 'sys:dict', 'sys:log', 'sys:workflow', 'sys:params', 'sys:message', 'sys:template', 'sys:terminal'],
     createTime: '2024-01-05T09:00:00', updateTime: '2026-09-18T10:22:31', version: 1
   },
   {
     id: 'R2', code: 'ROLE_ASSET', name: '资产管理员', orgScope: 'COMPANY', dataScope: 'COMPANY', status: 'ENABLED', sort: 2,
     remark: '负责资产台账、入库、派发、处置、盘点与低值资产出入库',
-    permissions: ['fa:view', 'fa:add', 'fa:edit', 'fa:export', 'fa:inbound', 'fa:dispatch', 'fa:borrow', 'fa:change', 'fa:dispose', 'fa:inventory', 'fa:depreciation', 'fa:report', 'lv:view', 'lv:edit', 'lv:export', 'lv:inbound', 'lv:requisition', 'lv:return', 'lv:report'],
+    permissions: ['fa:view', 'fa:add', 'fa:edit', 'fa:export', 'fa:inbound', 'fa:dispatch', 'fa:borrow', 'fa:change', 'fa:dispose', 'fa:inventory', 'fa:depreciation', 'fa:report', 'lv:view', 'lv:edit', 'lv:export', 'lv:inbound', 'lv:requisition', 'lv:return', 'lv:report', 'wm:view', 'wm:todo', 'wm:alert', 'wm:overview', 'wm:message'],
     createTime: '2024-01-05T09:05:00', updateTime: '2026-09-17T15:40:12', version: 1
   },
   {
     id: 'R3', code: 'ROLE_USER', name: '资产使用人', orgScope: 'DEPT', dataScope: 'DEPT_ONLY', status: 'ENABLED', sort: 3,
     remark: '普通员工，可查看本人名下资产并发起低值资产领用/退库',
-    permissions: ['fa:view', 'lv:view', 'lv:requisition', 'lv:return'],
+    permissions: ['fa:view', 'lv:view', 'lv:requisition', 'lv:return', 'wm:view', 'wm:todo', 'wm:message'],
     createTime: '2024-01-05T09:10:00', updateTime: '2026-09-16T09:05:44', version: 1
   },
   {
     id: 'R4', code: 'ROLE_FINANCE', name: '财务管理员', orgScope: 'COMPANY', dataScope: 'COMPANY', status: 'ENABLED', sort: 4,
     remark: '负责折旧计提、资产报表与导出',
-    permissions: ['fa:view', 'fa:export', 'fa:depreciation', 'fa:report', 'lv:view', 'lv:report', 'sys:log'],
+    permissions: ['fa:view', 'fa:export', 'fa:depreciation', 'fa:report', 'lv:view', 'lv:report', 'sys:log', 'wm:view', 'wm:overview', 'wm:message'],
     createTime: '2024-01-05T09:15:00', updateTime: '2026-09-15T14:22:08', version: 1
   },
   {
     id: 'R5', code: 'ROLE_LEADER', name: '部门主管', orgScope: 'DEPT', dataScope: 'DEPT', status: 'ENABLED', sort: 5,
     remark: '部门负责人，可审批本部门资产业务单据',
-    permissions: ['fa:view', 'fa:edit', 'fa:dispatch', 'fa:borrow', 'fa:inventory', 'fa:report', 'lv:view', 'lv:requisition', 'lv:report'],
+    permissions: ['fa:view', 'fa:edit', 'fa:dispatch', 'fa:borrow', 'fa:inventory', 'fa:report', 'lv:view', 'lv:requisition', 'lv:report', 'wm:view', 'wm:todo', 'wm:alert', 'wm:message'],
     createTime: '2024-01-05T09:20:00', updateTime: '2026-09-14T11:31:52', version: 1
   },
   {
     id: 'R6', code: 'ROLE_AUDITOR', name: '审计员', orgScope: 'GROUP', dataScope: 'ALL', status: 'ENABLED', sort: 6,
     remark: '只读权限，用于内审与合规检查',
-    permissions: ['fa:view', 'fa:report', 'lv:view', 'lv:report', 'sys:log'],
+    permissions: ['fa:view', 'fa:report', 'lv:view', 'lv:report', 'sys:log', 'wm:view', 'wm:overview', 'wm:message'],
     createTime: '2024-01-05T09:25:00', updateTime: '2026-09-13T16:48:20', version: 1
   },
   {
     id: 'R7', code: 'ROLE_VP', name: '分管副总', orgScope: 'GROUP', dataScope: 'ALL', status: 'ENABLED', sort: 7,
     remark: '资产处置流程中大额资产（原值 20 万以上）的分管领导审批环节',
-    permissions: ['fa:view', 'fa:edit', 'fa:dispose', 'fa:report', 'lv:view', 'lv:report'],
+    permissions: ['fa:view', 'fa:edit', 'fa:dispose', 'fa:report', 'lv:view', 'lv:report', 'wm:view', 'wm:todo', 'wm:overview', 'wm:message'],
     createTime: '2024-01-05T09:30:00', updateTime: '2026-09-12T15:20:10', version: 1
   },
   {
     id: 'R8', code: 'ROLE_WAREHOUSE', name: '仓管员', orgScope: 'COMPANY', dataScope: 'COMPANY', status: 'ENABLED', sort: 8,
     remark: '低值资产领用流程中的出库确认环节，同时负责低值物品出入库',
-    permissions: ['fa:view', 'lv:view', 'lv:inbound', 'lv:requisition', 'lv:return'],
+    permissions: ['fa:view', 'lv:view', 'lv:inbound', 'lv:requisition', 'lv:return', 'wm:view', 'wm:todo', 'wm:alert', 'wm:message'],
     createTime: '2024-01-05T09:35:00', updateTime: '2026-09-11T10:05:33', version: 1
   }
 ]

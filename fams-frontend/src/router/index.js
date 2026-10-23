@@ -20,8 +20,14 @@ const routes = [
     path: '/',
     component: () => import('../layouts/MainLayout.vue'),
     meta: { requiresAuth: true },
-    redirect: '/fixed-assets',
+    redirect: '/workbench',
     children: [
+      {
+        path: 'workbench',
+        name: 'Workbench',
+        component: () => import('../views/workbench/Workbench.vue'),
+        meta: { title: '工作台', permission: 'wm:view' }
+      },
       {
         path: 'fixed-assets',
         name: 'FixedAssets',
@@ -132,7 +138,7 @@ const routes = [
       }
     ]
   },
-  { path: '/:pathMatch(.*)*', redirect: '/fixed-assets' }
+  { path: '/:pathMatch(.*)*', redirect: '/workbench' }
 ]
 
 const router = createRouter({
@@ -142,6 +148,7 @@ const router = createRouter({
 
 /** 无权访问时的落地页候选（按优先级） */
 const FALLBACK_ROUTES = [
+  { path: '/workbench', permission: 'wm:view' },
   { path: '/fixed-assets', permission: 'fa:view' },
   { path: '/low-value-assets', permission: 'lv:view' },
   { path: '/fixed-asset-reports', permission: 'fa:report' },
@@ -152,7 +159,7 @@ router.beforeEach(async (to) => {
   const userStore = useUserStore()
 
   if (to.path === '/login') {
-    return userStore.isLoggedIn ? '/fixed-assets' : true
+    return userStore.isLoggedIn ? '/workbench' : true
   }
 
   if (to.meta.requiresAuth && !userStore.isLoggedIn) {
