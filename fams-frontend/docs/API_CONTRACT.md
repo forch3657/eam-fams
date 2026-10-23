@@ -89,16 +89,11 @@
 | key | 中文名 | 主键 |
 | --- | --- | --- |
 | `fixed-assets` | 固定资产台账 | `id` |
-| `fixed-asset-inbound` | 入库/验收单 | `id` |
-| `fixed-asset-dispatch` | 派发/退库单 | `id` |
-| `fixed-asset-borrow` | 借出单 | `id` |
-| `fixed-asset-change` | 资产变更单 | `id` |
-| `fixed-asset-dispose` | 资产处置单 | `id` |
 | `fixed-asset-inventory-plans` | 盘点计划 | `id` |
 | `fixed-asset-inventory-docs` | 盘点单据 | `id` |
 | `fixed-asset-depreciation-schemes` | 折旧方案 | `id` |
 | `fixed-asset-depreciation-reports` | 折旧报表 | `id` |
-| `fixed-asset-doc-lists-{biz}` | 单据列表（biz: inbound/alloc/back/transfer/repair/dispose） | `id` |
+| `fixed-asset-doc-lists-{biz}` | 单据列表（biz: inbound/alloc/back/borrow/transfer/repair/change/dispose），固定资产五类单据统一走这套 | `id` |
 | `fixed-asset-settings-locations` | 存放位置 | `code` |
 | `fixed-asset-settings-location-options` | 位置候选项 | `code` |
 | `fixed-asset-settings-categories` | 资产分类（树） | `id` |

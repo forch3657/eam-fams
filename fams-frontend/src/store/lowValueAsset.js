@@ -79,7 +79,7 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
       stock: Number(data.stock) || 0,
       safetyStock: Number(data.safetyStock) || 0,
       location: data.location || '',
-      status: data.status || LOW_VALUE_ITEM_STATUS.NORMAL
+      status: data.status || 'NORMAL', // 状态存编码：LOW_VALUE_ITEM_STATUS.NORMAL 取到的是文案
     }
     const created = await dataService.create(COLLECTION.lowValueItems, item)
     const row = created || item

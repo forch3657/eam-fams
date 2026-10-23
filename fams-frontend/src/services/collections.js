@@ -1,11 +1,6 @@
 // 固定资产模块的集合标识：mock 与 HTTP 两种实现共用同一套 key
 export const COLLECTION = {
   assets: 'fixed-assets',
-  inbound: 'fixed-asset-inbound',
-  dispatch: 'fixed-asset-dispatch',
-  borrow: 'fixed-asset-borrow',
-  change: 'fixed-asset-change',
-  dispose: 'fixed-asset-dispose',
   inventoryPlans: 'fixed-asset-inventory-plans',
   inventoryDocs: 'fixed-asset-inventory-docs',
   depreciationSchemes: 'fixed-asset-depreciation-schemes',

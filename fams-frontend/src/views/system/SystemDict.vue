@@ -266,8 +266,8 @@ function openItem(row) {
   if (!selectedType.value) { ElMessage.warning('请先选择字典类型'); return }
   editingItem.value = !!row
   itemForm.value = row
-    ? { label: row.label, value: row.value, sort: row.sort || 1, status: row.status || 'ENABLED', remark: row.remark || '' }
-    : { label: '', value: '', sort: (itemRows.value.length || 0) + 1, status: 'ENABLED', remark: '' }
+    ? { id: row.id, label: row.label, value: row.value, sort: row.sort || 1, status: row.status || 'ENABLED', remark: row.remark || '' }
+    : { id: '', label: '', value: '', sort: (itemRows.value.length || 0) + 1, status: 'ENABLED', remark: '' }
   showItem.value = true
 }
 

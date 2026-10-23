@@ -426,7 +426,7 @@ const companyOptions = computed(() => (orgStore.companyOptions.length ? orgStore
 const assetTypeOptions = ['电子设备', '机械设备', '运输设备', '办公家具', '房屋建筑物', '其他设备']
 const purchaseModeOptions = ['购买', '租赁', '自建', '受赠']
 const calcTimeOptions = ['按月计提', '按季计提', '按年计提']
-const depreciationMethodOptions = optionsOf('DEPRECIATION_METHOD')
+const depreciationMethodOptions = computed(() => optionsOf('DEPRECIATION_METHOD'))
 
 // 位置设置
 const locationCol = useCollection(COLLECTION.settingsLocations)

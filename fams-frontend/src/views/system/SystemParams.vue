@@ -80,6 +80,7 @@ import { ref, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus } from '@element-plus/icons-vue'
 import { useCollection } from '../../composables/useCollection'
+import { loadSysParams } from '../../services/sysParams'
 import { COLLECTION } from '../../services'
 
 const filter = ref({ name: '', key: '', type: '' })
@@ -123,6 +124,8 @@ const saveRow = () => {
     paramCol.add({ id: Date.now(), ...form.value, updateTime: now(0) })
   }
   showEdit.value = false
+  // 参数要真正被业务消费：保存后立即重载（编号前缀/预警阈值等立刻生效）
+  loadSysParams()
   ElMessage.success('保存成功')
 }
 const removeRow = row => {

@@ -50,7 +50,8 @@ export async function loadDictEnums() {
       .forEach(i => {
         if (i.value) map[i.value] = i.label || i.value
       })
-    if (Object.keys(map).length) result[enumName] = map
+    // 即使全部停用也要覆盖：避免 optionsOf 回退到内置枚举（停用项又冒出来）
+    result[enumName] = map
   }
 
   applyDictEnums(result)

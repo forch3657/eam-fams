@@ -7,26 +7,6 @@
           <el-icon><Plus /></el-icon>
           新增资产
         </el-button>
-        <el-button type="primary" @click="handleAddAsset" v-if="activeTab === 'inbound' && can('fa:inbound')">
-          <el-icon><Plus /></el-icon>
-          新增入库
-        </el-button>
-        <el-button type="primary" @click="handleDispatch" v-if="activeTab === 'dispatch' && can('fa:dispatch')">
-          <el-icon><Plus /></el-icon>
-          新增派发
-        </el-button>
-        <el-button type="primary" @click="handleBorrow" v-if="activeTab === 'borrow' && can('fa:borrow')">
-          <el-icon><Plus /></el-icon>
-          新增借出
-        </el-button>
-        <el-button type="primary" @click="handleChange" v-if="activeTab === 'change' && can('fa:change')">
-          <el-icon><Plus /></el-icon>
-          新增变更
-        </el-button>
-        <el-button type="primary" @click="handleDispose" v-if="activeTab === 'dispose' && can('fa:dispose')">
-          <el-icon><Plus /></el-icon>
-          新增处置
-        </el-button>
         <el-button type="primary" @click="handleCreatePlan" v-if="activeTab === 'inventory' && can('fa:inventory')">
           <el-icon><Plus /></el-icon>
           生成盘点计划
@@ -52,7 +32,7 @@
             </el-form-item>
             <el-form-item label="资产状态">
               <el-select v-model="assetSearch.status" placeholder="请选择" clearable style="width: 120px">
-                <el-option v-for="s in assetStatusOptions" :key="s" :label="s" :value="s" />
+                <el-option v-for="s in assetStatusOptions" :key="s.value" :label="s.label" :value="s.value" />
               </el-select>
             </el-form-item>
             <el-form-item>
@@ -114,141 +94,7 @@
 
         <!-- 入库/验收 -->
         <el-tab-pane label="入库/验收" name="inbound">
-          <el-tabs v-model="inboundSub" type="card" class="sub-tabs">
-            <el-tab-pane label="入库单据" name="docs" />
-            <el-tab-pane label="验收台账" name="ledger" />
-          </el-tabs>
-
-          <template v-if="inboundSub === 'docs'">
-            <el-form :inline="true" class="search-form">
-              <el-form-item label="单据编号">
-                <el-input v-model="docLists.inbound.search.docNo" placeholder="请输入单据编号" clearable style="width: 160px" />
-              </el-form-item>
-              <el-form-item label="公司">
-                <el-select v-model="docLists.inbound.search.company" placeholder="请选择公司" clearable style="width: 200px">
-                  <el-option v-for="c in companyOptionList" :key="c.id" :label="c.name" :value="c.id" />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="单据状态">
-                <el-select v-model="docLists.inbound.search.status" placeholder="请选择状态" clearable style="width: 130px">
-                  <el-option v-for="s in docStatusOptions" :key="s" :label="s" :value="s" />
-                </el-select>
-              </el-form-item>
-              <el-form-item>
-                <el-button type="primary" @click="docLists.inbound.page = 1">
-                  <el-icon><Search /></el-icon>
-                  查询
-                </el-button>
-                <el-button @click="resetDocSearch('inbound')">重置</el-button>
-                <el-button type="primary" @click="openDocDialog('inbound')">
-                  <el-icon><Plus /></el-icon>
-                  新增单据
-                </el-button>
-              </el-form-item>
-            </el-form>
-
-            <el-table :data="pagedDocs('inbound')" style="width: 100%">
-              <el-table-column prop="docNo" label="单据编号" width="130">
-                <template #default="{ row }">
-                  <el-link type="primary" :underline="false" @click="viewDocApproval(row)">{{ row.docNo }}</el-link>
-                </template>
-              </el-table-column>
-              <el-table-column prop="company" label="所属公司" min-width="200" show-overflow-tooltip />
-              <el-table-column label="创建时间" width="160" ><template #default="{ row }">{{ formatDateTime(row.createTime) }}</template></el-table-column>
-              <el-table-column label="完结时间" width="160">
-                <template #default="{ row }">{{ row.finishTime ? formatDateTime(row.finishTime) : '-' }}</template>
-              </el-table-column>
-              <el-table-column label="备注" min-width="160" show-overflow-tooltip>
-                <template #default="{ row }">{{ row.remark || '-' }}</template>
-              </el-table-column>
-              <el-table-column prop="status" label="单据状态" width="100">
-                <template #default="{ row }">
-                  <el-tag :type="docStatusType(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="190" fixed="right">
-                <template #default="{ row }">
-                  <el-button link type="primary" size="small" @click="viewDocApproval(row)">审批信息</el-button>
-                  <el-button link type="primary" size="small" @click="openDocDialog('inbound', row)">修改</el-button>
-                  <el-button link type="danger" size="small" @click="deleteDoc('inbound', row)">删除</el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-
-            <div class="pager">
-              <el-pagination
-                v-model:current-page="docLists.inbound.page"
-                v-model:page-size="docLists.inbound.pageSize"
-                :page-sizes="[10, 20, 50, 100]"
-                :total="docTotal('inbound')"
-                layout="total, sizes, prev, pager, next, jumper"
-              />
-            </div>
-          </template>
-
-          <template v-else>
-          <el-form :inline="true" :model="inboundSearch" class="search-form">
-            <el-form-item label="资产名称">
-              <el-input v-model="inboundSearch.name" placeholder="请输入" clearable />
-            </el-form-item>
-            <el-form-item label="资产分类">
-              <el-select v-model="inboundSearch.category" placeholder="请选择" clearable style="width: 120px">
-                <el-option label="办公用品" value="办公用品" />
-                <el-option label="车辆" value="车辆" />
-                <el-option label="设备" value="设备" />
-                <el-option label="材料" value="材料" />
-                <el-option label="其他" value="其他" />
-              </el-select>
-            </el-form-item>
-            <el-form-item label="状态">
-              <el-select v-model="inboundSearch.status" placeholder="请选择" clearable style="width: 120px">
-                <el-option label="待验收" value="待验收" />
-                <el-option label="已验收" value="已验收" />
-                <el-option label="已入库" value="已入库" />
-              </el-select>
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" @click="handleInboundSearch">查询</el-button>
-              <el-button @click="handleInboundReset">重置</el-button>
-            </el-form-item>
-          </el-form>
-
-          <el-table :data="displayInboundList" style="width: 100%">
-            <el-table-column prop="assetNo" label="资产编号" width="130" />
-            <el-table-column prop="name" label="资产名称" min-width="150" show-overflow-tooltip />
-            <el-table-column prop="category" label="分类" width="100" />
-            <el-table-column prop="model" label="规格型号" width="120" />
-            <el-table-column prop="quantity" label="数量" width="80" />
-            <el-table-column prop="unit" label="单位" width="70" />
-            <el-table-column prop="purchasePrice" label="采购单价" width="110">
-              <template #default="{ row }">¥{{ row.purchasePrice.toLocaleString() }}</template>
-            </el-table-column>
-            <el-table-column prop="supplier" label="供应商" min-width="130" show-overflow-tooltip />
-            <el-table-column prop="inboundDate" label="入库日期" width="110" />
-            <el-table-column prop="status" label="状态" width="90">
-              <template #default="{ row }">
-                <el-tag :type="row.status === '已入库' ? 'success' : row.status === '已验收' ? 'primary' : 'warning'" size="small">{{ statusText(row.status) }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="180" fixed="right">
-              <template #default="{ row }">
-                <el-button link type="primary" size="small" @click="handleViewInbound(row)">详情</el-button>
-                <el-button link type="primary" size="small" @click="handleAcceptInbound(row)" v-if="row.status === '待验收'">验收</el-button>
-                <el-button link type="primary" size="small" @click="handleStockIn(row)" v-if="row.status === '已验收'">入库</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-
-          <div class="pager">
-            <el-pagination
-              v-model:current-page="inboundPage"
-              v-model:page-size="inboundPageSize"
-              :page-sizes="[10, 20, 50, 100]"
-              :total="inboundTotal"
-              layout="total, sizes, prev, pager, next, jumper"
-            />
-          </div>
-          </template>
+          <FixedAssetDocList doc-key="inbound" prefix="RK" :perm="can('fa:inbound')" @view-approval="viewDocApproval" />
         </el-tab-pane>
 
         <!-- 派发/退库 -->
@@ -256,227 +102,18 @@
           <el-tabs v-model="dispatchSub" type="card" class="sub-tabs">
             <el-tab-pane label="分配" name="alloc" />
             <el-tab-pane label="退库" name="back" />
-            <el-tab-pane label="派发台账" name="ledger" />
           </el-tabs>
-
-          <template v-if="dispatchSub !== 'ledger'">
-            <el-form :inline="true" class="search-form">
-              <el-form-item label="单据编号">
-                <el-input v-model="docLists[dispatchSub].search.docNo" placeholder="请输入单据编号" clearable style="width: 160px" />
-              </el-form-item>
-              <el-form-item label="公司">
-                <el-select v-model="docLists[dispatchSub].search.company" placeholder="请选择公司" clearable style="width: 200px">
-                  <el-option v-for="c in companyOptionList" :key="c.id" :label="c.name" :value="c.id" />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="单据状态">
-                <el-select v-model="docLists[dispatchSub].search.status" placeholder="请选择状态" clearable style="width: 130px">
-                  <el-option v-for="s in docStatusOptions" :key="s" :label="s" :value="s" />
-                </el-select>
-              </el-form-item>
-              <el-form-item>
-                <el-button type="primary" @click="docLists[dispatchSub].page = 1">
-                  <el-icon><Search /></el-icon>
-                  查询
-                </el-button>
-                <el-button @click="resetDocSearch(dispatchSub)">重置</el-button>
-                <el-button type="primary" @click="openDocDialog(dispatchSub)">
-                  <el-icon><Plus /></el-icon>
-                  新增单据
-                </el-button>
-              </el-form-item>
-            </el-form>
-
-            <el-table :data="pagedDocs(dispatchSub)" style="width: 100%">
-              <el-table-column prop="docNo" label="单据编号" width="130">
-                <template #default="{ row }">
-                  <el-link type="primary" :underline="false" @click="viewDocApproval(row)">{{ row.docNo }}</el-link>
-                </template>
-              </el-table-column>
-              <el-table-column prop="company" label="所属公司" min-width="200" show-overflow-tooltip />
-              <el-table-column label="创建时间" width="160" ><template #default="{ row }">{{ formatDateTime(row.createTime) }}</template></el-table-column>
-              <el-table-column label="完结时间" width="160">
-                <template #default="{ row }">{{ row.finishTime ? formatDateTime(row.finishTime) : '-' }}</template>
-              </el-table-column>
-              <el-table-column label="备注" min-width="160" show-overflow-tooltip>
-                <template #default="{ row }">{{ row.remark || '-' }}</template>
-              </el-table-column>
-              <el-table-column prop="status" label="单据状态" width="100">
-                <template #default="{ row }">
-                  <el-tag :type="docStatusType(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="190" fixed="right">
-                <template #default="{ row }">
-                  <el-button link type="primary" size="small" @click="viewDocApproval(row)">审批信息</el-button>
-                  <el-button link type="primary" size="small" @click="openDocDialog(dispatchSub, row)">修改</el-button>
-                  <el-button link type="danger" size="small" @click="deleteDoc(dispatchSub, row)">删除</el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-
-            <div class="pager">
-              <el-pagination
-                v-model:current-page="docLists[dispatchSub].page"
-                v-model:page-size="docLists[dispatchSub].pageSize"
-                :page-sizes="[10, 20, 50, 100]"
-                :total="docTotal(dispatchSub)"
-                layout="total, sizes, prev, pager, next, jumper"
-              />
-            </div>
-          </template>
-
-          <template v-else>
-          <el-form :inline="true" :model="dispatchSearch" class="search-form">
-            <el-form-item label="资产名称">
-              <el-input v-model="dispatchSearch.name" placeholder="请输入" clearable />
-            </el-form-item>
-            <el-form-item label="使用部门">
-              <el-input v-model="dispatchSearch.department" placeholder="请输入" clearable />
-            </el-form-item>
-            <el-form-item label="状态">
-              <el-select v-model="dispatchSearch.status" placeholder="请选择" clearable style="width: 120px">
-                <el-option label="已派发" value="已派发" />
-                <el-option label="已退库" value="已退库" />
-              </el-select>
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" @click="handleDispatchSearch">查询</el-button>
-              <el-button @click="handleDispatchReset">重置</el-button>
-            </el-form-item>
-          </el-form>
-
-          <el-table :data="displayDispatchList" style="width: 100%">
-            <el-table-column prop="dispatchNo" label="派发单号" width="130" />
-            <el-table-column prop="assetName" label="资产名称" min-width="150" show-overflow-tooltip />
-            <el-table-column prop="assetNo" label="资产编号" width="130" />
-            <el-table-column prop="department" label="使用部门" width="120" />
-            <el-table-column prop="user" label="使用人" width="100" />
-            <el-table-column prop="dispatchDate" label="派发日期" width="110" />
-            <el-table-column prop="location" label="存放位置" width="130" show-overflow-tooltip />
-            <el-table-column prop="status" label="状态" width="90">
-              <template #default="{ row }">
-                <el-tag :type="row.status === '已派发' ? 'success' : 'info'" size="small">{{ statusText(row.status) }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="180" fixed="right">
-              <template #default="{ row }">
-                <el-button link type="primary" size="small" @click="handleViewDispatch(row)">详情</el-button>
-                <el-button link type="primary" size="small" @click="handleReturn(row)" v-if="row.status === '已派发'">退库</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-
-          <div class="pager">
-            <el-pagination
-              v-model:current-page="dispatchPage"
-              v-model:page-size="dispatchPageSize"
-              :page-sizes="[10, 20, 50, 100]"
-              :total="dispatchTotal"
-              layout="total, sizes, prev, pager, next, jumper"
-            />
-          </div>
-          </template>
+          <FixedAssetDocList :doc-key="dispatchSub" :prefix="dispatchPrefix[dispatchSub]" :perm="can('fa:dispatch')" @view-approval="viewDocApproval" />
         </el-tab-pane>
 
         <!-- 借出使用 -->
         <el-tab-pane label="借出使用" name="borrow">
-          <el-form :inline="true" :model="borrowSearch" class="search-form">
-            <el-form-item label="资产名称">
-              <el-input v-model="borrowSearch.name" placeholder="请输入" clearable />
-            </el-form-item>
-            <el-form-item label="借用人">
-              <el-input v-model="borrowSearch.borrower" placeholder="请输入" clearable />
-            </el-form-item>
-            <el-form-item label="状态">
-              <el-select v-model="borrowSearch.status" placeholder="请选择" clearable style="width: 120px">
-                <el-option label="借出中" value="借出中" />
-                <el-option label="已归还" value="已归还" />
-                <el-option label="逾期" value="逾期" />
-              </el-select>
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" @click="handleBorrowSearch">查询</el-button>
-              <el-button @click="handleBorrowReset">重置</el-button>
-            </el-form-item>
-          </el-form>
-
-          <el-table :data="displayBorrowList" style="width: 100%">
-            <el-table-column prop="borrowNo" label="借出单号" width="130" />
-            <el-table-column prop="assetName" label="资产名称" min-width="150" show-overflow-tooltip />
-            <el-table-column prop="assetNo" label="资产编号" width="130" />
-            <el-table-column prop="borrower" label="借用人" width="100" />
-            <el-table-column prop="department" label="所属部门" width="120" />
-            <el-table-column prop="borrowDate" label="借出日期" width="110" />
-            <el-table-column prop="expectedReturnDate" label="预计归还" width="110" />
-            <el-table-column prop="status" label="状态" width="90">
-              <template #default="{ row }">
-                <el-tag :type="row.status === '已归还' ? 'success' : row.status === '逾期' ? 'danger' : 'warning'" size="small">{{ statusText(row.status) }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="180" fixed="right">
-              <template #default="{ row }">
-                <el-button link type="primary" size="small" @click="handleViewBorrow(row)">详情</el-button>
-                <el-button link type="primary" size="small" @click="handleReturnBorrow(row)" v-if="row.status === '借出中' || row.status === '逾期'">归还</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-
-          <div class="pager">
-            <el-pagination
-              v-model:current-page="borrowPage"
-              v-model:page-size="borrowPageSize"
-              :page-sizes="[10, 20, 50, 100]"
-              :total="borrowTotal"
-              layout="total, sizes, prev, pager, next, jumper"
-            />
-          </div>
+          <FixedAssetDocList doc-key="borrow" prefix="JC" :perm="can('fa:borrow')" @view-approval="viewDocApproval" />
         </el-tab-pane>
 
         <!-- 资产变更 -->
         <el-tab-pane label="资产变更" name="change">
-          <el-form :inline="true" :model="changeSearch" class="search-form">
-            <el-form-item label="资产名称">
-              <el-input v-model="changeSearch.name" placeholder="请输入" clearable />
-            </el-form-item>
-            <el-form-item label="变更类型">
-              <el-select v-model="changeSearch.changeType" placeholder="请选择" clearable style="width: 120px">
-                <el-option label="调拨" value="调拨" />
-                <el-option label="维修" value="维修" />
-                <el-option label="升级" value="升级" />
-                <el-option label="其他" value="其他" />
-              </el-select>
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" @click="handleChangeSearch">查询</el-button>
-              <el-button @click="handleChangeReset">重置</el-button>
-            </el-form-item>
-          </el-form>
-
-          <el-table :data="displayChangeList" style="width: 100%">
-            <el-table-column prop="changeNo" label="变更单号" width="130" />
-            <el-table-column prop="assetName" label="资产名称" min-width="150" show-overflow-tooltip />
-            <el-table-column prop="assetNo" label="资产编号" width="130" />
-            <el-table-column label="变更类型" width="100" ><template #default="{ row }">{{ statusText(row.changeType) }}</template></el-table-column>
-            <el-table-column prop="changeReason" label="变更原因" min-width="150" show-overflow-tooltip />
-            <el-table-column prop="changeDate" label="变更日期" width="110" />
-            <el-table-column prop="operator" label="操作人" width="100" />
-            <el-table-column label="操作" width="120" fixed="right">
-              <template #default="{ row }">
-                <el-button link type="primary" size="small" @click="handleViewChange(row)">详情</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-
-          <div class="pager">
-            <el-pagination
-              v-model:current-page="changePage"
-              v-model:page-size="changePageSize"
-              :page-sizes="[10, 20, 50, 100]"
-              :total="changeTotal"
-              layout="total, sizes, prev, pager, next, jumper"
-            />
-          </div>
+          <FixedAssetDocList doc-key="change" prefix="BG" :perm="can('fa:change')" @view-approval="viewDocApproval" />
         </el-tab-pane>
 
         <!-- 资产处置 -->
@@ -485,127 +122,8 @@
             <el-tab-pane label="调拨" name="transfer" />
             <el-tab-pane label="维修" name="repair" />
             <el-tab-pane label="处置" name="dispose" />
-            <el-tab-pane label="处置台账" name="ledger" />
           </el-tabs>
-
-          <template v-if="disposeSub !== 'ledger'">
-            <el-form :inline="true" class="search-form">
-              <el-form-item label="单据编号">
-                <el-input v-model="docLists[disposeSub].search.docNo" placeholder="请输入单据编号" clearable style="width: 160px" />
-              </el-form-item>
-              <el-form-item label="公司">
-                <el-select v-model="docLists[disposeSub].search.company" placeholder="请选择公司" clearable style="width: 200px">
-                  <el-option v-for="c in companyOptionList" :key="c.id" :label="c.name" :value="c.id" />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="单据状态">
-                <el-select v-model="docLists[disposeSub].search.status" placeholder="请选择状态" clearable style="width: 130px">
-                  <el-option v-for="s in docStatusOptions" :key="s" :label="s" :value="s" />
-                </el-select>
-              </el-form-item>
-              <el-form-item>
-                <el-button type="primary" @click="docLists[disposeSub].page = 1">
-                  <el-icon><Search /></el-icon>
-                  查询
-                </el-button>
-                <el-button @click="resetDocSearch(disposeSub)">重置</el-button>
-                <el-button type="primary" @click="openDocDialog(disposeSub)">
-                  <el-icon><Plus /></el-icon>
-                  新增单据
-                </el-button>
-              </el-form-item>
-            </el-form>
-
-            <el-table :data="pagedDocs(disposeSub)" style="width: 100%">
-              <el-table-column prop="docNo" label="单据编号" width="130">
-                <template #default="{ row }">
-                  <el-link type="primary" :underline="false" @click="viewDocApproval(row)">{{ row.docNo }}</el-link>
-                </template>
-              </el-table-column>
-              <el-table-column prop="company" label="所属公司" min-width="200" show-overflow-tooltip />
-              <el-table-column label="创建时间" width="160" ><template #default="{ row }">{{ formatDateTime(row.createTime) }}</template></el-table-column>
-              <el-table-column label="完结时间" width="160">
-                <template #default="{ row }">{{ row.finishTime ? formatDateTime(row.finishTime) : '-' }}</template>
-              </el-table-column>
-              <el-table-column label="备注" min-width="160" show-overflow-tooltip>
-                <template #default="{ row }">{{ row.remark || '-' }}</template>
-              </el-table-column>
-              <el-table-column prop="status" label="单据状态" width="100">
-                <template #default="{ row }">
-                  <el-tag :type="docStatusType(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="190" fixed="right">
-                <template #default="{ row }">
-                  <el-button link type="primary" size="small" @click="viewDocApproval(row)">审批信息</el-button>
-                  <el-button link type="primary" size="small" @click="openDocDialog(disposeSub, row)">修改</el-button>
-                  <el-button link type="danger" size="small" @click="deleteDoc(disposeSub, row)">删除</el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-
-            <div class="pager">
-              <el-pagination
-                v-model:current-page="docLists[disposeSub].page"
-                v-model:page-size="docLists[disposeSub].pageSize"
-                :page-sizes="[10, 20, 50, 100]"
-                :total="docTotal(disposeSub)"
-                layout="total, sizes, prev, pager, next, jumper"
-              />
-            </div>
-          </template>
-
-          <template v-else>
-          <el-form :inline="true" :model="disposeSearch" class="search-form">
-            <el-form-item label="资产名称">
-              <el-input v-model="disposeSearch.name" placeholder="请输入" clearable />
-            </el-form-item>
-            <el-form-item label="处置方式">
-              <el-select v-model="disposeSearch.disposeType" placeholder="请选择" clearable style="width: 120px">
-                <el-option label="报废" value="报废" />
-                <el-option label="变卖" value="变卖" />
-                <el-option label="捐赠" value="捐赠" />
-                <el-option label="转让" value="转让" />
-              </el-select>
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" @click="handleDisposeSearch">查询</el-button>
-              <el-button @click="handleDisposeReset">重置</el-button>
-            </el-form-item>
-          </el-form>
-
-          <el-table :data="displayDisposeList" style="width: 100%">
-            <el-table-column prop="disposeNo" label="处置单号" width="130" />
-            <el-table-column prop="assetName" label="资产名称" min-width="150" show-overflow-tooltip />
-            <el-table-column prop="assetNo" label="资产编号" width="130" />
-            <el-table-column label="处置方式" width="100" ><template #default="{ row }">{{ statusText(row.disposeType) }}</template></el-table-column>
-            <el-table-column prop="disposeReason" label="处置原因" min-width="150" show-overflow-tooltip />
-            <el-table-column prop="residualValue" label="残值" width="100">
-              <template #default="{ row }">¥{{ row.residualValue.toLocaleString() }}</template>
-            </el-table-column>
-            <el-table-column prop="disposeDate" label="处置日期" width="110" />
-            <el-table-column prop="status" label="状态" width="90">
-              <template #default="{ row }">
-                <el-tag :type="row.status === '已完成' ? 'success' : 'warning'" size="small">{{ statusText(row.status) }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="120" fixed="right">
-              <template #default="{ row }">
-                <el-button link type="primary" size="small" @click="handleViewDispose(row)">详情</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-
-          <div class="pager">
-            <el-pagination
-              v-model:current-page="disposePage"
-              v-model:page-size="disposePageSize"
-              :page-sizes="[10, 20, 50, 100]"
-              :total="disposeTotal"
-              layout="total, sizes, prev, pager, next, jumper"
-            />
-          </div>
-          </template>
+          <FixedAssetDocList :doc-key="disposeSub" :prefix="disposePrefix[disposeSub]" :perm="can('fa:dispose')" @view-approval="viewDocApproval" />
         </el-tab-pane>
 
         <!-- 资产盘点 -->
@@ -700,7 +218,7 @@
                   <el-button link type="primary" size="small" @click="openCheckList(row)">盘点清单</el-button>
                   <el-button link type="primary" size="small" @click="openCounters(row)">盘点员</el-button>
                   <el-button link type="primary" size="small" @click="viewDocApproval(row)">审批信息</el-button>
-                  <el-button link type="primary" size="small" @click="openDocDialog('inventory', row)">修改</el-button>
+                  <el-button link type="primary" size="small" @click="openDocDialog(row)">修改</el-button>
                   <el-button link type="danger" size="small" @click="deleteInvDoc(row)">删除</el-button>
                 </template>
               </el-table-column>
@@ -884,273 +402,6 @@
         </el-tab-pane>
       </el-tabs>
     </el-card>
-
-    <!-- 入库详情对话框 -->
-    <el-dialog v-model="inboundDetailVisible" title="入库详情" width="600px">
-      <el-descriptions :column="2" border v-if="currentInbound">
-        <el-descriptions-item label="资产编号">{{ currentInbound.assetNo }}</el-descriptions-item>
-        <el-descriptions-item label="状态">
-          <el-tag :type="currentInbound.status === '已入库' ? 'success' : currentInbound.status === '已验收' ? 'primary' : 'warning'" size="small">{{ currentInbound.status }}</el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="资产名称" :span="2">{{ currentInbound.name }}</el-descriptions-item>
-        <el-descriptions-item label="分类">{{ currentInbound.category }}</el-descriptions-item>
-        <el-descriptions-item label="规格型号">{{ currentInbound.model }}</el-descriptions-item>
-        <el-descriptions-item label="数量">{{ currentInbound.quantity }} {{ currentInbound.unit }}</el-descriptions-item>
-        <el-descriptions-item label="采购单价">¥{{ currentInbound.purchasePrice?.toLocaleString() }}</el-descriptions-item>
-        <el-descriptions-item label="供应商" :span="2">{{ currentInbound.supplier }}</el-descriptions-item>
-        <el-descriptions-item label="入库日期">{{ currentInbound.inboundDate }}</el-descriptions-item>
-        <el-descriptions-item label="验收人">{{ currentInbound.acceptor || '-' }}</el-descriptions-item>
-      </el-descriptions>
-      <template #footer>
-        <el-button @click="inboundDetailVisible = false">关闭</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 派发详情对话框 -->
-    <el-dialog v-model="dispatchDetailVisible" title="派发详情" width="600px">
-      <el-descriptions :column="2" border v-if="currentDispatch">
-        <el-descriptions-item label="派发单号">{{ currentDispatch.dispatchNo }}</el-descriptions-item>
-        <el-descriptions-item label="状态">
-          <el-tag :type="currentDispatch.status === '已派发' ? 'success' : 'info'" size="small">{{ currentDispatch.status }}</el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="资产名称" :span="2">{{ currentDispatch.assetName }}</el-descriptions-item>
-        <el-descriptions-item label="资产编号">{{ currentDispatch.assetNo }}</el-descriptions-item>
-        <el-descriptions-item label="使用部门">{{ currentDispatch.department }}</el-descriptions-item>
-        <el-descriptions-item label="使用人">{{ currentDispatch.user }}</el-descriptions-item>
-        <el-descriptions-item label="存放位置">{{ currentDispatch.location }}</el-descriptions-item>
-        <el-descriptions-item label="派发日期">{{ currentDispatch.dispatchDate }}</el-descriptions-item>
-        <el-descriptions-item label="操作人">{{ currentDispatch.operator }}</el-descriptions-item>
-      </el-descriptions>
-      <template #footer>
-        <el-button @click="dispatchDetailVisible = false">关闭</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 借出详情对话框 -->
-    <el-dialog v-model="borrowDetailVisible" title="借出详情" width="600px">
-      <el-descriptions :column="2" border v-if="currentBorrow">
-        <el-descriptions-item label="借出单号">{{ currentBorrow.borrowNo }}</el-descriptions-item>
-        <el-descriptions-item label="状态">
-          <el-tag :type="currentBorrow.status === '已归还' ? 'success' : currentBorrow.status === '逾期' ? 'danger' : 'warning'" size="small">{{ currentBorrow.status }}</el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="资产名称" :span="2">{{ currentBorrow.assetName }}</el-descriptions-item>
-        <el-descriptions-item label="资产编号">{{ currentBorrow.assetNo }}</el-descriptions-item>
-        <el-descriptions-item label="借用人">{{ currentBorrow.borrower }}</el-descriptions-item>
-        <el-descriptions-item label="所属部门">{{ currentBorrow.department }}</el-descriptions-item>
-        <el-descriptions-item label="借出日期">{{ currentBorrow.borrowDate }}</el-descriptions-item>
-        <el-descriptions-item label="预计归还">{{ currentBorrow.expectedReturnDate }}</el-descriptions-item>
-        <el-descriptions-item label="实际归还" :span="2">{{ currentBorrow.actualReturnDate || '-' }}</el-descriptions-item>
-      </el-descriptions>
-      <template #footer>
-        <el-button @click="borrowDetailVisible = false">关闭</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 变更新增对话框 -->
-    <el-dialog v-model="changeDialogVisible" title="新增资产变更" width="600px">
-      <el-form :model="changeForm" label-width="100px">
-        <el-form-item label="选择资产">
-          <el-select v-model="changeForm.assetId" placeholder="请选择资产" style="width: 100%">
-            <el-option v-for="item in assetOptions" :key="item.code" :label="item.name" :value="item.code" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="变更类型">
-          <el-select v-model="changeForm.changeType" placeholder="请选择" style="width: 100%">
-            <el-option label="调拨" value="调拨" />
-            <el-option label="维修" value="维修" />
-            <el-option label="升级" value="升级" />
-            <el-option label="其他" value="其他" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="变更原因">
-          <el-input v-model="changeForm.changeReason" type="textarea" :rows="3" placeholder="请输入变更原因" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="changeDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleChangeSubmit">确定</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 处置新增对话框 -->
-    <el-dialog v-model="disposeDialogVisible" title="新增资产处置" width="600px">
-      <el-form :model="disposeForm" label-width="100px">
-        <el-form-item label="选择资产">
-          <el-select v-model="disposeForm.assetId" placeholder="请选择资产" style="width: 100%">
-            <el-option v-for="item in assetOptions" :key="item.code" :label="item.name" :value="item.code" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="处置方式">
-          <el-select v-model="disposeForm.disposeType" placeholder="请选择" style="width: 100%">
-            <el-option label="报废" value="报废" />
-            <el-option label="变卖" value="变卖" />
-            <el-option label="捐赠" value="捐赠" />
-            <el-option label="转让" value="转让" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="处置原因">
-          <el-input v-model="disposeForm.disposeReason" type="textarea" :rows="3" placeholder="请输入处置原因" />
-        </el-form-item>
-        <el-form-item label="残值">
-          <el-input-number v-model="disposeForm.residualValue" :min="0" style="width: 100%" />
-          <span style="margin-left: 10px">元</span>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="disposeDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleDisposeSubmit">确定</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 新增入库对话框 -->
-    <el-dialog v-model="addAssetDialogVisible" title="新增入库" width="600px">
-      <el-form :model="addAssetForm" label-width="100px">
-        <el-form-item label="资产名称" required>
-          <el-input v-model="addAssetForm.name" placeholder="请输入资产名称" />
-        </el-form-item>
-        <el-form-item label="资产分类" required>
-          <el-select v-model="addAssetForm.category" placeholder="请选择" style="width: 100%">
-            <el-option label="办公用品" value="办公用品" />
-            <el-option label="车辆" value="车辆" />
-            <el-option label="设备" value="设备" />
-            <el-option label="材料" value="材料" />
-            <el-option label="其他" value="其他" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="规格型号">
-          <el-input v-model="addAssetForm.model" placeholder="请输入规格型号" />
-        </el-form-item>
-        <el-form-item label="数量" required>
-          <el-input-number v-model="addAssetForm.quantity" :min="1" style="width: 180px" />
-          <el-select v-model="addAssetForm.unit" style="width: 100px; margin-left: 10px">
-            <el-option label="台" value="台" />
-            <el-option label="张" value="张" />
-            <el-option label="辆" value="辆" />
-            <el-option label="包" value="包" />
-            <el-option label="件" value="件" />
-            <el-option label="套" value="套" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="采购单价" required>
-          <el-input-number v-model="addAssetForm.purchasePrice" :min="0" :precision="2" style="width: 100%">
-            <template #prefix>¥</template>
-          </el-input-number>
-        </el-form-item>
-        <el-form-item label="供应商" required>
-          <el-input v-model="addAssetForm.supplier" placeholder="请输入供应商" />
-        </el-form-item>
-        <el-form-item label="入库日期" required>
-          <el-date-picker v-model="addAssetForm.inboundDate" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="addAssetDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleAddAssetSubmit">确定</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 新增派发对话框 -->
-    <el-dialog v-model="dispatchDialogVisible" title="新增派发" width="600px">
-      <el-form :model="dispatchForm" label-width="100px">
-        <el-form-item label="选择资产" required>
-          <el-select v-model="dispatchForm.assetNo" placeholder="请选择资产" style="width: 100%" @change="onDispatchAssetChange">
-            <el-option v-for="item in dispatchableAssets" :key="item.assetNo" :label="`${item.name} (${item.assetNo})`" :value="item.assetNo" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="使用部门" required>
-          <el-select v-model="dispatchForm.department" placeholder="请选择部门" style="width: 100%">
-            <el-option label="财务部" value="财务部" />
-            <el-option label="行政部" value="行政部" />
-            <el-option label="人事部" value="人事部" />
-            <el-option label="技术部" value="技术部" />
-            <el-option label="市场部" value="市场部" />
-            <el-option label="办公室" value="办公室" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="使用人" required>
-          <el-input v-model="dispatchForm.user" placeholder="请输入使用人" />
-        </el-form-item>
-        <el-form-item label="存放位置" required>
-          <el-input v-model="dispatchForm.location" placeholder="请输入存放位置" />
-        </el-form-item>
-        <el-form-item label="派发日期" required>
-          <el-date-picker v-model="dispatchForm.dispatchDate" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="dispatchDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleDispatchSubmit">确定</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 新增借出对话框 -->
-    <el-dialog v-model="borrowDialogVisible" title="新增借出" width="600px">
-      <el-form :model="borrowForm" label-width="100px">
-        <el-form-item label="选择资产" required>
-          <el-select v-model="borrowForm.assetNo" placeholder="请选择资产" style="width: 100%" @change="onBorrowAssetChange">
-            <el-option v-for="item in borrowableAssets" :key="item.assetNo" :label="`${item.name} (${item.assetNo})`" :value="item.assetNo" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="借用人" required>
-          <el-input v-model="borrowForm.borrower" placeholder="请输入借用人" />
-        </el-form-item>
-        <el-form-item label="所属部门" required>
-          <el-select v-model="borrowForm.department" placeholder="请选择部门" style="width: 100%">
-            <el-option label="财务部" value="财务部" />
-            <el-option label="行政部" value="行政部" />
-            <el-option label="人事部" value="人事部" />
-            <el-option label="技术部" value="技术部" />
-            <el-option label="市场部" value="市场部" />
-            <el-option label="办公室" value="办公室" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="借出日期" required>
-          <el-date-picker v-model="borrowForm.borrowDate" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" />
-        </el-form-item>
-        <el-form-item label="预计归还" required>
-          <el-date-picker v-model="borrowForm.expectedReturnDate" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="borrowDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleBorrowSubmit">确定</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 变更详情对话框 -->
-    <el-dialog v-model="changeDetailVisible" title="变更详情" width="600px">
-      <el-descriptions :column="2" border v-if="currentChange">
-        <el-descriptions-item label="变更单号">{{ currentChange.changeNo }}</el-descriptions-item>
-        <el-descriptions-item label="变更类型">{{ currentChange.changeType }}</el-descriptions-item>
-        <el-descriptions-item label="资产名称" :span="2">{{ currentChange.assetName }}</el-descriptions-item>
-        <el-descriptions-item label="资产编号">{{ currentChange.assetNo }}</el-descriptions-item>
-        <el-descriptions-item label="操作人">{{ currentChange.operator }}</el-descriptions-item>
-        <el-descriptions-item label="变更原因" :span="2">{{ currentChange.changeReason }}</el-descriptions-item>
-        <el-descriptions-item label="变更日期">{{ currentChange.changeDate }}</el-descriptions-item>
-      </el-descriptions>
-      <template #footer>
-        <el-button @click="changeDetailVisible = false">关闭</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 处置详情对话框 -->
-    <el-dialog v-model="disposeDetailVisible" title="处置详情" width="600px">
-      <el-descriptions :column="2" border v-if="currentDispose">
-        <el-descriptions-item label="处置单号">{{ currentDispose.disposeNo }}</el-descriptions-item>
-        <el-descriptions-item label="处置方式">{{ currentDispose.disposeType }}</el-descriptions-item>
-        <el-descriptions-item label="资产名称" :span="2">{{ currentDispose.assetName }}</el-descriptions-item>
-        <el-descriptions-item label="资产编号">{{ currentDispose.assetNo }}</el-descriptions-item>
-        <el-descriptions-item label="残值">¥{{ currentDispose.residualValue?.toLocaleString() }}</el-descriptions-item>
-        <el-descriptions-item label="处置原因" :span="2">{{ currentDispose.disposeReason }}</el-descriptions-item>
-        <el-descriptions-item label="处置日期">{{ currentDispose.disposeDate }}</el-descriptions-item>
-        <el-descriptions-item label="状态">
-          <el-tag :type="currentDispose.status === '已完成' ? 'success' : 'warning'" size="small">{{ currentDispose.status }}</el-tag>
-        </el-descriptions-item>
-      </el-descriptions>
-      <template #footer>
-        <el-button @click="disposeDetailVisible = false">关闭</el-button>
-      </template>
-    </el-dialog>
 
     <!-- 生成盘点计划对话框 -->
     <el-dialog v-model="planDialogVisible" title="生成盘点计划" width="560px">
@@ -1513,10 +764,10 @@
     <el-dialog v-model="approvalVisible" title="审批信息" width="560px">
       <template v-if="approvalDoc">
         <el-descriptions :column="2" border size="small" style="margin-bottom:16px">
-          <el-descriptions-item label="单据编号">{{ approvalDoc.docNo }}</el-descriptions-item>
-          <el-descriptions-item label="所属公司">{{ approvalDoc.company }}</el-descriptions-item>
+          <el-descriptions-item label="单据编号">{{ approvalDoc.code }}</el-descriptions-item>
+          <el-descriptions-item label="所属公司">{{ approvalDoc.companyName || '-' }}</el-descriptions-item>
           <el-descriptions-item label="单据状态">
-            <el-tag :type="docStatusType(approvalDoc.status)" size="small">{{ approvalDoc.status }}</el-tag>
+            <el-tag :type="docStatusType(approvalDoc.status)" size="small">{{ labelOf('DOC_STATUS', approvalDoc.status) }}</el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="创建时间">{{ approvalDoc.createTime }}</el-descriptions-item>
         </el-descriptions>
@@ -1564,7 +815,7 @@
         </el-form-item>
         <el-form-item label="资产类型">
           <el-select v-model="wizardForm.assetTypes" multiple placeholder="请选择资产类型" style="width:100%">
-            <el-option v-for="t in assetTypeOptions" :key="t" :label="t" :value="t" />
+            <el-option v-for="t in categoryOptions" :key="t" :label="t" :value="t" />
           </el-select>
         </el-form-item>
       </el-form>
@@ -1671,6 +922,9 @@ import { ref, reactive, computed, watch, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, ArrowLeft, Picture } from '@element-plus/icons-vue'
 import QRCode from 'qrcode'
+import FixedAssetDocList from './FixedAssetDocList.vue'
+import { genDocNo } from '../../utils/docNo'
+import { buildCheckItems } from '../../utils/demoBuilders'
 import { useFixedAssetStore } from '../../store/fixedAsset'
 import { useOrgStore } from '../../store/org'
 import { useUserStore } from '../../store/user'
@@ -1705,13 +959,15 @@ import { COLLECTION } from '../../services'
 
 const fixedAssetStore = useFixedAssetStore()
 const userStore = useUserStore()
+/** 各单据类型的单号前缀 */
+const dispatchPrefix = { alloc: 'FP', back: 'TK' }
+const disposePrefix = { transfer: 'DB', repair: 'WX', dispose: 'CZ' }
 /** 权限判定：按钮级鉴权 */
 const can = code => userStore.can(code)
 
 const orgStore = useOrgStore()
 
 const activeTab = ref('asset')
-const inboundSub = ref('docs')
 const dispatchSub = ref('alloc')
 const disposeSub = ref('transfer')
 const inventorySub = ref('docs')
@@ -1721,427 +977,34 @@ const FALLBACK_COMPANIES = ['华信科技集团有限公司', '云鼎资产管�
 const companyOptions = computed(() => (orgStore.companyOptions.length ? orgStore.companyOptions : FALLBACK_COMPANIES))
 /** 公司下拉：取主数据的 id/name，表单保存公司 ID 而非名称 */
 const companyOptionList = computed(() => orgStore.companies.map(c => ({ id: c.id, name: c.name })))
+/** 盘点员候选（来自组织架构用户） */
+const empPool = computed(() => orgStore.users.map(u => ({
+  name: u.name,
+  dept: orgStore.deptName(u.deptId) || '-',
+  phone: u.phone || '-'
+})))
 // 分类与购置方式取自统一枚举（value 为编码，label 为文案）
-const assetTypeOptions = optionsOf('ASSET_CATEGORY')
-const purchaseModeOptions = optionsOf('PURCHASE_MODE')
-const assetStatusOptions = ['空闲', '派发中', '借出中', '维修中', '处置中']
-const docStatusOptions = ['已完结', '进行中', '待提交', '已驳回', '已撤销']
-
-// 入库/验收
-const inboundSearch = reactive({ name: '', category: '', status: '' })
-watch(inboundSearch, () => { inboundPage.value = 1 }, { deep: true })
-
-// 单据取 store 的视图模型：assetId/deptId/userId 已解析为编号、名称
-const inboundList = computed(() => fixedAssetStore.inboundList)
-
-const filteredInboundList = computed(() => {
-  return inboundList.value.filter(item => {
-    const nameMatch = !inboundSearch.name || item.name.includes(inboundSearch.name)
-    const categoryMatch = !inboundSearch.category || item.category === inboundSearch.category
-    const statusMatch = !inboundSearch.status || matchStatus(item, inboundSearch.status)
-    return nameMatch && categoryMatch && statusMatch
-  })
-})
-
-const displayInboundList = computed(() => {
-  const start = (inboundPage.value - 1) * inboundPageSize.value
-  return filteredInboundList.value.slice(start, start + inboundPageSize.value)
-})
-
-const inboundPage = ref(1)
-const inboundPageSize = ref(15)
-const inboundTotal = computed(() => filteredInboundList.value.length)
-
-// 派发/退库
-const dispatchSearch = reactive({ name: '', department: '', status: '' })
-watch(dispatchSearch, () => { dispatchPage.value = 1 }, { deep: true })
-
-const dispatchList = computed(() => fixedAssetStore.dispatchList)
-
-const filteredDispatchList = computed(() => {
-  return dispatchList.value.filter(item => {
-    const nameMatch = !dispatchSearch.name || item.assetName.includes(dispatchSearch.name)
-    const deptMatch = !dispatchSearch.department || item.department.includes(dispatchSearch.department)
-    const statusMatch = !dispatchSearch.status || matchStatus(item, dispatchSearch.status)
-    return nameMatch && deptMatch && statusMatch
-  })
-})
-
-const displayDispatchList = computed(() => {
-  const start = (dispatchPage.value - 1) * dispatchPageSize.value
-  return filteredDispatchList.value.slice(start, start + dispatchPageSize.value)
-})
-
-const dispatchPage = ref(1)
-const dispatchPageSize = ref(15)
-const dispatchTotal = computed(() => filteredDispatchList.value.length)
-
-// 借出使用
-const borrowSearch = reactive({ name: '', borrower: '', status: '' })
-watch(borrowSearch, () => { borrowPage.value = 1 }, { deep: true })
-
-const borrowList = computed(() => fixedAssetStore.borrowList)
-
-const filteredBorrowList = computed(() => {
-  return borrowList.value.filter(item => {
-    const nameMatch = !borrowSearch.name || item.assetName.includes(borrowSearch.name)
-    const borrowerMatch = !borrowSearch.borrower || item.borrower.includes(borrowSearch.borrower)
-    const statusMatch = !borrowSearch.status || matchStatus(item, borrowSearch.status)
-    return nameMatch && borrowerMatch && statusMatch
-  })
-})
-
-const displayBorrowList = computed(() => {
-  const start = (borrowPage.value - 1) * borrowPageSize.value
-  return filteredBorrowList.value.slice(start, start + borrowPageSize.value)
-})
-
-const borrowPage = ref(1)
-const borrowPageSize = ref(15)
-const borrowTotal = computed(() => filteredBorrowList.value.length)
-
-// 资产变更
-const changeSearch = reactive({ name: '', changeType: '' })
-watch(changeSearch, () => { changePage.value = 1 }, { deep: true })
-
-const changeList = computed(() => fixedAssetStore.changeList)
-
-const filteredChangeList = computed(() => {
-  return changeList.value.filter(item => {
-    const nameMatch = !changeSearch.name || item.assetName.includes(changeSearch.name)
-    const typeMatch = !changeSearch.changeType || item.changeType === changeSearch.changeType
-    return nameMatch && typeMatch
-  })
-})
-
-const displayChangeList = computed(() => {
-  const start = (changePage.value - 1) * changePageSize.value
-  return filteredChangeList.value.slice(start, start + changePageSize.value)
-})
-
-const changePage = ref(1)
-const changePageSize = ref(15)
-const changeTotal = computed(() => filteredChangeList.value.length)
-
-// 资产处置
-const disposeSearch = reactive({ name: '', disposeType: '' })
-watch(disposeSearch, () => { disposePage.value = 1 }, { deep: true })
-
-const disposeList = computed(() => fixedAssetStore.disposeList)
-
-const filteredDisposeList = computed(() => {
-  return disposeList.value.filter(item => {
-    const nameMatch = !disposeSearch.name || item.assetName.includes(disposeSearch.name)
-    const typeMatch = !disposeSearch.disposeType || item.disposeType === disposeSearch.disposeType
-    return nameMatch && typeMatch
-  })
-})
-
-const displayDisposeList = computed(() => {
-  const start = (disposePage.value - 1) * disposePageSize.value
-  return filteredDisposeList.value.slice(start, start + disposePageSize.value)
-})
-
-const disposePage = ref(1)
-const disposePageSize = ref(15)
-const disposeTotal = computed(() => filteredDisposeList.value.length)
-
-// 对话框
-const inboundDetailVisible = ref(false)
-const currentInbound = ref(null)
-const dispatchDetailVisible = ref(false)
-const currentDispatch = ref(null)
-const borrowDetailVisible = ref(false)
-const currentBorrow = ref(null)
-const changeDialogVisible = ref(false)
-const disposeDialogVisible = ref(false)
-const addAssetDialogVisible = ref(false)
-const dispatchDialogVisible = ref(false)
-const borrowDialogVisible = ref(false)
-const changeDetailVisible = ref(false)
-const disposeDetailVisible = ref(false)
-
-const currentChange = ref(null)
-const currentDispose = ref(null)
-
-const addAssetForm = reactive({ name: '', category: '', model: '', quantity: 1, unit: '台', purchasePrice: 0, supplier: '', inboundDate: '' })
-const dispatchForm = reactive({ assetNo: '', assetName: '', department: '', user: '', location: '', dispatchDate: '' })
-const borrowForm = reactive({ assetNo: '', assetName: '', borrower: '', department: '', borrowDate: '', expectedReturnDate: '' })
-
-const dispatchableAssets = computed(() => {
-  return inboundList.value.filter(i => i.status === '已入库')
-})
-
-const borrowableAssets = computed(() => {
-  return inboundList.value.filter(i => i.status === '已入库' || i.status === '已验收')
-})
-
-function onDispatchAssetChange(assetNo) {
-  const asset = inboundList.value.find(i => i.assetNo === assetNo)
-  dispatchForm.assetName = asset ? asset.name : ''
-}
-
-function onBorrowAssetChange(assetNo) {
-  const asset = inboundList.value.find(i => i.assetNo === assetNo)
-  borrowForm.assetName = asset ? asset.name : ''
-}
-
-const changeForm = reactive({ assetId: '', changeType: '', changeReason: '' })
-const disposeForm = reactive({ assetId: '', disposeType: '', disposeReason: '', residualValue: 0 })
-
-const assetOptions = computed(() => fixedAssetStore.inboundRecords.map(a => ({ code: a.assetNo, name: a.name })))
-
-// 操作函数
-const handleInboundSearch = () => { inboundPage.value = 1 }
-const handleInboundReset = () => {
-  inboundSearch.name = ''
-  inboundSearch.category = ''
-  inboundSearch.status = ''
-  inboundPage.value = 1
-}
-
-const handleDispatchSearch = () => { dispatchPage.value = 1 }
-const handleDispatchReset = () => {
-  dispatchSearch.name = ''
-  dispatchSearch.department = ''
-  dispatchSearch.status = ''
-  dispatchPage.value = 1
-}
-
-const handleBorrowSearch = () => { borrowPage.value = 1 }
-const handleBorrowReset = () => {
-  borrowSearch.name = ''
-  borrowSearch.borrower = ''
-  borrowSearch.status = ''
-  borrowPage.value = 1
-}
-
-const handleChangeSearch = () => { changePage.value = 1 }
-const handleChangeReset = () => {
-  changeSearch.name = ''
-  changeSearch.changeType = ''
-  changePage.value = 1
-}
-
-const handleDisposeSearch = () => { disposePage.value = 1 }
-const handleDisposeReset = () => {
-  disposeSearch.name = ''
-  disposeSearch.disposeType = ''
-  disposePage.value = 1
-}
-
-const handleAddAsset = () => {
-  Object.assign(addAssetForm, { name: '', category: '', model: '', quantity: 1, unit: '台', purchasePrice: 0, supplier: '', inboundDate: '' })
-  addAssetDialogVisible.value = true
-}
-
-const handleDispatch = () => {
-  Object.assign(dispatchForm, { assetNo: '', assetName: '', department: '', user: '', location: '', dispatchDate: '' })
-  dispatchDialogVisible.value = true
-}
-
-const handleBorrow = () => {
-  Object.assign(borrowForm, { assetNo: '', assetName: '', borrower: '', department: '', borrowDate: '', expectedReturnDate: '' })
-  borrowDialogVisible.value = true
-}
-
-const handleChange = () => {
-  Object.assign(changeForm, { assetId: '', changeType: '', changeReason: '' })
-  changeDialogVisible.value = true
-}
-
-const handleDispose = () => {
-  Object.assign(disposeForm, { assetId: '', disposeType: '', disposeReason: '', residualValue: 0 })
-  disposeDialogVisible.value = true
-}
-
-const handleViewInbound = (row) => {
-  currentInbound.value = row
-  inboundDetailVisible.value = true
-}
-
-const handleAcceptInbound = (row) => {
-  ElMessageBox.confirm(`确定要验收"${row.name}"吗？`, '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'info'
-  }).then(() => {
-    row.status = '已验收'
-    row.acceptor = '管理员'
-    ElMessage.success('验收成功')
-  }).catch(() => {})
-}
-
-const handleStockIn = (row) => {
-  ElMessageBox.confirm(`确定要将"${row.name}"入库吗？`, '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'info'
-  }).then(() => {
-    row.status = '已入库'
-    ElMessage.success('入库成功')
-  }).catch(() => {})
-}
-
-const handleViewDispatch = (row) => {
-  currentDispatch.value = row
-  dispatchDetailVisible.value = true
-}
-
-const handleReturn = (row) => {
-  ElMessageBox.confirm(`确定要退库"${row.assetName}"吗？`, '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(() => {
-    row.status = '已退库'
-    ElMessage.success('退库成功')
-  }).catch(() => {})
-}
-
-const handleViewBorrow = (row) => {
-  currentBorrow.value = row
-  borrowDetailVisible.value = true
-}
-
-const handleReturnBorrow = (row) => {
-  ElMessageBox.confirm(`确定要归还"${row.assetName}"吗？`, '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'info'
-  }).then(() => {
-    row.status = '已归还'
-    row.actualReturnDate = new Date().toISOString().slice(0, 10)
-    ElMessage.success('归还成功')
-  }).catch(() => {})
-}
-
-const handleViewChange = (row) => {
-  currentChange.value = row
-  changeDetailVisible.value = true
-}
-
-const handleViewDispose = (row) => {
-  currentDispose.value = row
-  disposeDetailVisible.value = true
-}
-
-const handleChangeSubmit = () => {
-  if (!changeForm.assetId || !changeForm.changeType || !changeForm.changeReason) {
-    ElMessage.warning('请填写完整信息')
-    return
-  }
-  const asset = assetOptions.value.find(a => a.code === changeForm.assetId)
-  fixedAssetStore.addChange({
-    assetName: asset ? asset.name : changeForm.assetId,
-    assetNo: changeForm.assetId,
-    changeType: changeForm.changeType,
-    changeReason: changeForm.changeReason,
-    changeDate: new Date().toISOString().slice(0, 10),
-    operator: '管理员'
-  })
-  changeDialogVisible.value = false
-  ElMessage.success('变更成功')
-  Object.assign(changeForm, { assetId: '', changeType: '', changeReason: '' })
-}
-
-const handleDisposeSubmit = () => {
-  if (!disposeForm.assetId || !disposeForm.disposeType || !disposeForm.disposeReason) {
-    ElMessage.warning('请填写完整信息')
-    return
-  }
-  const asset = assetOptions.value.find(a => a.code === disposeForm.assetId)
-  fixedAssetStore.addDispose({
-    assetName: asset ? asset.name : disposeForm.assetId,
-    assetNo: disposeForm.assetId,
-    disposeType: disposeForm.disposeType,
-    disposeReason: disposeForm.disposeReason,
-    residualValue: disposeForm.residualValue,
-    disposeDate: new Date().toISOString().slice(0, 10),
-    status: '已完成'
-  })
-  disposeDialogVisible.value = false
-  ElMessage.success('处置成功')
-  Object.assign(disposeForm, { assetId: '', disposeType: '', disposeReason: '', residualValue: 0 })
-}
-
-const handleAddAssetSubmit = () => {
-  if (!addAssetForm.name || !addAssetForm.category || !addAssetForm.supplier || !addAssetForm.inboundDate) {
-    ElMessage.warning('请填写完整入库信息')
-    return
-  }
-  fixedAssetStore.addInbound({
-    name: addAssetForm.name,
-    category: addAssetForm.category,
-    model: addAssetForm.model,
-    quantity: addAssetForm.quantity,
-    unit: addAssetForm.unit,
-    purchasePrice: addAssetForm.purchasePrice,
-    supplier: addAssetForm.supplier,
-    inboundDate: addAssetForm.inboundDate,
-    status: '待验收',
-    acceptor: ''
-  })
-  addAssetDialogVisible.value = false
-  ElMessage.success('入库登记成功，等待验收')
-}
-
-const handleDispatchSubmit = () => {
-  if (!dispatchForm.assetNo || !dispatchForm.department || !dispatchForm.user || !dispatchForm.location || !dispatchForm.dispatchDate) {
-    ElMessage.warning('请填写完整派发信息')
-    return
-  }
-  fixedAssetStore.addDispatch({
-    assetName: dispatchForm.assetName,
-    assetNo: dispatchForm.assetNo,
-    department: dispatchForm.department,
-    user: dispatchForm.user,
-    dispatchDate: dispatchForm.dispatchDate,
-    location: dispatchForm.location,
-    status: '已派发',
-    operator: '管理员'
-  })
-  dispatchDialogVisible.value = false
-  ElMessage.success('派发成功')
-}
-
-const handleBorrowSubmit = () => {
-  if (!borrowForm.assetNo || !borrowForm.borrower || !borrowForm.department || !borrowForm.borrowDate || !borrowForm.expectedReturnDate) {
-    ElMessage.warning('请填写完整借出信息')
-    return
-  }
-  fixedAssetStore.addBorrow({
-    assetName: borrowForm.assetName,
-    assetNo: borrowForm.assetNo,
-    borrower: borrowForm.borrower,
-    department: borrowForm.department,
-    borrowDate: borrowForm.borrowDate,
-    expectedReturnDate: borrowForm.expectedReturnDate,
-    actualReturnDate: '',
-    status: '借出中'
-  })
-  borrowDialogVisible.value = false
-  ElMessage.success('借出登记成功')
-}
+// 枚举选项走 computed：optionsOf 读运行时字典覆盖表，字典改文案后下拉即时刷新
+const assetTypeOptions = computed(() => optionsOf('ASSET_CATEGORY'))
+const purchaseModeOptions = computed(() => optionsOf('PURCHASE_MODE'))
+const assetStatusOptions = computed(() => optionsOf('ASSET_STATUS'))
 
 // ==================== 固定资产台账（盘点/折旧共用数据源） ====================
-const assetLedger = computed(() => inboundList.value.map(a => {
-  const d = dispatchList.value.find(x => x.assetNo === a.assetNo)
-  return {
-    assetNo: a.assetNo,
-    assetName: a.name,
-    category: a.category,
-    department: d ? d.department : '行政部',
-    location: d ? d.location : '公司仓库',
-    user: d ? d.user : '未派发',
-    quantity: a.quantity,
-    unit: a.unit,
-    original: a.purchasePrice * a.quantity,
-    inboundDate: a.inboundDate
-  }
-}))
+/** 台账视图模型：取自 store（外键已解析为名称、状态已解析为文案） */
+const assetLedger = computed(() => fixedAssetStore.assetLedger.map(a => ({
+  assetNo: a.code,
+  assetName: a.name,
+  category: a.type,
+  department: a.dept || '未分配',
+  location: a.location || '未指定',
+  user: a.user || '未派发',
+  quantity: 1,
+  unit: '台',
+  original: Number(a.original || 0),
+  inboundDate: a.inboundDate
+})))
 
-const categoryOptions = ['办公用品', '车辆', '设备', '材料', '其他']
+const categoryOptions = computed(() => optionsOf('ASSET_CATEGORY').map(o => o.label))
 const counterOptions = ['张三', '李四', '王五', '赵会计', '钱助理', '孙主管']
 const departmentOptions = computed(() => [...new Set(assetLedger.value.map(a => a.department))])
 
@@ -2390,20 +1253,23 @@ function approveInventory(row) {
     confirmButtonText: '审批通过',
     cancelButtonText: '驳回',
     type: 'warning'
-  }).then(() => {
+  }).then(async () => {
     row.status = '已完成'
     const losses = row.items.filter(i => i.result === '盘亏')
-    losses.forEach((item) => {
-      fixedAssetStore.addDispose({
-        assetName: item.assetName,
-        assetNo: item.assetNo,
-        disposeType: '报废',
-        disposeReason: `盘点盘亏核销：${item.remark || '现场未找到实物'}`,
-        residualValue: 0,
-        disposeDate: new Date().toISOString().slice(0, 10),
-        status: '待处置'
+    for (const item of losses) {
+      await disposeDocCol.add({
+        name: `${item.assetName} 盘亏核销处置`,
+        code: genDocNo('CZ', disposeDocCol.items.value.map(d => d.code)),
+        companyId: '',
+        assetId: '',
+        createTime: new Date().toISOString(),
+        finishTime: '',
+        remark: `盘点盘亏核销：${item.remark || '现场未找到实物'}`,
+        status: 'DRAFT'
       })
-    })
+    }
+    // 通知处置单面板刷新
+    window.dispatchEvent(new CustomEvent('fams:doc-lists-changed', { detail: 'dispose' }))
     ElMessage.success(losses.length ? `盘点已完成，${losses.length} 项盘亏资产已转入资产处置` : '盘点已完成')
   }).catch(action => {
     if (action !== 'cancel') return
@@ -2648,62 +1514,14 @@ function deleteScheme(row) {
 }
 
 // 单据业务类型：与 seed/asset.js 中的 docLists 分组一一对应
-const DOC_TYPE_KEYS = ['inbound', 'alloc', 'back', 'transfer', 'repair', 'dispose']
-
-// 每类单据一个集合，读写统一走服务层
-const docCollections = {}
-DOC_TYPE_KEYS.forEach(k => {
-  docCollections[k] = useCollection(`${COLLECTION.docLists}-${k}`)
-})
-
-const docLists = reactive(Object.fromEntries(DOC_TYPE_KEYS.map(k => [
-  k,
-  { docs: docCollections[k].items, search: { docNo: '', company: '', status: '' }, page: 1, pageSize: 15 }
-])))
-
-Object.keys(docLists).forEach(k => {
-  watch(() => docLists[k].search, () => { docLists[k].page = 1 }, { deep: true })
-})
-
-/** 单据列表视图模型：单据编号取 code，所属公司由 companyId 解析 */
-function decorateDocRow(row) {
-  return {
-    ...row,
-    docNo: row.code || '',
-    company: row.companyId ? (orgStore.companyName(row.companyId) || row.companyId) : ''
-  }
-}
-
-function filteredDocs(key) {
-  const l = docLists[key]
-  return l.docs.filter(d =>
-    (!l.search.docNo || (d.code || '').includes(l.search.docNo)) &&
-    (!l.search.company || d.companyId === l.search.company) &&
-    matchStatus(d, l.search.status)
-  )
-}
-
-function pagedDocs(key) {
-  const l = docLists[key]
-  const start = (l.page - 1) * l.pageSize
-  return filteredDocs(key).slice(start, start + l.pageSize).map(decorateDocRow)
-}
-
-function docTotal(key) {
-  return filteredDocs(key).length
-}
-
-function resetDocSearch(key) {
-  Object.assign(docLists[key].search, { docNo: '', company: '', status: '' })
-  docLists[key].page = 1
-}
-
 function docStatusType(status) {
   const m = { DONE: 'success', PROCESSING: 'primary', DRAFT: 'warning', REJECTED: 'danger', REVOKED: 'info' }
   return m[status] || 'info'
 }
 
 const inventoryDocCol = useCollection(COLLECTION.inventoryDocs)
+/** 处置单集合：盘点盘亏核销时补建处置单 */
+const disposeDocCol = useCollection(`${COLLECTION.docLists}-dispose`)
 const inventoryDocs = inventoryDocCol.items
 
 const invSearch = reactive({ docNo: '', company: '', status: '', createRange: null, finishRange: null })
@@ -2815,7 +1633,7 @@ function wizardNext() {
   wizardStep.value++
 }
 
-function submitWizard() {
+async function submitWizard() {
   if (!wizardForm.startDate) {
     ElMessage.warning('请选择盘点开始日期')
     return
@@ -2828,21 +1646,26 @@ function submitWizard() {
     return { name: e.name, dept: e.dept, phone: e.phone, assigned: per, done: 0, status: '盘点中' }
   })
   const seq = inventoryDocs.value.length + 6
-  inventoryDocCol.add({
-    id: `IV${Date.now()}`,
-    docNo: `PD2026${String(1000 + inventoryDocs.value.length * 11).slice(0, 4)}`,
-    name: wizardForm.name,
-    companyId: wizardForm.company,
-    applicant: wizardForm.applicant,
-    scope: wizardForm.scope,
-    assetTypes: [...wizardForm.assetTypes],
-    createTime: nowText(),
-    finishTime: '',
-    remark: `盘点开始日期 ${wizardForm.startDate}`,
-    status: '盘点中',
-    items: buildCheckItems(total, 0, seq * 3),
-    counters
-  })
+  try {
+    await inventoryDocCol.add({
+      id: `IV${Date.now()}`,
+      docNo: `PD2026${String(1000 + inventoryDocs.value.length * 11).slice(0, 4)}`,
+      name: wizardForm.name,
+      companyId: wizardForm.company,
+      applicant: wizardForm.applicant,
+      scope: wizardForm.scope,
+      assetTypes: [...wizardForm.assetTypes],
+      createTime: new Date().toISOString(),
+      finishTime: '',
+      remark: `盘点开始日期 ${wizardForm.startDate}`,
+      status: 'PROCESSING',
+      items: buildCheckItems(total, 0, seq * 3, fixedAssetStore.assets),
+      counters
+    })
+  } catch (e) {
+    ElMessage.error(e?.message || '盘点任务创建失败')
+    return
+  }
   wizardVisible.value = false
   inventorySub.value = 'docs'
   invPage.value = 1
@@ -2851,13 +1674,11 @@ function submitWizard() {
 
 const docDialogVisible = ref(false)
 const docDialogMode = ref('add')
-const docDialogKey = ref('inbound')
 const docForm = reactive({ id: '', name: '', company: '', remark: '' })
-const docPrefixMap = { inbound: 'RK', alloc: 'FP', back: 'TK', transfer: 'DB', repair: 'WX', dispose: 'CZ', inventory: 'PD' }
 const docDialogTitle = computed(() => (docDialogMode.value === 'edit' ? '修改单据' : '新增单据'))
 
-function openDocDialog(key, row) {
-  docDialogKey.value = key
+/** 盘点单据的新增/修改（其它单据由 FixedAssetDocList 组件自行处理） */
+function openDocDialog(row) {
   docDialogMode.value = row ? 'edit' : 'add'
   Object.assign(docForm, row
     ? { id: row.id, name: row.name || '', company: row.companyId || '', remark: row.remark || '' }
@@ -2865,46 +1686,18 @@ function openDocDialog(key, row) {
   docDialogVisible.value = true
 }
 
-function submitDocDialog() {
+async function submitDocDialog() {
   if (!docForm.company) {
     ElMessage.warning('请选择所属公司')
     return
   }
-  const key = docDialogKey.value
-  if (key === 'inventory') {
-    const target = inventoryDocs.value.find(d => d.id === docForm.id)
-    if (target) {
-      Object.assign(target, { name: docForm.name, companyId: docForm.company, remark: docForm.remark })
-      inventoryDocCol.update(target)
-    }
-    docDialogVisible.value = false
-    ElMessage.success('盘点单已保存')
-    return
-  }
-  const list = docLists[key]
-  if (docDialogMode.value === 'edit') {
-    const target = list.docs.find(d => d.id === docForm.id)
-    if (target) {
-      Object.assign(target, { name: docForm.name, companyId: docForm.company, remark: docForm.remark })
-      docCollections[key].update(target)
-    }
-    ElMessage.success('单据已保存')
-  } else {
-    const prefix = docPrefixMap[key]
-    docCollections[key].add({
-      id: `${prefix}-${Date.now()}`,
-      docNo: `${prefix}2026${Math.floor(Math.random() * 800) + 100}`,
-      name: docForm.name,
-      companyId: docForm.company,
-      createTime: nowText(),
-      finishTime: '',
-      remark: docForm.remark,
-      status: '待提交'
-    })
-    list.page = 1
-    ElMessage.success('单据已创建')
+  const target = inventoryDocs.value.find(d => d.id === docForm.id)
+  if (target) {
+    Object.assign(target, { name: docForm.name, companyId: docForm.company, remark: docForm.remark })
+    await inventoryDocCol.update(target)
   }
   docDialogVisible.value = false
+  ElMessage.success('盘点单已保存')
 }
 
 const approvalVisible = ref(false)
@@ -2913,38 +1706,31 @@ const approvalDoc = ref(null)
 const approvalRecords = computed(() => {
   const d = approvalDoc.value
   if (!d) return []
-  const creator = d.applicant || '王小明'
-  if (d.status === '已撤销') {
+  // 创建人 = 当前登录账号（换不同账号登录即可看到不同视角的审批链）
+  const creator = d.applicant || userStore.user?.name || '资产使用人'
+  if (d.status === 'REVOKED') {
     return [
       { node: '创建单据', person: creator, result: '已提交', time: d.createTime },
       { node: '单据撤销', person: creator, result: '已撤销', time: d.createTime }
     ]
   }
-  if (d.status === '待提交') {
+  if (d.status === 'DRAFT') {
     return [{ node: '创建单据', person: creator, result: '草稿保存', time: d.createTime }]
   }
   const node1 = { node: '创建单据', person: creator, result: '已提交', time: d.createTime }
-  if (d.status === '已驳回') {
-    return [node1, { node: '部门负责人审批', person: '李国强', result: '驳回', time: d.createTime }]
+  if (d.status === 'REJECTED') {
+    return [node1, { node: '部门负责人审批', person: '陈刚（部门主管 chengang）', result: '驳回', time: d.createTime }]
   }
-  const node2 = { node: '部门负责人审批', person: '李国强', result: '通过', time: d.createTime }
-  if (d.status === '已完结') {
-    return [node1, node2, { node: '资产管理员审批', person: '张志刚', result: '通过', time: formatDateTime(d.finishTime || d.createTime) }]
+  const node2 = { node: '部门负责人审批', person: '陈刚（部门主管 chengang）', result: '通过', time: d.createTime }
+  if (d.status === 'DONE') {
+    return [node1, node2, { node: '资产管理员审批', person: '资产管理员（asset）', result: '通过', time: formatDateTime(d.finishTime || d.createTime) }]
   }
-  return [node1, node2, { node: '资产管理员审批', person: '张志刚', result: '审批中', time: '' }]
+  return [node1, node2, { node: '资产管理员审批', person: '资产管理员（asset）', result: '审批中', time: '' }]
 })
 
 function viewDocApproval(row) {
   approvalDoc.value = row
   approvalVisible.value = true
-}
-
-function deleteDoc(key, row) {
-  ElMessageBox.confirm(`确认删除单据"${row.docNo}"？`, '删除确认', { type: 'warning' }).then(() => {
-    const target = docLists[key].docs.find(d => d.id === row.id)
-    if (target) docCollections[key].remove(target)
-    ElMessage.success('单据已删除')
-  }).catch(() => {})
 }
 
 const locationOptions = ref(['总部办公楼1层', '总部办公楼2层', '总部办公楼3层', '仓库A区', '仓库B区', '车库', '数据中心机房'])
@@ -2986,17 +1772,17 @@ function assetStatusType(status) {
 
 const assetDialogVisible = ref(false)
 const assetEditId = ref('')
-const assetForm = reactive({ name: '', type: '', code: '', company: '', brand: '', model: '', location: '', purchaseDate: '', amount: 0, inboundDate: '', images: [], depreciate: true, original: 0, purchaseMode: '购买', leaseMonths: 36, quantity: 1 })
+const assetForm = reactive({ name: '', type: '', code: '', company: '', brand: '', model: '', location: '', purchaseDate: '', amount: 0, inboundDate: '', images: [], depreciate: true, original: 0, purchaseMode: 'PURCHASE', leaseMonths: 36, quantity: 1 })
 
 function openAssetDialog(row) {
   assetEditId.value = row ? row.id : ''
   Object.assign(assetForm, row ? {
-    name: row.name, type: row.type, code: row.code, company: row.companyId || '', brand: row.brand, model: row.model, location: row.location,
+    name: row.name, type: row.category || row.type || '', code: row.code, company: row.companyId || '', brand: row.brand, model: row.model, location: row.location,
     purchaseDate: row.purchaseDate, amount: row.amount, inboundDate: row.inboundDate, images: [], depreciate: row.depreciate,
     original: row.original, purchaseMode: row.purchaseMode, leaseMonths: row.leaseMonths, quantity: 1
   } : {
     name: '', type: '', code: '', company: '', brand: '', model: '', location: '', purchaseDate: '', amount: 0, inboundDate: '',
-    images: [], depreciate: true, original: 0, purchaseMode: '购买', leaseMonths: 36, quantity: 1
+    images: [], depreciate: true, original: 0, purchaseMode: 'PURCHASE', leaseMonths: 36, quantity: 1
   })
   assetDialogVisible.value = true
 }
@@ -3010,26 +1796,39 @@ function addLocationOption() {
   }).catch(() => {})
 }
 
-function submitAssetDialog() {
+/** 写操作统一处理：失败时提示真实原因，并阻止后续的"成功"提示 */
+async function writeDo(fn) {
+  try {
+    await fn()
+    return true
+  } catch (e) {
+    ElMessage.error(e?.message || '操作失败')
+    return false
+  }
+}
+
+async function submitAssetDialog() {
   if (!assetForm.name || !assetForm.type) {
     ElMessage.warning('请填写资产名称与资产类型')
     return
   }
-  if (assetEditId.value) {
-    const original = assetForm.depreciate && assetForm.original ? assetForm.original : assetForm.amount
-    fixedAssetStore.updateAsset(assetEditId.value, {
-      name: assetForm.name, category: assetForm.type, code: assetForm.code, companyId: assetForm.company,
-      brand: assetForm.brand, model: assetForm.model, location: assetForm.location, purchaseDate: assetForm.purchaseDate,
-      amount: assetForm.amount, inboundDate: assetForm.inboundDate, depreciate: assetForm.depreciate, original,
-      purchaseMode: assetForm.purchaseMode, leaseMonths: assetForm.leaseMonths
-    })
-    ElMessage.success('资产已保存')
-  } else {
+  const ok = await writeDo(async () => {
+    if (assetEditId.value) {
+      const original = assetForm.depreciate && assetForm.original ? assetForm.original : assetForm.amount
+      await fixedAssetStore.updateAsset(assetEditId.value, {
+        name: assetForm.name, category: assetForm.type, code: assetForm.code, companyId: assetForm.company,
+        brand: assetForm.brand, model: assetForm.model, location: assetForm.location, purchaseDate: assetForm.purchaseDate,
+        amount: assetForm.amount, inboundDate: assetForm.inboundDate, depreciate: assetForm.depreciate, original,
+        purchaseMode: assetForm.purchaseMode, leaseMonths: assetForm.leaseMonths
+      })
+      ElMessage.success('资产已保存')
+      return
+    }
     for (let i = 0; i < assetForm.quantity; i++) {
       const code = assetForm.code
         ? (assetForm.quantity > 1 ? `${assetForm.code}-${i + 1}` : assetForm.code)
         : undefined
-      fixedAssetStore.addAsset({
+      await fixedAssetStore.addAsset({
         name: assetForm.quantity > 1 ? `${assetForm.name}#${i + 1}` : assetForm.name,
         category: assetForm.type,
         code,
@@ -3048,7 +1847,8 @@ function submitAssetDialog() {
     }
     assetPage.value = 1
     ElMessage.success(`已新增 ${assetForm.quantity} 条资产`)
-  }
+  })
+  if (!ok) return
   assetDialogVisible.value = false
 }
 

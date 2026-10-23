@@ -2,37 +2,20 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { dataService, COLLECTION, useMock } from '../services'
 import { paramValue, paramNumber } from '../services/sysParams'
+import { codeOf } from '../constants/enums'
 import { ASSET_SEEDS } from '../services/mock/seed/asset'
 import { useOrgStore } from './org'
-import { ASSET_STATUS, labelOf } from '../constants/enums'
+import { labelOf } from '../constants/enums'
 
 export const useFixedAssetStore = defineStore('fixedAsset', () => {
   // 种子由 services/mock/seed/index.js 统一注册；mock 模式下同步取一份填充首屏
   const seedOf = key => (useMock ? JSON.parse(JSON.stringify(ASSET_SEEDS[key])) : [])
 
   const assets = ref(seedOf('assets'))
-  const inboundRecords = ref(seedOf('inbound'))
-  const dispatchRecords = ref(seedOf('dispatch'))
-  const borrowRecords = ref(seedOf('borrow'))
-  const changeRecords = ref(seedOf('change'))
-  const disposeRecords = ref(seedOf('dispose'))
   const loaded = ref(false)
 
   async function loadAll() {
-    const [a, i, d, b, c, dp] = await Promise.all([
-      dataService.list(COLLECTION.assets),
-      dataService.list(COLLECTION.inbound),
-      dataService.list(COLLECTION.dispatch),
-      dataService.list(COLLECTION.borrow),
-      dataService.list(COLLECTION.change),
-      dataService.list(COLLECTION.dispose)
-    ])
-    assets.value = a
-    inboundRecords.value = i
-    dispatchRecords.value = d
-    borrowRecords.value = b
-    changeRecords.value = c
-    disposeRecords.value = dp
+    assets.value = await dataService.list(COLLECTION.assets)
     loaded.value = true
   }
 
@@ -49,7 +32,7 @@ export const useFixedAssetStore = defineStore('fixedAsset', () => {
     const asset = {
       code: data.code || nextCode(),
       name: data.name,
-      category: data.category || data.type || 'OTHER',
+      category: codeOf('ASSET_CATEGORY', data.category || data.type, 'OTHER'),
       brand: data.brand || '',
       model: data.model || '',
       companyId: data.companyId || '',
@@ -61,9 +44,9 @@ export const useFixedAssetStore = defineStore('fixedAsset', () => {
       inboundDate: data.inboundDate || '',
       original,
       net: original,
-      status: data.status || ASSET_STATUS.IDLE,
+      status: codeOf('ASSET_STATUS', data.status, 'IDLE'), // 状态存编码（文案会被自动转成编码）
       depreciate: data.depreciate ?? true,
-      purchaseMode: data.purchaseMode || 'PURCHASE',
+      purchaseMode: codeOf('PURCHASE_MODE', data.purchaseMode, 'PURCHASE'),
       leaseMonths: data.leaseMonths || 36
     }
     const created = await dataService.create(COLLECTION.assets, asset)
@@ -80,102 +63,6 @@ export const useFixedAssetStore = defineStore('fixedAsset', () => {
     if (saved) assets.value[idx] = saved
     return assets.value[idx]
   }
-
-  /**
-   * 单据写入归一化：
-   * 表单里用户选的是资产编号/部门名/人员名，落库前统一换成 id，
-   * 并剔除 assetNo / assetName / department / user 这类展示字段（它们由读取时解析得到）。
-   */
-  function normalizeDoc(data) {
-    const org = useOrgStore()
-    const payload = { ...data }
-    if (!payload.assetId && payload.assetNo) {
-      const hit = assets.value.find(a => a.code === payload.assetNo || a.id === payload.assetNo)
-      payload.assetId = hit ? hit.id : ''
-    }
-    if (!payload.deptId && payload.department) {
-      const hit = org.departments.find(d => d.name === payload.department)
-      payload.deptId = hit ? hit.id : ''
-    }
-    const personName = payload.userId ? '' : (payload.user || payload.borrower || '')
-    if (!payload.userId && personName) {
-      const hit = org.users.find(u => u.name === personName)
-      payload.userId = hit ? hit.id : ''
-    }
-    delete payload.assetNo
-    delete payload.assetName
-    delete payload.department
-    delete payload.user
-    delete payload.borrower
-    return payload
-  }
-
-  async function addInbound(data) {
-    const created = await dataService.create(COLLECTION.inbound, normalizeDoc(data))
-    inboundRecords.value.unshift(created || data)
-    return created || data
-  }
-
-  async function addDispatch(data) {
-    const created = await dataService.create(COLLECTION.dispatch, normalizeDoc(data))
-    dispatchRecords.value.unshift(created || data)
-    return created || data
-  }
-
-  async function addBorrow(data) {
-    const created = await dataService.create(COLLECTION.borrow, normalizeDoc(data))
-    borrowRecords.value.unshift(created || data)
-    return created || data
-  }
-
-  async function addChange(data) {
-    const created = await dataService.create(COLLECTION.change, normalizeDoc(data))
-    changeRecords.value.unshift(created || data)
-    return created || data
-  }
-
-  async function addDispose(data) {
-    const created = await dataService.create(COLLECTION.dispose, normalizeDoc(data))
-    disposeRecords.value.unshift(created || data)
-    return created || data
-  }
-
-  /**
-   * 单据视图模型：把 assetId / deptId / userId 解析为展示用的
-   * assetNo（资产编号）、assetName、department、user、borrower、状态文案。
-   * 视图只读这些模型，写入时仍用 id。
-   */
-  function decorateDocs(records, statusEnum) {
-    const org = useOrgStore()
-    return records.map(r => {
-      const asset = assets.value.find(a => a.id === r.assetId)
-      return {
-        ...r,
-        // 各单据列表用的编号字段名不同，统一由 code 派生
-        docNo: r.code || '',
-        dispatchNo: r.code || '',
-        borrowNo: r.code || '',
-        changeNo: r.code || '',
-        disposeNo: r.code || '',
-        assetNo: asset ? asset.code : '',
-        assetName: asset ? asset.name : '',
-        name: asset ? asset.name : (r.name || ''),
-        category: asset ? labelOf('ASSET_CATEGORY', asset.category) : '',
-        model: asset ? asset.model : '',
-        brand: asset ? asset.brand : '',
-        department: r.deptId ? (org.deptName(r.deptId) || '') : (r.department || ''),
-        user: r.userId ? (org.users.find(u => u.id === r.userId)?.name || '') : (r.user || ''),
-        borrower: r.userId ? (org.users.find(u => u.id === r.userId)?.name || '') : (r.borrower || ''),
-        statusText: labelOf(statusEnum, r.status)
-      }
-    })
-  }
-
-  const inboundList = computed(() => decorateDocs(inboundRecords.value, 'INBOUND_STATUS'))
-  const dispatchList = computed(() => decorateDocs(dispatchRecords.value, 'DISPATCH_STATUS'))
-  const borrowList = computed(() => decorateDocs(borrowRecords.value, 'BORROW_STATUS'))
-  const changeList = computed(() => decorateDocs(changeRecords.value, 'DOC_STATUS'))
-  const disposeList = computed(() => decorateDocs(disposeRecords.value, 'DISPOSE_STATUS'))
 
   /**
    * 台账视图模型：把外键 id 解析为展示名称、状态编码解析为文案。
@@ -231,26 +118,10 @@ export const useFixedAssetStore = defineStore('fixedAsset', () => {
   return {
     assets,
     assetLedger,
-    inboundRecords,
-    dispatchRecords,
-    borrowRecords,
-    changeRecords,
-    disposeRecords,
-    // 单据视图模型（外键已解析）：供列表展示与筛选
-    inboundList,
-    dispatchList,
-    borrowList,
-    changeList,
-    disposeList,
     loaded,
     loadAll,
     addAsset,
     updateAsset,
-    addInbound,
-    addDispatch,
-    addBorrow,
-    addChange,
-    addDispose,
     inventoryRemindDays,
     stats
   }

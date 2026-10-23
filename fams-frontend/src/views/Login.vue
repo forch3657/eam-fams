@@ -63,7 +63,18 @@
         </el-form>
 
         <div class="login-tip">
-          演示账号：admin / 123456（系统管理员），asset / 123456（资产管理员）
+          <div class="tip-title">演示账号（密码均为 123456）</div>
+          <ul class="tip-list">
+            <li><b>admin</b><span>系统管理员</span><i>全部模块与系统配置</i></li>
+            <li><b>asset</b><span>资产管理员</span><i>台账/入库/派发/借出/盘点/折旧</i></li>
+            <li><b>chengang</b><span>部门主管</span><i>审批链 · 部门负责人</i></li>
+            <li><b>lina</b><span>财务管理员</span><i>审批链 · 财务复核</i></li>
+            <li><b>fuzong</b><span>分管副总</span><i>审批链 · 大额处置分管审批</i></li>
+            <li><b>cangguan</b><span>仓管员</span><i>审批链 · 低值领用出库确认</i></li>
+            <li><b>wangqiang</b><span>资产使用人</span><i>发起人（变更/借出/领用）</i></li>
+            <li><b>chenjing</b><span>审计员</span><i>只读（报表与操作日志）</i></li>
+          </ul>
+          <div class="tip-note">其余账号由管理员在「系统管理 → 用户管理」中创建并分配角色后即可登录</div>
         </div>
       </div>
     </div>
@@ -83,7 +94,13 @@ const userStore = useUserStore()
 const form = ref({ username: 'admin', password: '123456' })
 const loading = ref(false)
 
-function handleLogin() {
+const FAIL_TIPS = {
+  NOT_FOUND: '账号不存在，请联系管理员在「系统管理 → 用户管理」中创建',
+  DISABLED: '账号已停用，请联系管理员启用后登录',
+  PASSWORD: '密码错误'
+}
+
+async function handleLogin() {
   // 去掉首尾空格：复制粘贴账号时容易带入不可见空格，导致校验失败
   const username = String(form.value.username || '').trim()
   const password = String(form.value.password || '').trim()
@@ -92,10 +109,17 @@ function handleLogin() {
     return
   }
   loading.value = true
-  const ok = userStore.login(username, password)
+  let res
+  try {
+    res = await userStore.login(username, password)
+  } catch (e) {
+    loading.value = false
+    ElMessage.error(e?.message || '登录失败')
+    return
+  }
   loading.value = false
-  if (!ok) {
-    ElMessage.error('用户名或密码错误')
+  if (!res.ok) {
+    ElMessage.error(FAIL_TIPS[res.reason] || '登录失败')
     return
   }
   ElMessage.success(`欢迎回来，${userStore.user.name}`)
@@ -277,12 +301,49 @@ function handleLogin() {
 .login-tip {
   margin-top: 22px;
   font-size: 12px;
-  line-height: 1.8;
-  color: #94a3b8;
+  line-height: 1.7;
+  color: #64748b;
   background: #f5f7fa;
   border: 1px dashed #e2e8f0;
   border-radius: 8px;
   padding: 10px 12px;
+}
+.tip-title {
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 4px;
+}
+.tip-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.tip-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 1px 0;
+}
+.tip-list b {
+  color: #1e40af;
+  font-weight: 600;
+  min-width: 78px;
+  font-family: Menlo, Consolas, monospace;
+}
+.tip-list span {
+  color: #334155;
+  min-width: 62px;
+}
+.tip-list i {
+  font-style: normal;
+  color: #94a3b8;
+  font-size: 11px;
+}
+.tip-note {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed #e2e8f0;
+  color: #94a3b8;
 }
 
 @keyframes float {

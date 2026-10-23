@@ -20,8 +20,8 @@ let seq = 0
 let hydrated = false
 let persistTimer = null
 
-// 数据模型升级后与旧结构不兼容，存储键升到 v3（旧键 v1/v2 自动失效并按最新种子重建）
-const STORAGE_KEY = 'fams-mock-db-v3'
+// 数据模型升级后与旧结构不兼容，存储键升到 v6（旧键 v1~v5 自动失效并按最新种子重建）
+const STORAGE_KEY = 'fams-mock-db-v6'
 
 // 可通过环境变量模拟网络延迟与随机故障，演练 loading 与错误分支
 const LATENCY = Number(import.meta.env.VITE_MOCK_LATENCY ?? 0) || 0

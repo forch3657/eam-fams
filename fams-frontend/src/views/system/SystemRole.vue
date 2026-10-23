@@ -147,8 +147,8 @@ import { PERMISSION_TREE } from '../../config/permissions'
 
 const orgStore = useOrgStore()
 
-const orgScopeOptions = optionsOf('ORG_SCOPE')
-const dataScopeOptions = optionsOf('DATA_SCOPE')
+const orgScopeOptions = computed(() => optionsOf('ORG_SCOPE'))
+const dataScopeOptions = computed(() => optionsOf('DATA_SCOPE'))
 
 const query = reactive({ keyword: '', status: '' })
 const page = ref(1)

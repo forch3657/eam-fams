@@ -440,7 +440,7 @@ const can = code => userStore.can(code)
 const activeTab = ref('item')
 const categoryOptions = computed(() => store.categoryOptions)
 const locationOptions = computed(() => store.locationOptions)
-const itemStatusOptions = optionsOf('LOW_VALUE_ITEM_STATUS')
+const itemStatusOptions = computed(() => optionsOf('LOW_VALUE_ITEM_STATUS'))
 /** 部门口径取自组织架构主数据，同名部门以公司名区分 */
 const deptOptions = computed(() => orgStore.departmentOptions.map(d => ({ ...d, label: `${d.name}（${d.companyName}）` })))
 

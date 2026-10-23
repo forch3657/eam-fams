@@ -11,6 +11,12 @@ const routes = [
     meta: { title: '登录' }
   },
   {
+    path: '/403',
+    name: 'NoPermission',
+    component: () => import('../views/system/NoPermission.vue'),
+    meta: { title: '无访问权限' }
+  },
+  {
     path: '/',
     component: () => import('../layouts/MainLayout.vue'),
     meta: { requiresAuth: true },
@@ -160,7 +166,7 @@ router.beforeEach(async (to) => {
     if (!orgStore.loaded) await orgStore.loadAll()
     if (!userStore.can(perm)) {
       const fallback = FALLBACK_ROUTES.find(r => userStore.can(r.permission))
-      return fallback ? fallback.path : '/login'
+      return fallback ? fallback.path : '/403'
     }
   }
 

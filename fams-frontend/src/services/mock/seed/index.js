@@ -21,11 +21,6 @@ export function registerAllSeeds() {
 
   // 固定资产
   registerSeed(COLLECTION.assets, ASSET_SEEDS.assets)
-  registerSeed(COLLECTION.inbound, ASSET_SEEDS.inbound)
-  registerSeed(COLLECTION.dispatch, ASSET_SEEDS.dispatch)
-  registerSeed(COLLECTION.borrow, ASSET_SEEDS.borrow)
-  registerSeed(COLLECTION.change, ASSET_SEEDS.change)
-  registerSeed(COLLECTION.dispose, ASSET_SEEDS.dispose)
   registerSeed(COLLECTION.inventoryPlans, ASSET_SEEDS.inventoryPlans)
   registerSeed(COLLECTION.inventoryDocs, ASSET_SEEDS.inventoryDocs)
   registerSeed(COLLECTION.depreciationSchemes, ASSET_SEEDS.depreciationSchemes)

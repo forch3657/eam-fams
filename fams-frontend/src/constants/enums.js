@@ -339,6 +339,26 @@ export function optionsOf(enumName) {
   return Object.entries(dict).map(([value, label]) => ({ value, label }))
 }
 
+/**
+ * 取枚举编码：入参可以是编码，也可以是文案。
+ * 写入层统一用它把"中文文案"转成"契约要求的编码"，避免文案直接落库。
+ */
+export function codeOf(enumName, value, fallback = '') {
+  if (value === undefined || value === null || value === '') return fallback
+  // 先看字典（文案可能被改成"空闲A"这类），再回退到内置枚举
+  const override = runtimeEnums.value[enumName]
+  if (override) {
+    if (Object.prototype.hasOwnProperty.call(override, value)) return value
+    const hit = Object.keys(override).find(k => override[k] === value)
+    if (hit) return hit
+  }
+  const dict = ENUMS[enumName]
+  if (!dict) return value
+  if (Object.prototype.hasOwnProperty.call(dict, value)) return value
+  const hit = Object.keys(dict).find(k => dict[k] === value)
+  return hit || value
+}
+
 /** 取枚举编码列表 */
 export function codesOf(enumName) {
   const override = runtimeEnums.value[enumName]

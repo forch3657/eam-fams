@@ -6,21 +6,21 @@
         <span v-else>固资</span>
       </div>
       <el-menu :default-active="activeMenu" :collapse="appStore.sidebarCollapsed" router class="sidebar-menu">
-        <el-sub-menu index="fixed-asset-group">
+        <el-sub-menu v-if="groupVisible(['fa:view', 'fa:report'])" index="fixed-asset-group">
           <template #title><el-icon><Monitor /></el-icon><span>固定资产</span></template>
           <el-menu-item v-if="can('fa:view')" index="/fixed-assets">资产管理</el-menu-item>
           <el-menu-item v-if="can('fa:report')" index="/fixed-asset-reports">资产报表</el-menu-item>
           <el-menu-item v-if="can('fa:view')" index="/fixed-asset-settings">基础设置</el-menu-item>
         </el-sub-menu>
 
-        <el-sub-menu index="low-value-asset-group">
+        <el-sub-menu v-if="groupVisible(['lv:view', 'lv:report'])" index="low-value-asset-group">
           <template #title><el-icon><Box /></el-icon><span>低值资产</span></template>
           <el-menu-item v-if="can('lv:view')" index="/low-value-assets">资产管理</el-menu-item>
           <el-menu-item v-if="can('lv:report')" index="/low-value-asset-reports">资产报表</el-menu-item>
           <el-menu-item v-if="can('lv:view')" index="/low-value-asset-settings">基础设置</el-menu-item>
         </el-sub-menu>
 
-        <el-sub-menu index="org-group">
+        <el-sub-menu v-if="groupVisible(['org:company', 'org:dept', 'org:user', 'org:role'])" index="org-group">
           <template #title><el-icon><User /></el-icon><span>组织架构</span></template>
           <el-menu-item v-if="can('org:company')" index="/system/company">公司管理</el-menu-item>
           <el-menu-item v-if="can('org:dept')" index="/system/dept">部门管理</el-menu-item>
@@ -28,7 +28,7 @@
           <el-menu-item v-if="can('org:role')" index="/system/role">角色管理</el-menu-item>
         </el-sub-menu>
 
-        <el-sub-menu index="system-group">
+        <el-sub-menu v-if="groupVisible(['sys:dict', 'sys:log', 'sys:workflow', 'sys:params', 'sys:message', 'sys:template', 'sys:terminal'])" index="system-group">
           <template #title><el-icon><Setting /></el-icon><span>系统管理</span></template>
           <el-menu-item v-if="can('sys:dict')" index="/system/dict">数据字典</el-menu-item>
           <el-menu-item v-if="can('sys:log')" index="/system/log">操作日志</el-menu-item>
@@ -108,6 +108,8 @@ const auditStore = useAuditStore()
 const activeMenu = computed(() => route.path)
 /** 权限判定（角色在组织架构中维护，登录后按角色解析） */
 const can = code => userStore.can(code)
+/** 分组内若没有任何可见子项，则整组隐藏，避免出现空菜单组 */
+const groupVisible = perms => perms.some(p => can(p))
 const modeLabel = computed(() => (dataMode === 'mock' ? '演示数据' : '后端接口'))
 
 watch(

@@ -73,104 +73,12 @@ const ASSETS = {
     ],
     // 资产被业务单据引用时禁止删除
     protect: [
-      { collection: 'fixed-asset-dispatch', field: 'assetId', message: '该资产存在派发单据，不能删除' },
-      { collection: 'fixed-asset-borrow', field: 'assetId', message: '该资产存在借出单据，不能删除' },
-      { collection: 'fixed-asset-dispose', field: 'assetId', message: '该资产存在处置单据，不能删除' }
+      { collection: 'fixed-asset-doc-lists-inbound', field: 'assetId', message: '该资产存在入库单据，不能删除' },
+      { collection: 'fixed-asset-doc-lists-alloc', field: 'assetId', message: '该资产存在派发单据，不能删除' },
+      { collection: 'fixed-asset-doc-lists-borrow', field: 'assetId', message: '该资产存在借出单据，不能删除' },
+      { collection: 'fixed-asset-doc-lists-dispose', field: 'assetId', message: '该资产存在处置单据，不能删除' }
     ]
   }
-}
-
-const INBOUND = {
-  key: 'fixed-asset-inbound',
-  label: '入库/验收单',
-  idField: 'id',
-  audit: true,
-  fields: {
-    ...docFields({
-      quantity: f.num({ required: true }),
-      unit: f.str(),
-      purchasePrice: f.num(),
-      supplier: f.str(),
-      inboundDate: f.date(),
-      status: f.enum('INBOUND_STATUS', { required: true }),
-      acceptor: f.str()
-    })
-  },
-  query: { keyword: ['code', 'supplier'], filters: ['status', 'assetId'], sort: ['inboundDate'], page: true },
-  rules: { unique: ['code'], refs: [{ field: 'assetId', collection: 'fixed-assets' }] }
-}
-
-const DISPATCH = {
-  key: 'fixed-asset-dispatch',
-  label: '派发/退库单',
-  idField: 'id',
-  audit: true,
-  fields: {
-    ...docFields({
-      deptId: f.ref('org-departments'),
-      userId: f.ref('org-users'),
-      dispatchDate: f.date(),
-      location: f.str(),
-      status: f.enum('DISPATCH_STATUS', { required: true }),
-      operator: f.str()
-    })
-  },
-  query: { keyword: ['code'], filters: ['status', 'deptId', 'assetId'], sort: ['dispatchDate'], page: true },
-  rules: { unique: ['code'], refs: [{ field: 'assetId', collection: 'fixed-assets' }] }
-}
-
-const BORROW = {
-  key: 'fixed-asset-borrow',
-  label: '借出单',
-  idField: 'id',
-  audit: true,
-  fields: {
-    ...docFields({
-      userId: f.ref('org-users'),
-      deptId: f.ref('org-departments'),
-      borrowDate: f.date(),
-      expectedReturnDate: f.date(),
-      actualReturnDate: f.date(),
-      status: f.enum('BORROW_STATUS', { required: true })
-    })
-  },
-  query: { keyword: ['code'], filters: ['status', 'deptId', 'userId', 'assetId'], sort: ['borrowDate'], page: true },
-  rules: { unique: ['code'], refs: [{ field: 'assetId', collection: 'fixed-assets' }, { field: 'userId', collection: 'org-users' }] }
-}
-
-const CHANGE = {
-  key: 'fixed-asset-change',
-  label: '资产变更单',
-  idField: 'id',
-  audit: true,
-  fields: {
-    ...docFields({
-      changeType: f.enum('CHANGE_TYPE', { required: true }),
-      changeReason: f.str(),
-      changeDate: f.date(),
-      operator: f.str()
-    })
-  },
-  query: { keyword: ['code'], filters: ['changeType', 'assetId'], sort: ['changeDate'], page: true },
-  rules: { unique: ['code'], refs: [{ field: 'assetId', collection: 'fixed-assets' }] }
-}
-
-const DISPOSE = {
-  key: 'fixed-asset-dispose',
-  label: '资产处置单',
-  idField: 'id',
-  audit: true,
-  fields: {
-    ...docFields({
-      disposeType: f.enum('DISPOSE_TYPE', { required: true }),
-      disposeReason: f.str(),
-      residualValue: f.num(),
-      disposeDate: f.date(),
-      status: f.enum('DISPOSE_STATUS', { required: true })
-    })
-  },
-  query: { keyword: ['code'], filters: ['status', 'disposeType', 'assetId'], sort: ['disposeDate'], page: true },
-  rules: { unique: ['code'], refs: [{ field: 'assetId', collection: 'fixed-assets' }] }
 }
 
 const INVENTORY_PLANS = {
@@ -581,6 +489,8 @@ const ORG_USERS = {
   audit: true,
   fields: {
     username: f.str({ required: true, unique: true }),
+    // 登录口令（前端演示用明文存储；接入后端后由后端校验，前端不再持有）
+    password: f.str(),
     name: f.str({ required: true }),
     companyId: f.ref('org-companies', { required: true }),
     deptId: f.ref('org-departments'),
@@ -782,7 +692,7 @@ const OPERATION_LOGS = {
 // ---------------------------------------------------------------- 契约表
 
 const CONTRACT_LIST = [
-  ASSETS, INBOUND, DISPATCH, BORROW, CHANGE, DISPOSE,
+  ASSETS,
   INVENTORY_PLANS, INVENTORY_DOCS,
   DEPRECIATION_SCHEMES, DEPRECIATION_REPORTS,
   REPORT_DEPRECIATION_DETAILS, REPORT_DEPRECIATION_PLAN_DETAILS,
@@ -806,10 +716,10 @@ export const CONTRACTS = CONTRACT_LIST.reduce((acc, c) => {
  * 动态集合的契约模式（如按业务类型拆分的单据列表、按字典类型拆分的字典项）
  * 命中模式的 key 会套用同一个契约模板，避免为每类重复定义。
  */
-const DOC_LIST_KEYS = ['inbound', 'alloc', 'back', 'transfer', 'repair', 'dispose']
+const DOC_LIST_KEYS = ['inbound', 'alloc', 'back', 'borrow', 'transfer', 'repair', 'change', 'dispose']
 const DOC_LIST_LABELS = {
-  inbound: '入库单列表', alloc: '派发单列表', back: '退库单列表',
-  transfer: '调拨单列表', repair: '维修单列表', dispose: '处置单列表'
+  inbound: '入库单列表', alloc: '派发单列表', back: '退库单列表', borrow: '借出单列表',
+  transfer: '调拨单列表', repair: '维修单列表', change: '资产变更单列表', dispose: '处置单列表'
 }
 
 export const CONTRACT_PATTERNS = [
@@ -823,15 +733,16 @@ export const CONTRACT_PATTERNS = [
         idField: 'id',
         audit: true,
         fields: {
-          docNo: f.str({ required: true, unique: true }),
+          code: f.str({ required: true, unique: true }),
           name: f.str({ required: true }),
           companyId: f.ref('org-companies'),
+          assetId: f.ref('fixed-assets'),
           createTime: f.date(),
           finishTime: f.date(),
           remark: f.str(),
           status: f.enum('DOC_STATUS', { required: true })
         },
-        query: { keyword: ['docNo', 'name'], filters: ['status', 'companyId'], sort: ['createTime'], page: true },
+        query: { keyword: ['code', 'name'], filters: ['status', 'companyId'], sort: ['createTime'], page: true },
         rules: { unique: ['docNo'], refs: [{ field: 'companyId', collection: 'org-companies' }] }
       }
     }
