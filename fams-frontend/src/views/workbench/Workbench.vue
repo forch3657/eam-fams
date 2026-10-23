@@ -1,11 +1,13 @@
 <template>
   <div class="page-container workbench-page">
-    <div class="page-header">
-      <div>
+    <div class="page-header wb-header">
+      <div class="wb-head-left">
         <h2>工作台</h2>
-        <p class="wb-sub">{{ greeting }}，{{ userStore.user?.name }}<span v-if="roleNames">（{{ roleNames }}）</span></p>
+        <span class="wb-greet">{{ greeting }}，{{ userStore.user?.name }}</span>
+        <el-tag v-if="roleNames && roleNames !== userStore.user?.name" size="small" effect="plain" type="primary" class="wb-role">{{ roleNames }}</el-tag>
       </div>
       <div class="wb-ops">
+        <span class="wb-updated">数据更新于 {{ updatedAt }}</span>
         <el-button :loading="workbench.loading" @click="refresh">
           <el-icon><Refresh /></el-icon>刷新
         </el-button>
@@ -121,6 +123,13 @@ const todoRef = ref(null)
 
 const mineCount = computed(() => workbench.todos.mine.filter(m => m.status !== 'DONE').length)
 
+/** 数据更新时间（供页头展示，避免"刷新"按钮成为页头唯一信息） */
+const updatedAt = ref('')
+function stampUpdated() {
+  const d = new Date()
+  updatedAt.value = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`
+}
+
 const greeting = computed(() => {
   const h = new Date().getHours()
   if (h < 6) return '凌晨好'
@@ -136,6 +145,7 @@ const roleNames = computed(() => {
 
 async function refresh() {
   await Promise.all([workbench.load(true), approvalStore.load(true)])
+  stampUpdated()
 }
 
 /** 指标卡 → 定位到待办面板的对应页签 */
@@ -155,15 +165,27 @@ function scrollTo(id) {
 
 onMounted(async () => {
   await Promise.all([workbench.load(), approvalStore.load(), orgStore.loadAll()])
+  stampUpdated()
   if (!can('wm:alert') && can('wm:message')) sideTab.value = 'message'
 })
 </script>
 
 <style scoped>
 .workbench-page { display: block; }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-.page-header h2 { margin: 0; font-size: 20px; }
-.wb-sub { margin: 4px 0 0; font-size: 13px; color: var(--t-weak); }
+
+/* 页头：去掉独立卡片底，标题行直接坐在页面背景上，避免与下方指标条连成一片白块 */
+.wb-header {
+  height: auto;
+  background: transparent;
+  border: none;
+  padding: 0 2px;
+  margin-bottom: 14px;
+}
+.wb-head-left { display: flex; align-items: center; gap: 12px; }
+.wb-greet { font-size: 13px; color: var(--t-weak); }
+.wb-role { font-weight: 500; }
+.wb-ops { display: flex; align-items: center; gap: 12px; }
+.wb-updated { font-size: 12px; color: var(--t-weak); }
 
 /* 指标条：一行紧凑卡片 */
 .wb-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 12px; }
@@ -177,11 +199,15 @@ onMounted(async () => {
 .wb-stat .k { font-size: 12px; color: var(--t-weak); }
 .wb-stat.danger .v { color: var(--c-danger); }
 
-/* 主体：左右等高 */
+/* 主体：左右等高（列内卡片撑满，右侧内容超高时内部滚动） */
 .wb-main { align-items: stretch; margin-bottom: 12px; }
-.wb-panel { height: 100%; }
+.wb-main :deep(.el-col) { display: flex; flex-direction: column; }
+.wb-panel { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.wb-panel :deep(.el-card__body) { flex: 1; min-height: 0; }
 .wb-panel-todo :deep(.el-card__body) { padding-top: 8px; }
-.wb-panel-side :deep(.el-card__body) { padding-top: 4px; height: 380px; overflow-y: auto; }
+.wb-panel-side :deep(.el-card__body) { padding-top: 4px; overflow-y: auto; }
+.wb-side-tabs { display: flex; flex-direction: column; height: 100%; }
 .wb-side-tabs :deep(.el-tabs__header) { margin-bottom: 6px; }
+.wb-side-tabs :deep(.el-tabs__content) { flex: 1; min-height: 0; }
 .panel-hd { display: flex; justify-content: space-between; align-items: center; }
 </style>

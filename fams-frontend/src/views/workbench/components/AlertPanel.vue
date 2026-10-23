@@ -49,7 +49,11 @@ function go(a) {
 .wb-alert-list li:last-child { border-bottom: none; }
 .wb-alert-list li:hover { background: var(--bg-hover, #f5f7fa); }
 .wb-alert-body { flex: 1; min-width: 0; }
-.wb-alert-title { font-size: 13px; font-weight: 600; line-height: 1.4; }
+/* 标题最多两行，超出省略，避免长物品名把整条预警撑得很高 */
+.wb-alert-title {
+  font-size: 13px; font-weight: 600; line-height: 1.4;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+}
 .wb-alert-desc { font-size: 12px; color: var(--t-weak); margin-top: 2px; line-height: 1.4; }
 .wb-arrow { color: var(--t-weak); margin-top: 4px; flex-shrink: 0; }
 .wb-none { padding: 8px 0; }

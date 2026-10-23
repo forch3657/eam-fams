@@ -53,33 +53,38 @@
             <Fold v-if="!appStore.sidebarCollapsed" />
             <Expand v-else />
           </el-icon>
-          <span class="scope-trigger">
-            <el-icon><OfficeBuilding /></el-icon>
-            {{ userStore.user?.org || '固定资产管理中心' }}
-          </span>
+          <!-- 当前数据范围标识：由角色配置决定，只读展示（避免看起来像可切换控件） -->
+          <el-tooltip :content="scopeTip" placement="bottom">
+            <span class="scope-chip">
+              <el-icon><OfficeBuilding /></el-icon>
+              <span class="scope-name">{{ scopeName }}</span>
+            </span>
+          </el-tooltip>
         </div>
         <div class="header-right">
-          <el-tooltip v-if="can('wm:todo')" content="待我审批" placement="bottom">
+          <el-tooltip v-if="can('wm:todo')" :content="pendingTip" placement="bottom">
             <el-badge
               :value="workbench.pendingCount"
               :hidden="!workbench.pendingCount"
+              :offset="[10, 6]"
               class="hdr-badge"
               @click="goWorkbench"
             >
-              <el-icon class="hdr-icon"><Bell /></el-icon>
+              <el-icon class="hdr-icon" :class="{ 'is-empty': !workbench.pendingCount }"><Bell /></el-icon>
             </el-badge>
           </el-tooltip>
-          <el-tooltip v-if="can('wm:message')" content="我的消息" placement="bottom">
+          <el-tooltip v-if="can('wm:message')" :content="messageTip" placement="bottom">
             <el-badge
               :value="notifyStore.unreadCount"
               :hidden="!notifyStore.unreadCount"
+              :offset="[10, 6]"
               class="hdr-badge"
               @click="goWorkbench"
             >
-              <el-icon class="hdr-icon"><ChatDotRound /></el-icon>
+              <el-icon class="hdr-icon" :class="{ 'is-empty': !notifyStore.unreadCount }"><ChatDotRound /></el-icon>
             </el-badge>
           </el-tooltip>
-          <el-tag class="role-tag" type="primary" effect="dark" size="small">{{ modeLabel }}</el-tag>
+          <el-tag class="mode-tag" type="info" effect="plain" size="small">{{ modeLabel }}</el-tag>
           <el-dropdown @command="handleCommand">
             <span class="user-info">
               <span class="avatar">{{ (userStore.user?.name || '管').charAt(0) }}</span>
@@ -118,6 +123,7 @@ import { useWorkbenchStore } from '../store/workbench'
 import TagsView from '../components/TagsView.vue'
 import { dataMode } from '../services'
 import { loadDictEnums } from '../services/dictEnums'
+import { labelOf } from '../constants/enums'
 import { loadSysParams } from '../services/sysParams'
 import { Monitor, Setting, User, Box, Fold, Expand, OfficeBuilding, CaretBottom, HomeFilled, Bell, ChatDotRound } from '@element-plus/icons-vue'
 
@@ -138,6 +144,19 @@ const can = code => userStore.can(code)
 /** 分组内若没有任何可见子项，则整组隐藏，避免出现空菜单组 */
 const groupVisible = perms => perms.some(p => can(p))
 const modeLabel = computed(() => (dataMode === 'mock' ? '演示数据' : '后端接口'))
+
+/** 当前数据范围（公司） */
+const scopeName = computed(() => userStore.user?.org || '固定资产管理中心')
+/** 数据范围说明：口径来自角色的 dataScope，不是可随意切换的控件 */
+const scopeTip = computed(() => {
+  const roleId = (userStore.user?.roleIds || [])[0]
+  const role = orgStore.roles.find(r => r.id === roleId)
+  const scope = role?.dataScope ? labelOf('DATA_SCOPE', role.dataScope) : ''
+  return scope ? `数据范围：${scope}（由角色配置决定）` : '数据范围由角色配置决定'
+})
+/** 徽标提示：数量为 0 时明确说明"暂无"，避免与旁边的消息徽标混淆 */
+const pendingTip = computed(() => (workbench.pendingCount ? `待我审批 ${workbench.pendingCount} 项` : '暂无待我审批'))
+const messageTip = computed(() => (notifyStore.unreadCount ? `我的消息 ${notifyStore.unreadCount} 条未读` : '暂无未读消息'))
 
 watch(
   () => route.path,

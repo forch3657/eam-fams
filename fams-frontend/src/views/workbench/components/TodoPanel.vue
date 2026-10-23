@@ -16,8 +16,10 @@
             <div class="wb-global-list">
               <div v-for="s in globalSteps" :key="s.roleName + s.stepName" class="wb-global-item">
                 <span class="n">{{ s.count }}</span>
-                <span class="t">{{ s.stepName }}</span>
-                <span class="r">{{ s.roleName }} · {{ s.bizName }}</span>
+                <div class="txt">
+                  <div class="t">{{ s.stepName }}</div>
+                  <div class="r">{{ s.roleName }} · {{ s.bizName }}</div>
+                </div>
               </div>
             </div>
           </div>
@@ -242,9 +244,11 @@ function goProcess(item) {
 .wb-todo-tip { font-size: 12px; color: var(--t-weak); text-align: center; max-width: 460px; margin: 0 auto; line-height: 1.6; }
 .wb-global { max-width: 560px; margin: 10px auto 0; padding-top: 10px; border-top: 1px dashed var(--bd); }
 .wb-global-title { font-size: 12px; color: var(--t-weak); text-align: center; margin-bottom: 8px; }
-.wb-global-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
-.wb-global-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--bd); border-radius: var(--r-md); }
+.wb-global-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.wb-global-item { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border: 1px solid var(--bd); border-radius: var(--r-md); }
 .wb-global-item .n { font-size: 17px; font-weight: 700; color: var(--c-primary); min-width: 24px; text-align: center; }
-.wb-global-item .t { font-size: 12px; font-weight: 600; }
-.wb-global-item .r { font-size: 11px; color: var(--t-weak); }
+.wb-global-item .txt { min-width: 0; }
+/* 环节名与角色各占一行，超长省略，避免在窄格子里折成多行 */
+.wb-global-item .t { font-size: 12px; font-weight: 600; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-global-item .r { font-size: 11px; color: var(--t-weak); line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

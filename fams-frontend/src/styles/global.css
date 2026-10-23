@@ -200,7 +200,7 @@ body {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 22px;
 }
 
 .collapse-btn {
@@ -217,20 +217,41 @@ body {
   cursor: pointer;
 }
 
+/* 顶栏模式标签：半透明描边，避免深色实心块在深蓝顶栏上过于刺眼 */
+.mode-tag {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.9);
+}
+
 /* 顶栏徽标：待我审批 / 我的消息 */
 .hdr-badge {
   cursor: pointer;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  /* 给角标留出溢出空间，避免压到相邻图标 */
+  margin-right: 2px;
 }
 
+/* 顶栏为深色底，图标必须跟随顶栏配色（原为深色文字，在深蓝底上几乎不可见） */
 .hdr-icon {
   font-size: 18px;
-  color: var(--t-text, #303133);
+  color: rgba(255, 255, 255, 0.85);
   vertical-align: middle;
 }
 
 .hdr-icon:hover {
-  color: var(--c-primary);
+  color: #fff;
+}
+
+/* 数量为 0 的图标淡出，与有数量的徽标区分开 */
+.hdr-icon.is-empty {
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.hdr-icon.is-empty:hover {
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .main-content {
@@ -507,8 +528,10 @@ body {
 /* ============ CSS Variables — 品牌色 / 功能色 / 中性色 / 状态色 / 字体 ============ */
 .tags-view {
   background: var(--bg-card);
-  border-bottom: 1px solid var(--bd);
-  height: 36px;
+  /* 底边框加强：标签栏与内容区之间需要明确的层次，否则白底白线糊成一片 */
+  border-bottom: 1px solid var(--bd-strong, #dcdfe6);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  height: 34px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -558,6 +581,27 @@ body {
 }
 
 /* 顶栏：范围下拉 + 头像 */
+/* 顶栏当前数据范围标识（只读，勿做成可点击样式） */
+.scope-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
+  max-width: 320px;
+}
+
+.scope-chip .scope-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .scope-trigger {
   display: inline-flex;
   align-items: center;
