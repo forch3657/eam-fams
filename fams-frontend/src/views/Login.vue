@@ -66,13 +66,13 @@
           <div class="tip-title">演示账号（密码均为 123456）</div>
           <ul class="tip-list">
             <li><b>admin</b><span>系统管理员</span><i>全部模块与系统配置</i></li>
-            <li><b>asset</b><span>资产管理员</span><i>台账/入库/派发/借出/盘点/折旧</i></li>
-            <li><b>chengang</b><span>部门主管</span><i>审批链 · 部门负责人</i></li>
-            <li><b>lina</b><span>财务管理员</span><i>审批链 · 财务复核</i></li>
-            <li><b>fuzong</b><span>分管副总</span><i>审批链 · 大额处置分管审批</i></li>
-            <li><b>cangguan</b><span>仓管员</span><i>审批链 · 低值领用出库确认</i></li>
-            <li><b>wangqiang</b><span>资产使用人</span><i>发起人（变更/借出/领用）</i></li>
-            <li><b>chenjing</b><span>审计员</span><i>只读（报表与操作日志）</i></li>
+            <li><b>asset</b><span>资产管理员</span><i>台账/入库/派发/借出/盘点/折旧 · 流程发起</i></li>
+            <li><b>chengang</b><span>部门主管</span><i>审批链 · 部门审批（第一环节）</i></li>
+            <li><b>lina</b><span>财务管理员</span><i>审批链 · 财务复核（5 万以上）</i></li>
+            <li><b>fuzong</b><span>分管副总</span><i>审批链 · 分管审批（20 万以上，会签）</i></li>
+            <li><b>cangguan</b><span>仓管员</span><i>审批链 · 仓管验收 / 出库确认</i></li>
+            <li><b>wangqiang</b><span>资产使用人</span><i>发起人（退库/借出/维修/变更）</i></li>
+            <li><b>chenjing</b><span>审计员</span><i>审批链 · 审计备案（20 万以上）</i></li>
           </ul>
           <div class="tip-note">其余账号由管理员在「系统管理 → 用户管理」中创建并分配角色后即可登录</div>
         </div>

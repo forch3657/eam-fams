@@ -53,8 +53,16 @@ const SEED_DEPRECIATION_REPORTS = [
 const DOC_STATUS_POOL = ['DONE', 'PROCESSING', 'DRAFT', 'REJECTED', 'REVOKED']
 const DOC_NOTE_POOL = ['按季度例行办理', '需资产管理员现场复核', '已完成实物验收', '等待财务确认金额', '附现场照片存档']
 const COMPANY_POOL = ['C1', 'C2', 'C3', 'C4']
+// 关联资产：决定金额门槛类环节是否生效（如处置流程 5 万/20 万）
+const ASSET_POOL = ['A01', 'A04', 'A05', 'A07', 'A11', 'A02', 'A13']
 
-function buildDocs(prefix, count, names) {
+/**
+ * @param {string} prefix 单号前缀
+ * @param {number} count 条数
+ * @param {Array<string>} names 单据名称池
+ * @param {Array<string>} creators 创建人（取自该单据类型流程的"发起角色"，保证谁能提交）
+ */
+function buildDocs(prefix, count, names, creators = ['U17', 'U2', 'U10']) {
   const docs = []
   for (let i = 0; i < count; i++) {
     const status = DOC_STATUS_POOL[i % DOC_STATUS_POOL.length]
@@ -63,6 +71,8 @@ function buildDocs(prefix, count, names) {
       code: `${prefix}2026${900 - i * 13}`,
       name: names[i % names.length],
       companyId: COMPANY_POOL[i % COMPANY_POOL.length],
+      assetId: ASSET_POOL[i % ASSET_POOL.length],
+      creatorId: creators[i % creators.length],
       createTime: `2026-0${(i % 8) + 1}-${pad2(10 + i)}T09:${pad2((i * 7) % 60)}:00`,
       finishTime: status === 'DONE' ? `2026-0${(i % 8) + 1}-${pad2(15 + i)}T17:20:00` : '',
       remark: DOC_NOTE_POOL[i % DOC_NOTE_POOL.length],
@@ -72,15 +82,19 @@ function buildDocs(prefix, count, names) {
   return docs
 }
 
+// 发起角色：入库/派发/调拨/处置 = 资产管理员(R2)；退库/借出/维修/变更 = 资产使用人(R3)
+const CREATOR_ASSET = ['U17', 'U2', 'U10']
+const CREATOR_USER = ['U4', 'U5', 'U6']
+
 const SEED_DOC_LISTS = {
-  inbound: buildDocs('RK', 8, ['联想笔记本采购入库', '办公设备季度补充入库', '车辆采购入库验收', '打印耗材批量入库', '会议设备采购入库']),
-  alloc: buildDocs('FP', 7, ['新员工入职设备分配', '市场部办公设备派发', '项目部现场设备派发', '财务部电脑更新派发']),
-  back: buildDocs('TK', 6, ['员工离职设备退库', '项目结束设备退库', '部门调整资产退库']),
-  transfer: buildDocs('DB', 6, ['总部调拨至分公司', '仓库间资产调拨', '跨区域调拨支援项目']),
-  repair: buildDocs('WX', 6, ['打印机故障送修', '车辆年度维修保养', '空调机组检修']),
-  dispose: buildDocs('CZ', 7, ['超期设备报废处置', '盘亏资产核销处置', '旧家具变卖处置']),
-  borrow: buildDocs('JC', 6, ['笔记本电脑临时借出', '相机设备外拍借用', '测量仪器借用申请']),
-  change: buildDocs('BG', 5, ['资产使用部门变更', '资产责任人变更', '资产标签信息变更'])
+  inbound: buildDocs('RK', 8, ['联想笔记本采购入库', '办公设备季度补充入库', '车辆采购入库验收', '打印耗材批量入库', '会议设备采购入库'], CREATOR_ASSET),
+  alloc: buildDocs('FP', 7, ['新员工入职设备分配', '市场部办公设备派发', '项目部现场设备派发', '财务部电脑更新派发'], CREATOR_ASSET),
+  back: buildDocs('TK', 6, ['员工离职设备退库', '项目结束设备退库', '部门调整资产退库'], CREATOR_USER),
+  transfer: buildDocs('DB', 6, ['总部调拨至分公司', '仓库间资产调拨', '跨区域调拨支援项目'], CREATOR_ASSET),
+  repair: buildDocs('WX', 6, ['打印机故障送修', '车辆年度维修保养', '空调机组检修'], CREATOR_USER),
+  dispose: buildDocs('CZ', 7, ['超期设备报废处置', '盘亏资产核销处置', '旧家具变卖处置'], CREATOR_ASSET),
+  borrow: buildDocs('JC', 6, ['笔记本电脑临时借出', '相机设备外拍借用', '测量仪器借用申请'], CREATOR_USER),
+  change: buildDocs('BG', 5, ['资产使用部门变更', '资产责任人变更', '资产标签信息变更'], CREATOR_USER)
 }
 
 export const ASSET_SEEDS = {

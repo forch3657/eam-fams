@@ -94,7 +94,7 @@
 
         <!-- 入库/验收 -->
         <el-tab-pane label="入库/验收" name="inbound">
-          <FixedAssetDocList doc-key="inbound" prefix="RK" :perm="can('fa:inbound')" @view-approval="viewDocApproval" />
+          <FixedAssetDocList doc-key="inbound" prefix="RK" :perm="can('fa:inbound')" />
         </el-tab-pane>
 
         <!-- 派发/退库 -->
@@ -103,17 +103,17 @@
             <el-tab-pane label="分配" name="alloc" />
             <el-tab-pane label="退库" name="back" />
           </el-tabs>
-          <FixedAssetDocList :doc-key="dispatchSub" :prefix="dispatchPrefix[dispatchSub]" :perm="can('fa:dispatch')" @view-approval="viewDocApproval" />
+          <FixedAssetDocList :doc-key="dispatchSub" :prefix="dispatchPrefix[dispatchSub]" :perm="can('fa:dispatch')" />
         </el-tab-pane>
 
         <!-- 借出使用 -->
         <el-tab-pane label="借出使用" name="borrow">
-          <FixedAssetDocList doc-key="borrow" prefix="JC" :perm="can('fa:borrow')" @view-approval="viewDocApproval" />
+          <FixedAssetDocList doc-key="borrow" prefix="JC" :perm="can('fa:borrow')" />
         </el-tab-pane>
 
         <!-- 资产变更 -->
         <el-tab-pane label="资产变更" name="change">
-          <FixedAssetDocList doc-key="change" prefix="BG" :perm="can('fa:change')" @view-approval="viewDocApproval" />
+          <FixedAssetDocList doc-key="change" prefix="BG" :perm="can('fa:change')" />
         </el-tab-pane>
 
         <!-- 资产处置 -->
@@ -123,7 +123,7 @@
             <el-tab-pane label="维修" name="repair" />
             <el-tab-pane label="处置" name="dispose" />
           </el-tabs>
-          <FixedAssetDocList :doc-key="disposeSub" :prefix="disposePrefix[disposeSub]" :perm="can('fa:dispose')" @view-approval="viewDocApproval" />
+          <FixedAssetDocList :doc-key="disposeSub" :prefix="disposePrefix[disposeSub]" :perm="can('fa:dispose')" />
         </el-tab-pane>
 
         <!-- 资产盘点 -->
@@ -213,11 +213,14 @@
                   <el-tag :type="invStatusType(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="290" fixed="right">
+              <el-table-column label="操作" width="380" fixed="right">
                 <template #default="{ row }">
                   <el-button link type="primary" size="small" @click="openCheckList(row)">盘点清单</el-button>
                   <el-button link type="primary" size="small" @click="openCounters(row)">盘点员</el-button>
                   <el-button link type="primary" size="small" @click="viewDocApproval(row)">审批信息</el-button>
+                  <el-button v-if="canSubmitInvDoc(row)" link type="primary" size="small" @click="submitInvDoc(row)">提交</el-button>
+                  <el-button v-if="canApproveInvDoc(row)" link type="success" size="small" @click="approveInvDoc(row)">通过</el-button>
+                  <el-button v-if="canApproveInvDoc(row)" link type="danger" size="small" @click="rejectInvDoc(row)">驳回</el-button>
                   <el-button link type="primary" size="small" @click="openDocDialog(row)">修改</el-button>
                   <el-button link type="danger" size="small" @click="deleteInvDoc(row)">删除</el-button>
                 </template>
@@ -761,32 +764,13 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="approvalVisible" title="审批信息" width="560px">
-      <template v-if="approvalDoc">
-        <el-descriptions :column="2" border size="small" style="margin-bottom:16px">
-          <el-descriptions-item label="单据编号">{{ approvalDoc.code }}</el-descriptions-item>
-          <el-descriptions-item label="所属公司">{{ approvalDoc.companyName || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="单据状态">
-            <el-tag :type="docStatusType(approvalDoc.status)" size="small">{{ labelOf('DOC_STATUS', approvalDoc.status) }}</el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="创建时间">{{ approvalDoc.createTime }}</el-descriptions-item>
-        </el-descriptions>
-        <el-timeline>
-          <el-timeline-item
-            v-for="(r, i) in approvalRecords"
-            :key="i"
-            :timestamp="r.time || '待处理'"
-            :type="r.result === '通过' || r.result === '已提交' ? 'success' : r.result === '驳回' ? 'danger' : r.result === '已撤销' ? 'info' : 'primary'"
-          >
-            <div class="approval-node">{{ r.node }}</div>
-            <div class="approval-meta">{{ r.person }} · {{ r.result || '待审批' }}</div>
-          </el-timeline-item>
-        </el-timeline>
-      </template>
-      <template #footer>
-        <el-button @click="approvalVisible = false">关闭</el-button>
-      </template>
-    </el-dialog>
+    <DocApprovalDialog
+      v-model="approvalVisible"
+      :doc="approvalDoc"
+      doc-key="inventory"
+      :ctx="approvalCtx"
+      @act="onApprovalAct"
+    />
 
     <el-dialog v-model="wizardVisible" title="新增盘点" width="760px" top="6vh">
       <el-steps :active="wizardStep" align-center finish-status="success" style="margin-bottom:24px">
@@ -859,11 +843,11 @@
           <span class="chip-label">盘点状态</span>
           <span
             v-for="k in checkFilterKeys"
-            :key="k"
+            :key="k.value"
             class="chip"
-            :class="{ on: checkFilter === k }"
-            @click="checkFilter = k"
-          >{{ k }}({{ checkCounts[k] }})</span>
+            :class="{ on: checkFilter === k.value }"
+            @click="checkFilter = k.value"
+          >{{ k.label }}({{ checkCounts[k.value] }})</span>
         </div>
       </div>
       <el-table :data="filteredCheckItems" max-height="480" style="width:100%">
@@ -875,7 +859,7 @@
         </el-table-column>
         <el-table-column label="盘点单状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="itemStatusType(row.itemStatus)" size="small">{{ row.itemStatus }}</el-tag>
+            <el-tag :type="itemStatusType(row.itemStatus)" size="small">{{ labelOf('INVENTORY_ITEM_STATUS', row.itemStatus) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="盘点备注" min-width="140" show-overflow-tooltip>
@@ -923,13 +907,19 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, ArrowLeft, Picture } from '@element-plus/icons-vue'
 import QRCode from 'qrcode'
 import FixedAssetDocList from './FixedAssetDocList.vue'
+import DocApprovalDialog from './DocApprovalDialog.vue'
 import { genDocNo } from '../../utils/docNo'
 import { buildCheckItems } from '../../utils/demoBuilders'
 import { useFixedAssetStore } from '../../store/fixedAsset'
 import { useOrgStore } from '../../store/org'
 import { useUserStore } from '../../store/user'
+import { useApprovalStore } from '../../store/approval'
 import { optionsOf, labelOf } from '../../constants/enums'
 import { formatDateTime } from '../../utils/format'
+import {
+  getFlow, effectiveSteps, approvalsOf, currentStep,
+  canSubmit, canApprove, runApproval
+} from '../../services/approval'
 
 /**
  * 状态展示：数据里存的是编码，展示时按枚举翻译成文案。
@@ -966,6 +956,7 @@ const disposePrefix = { transfer: 'DB', repair: 'WX', dispose: 'CZ' }
 const can = code => userStore.can(code)
 
 const orgStore = useOrgStore()
+const approvalStore = useApprovalStore()
 
 const activeTab = ref('asset')
 const dispatchSub = ref('alloc')
@@ -979,6 +970,7 @@ const companyOptions = computed(() => (orgStore.companyOptions.length ? orgStore
 const companyOptionList = computed(() => orgStore.companies.map(c => ({ id: c.id, name: c.name })))
 /** 盘点员候选（来自组织架构用户） */
 const empPool = computed(() => orgStore.users.map(u => ({
+  userId: u.id,
   name: u.name,
   dept: orgStore.deptName(u.deptId) || '-',
   phone: u.phone || '-'
@@ -1513,12 +1505,6 @@ function deleteScheme(row) {
   }).catch(() => {})
 }
 
-// 单据业务类型：与 seed/asset.js 中的 docLists 分组一一对应
-function docStatusType(status) {
-  const m = { DONE: 'success', PROCESSING: 'primary', DRAFT: 'warning', REJECTED: 'danger', REVOKED: 'info' }
-  return m[status] || 'info'
-}
-
 const inventoryDocCol = useCollection(COLLECTION.inventoryDocs)
 /** 处置单集合：盘点盘亏核销时补建处置单 */
 const disposeDocCol = useCollection(`${COLLECTION.docLists}-dispose`)
@@ -1556,16 +1542,16 @@ function resetInvSearch() {
 }
 
 function invStatusType(status) {
-  const m = { '已完结': 'success', '盘点中': 'primary', '盘点报告审批中': 'warning' }
+  const m = { DONE: 'success', PROCESSING: 'primary', DRAFT: 'warning', REJECTED: 'danger', REVOKED: 'info' }
   return m[status] || 'info'
 }
 
 function invItemDone(d) {
-  return d.items.filter(i => i.itemStatus !== '未盘').length
+  return d.items.filter(i => i.itemStatus !== 'UNCHECKED').length
 }
 
 function invEmpDone(d) {
-  return d.counters.filter(c => c.status === '已完成').length
+  return d.counters.filter(c => c.status === 'DONE' || c.status === '已完成').length
 }
 
 function deleteInvDoc(row) {
@@ -1577,29 +1563,37 @@ function deleteInvDoc(row) {
 
 const checkListVisible = ref(false)
 const checkListDoc = ref(null)
-const checkFilter = ref('全部')
-const checkFilterKeys = ['全部', '未盘', '已盘', '盘盈', '盘亏', '异常']
+/** 盘点明细状态一律存枚举编码（见 INVENTORY_ITEM_STATUS），筛选也按编码走 */
+const checkFilter = ref('ALL')
+const checkFilterKeys = [
+  { value: 'ALL', label: '全部' },
+  { value: 'UNCHECKED', label: '未盘' },
+  { value: 'CHECKED', label: '已盘' },
+  { value: 'SURPLUS', label: '盘盈' },
+  { value: 'LOSS', label: '盘亏' },
+  { value: 'ABNORMAL', label: '异常' }
+]
 
 const checkCounts = computed(() => {
   const items = checkListDoc.value ? checkListDoc.value.items : []
-  const c = { '全部': items.length, '未盘': 0, '已盘': 0, '盘盈': 0, '盘亏': 0, '异常': 0 }
+  const c = { ALL: items.length, UNCHECKED: 0, CHECKED: 0, SURPLUS: 0, LOSS: 0, ABNORMAL: 0 }
   items.forEach(i => { if (c[i.itemStatus] !== undefined) c[i.itemStatus]++ })
   return c
 })
 
 const filteredCheckItems = computed(() => {
   const items = checkListDoc.value ? checkListDoc.value.items : []
-  return checkFilter.value === '全部' ? items : items.filter(i => i.itemStatus === checkFilter.value)
+  return checkFilter.value === 'ALL' ? items : items.filter(i => i.itemStatus === checkFilter.value)
 })
 
 function openCheckList(row) {
   checkListDoc.value = row
-  checkFilter.value = '全部'
+  checkFilter.value = 'ALL'
   checkListVisible.value = true
 }
 
 function itemStatusType(status) {
-  const m = { '已盘': 'success', '盘盈': 'primary', '盘亏': 'danger', '异常': 'warning', '未盘': 'info' }
+  const m = { CHECKED: 'success', SURPLUS: 'primary', LOSS: 'danger', ABNORMAL: 'warning', UNCHECKED: 'info' }
   return m[status] || 'info'
 }
 
@@ -1643,7 +1637,7 @@ async function submitWizard() {
   const per = Math.ceil(total / n)
   const counters = wizardForm.counterIds.map(name => {
     const e = empPool.find(x => x.name === name) || { name, dept: '-', phone: '-' }
-    return { name: e.name, dept: e.dept, phone: e.phone, assigned: per, done: 0, status: '盘点中' }
+    return { userId: e.userId || '', name: e.name, dept: e.dept, phone: e.phone, assigned: per, done: 0, status: 'COUNTING' }
   })
   const seq = inventoryDocs.value.length + 6
   try {
@@ -1653,12 +1647,13 @@ async function submitWizard() {
       name: wizardForm.name,
       companyId: wizardForm.company,
       applicant: wizardForm.applicant,
+      creatorId: userStore.user?.id || '',
       scope: wizardForm.scope,
       assetTypes: [...wizardForm.assetTypes],
       createTime: new Date().toISOString(),
       finishTime: '',
       remark: `盘点开始日期 ${wizardForm.startDate}`,
-      status: 'PROCESSING',
+      status: 'DRAFT',
       items: buildCheckItems(total, 0, seq * 3, fixedAssetStore.assets),
       counters
     })
@@ -1702,35 +1697,92 @@ async function submitDocDialog() {
 
 const approvalVisible = ref(false)
 const approvalDoc = ref(null)
+const approvalCtx = ref({ amount: 0, hasDiff: false })
 
-const approvalRecords = computed(() => {
-  const d = approvalDoc.value
-  if (!d) return []
-  // 创建人 = 当前登录账号（换不同账号登录即可看到不同视角的审批链）
-  const creator = d.applicant || userStore.user?.name || '资产使用人'
-  if (d.status === 'REVOKED') {
-    return [
-      { node: '创建单据', person: creator, result: '已提交', time: d.createTime },
-      { node: '单据撤销', person: creator, result: '已撤销', time: d.createTime }
-    ]
-  }
-  if (d.status === 'DRAFT') {
-    return [{ node: '创建单据', person: creator, result: '草稿保存', time: d.createTime }]
-  }
-  const node1 = { node: '创建单据', person: creator, result: '已提交', time: d.createTime }
-  if (d.status === 'REJECTED') {
-    return [node1, { node: '部门负责人审批', person: '陈刚（部门主管 chengang）', result: '驳回', time: d.createTime }]
-  }
-  const node2 = { node: '部门负责人审批', person: '陈刚（部门主管 chengang）', result: '通过', time: d.createTime }
-  if (d.status === 'DONE') {
-    return [node1, node2, { node: '资产管理员审批', person: '资产管理员（asset）', result: '通过', time: formatDateTime(d.finishTime || d.createTime) }]
-  }
-  return [node1, node2, { node: '资产管理员审批', person: '资产管理员（asset）', result: '审批中', time: '' }]
-})
+/** 盘点单的审批上下文：存在盘亏/异常明细即视为"存在盘点差异" */
+function invCtx(doc) {
+  const items = doc?.items || []
+  const hasDiff = items.some(i => i.itemStatus === 'LOSS' || i.itemStatus === 'ABNORMAL' || i.result === 'LOSS' || i.result === 'SURPLUS')
+  return { amount: 0, hasDiff }
+}
 
 function viewDocApproval(row) {
   approvalDoc.value = row
+  approvalCtx.value = invCtx(row)
   approvalVisible.value = true
+}
+
+// ---------------- 盘点单审批（按「系统管理 → 流程配置」执行） ----------------
+const INV_BIZ = 'INVENTORY'
+
+function invFlow() {
+  return getFlow(INV_BIZ, approvalStore.flows)
+}
+function invCurrent(doc) {
+  const flow = invFlow()
+  if (!flow) return null
+  const steps = effectiveSteps(flow, invCtx(doc))
+  const records = approvalsOf(approvalStore.approvals, 'inventory', doc?.id)
+  return currentStep(steps, records, orgStore)
+}
+function canSubmitInvDoc(doc) {
+  const flow = invFlow()
+  if (!flow) return false
+  if (doc.status !== 'DRAFT' && doc.status !== 'REJECTED') return false
+  return canSubmit(doc, flow, userStore.user, orgStore)
+}
+function canApproveInvDoc(doc) {
+  if (doc.status !== 'PROCESSING') return false
+  const cur = invCurrent(doc)
+  if (!cur) return false
+  return canApprove(cur.step, userStore.user, orgStore)
+}
+
+async function runInvApproval(doc, action, comment = '') {
+  if (!approvalStore.loaded) await approvalStore.load()
+  const res = await runApproval({
+    doc,
+    docKey: 'inventory',
+    bizType: INV_BIZ,
+    action,
+    comment,
+    ctx: invCtx(doc),
+    flows: approvalStore.flows,
+    approvals: approvalStore.approvals,
+    saveDoc: async next => {
+      const target = inventoryDocs.value.find(d => d.id === doc.id)
+      if (target) {
+        Object.assign(target, next)
+        await inventoryDocCol.update(target)
+      }
+    },
+    saveApproval: row => approvalStore.addApproval(row)
+  })
+  if (res.ok) ElMessage.success(res.message)
+  else ElMessage.error(res.message)
+  return res
+}
+
+async function submitInvDoc(doc) {
+  await runInvApproval(doc, 'submit', '提交盘点审批')
+}
+async function approveInvDoc(doc) {
+  await runInvApproval(doc, 'approve', '同意')
+}
+async function rejectInvDoc(doc) {
+  try {
+    const { value } = await ElMessageBox.prompt('请填写驳回意见', '驳回审批', {
+      inputValidator: v => (v && v.trim() ? true : '驳回必须填写意见')
+    })
+    await runInvApproval(doc, 'reject', value.trim())
+  } catch (e) {
+    // 取消
+  }
+}
+
+async function onApprovalAct({ action, comment }) {
+  const res = await runInvApproval(approvalDoc.value, action, comment)
+  if (res.ok) approvalVisible.value = false
 }
 
 const locationOptions = ref(['总部办公楼1层', '总部办公楼2层', '总部办公楼3层', '仓库A区', '仓库B区', '车库', '数据中心机房'])

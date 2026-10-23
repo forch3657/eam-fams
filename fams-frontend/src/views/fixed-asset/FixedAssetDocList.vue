@@ -30,18 +30,30 @@
     <el-table :data="pagedRows" style="width: 100%">
       <el-table-column prop="code" label="单据编号" width="130">
         <template #default="{ row }">
-          <el-link type="primary" :underline="false" @click="$emit('view-approval', row)">{{ row.code }}</el-link>
+          <el-link type="primary" :underline="false" @click="openApproval(row)">{{ row.code }}</el-link>
         </template>
       </el-table-column>
-      <el-table-column prop="name" label="单据名称" min-width="200" show-overflow-tooltip />
-      <el-table-column prop="companyName" label="所属公司" min-width="180" show-overflow-tooltip />
-      <el-table-column label="创建时间" width="160">
+      <el-table-column prop="name" label="单据名称" min-width="180" show-overflow-tooltip />
+      <el-table-column prop="companyName" label="所属公司" min-width="160" show-overflow-tooltip />
+      <el-table-column label="审批流程" min-width="150" show-overflow-tooltip>
+        <template #default="{ row }">
+          <span v-if="flowOf(row)">{{ flowOf(row).name }}</span>
+          <el-tag v-else size="small" type="warning" effect="plain">未配置流程</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="当前环节" min-width="150" show-overflow-tooltip>
+        <template #default="{ row }">
+          <span v-if="row.status === 'PROCESSING' && currentOf(row)">{{ currentOf(row).step.name }}</span>
+          <span v-else>-</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="创建时间" width="150">
         <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
       </el-table-column>
-      <el-table-column label="完结时间" width="160">
+      <el-table-column label="完结时间" width="150">
         <template #default="{ row }">{{ row.finishTime ? formatDateTime(row.finishTime) : '-' }}</template>
       </el-table-column>
-      <el-table-column prop="remark" label="备注" min-width="160" show-overflow-tooltip>
+      <el-table-column prop="remark" label="备注" min-width="140" show-overflow-tooltip>
         <template #default="{ row }">{{ row.remark || '-' }}</template>
       </el-table-column>
       <el-table-column prop="status" label="单据状态" width="100">
@@ -49,11 +61,19 @@
           <el-tag :type="statusType(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="190" fixed="right">
+      <el-table-column label="审批操作" width="170" fixed="right">
         <template #default="{ row }">
-          <el-button link type="primary" size="small" @click="$emit('view-approval', row)">审批信息</el-button>
-          <el-button link type="primary" size="small" @click="openDialog(row)">修改</el-button>
-          <el-button link type="danger" size="small" @click="removeRow(row)">删除</el-button>
+          <el-button v-if="canSubmitRow(row)" link type="primary" size="small" @click="submitRow(row)">提交</el-button>
+          <el-button v-if="canApproveRow(row)" link type="success" size="small" @click="approveRow(row)">通过</el-button>
+          <el-button v-if="canApproveRow(row)" link type="danger" size="small" @click="rejectRow(row)">驳回</el-button>
+          <el-button v-if="canRevokeRow(row)" link type="warning" size="small" @click="revokeRow(row)">撤销</el-button>
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" width="170" fixed="right">
+        <template #default="{ row }">
+          <el-button link type="primary" size="small" @click="openApproval(row)">审批信息</el-button>
+          <el-button link type="primary" size="small" :disabled="row.status === 'PROCESSING'" @click="openDialog(row)">修改</el-button>
+          <el-button link type="danger" size="small" :disabled="row.status === 'PROCESSING'" @click="removeRow(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -92,6 +112,14 @@
         <el-button type="primary" @click="submit">确定</el-button>
       </template>
     </el-dialog>
+
+    <DocApprovalDialog
+      v-model="approvalVisible"
+      :doc="approvalDoc"
+      :doc-key="props.docKey"
+      :ctx="approvalCtx"
+      @act="onApprovalAct"
+    />
   </div>
 </template>
 
@@ -99,8 +127,11 @@
 /**
  * 固定资产单据列表（统一单据面板）
  *
- * 方向：五类单据（入库/派发/退库/借出/调拨/维修/变更/处置）共用这一套面板，
+ * 方向：八类单据（入库/派发/退库/借出/调拨/维修/变更/处置）共用这一套面板，
  * 数据统一落在 doc-lists-* 集合，状态存 DOC_STATUS 编码，单号字段为 code。
+ *
+ * 审批：完全按「系统管理 → 流程配置」执行——流程按业务类型匹配，
+ * 环节审批人引用系统角色（持有该角色的启用用户才能审），环节可带触发条件。
  */
 import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -111,7 +142,14 @@ import { optionsOf, labelOf } from '../../constants/enums'
 import { formatDateTime } from '../../utils/format'
 import { genDocNo } from '../../utils/docNo'
 import { useOrgStore } from '../../store/org'
+import { useUserStore } from '../../store/user'
+import { useApprovalStore } from '../../store/approval'
 import { useFixedAssetStore } from '../../store/fixedAsset'
+import DocApprovalDialog from './DocApprovalDialog.vue'
+import {
+  DOC_BIZ_TYPE, getFlow, effectiveSteps, approvalsOf, currentStep,
+  canSubmit, canApprove, runApproval
+} from '../../services/approval'
 
 const props = defineProps({
   /** 单据类型：inbound / alloc / back / borrow / transfer / repair / change / dispose */
@@ -121,9 +159,10 @@ const props = defineProps({
   /** 是否允许新增（按钮级权限） */
   perm: { type: Boolean, default: true }
 })
-defineEmits(['view-approval'])
 
 const orgStore = useOrgStore()
+const userStore = useUserStore()
+const approvalStore = useApprovalStore()
 const assetStore = useFixedAssetStore()
 const col = useCollection(`${COLLECTION.docLists}-${props.docKey}`)
 const items = col.items
@@ -168,6 +207,7 @@ const dialogMode = ref('add')
 const form = reactive({ id: '', name: '', companyId: '', assetId: '', remark: '' })
 
 function openDialog(row) {
+  if (row && row.status === 'PROCESSING') { ElMessage.warning('单据审批中，不可修改'); return }
   dialogMode.value = row ? 'edit' : 'add'
   Object.assign(form, row
     ? { id: row.id, name: row.name || '', companyId: row.companyId || '', assetId: row.assetId || '', remark: row.remark || '' }
@@ -197,6 +237,7 @@ async function submit() {
         companyId: form.companyId,
         assetId: form.assetId,
         code: nextCode(),
+        creatorId: userStore.user?.id || '',
         createTime: new Date().toISOString(),
         finishTime: '',
         remark: form.remark,
@@ -212,6 +253,7 @@ async function submit() {
 }
 
 async function removeRow(row) {
+  if (row.status === 'PROCESSING') { ElMessage.warning('单据审批中，不可删除'); return }
   try {
     await ElMessageBox.confirm(`确认删除单据"${row.code}"？`, '删除确认', { type: 'warning' })
   } catch (e) {
@@ -225,11 +267,119 @@ async function removeRow(row) {
   }
 }
 
+// ---------------- 审批 ----------------
+const bizType = computed(() => DOC_BIZ_TYPE[props.docKey] || props.docKey.toUpperCase())
+
+/** 条件上下文：金额取关联资产原值（金额门槛环节据此生效） */
+function ctxOf(doc) {
+  const asset = assetStore.assets.find(a => a.id === doc?.assetId)
+  return { amount: Number(asset?.original || doc?.amount || 0), hasDiff: false }
+}
+
+function flowOf(doc) {
+  return getFlow(bizType.value, approvalStore.flows)
+}
+function currentOf(doc) {
+  const flow = flowOf(doc)
+  if (!flow) return null
+  const steps = effectiveSteps(flow, ctxOf(doc))
+  const records = approvalsOf(approvalStore.approvals, props.docKey, doc?.id)
+  return currentStep(steps, records, orgStore)
+}
+
+function canSubmitRow(doc) {
+  const flow = flowOf(doc)
+  if (!flow) return false
+  if (doc.status !== 'DRAFT' && doc.status !== 'REJECTED') return false
+  return canSubmit(doc, flow, userStore.user, orgStore)
+}
+function canApproveRow(doc) {
+  if (doc.status !== 'PROCESSING') return false
+  const cur = currentOf(doc)
+  if (!cur) return false
+  return canApprove(cur.step, userStore.user, orgStore)
+}
+function canRevokeRow(doc) {
+  const flow = flowOf(doc)
+  if (!flow || doc.status !== 'PROCESSING') return false
+  return canSubmit(doc, flow, userStore.user, orgStore)
+}
+
+/** 执行审批动作 */
+async function doApproval(doc, action, comment = '') {
+  if (!approvalStore.loaded) await approvalStore.load()
+  const flow = flowOf(doc)
+  const res = await runApproval({
+    doc,
+    docKey: props.docKey,
+    bizType: bizType.value,
+    action,
+    comment,
+    ctx: ctxOf(doc),
+    flows: approvalStore.flows,
+    approvals: approvalStore.approvals,
+    saveDoc: async next => {
+      const target = items.value.find(d => d.id === doc.id)
+      if (target) {
+        Object.assign(target, next)
+        await col.update(target)
+      }
+    },
+    saveApproval: row => approvalStore.addApproval(row)
+  })
+  if (res.ok) ElMessage.success(res.message)
+  else ElMessage.error(res.message)
+  return res
+}
+
+async function submitRow(doc) {
+  await doApproval(doc, 'submit', '提交审批申请')
+}
+async function approveRow(doc) {
+  await doApproval(doc, 'approve', '同意')
+}
+async function rejectRow(doc) {
+  try {
+    const { value } = await ElMessageBox.prompt('请填写驳回意见', '驳回审批', {
+      inputValidator: v => (v && v.trim() ? true : '驳回必须填写意见')
+    })
+    await doApproval(doc, 'reject', value.trim())
+  } catch (e) {
+    // 取消
+  }
+}
+async function revokeRow(doc) {
+  try {
+    await ElMessageBox.confirm('确认撤销该单据的审批申请？', '撤销审批', { type: 'warning' })
+  } catch (e) {
+    return
+  }
+  await doApproval(doc, 'revoke', '发起人撤销')
+}
+
+const approvalVisible = ref(false)
+const approvalDoc = ref(null)
+const approvalCtx = ref({ amount: 0, hasDiff: false })
+
+function openApproval(row) {
+  approvalDoc.value = row
+  approvalCtx.value = ctxOf(row)
+  approvalVisible.value = true
+}
+
+async function onApprovalAct({ action, comment }) {
+  const res = await doApproval(approvalDoc.value, action, comment)
+  if (res.ok) approvalVisible.value = false
+}
+
 // 其他入口（如盘点审批转处置）新增单据后，通知本面板刷新
 function onDocsChanged(e) {
   if (e?.detail === props.docKey) col.load()
 }
-onMounted(() => window.addEventListener('fams:doc-lists-changed', onDocsChanged))
+onMounted(() => {
+  window.addEventListener('fams:doc-lists-changed', onDocsChanged)
+  approvalStore.load()
+})
 onUnmounted(() => window.removeEventListener('fams:doc-lists-changed', onDocsChanged))
 </script>
 

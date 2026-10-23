@@ -43,13 +43,123 @@ const SEED_PARAMS = [
 ]
 
 // ---------------------------------------------------------------- 工作流程（全局审批流，模块只引用不另存）
+// 约定：
+// - initiatorRoleId / approverRoleId 引用「系统管理 → 组织架构 → 角色」的角色 id：审批权由角色派生，
+//   持有该角色的**启用**用户即为该环节审批人；
+// - mode 存 APPROVE_MODE 编码（ANY 或签 / SEQUENCE 依次 / ALL 会签）；
+// - conditionType 存 APPROVE_CONDITION 编码（NONE / AMOUNT_GT / HAS_DIFF），conditionValue 为阈值；
+// - approver / condition 为冗余展示文案（兼容旧数据与只读场景），不参与判定。
+const STEP = (key, name, roleId, roleName, mode = 'ANY', conditionType = 'NONE', conditionValue = 0) => ({
+  key,
+  name,
+  approverRoleId: roleId,
+  approver: roleName,
+  mode,
+  conditionType,
+  conditionValue,
+  condition: conditionType === 'AMOUNT_GT'
+    ? `单据金额大于 ${conditionValue} 元`
+    : (conditionType === 'HAS_DIFF' ? '存在盘点差异' : '无条件')
+})
+
+// 角色速查：R1 系统管理员 / R2 资产管理员 / R3 资产使用人 / R4 财务管理员
+//          R5 部门主管 / R6 审计员 / R7 分管副总 / R8 仓管员
 const SEED_FLOWS = [
-  { id: 'WF1', code: 'FLOW_DISPOSE', name: '资产处置流程', bizType: 'DISPOSE', initiator: '资产管理员', enabled: true, ...AUDIT('2026-01-06T12:00:00', '2026-09-12T14:30:21'), steps: [{ key: 's1', name: '部门负责人审批', approver: '部门负责人', mode: 'ANY', amountLimit: 0, condition: '' }, { key: 's2', name: '财务复核', approver: '财务经理', mode: 'SEQUENCE', amountLimit: 50000, condition: '原值大于5万' }, { key: 's3', name: '分管领导审批', approver: '分管副总', mode: 'ALL', amountLimit: 200000, condition: '原值大于20万' }] },
-  { id: 'WF2', code: 'FLOW_CHANGE', name: '资产变更流程', bizType: 'CHANGE', initiator: '资产使用人', enabled: true, ...AUDIT('2026-01-06T12:05:00', '2026-09-10T11:05:33'), steps: [{ key: 's1', name: '调出部门审批', approver: '部门负责人', mode: 'ANY', amountLimit: 0, condition: '' }, { key: 's2', name: '资产管理员确认', approver: '资产管理员', mode: 'SEQUENCE', amountLimit: 0, condition: '' }] },
-  { id: 'WF3', code: 'FLOW_DISPATCH', name: '资产派发流程', bizType: 'DISPATCH', initiator: '资产管理员', enabled: true, ...AUDIT('2026-01-06T12:10:00', '2026-09-08T16:41:02'), steps: [{ key: 's1', name: '使用部门确认', approver: '部门负责人', mode: 'ANY', amountLimit: 0, condition: '' }] },
-  { id: 'WF4', code: 'FLOW_BORROW', name: '资产借出流程', bizType: 'BORROW', initiator: '资产使用人', enabled: true, ...AUDIT('2026-01-06T12:15:00', '2026-09-07T10:22:45'), steps: [{ key: 's1', name: '资产管理员审核', approver: '资产管理员', mode: 'ANY', amountLimit: 0, condition: '' }] },
-  { id: 'WF5', code: 'FLOW_INVENTORY', name: '资产盘点流程', bizType: 'INVENTORY', initiator: '资产管理员', enabled: false, ...AUDIT('2026-01-06T12:20:00', '2026-09-06T08:41:57'), steps: [{ key: 's1', name: '盘点差异复核', approver: '资产管理员', mode: 'ANY', amountLimit: 0, condition: '存在盘盈盘亏' }] },
-  { id: 'WF6', code: 'FLOW_LV_REQUISITION', name: '低值领用流程', bizType: 'REQUISITION', initiator: '申请人', enabled: true, ...AUDIT('2026-01-06T12:25:00', '2026-09-05T15:38:27'), steps: [{ key: 's1', name: '部门负责人审批', approver: '部门负责人', mode: 'ANY', amountLimit: 0, condition: '' }, { key: 's2', name: '出库确认', approver: '仓管员', mode: 'SEQUENCE', amountLimit: 0, condition: '' }] }
+  {
+    id: 'WF1', code: 'FLOW_INBOUND', name: '资产入库验收流程', bizType: 'INBOUND',
+    initiator: '资产管理员', initiatorRoleId: 'R2', enabled: true,
+    ...AUDIT('2026-01-06T12:00:00', '2026-10-22T09:10:00'),
+    steps: [
+      STEP('s1', '仓管验收', 'R8', '仓管员', 'ANY'),
+      STEP('s2', '资产管理员复核', 'R2', '资产管理员', 'SEQUENCE')
+    ]
+  },
+  {
+    id: 'WF2', code: 'FLOW_DISPATCH', name: '资产派发流程', bizType: 'DISPATCH',
+    initiator: '资产管理员', initiatorRoleId: 'R2', enabled: true,
+    ...AUDIT('2026-01-06T12:05:00', '2026-10-22T09:10:00'),
+    steps: [
+      STEP('s1', '使用部门确认', 'R5', '部门主管', 'ANY'),
+      STEP('s2', '资产管理员登记', 'R2', '资产管理员', 'SEQUENCE')
+    ]
+  },
+  {
+    id: 'WF3', code: 'FLOW_RETURN', name: '资产退库流程', bizType: 'RETURN',
+    initiator: '资产使用人', initiatorRoleId: 'R3', enabled: true,
+    ...AUDIT('2026-01-06T12:10:00', '2026-10-22T09:10:00'),
+    steps: [
+      STEP('s1', '部门主管确认', 'R5', '部门主管', 'ANY'),
+      STEP('s2', '仓管员验收入库', 'R8', '仓管员', 'SEQUENCE')
+    ]
+  },
+  {
+    id: 'WF4', code: 'FLOW_BORROW', name: '资产借出流程', bizType: 'BORROW',
+    initiator: '资产使用人', initiatorRoleId: 'R3', enabled: true,
+    ...AUDIT('2026-01-06T12:15:00', '2026-10-22T09:10:00'),
+    steps: [
+      STEP('s1', '部门主管审批', 'R5', '部门主管', 'ANY'),
+      STEP('s2', '资产管理员审核', 'R2', '资产管理员', 'SEQUENCE')
+    ]
+  },
+  {
+    id: 'WF5', code: 'FLOW_TRANSFER', name: '资产调拨流程', bizType: 'TRANSFER',
+    initiator: '资产管理员', initiatorRoleId: 'R2', enabled: true,
+    ...AUDIT('2026-01-06T12:20:00', '2026-10-22T09:10:00'),
+    steps: [
+      STEP('s1', '调出部门主管审批', 'R5', '部门主管', 'ANY'),
+      STEP('s2', '资产管理员办理调拨', 'R2', '资产管理员', 'SEQUENCE'),
+      STEP('s3', '大额调拨分管副总审批', 'R7', '分管副总', 'ANY', 'AMOUNT_GT', 200000)
+    ]
+  },
+  {
+    id: 'WF6', code: 'FLOW_REPAIR', name: '资产维修流程', bizType: 'REPAIR',
+    initiator: '资产使用人', initiatorRoleId: 'R3', enabled: true,
+    ...AUDIT('2026-01-06T12:25:00', '2026-10-22T09:10:00'),
+    steps: [
+      STEP('s1', '部门主管审批', 'R5', '部门主管', 'ANY'),
+      STEP('s2', '资产管理员审核', 'R2', '资产管理员', 'SEQUENCE'),
+      STEP('s3', '大额维修分管副总审批', 'R7', '分管副总', 'ANY', 'AMOUNT_GT', 50000)
+    ]
+  },
+  {
+    id: 'WF7', code: 'FLOW_CHANGE', name: '资产变更流程', bizType: 'CHANGE',
+    initiator: '资产使用人', initiatorRoleId: 'R3', enabled: true,
+    ...AUDIT('2026-01-06T12:30:00', '2026-10-22T09:10:00'),
+    steps: [
+      STEP('s1', '调出部门主管审批', 'R5', '部门主管', 'ANY'),
+      STEP('s2', '资产管理员确认', 'R2', '资产管理员', 'SEQUENCE')
+    ]
+  },
+  {
+    id: 'WF8', code: 'FLOW_DISPOSE', name: '资产处置流程', bizType: 'DISPOSE',
+    initiator: '资产管理员', initiatorRoleId: 'R2', enabled: true,
+    ...AUDIT('2026-01-06T12:35:00', '2026-10-22T09:10:00'),
+    steps: [
+      STEP('s1', '部门主管审批', 'R5', '部门主管', 'ANY'),
+      STEP('s2', '财务管理员复核', 'R4', '财务管理员', 'ANY', 'AMOUNT_GT', 50000),
+      STEP('s3', '分管副总审批', 'R7', '分管副总', 'ALL', 'AMOUNT_GT', 200000),
+      STEP('s4', '审计员备案', 'R6', '审计员', 'ANY', 'AMOUNT_GT', 200000)
+    ]
+  },
+  {
+    id: 'WF9', code: 'FLOW_INVENTORY', name: '资产盘点流程', bizType: 'INVENTORY',
+    initiator: '资产管理员', initiatorRoleId: 'R2', enabled: true,
+    ...AUDIT('2026-01-06T12:40:00', '2026-10-22T09:10:00'),
+    steps: [
+      STEP('s1', '盘点结果确认', 'R2', '资产管理员', 'ANY'),
+      STEP('s2', '盘点差异复核', 'R2', '资产管理员', 'ANY', 'HAS_DIFF'),
+      STEP('s3', '审计抽查确认', 'R6', '审计员', 'ANY', 'HAS_DIFF')
+    ]
+  },
+  {
+    id: 'WF10', code: 'FLOW_LV_REQUISITION', name: '低值资产领用流程', bizType: 'REQUISITION',
+    initiator: '资产使用人', initiatorRoleId: 'R3', enabled: true,
+    ...AUDIT('2026-01-06T12:45:00', '2026-10-22T09:10:00'),
+    steps: [
+      STEP('s1', '部门主管审批', 'R5', '部门主管', 'ANY'),
+      STEP('s2', '仓管员出库确认', 'R8', '仓管员', 'SEQUENCE')
+    ]
+  }
 ]
 
 // ---------------------------------------------------------------- 盘点终端

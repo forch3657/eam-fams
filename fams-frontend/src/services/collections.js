@@ -6,6 +6,7 @@ export const COLLECTION = {
   depreciationSchemes: 'fixed-asset-depreciation-schemes',
   depreciationReports: 'fixed-asset-depreciation-reports',
   docLists: 'fixed-asset-doc-lists',
+  docApprovals: 'fixed-asset-doc-approvals',
   settingsLocations: 'fixed-asset-settings-locations',
   settingsLocationOptions: 'fixed-asset-settings-location-options',
   settingsCategories: 'fixed-asset-settings-categories',

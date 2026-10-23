@@ -150,13 +150,15 @@ export const CALC_TIME = {
   YEARLY: '按年计提'
 }
 
-/** 审批适用业务 */
+/** 审批适用业务（与「系统管理 → 流程配置」的业务类型一一对应） */
 export const BUSINESS_TYPE = {
   INBOUND: '入库',
   REQUISITION: '领用',
   RETURN: '退库',
   DISPATCH: '派发',
   BORROW: '借出',
+  TRANSFER: '调拨',
+  REPAIR: '维修',
   DISPOSE: '处置',
   INVENTORY: '盘点',
   CHANGE: '变更'
@@ -167,6 +169,21 @@ export const APPROVE_MODE = {
   ANY: '或签',
   SEQUENCE: '依次',
   ALL: '会签'
+}
+
+/** 审批环节触发条件（决定该环节在单据上是否生效） */
+export const APPROVE_CONDITION = {
+  NONE: '无条件',
+  AMOUNT_GT: '单据金额大于',
+  HAS_DIFF: '存在盘点差异'
+}
+
+/** 审批动作结果 */
+export const APPROVE_RESULT = {
+  SUBMIT: '提交',
+  AGREE: '通过',
+  REJECT: '驳回',
+  REVOKE: '撤销'
 }
 
 /** 盘点终端状态 */
@@ -246,6 +263,8 @@ export const ENUMS = {
   CALC_TIME,
   BUSINESS_TYPE,
   APPROVE_MODE,
+  APPROVE_CONDITION,
+  APPROVE_RESULT,
   DEVICE_STATUS,
   DEVICE_TYPE,
   DEVICE_ABNORMAL_TYPE,
@@ -284,6 +303,8 @@ export const ENUM_DICT_META = [
   { enumName: 'CALC_TIME', code: 'calc_time', name: '计提频率' },
   { enumName: 'BUSINESS_TYPE', code: 'business_type', name: '审批业务' },
   { enumName: 'APPROVE_MODE', code: 'approve_mode', name: '审批模式' },
+  { enumName: 'APPROVE_CONDITION', code: 'approve_condition', name: '审批触发条件' },
+  { enumName: 'APPROVE_RESULT', code: 'approve_result', name: '审批动作结果' },
   { enumName: 'MESSAGE_LEVEL', code: 'message_level', name: '消息级别' },
   { enumName: 'DEVICE_STATUS', code: 'device_status', name: '盘点终端状态' },
   { enumName: 'DEVICE_TYPE', code: 'device_type', name: '盘点终端类型' },

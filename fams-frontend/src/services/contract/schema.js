@@ -109,6 +109,7 @@ const INVENTORY_DOCS = {
     name: f.str({ required: true }),
     companyId: f.ref('org-companies'),
     applicant: f.str(),
+    creatorId: f.ref('org-users'),
     scope: f.str(),
     assetTypes: f.arr(),
     createTime: f.date(),
@@ -578,11 +579,41 @@ const SYSTEM_FLOWS = {
     name: f.str({ required: true }),
     bizType: f.enum('BUSINESS_TYPE', { required: true }),
     initiator: f.str(),
+    initiatorRoleId: f.ref('org-roles'),
     enabled: f.bool(),
     steps: f.arr()
   },
   query: { keyword: ['name', 'code'], filters: ['bizType', 'enabled'], sort: ['code'], page: true },
   rules: { unique: ['code'] }
+}
+
+/**
+ * 审批记录（审批轨迹）
+ * 一条记录 = 单据在某个环节上的一次动作（提交/通过/驳回/撤销）
+ */
+const DOC_APPROVALS = {
+  key: 'fixed-asset-doc-approvals',
+  label: '审批记录',
+  idField: 'id',
+  audit: true,
+  fields: {
+    docKey: f.str({ required: true }),
+    docId: f.str({ required: true }),
+    docCode: f.str(),
+    bizType: f.enum('BUSINESS_TYPE', { required: true }),
+    flowId: f.ref('system-workflow-flows'),
+    flowCode: f.str(),
+    stepKey: f.str(),
+    stepName: f.str(),
+    result: f.enum('APPROVE_RESULT', { required: true }),
+    comment: f.str(),
+    approverId: f.ref('org-users'),
+    approverName: f.str(),
+    approverRoleName: f.str(),
+    time: f.date()
+  },
+  query: { keyword: ['docCode', 'approverName', 'stepName'], filters: ['docKey', 'bizType', 'result', 'approverId'], sort: ['time'], page: true },
+  rules: { refs: [{ field: 'approverId', collection: 'org-users' }] }
 }
 
 const SYSTEM_DEVICES = {
@@ -701,7 +732,7 @@ const CONTRACT_LIST = [
   LOW_VALUE_ITEMS, LOW_VALUE_INBOUND, LOW_VALUE_REQUISITION, LOW_VALUE_RETURN,
   LOW_VALUE_CATEGORIES, LOW_VALUE_LOCATIONS,
   ORG_COMPANIES, ORG_DEPARTMENTS, ORG_USERS, ORG_ROLES,
-  SYSTEM_DICT_TYPES, SYSTEM_PARAMS, SYSTEM_FLOWS,
+  SYSTEM_DICT_TYPES, SYSTEM_PARAMS, SYSTEM_FLOWS, DOC_APPROVALS,
   SYSTEM_DEVICES, SYSTEM_DEVICE_ABNORMAL,
   NOTIFY_MESSAGES, NOTIFY_TEMPLATES, OPERATION_LOGS
 ]
@@ -737,6 +768,7 @@ export const CONTRACT_PATTERNS = [
           name: f.str({ required: true }),
           companyId: f.ref('org-companies'),
           assetId: f.ref('fixed-assets'),
+          creatorId: f.ref('org-users'),
           createTime: f.date(),
           finishTime: f.date(),
           remark: f.str(),
