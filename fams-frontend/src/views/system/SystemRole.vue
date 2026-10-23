@@ -37,7 +37,9 @@
         <el-table-column prop="dataScope" label="数据范围" width="140" />
         <el-table-column label="关联用户" width="100" align="center">
           <template #default="{ row }">
-            <span class="num">{{ orgStore.roleUserCount.get(row.id) || 0 }}</span> 人
+            <el-link type="primary" :underline="false" @click="gotoUsers(row)">
+              {{ orgStore.roleUserCount.get(row.id) || 0 }} 人
+            </el-link>
           </template>
         </el-table-column>
         <el-table-column label="权限数" width="90" align="center">
@@ -141,11 +143,18 @@
 import { ref, reactive, computed, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
 import { useOrgStore } from '../../store/org'
 import { labelOf, optionsOf } from '../../constants/enums'
 import { PERMISSION_TREE } from '../../config/permissions'
 
 const orgStore = useOrgStore()
+const router = useRouter()
+
+/** 从角色跳到用户管理并按该角色筛选，便于确认"这个审批角色由谁承担" */
+function gotoUsers(row) {
+  router.push({ path: '/system/user', query: { roleId: row.id } })
+}
 
 const orgScopeOptions = computed(() => optionsOf('ORG_SCOPE'))
 const dataScopeOptions = computed(() => optionsOf('DATA_SCOPE'))

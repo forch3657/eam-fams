@@ -151,17 +151,29 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, nextTick, watch } from 'vue'
+import { ref, reactive, computed, nextTick, watch, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search } from '@element-plus/icons-vue'
+import { useRoute } from 'vue-router'
 import { useOrgStore } from '../../store/org'
 import { labelOf } from '../../constants/enums'
 
 const orgStore = useOrgStore()
+const route = useRoute()
 
 const query = reactive({ keyword: '', companyId: '', deptId: '', roleId: '', status: '' })
 const page = ref(1)
-const pageSize = ref(15)
+/** 默认 20 条：演示账号共 19 个，一页即可看全，避免"账号不存在"的误判 */
+const pageSize = ref(20)
+
+/** 支持从角色管理带 roleId 跳进来，自动按该角色筛选出承担审批的人 */
+onMounted(() => {
+  const roleId = route.query.roleId
+  if (roleId) {
+    query.roleId = String(roleId)
+    page.value = 1
+  }
+})
 
 const filteredList = computed(() => {
   const kw = query.keyword.trim()
