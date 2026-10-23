@@ -14,7 +14,7 @@
       <el-tabs v-model="activeTab">
         <!-- 类别统计 -->
         <el-tab-pane label="类别统计" name="category">
-          <div class="grid-4 stat-cards">
+          <div class="grid-auto stat-cards">
             <el-card shadow="hover" class="stat-card">
               <div class="stat-name">物品种类</div>
               <div class="stat-value"><span class="num">{{ store.stats.total }}</span> <span class="stat-unit">种</span></div>
@@ -38,7 +38,15 @@
             <el-card shadow="hover" class="stat-card">
               <div class="stat-name">累计领用金额</div>
               <div class="stat-value"><span class="num">¥{{ store.stats.requisitionAmount.toLocaleString() }}</span></div>
-              <div class="stat-amount num">领用 {{ store.stats.requisitionQuantity }} 件</div>
+              <div class="stat-amount num">
+                领用 {{ store.stats.requisitionQuantity }} 件
+                <span v-if="store.stats.requisitionPendingQuantity > 0">（审批中 {{ store.stats.requisitionPendingQuantity }} 件未计入）</span>
+              </div>
+            </el-card>
+            <el-card shadow="hover" class="stat-card">
+              <div class="stat-name">审批占用</div>
+              <div class="stat-value"><span class="num">{{ store.stats.reservedQuantityTotal }}</span> <span class="stat-unit">件</span></div>
+              <div class="stat-amount num">审批中领用单占用，不计入可用库存</div>
             </el-card>
           </div>
 

@@ -12,7 +12,7 @@
 import { ApiError, ERROR_CODES } from '../errors'
 import { getContract, idFieldOf, validateSeed, assertValid } from '../contract'
 import { applyQuery, paginate } from './query'
-import { checkUnique, checkRefs, checkProtect, applyStock, checkReturnLimit, primaryOf } from './rules'
+import { checkUnique, checkRefs, checkProtect, applyStock, applyStockOnStatusChange, releaseStock, checkReturnLimit, primaryOf } from './rules'
 
 const db = new Map()
 const seeds = new Map()
@@ -20,8 +20,8 @@ let seq = 0
 let hydrated = false
 let persistTimer = null
 
-// 数据模型升级后与旧结构不兼容，存储键升到 v7（旧键 v1~v6 自动失效并按最新种子重建）
-const STORAGE_KEY = 'fams-mock-db-v7'
+// 数据模型升级后与旧结构不兼容，存储键升到 v8（旧键 v1~v7 自动失效并按最新种子重建）
+const STORAGE_KEY = 'fams-mock-db-v8'
 
 // 可通过环境变量模拟网络延迟与随机故障，演练 loading 与错误分支
 const LATENCY = Number(import.meta.env.VITE_MOCK_LATENCY ?? 0) || 0
@@ -189,7 +189,15 @@ export const mockService = {
     checkUnique(ctx, key, contract, record)
     checkRefs(ctx, contract, record)
     if (contract?.key === 'low-value-return') checkReturnLimit(ctx, contract, record)
-    applyStock(ctx, contract, record, 'create')
+    // 库存联动：按单据状态决定何时结算
+    // - 无 settleOn 的旧契约：创建即生效
+    // - 有 settleOn：只有直接以"已完结"状态创建时才结算（如入库单）
+    // - 草稿 / 审批中不动物品，等审批通过后再结算
+    const stockRule = contract?.rules?.stock
+    if (stockRule) {
+      if (!stockRule.settleOn) applyStock(ctx, contract, record, 'create')
+      else if (record.status === stockRule.settleOn) applyStock(ctx, contract, record, 'create')
+    }
 
     stampCreate(record, contract)
     const rows = ensure(key)
@@ -208,11 +216,24 @@ export const mockService = {
     const idx = locate(rows, id, contract)
     if (idx === -1) throw new ApiError(ERROR_CODES.NOT_FOUND, '数据不存在')
 
-    const next = { ...rows[idx], ...clone(patch) }
+    const previous = rows[idx]
+    const next = { ...previous, ...clone(patch) }
     assertValid(contract, next, { partial: true })
 
     checkUnique(ctx, key, contract, next, primaryOf(key, rows[idx]))
     checkRefs(ctx, contract, next)
+    // 退库额度校验：提交（审批中）与生效（已完结）时都要校验可退额度
+    if (contract?.key === 'low-value-return') checkReturnLimit(ctx, contract, next)
+
+    // 状态迁移驱动的库存结算（草稿 → 审批中 → 已完结）
+    const stockRule = contract?.rules?.stock
+    if (stockRule?.settleOn) {
+      const qtyField = stockRule.qtyField
+      if (previous.status === stockRule.settleOn && Number(next[qtyField] || 0) !== Number(previous[qtyField] || 0)) {
+        throw new ApiError(ERROR_CODES.CONFLICT, '单据已生效，不能修改数量')
+      }
+      applyStockOnStatusChange(ctx, contract, previous, next)
+    }
 
     stampUpdate(next, contract)
     rows[idx] = next
@@ -230,8 +251,15 @@ export const mockService = {
     const target = rows[idx]
     // 删除保护（引用/子级/库存）优先于库存回退
     checkProtect(ctx, key, contract, primaryOf(key, target))
-    // 单据删除时反向回退库存
-    if (contract?.rules?.stock) applyStock(ctx, contract, target, 'delete')
+    // 单据删除时按状态反向回退：已结算的退回库存，审批中的释放预占，草稿无影响
+    const stockRule = contract?.rules?.stock
+    if (stockRule) {
+      if (!stockRule.settleOn || target.status === stockRule.settleOn) {
+        applyStock(ctx, contract, target, 'delete')
+      } else if (stockRule.reserveOn && target.status === stockRule.reserveOn) {
+        releaseStock(ctx, contract, target)
+      }
+    }
 
     rows.splice(idx, 1)
     persist()

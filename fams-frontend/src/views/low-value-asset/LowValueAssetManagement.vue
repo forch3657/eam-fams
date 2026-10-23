@@ -68,6 +68,14 @@
               </template>
             </el-table-column>
             <el-table-column prop="safetyStock" label="安全库存" width="100" align="right" />
+            <el-table-column prop="reservedQty" label="审批占用" width="100" align="right">
+              <template #default="{ row }">{{ row.reservedQty }}</template>
+            </el-table-column>
+            <el-table-column prop="availableQty" label="可用数量" width="100" align="right">
+              <template #default="{ row }">
+                <span class="num" :class="{ 'stock-warn': row.availableQty <= row.safetyStock }">{{ row.availableQty }}</span>
+              </template>
+            </el-table-column>
             <el-table-column prop="location" label="存放位置" width="140" show-overflow-tooltip />
             <el-table-column prop="statusText" label="状态" width="90" />
             <el-table-column label="操作" width="150" fixed="right">
@@ -189,6 +197,20 @@
             <el-table-column prop="requisitionDate" label="领用日期" width="120" />
             <el-table-column prop="purpose" label="用途" min-width="160" show-overflow-tooltip />
             <el-table-column prop="operator" label="经办人" width="100" />
+            <el-table-column label="单据状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="docStatusType(row.status)" size="small">{{ labelOf('DOC_STATUS', row.status) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="审批操作" width="190" fixed="right">
+              <template #default="{ row }">
+                <el-button v-if="canSubmitDoc(row, 'requisition')" link type="primary" size="small" @click="submitDoc(row, 'requisition')">提交</el-button>
+                <el-button v-if="canApproveDoc(row, 'requisition')" link type="success" size="small" @click="approveDoc(row, 'requisition')">通过</el-button>
+                <el-button v-if="canApproveDoc(row, 'requisition')" link type="danger" size="small" @click="rejectDoc(row, 'requisition')">驳回</el-button>
+                <el-button v-if="canRevokeDoc(row, 'requisition')" link type="warning" size="small" @click="revokeDoc(row, 'requisition')">撤销</el-button>
+                <el-button link type="primary" size="small" @click="openApproval(row, 'requisition')">审批信息</el-button>
+              </template>
+            </el-table-column>
           </el-table>
 
           <div class="pager">
@@ -244,6 +266,20 @@
             <el-table-column prop="returnDate" label="退库日期" width="120" />
             <el-table-column prop="reason" label="退库原因" min-width="180" show-overflow-tooltip />
             <el-table-column prop="operator" label="经办人" width="100" />
+            <el-table-column label="单据状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="docStatusType(row.status)" size="small">{{ labelOf('DOC_STATUS', row.status) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="审批操作" width="190" fixed="right">
+              <template #default="{ row }">
+                <el-button v-if="canSubmitDoc(row, 'return')" link type="primary" size="small" @click="submitDoc(row, 'return')">提交</el-button>
+                <el-button v-if="canApproveDoc(row, 'return')" link type="success" size="small" @click="approveDoc(row, 'return')">通过</el-button>
+                <el-button v-if="canApproveDoc(row, 'return')" link type="danger" size="small" @click="rejectDoc(row, 'return')">驳回</el-button>
+                <el-button v-if="canRevokeDoc(row, 'return')" link type="warning" size="small" @click="revokeDoc(row, 'return')">撤销</el-button>
+                <el-button link type="primary" size="small" @click="openApproval(row, 'return')">审批信息</el-button>
+              </template>
+            </el-table-column>
           </el-table>
 
           <div class="pager">
@@ -346,13 +382,16 @@
     <el-dialog v-model="requisitionDialog.visible" title="新增领用" width="560px">
       <el-form ref="requisitionFormRef" :model="requisitionDialog.form" :rules="docRules" label-width="100px">
         <el-form-item label="领用物品" prop="itemId">
-          <el-select v-model="requisitionDialog.form.itemId" placeholder="请选择物品" style="width: 100%">
-            <el-option v-for="i in store.items" :key="i.id" :label="`${i.name}（库存 ${i.stock}${i.unit || ''}）`" :value="i.id" />
+          <el-select v-model="requisitionDialog.form.itemId" placeholder="请选择物品" style="width: 100%" @change="onRequisitionItemChange">
+            <el-option v-for="i in store.items" :key="i.id" :label="`${i.name}（可用 ${store.availableStock(i.id)}${i.unit || ''}）`" :value="i.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="可领用">
-          <span class="num">{{ requisitionItem ? requisitionItem.stock : 0 }}</span>
+        <el-form-item label="可用量">
+          <span class="num">{{ requisitionItem ? store.availableStock(requisitionItem.id) : 0 }}</span>
           <span class="unit-text">{{ requisitionItem ? requisitionItem.unit : '' }}</span>
+          <span v-if="requisitionItem && store.reservedQuantity(requisitionItem.id) > 0" class="unit-text">
+            （其中 {{ store.reservedQuantity(requisitionItem.id) }} 已被审批中单据占用）
+          </span>
         </el-form-item>
         <el-form-item label="领用数量" prop="quantity">
           <el-input-number v-model="requisitionDialog.form.quantity" :min="1" :precision="0" :step="1" />
@@ -386,12 +425,15 @@
       <el-form ref="returnFormRef" :model="returnDialog.form" :rules="docRules" label-width="100px">
         <el-form-item label="退库物品" prop="itemId">
           <el-select v-model="returnDialog.form.itemId" placeholder="请选择物品" style="width: 100%">
-            <el-option v-for="i in store.items" :key="i.id" :label="`${i.name}（已领未退 ${issuedOf(i.id)}${i.unit || ''}）`" :value="i.id" />
+            <el-option v-for="i in store.items" :key="i.id" :label="`${i.name}（可退 ${store.returnableQuantity(i.id)}${i.unit || ''}）`" :value="i.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="可退数量">
-          <span class="num">{{ returnItem ? issuedOf(returnItem.id) : 0 }}</span>
+        <el-form-item label="可退额度">
+          <span class="num">{{ returnItem ? store.returnableQuantity(returnItem.id) : 0 }}</span>
           <span class="unit-text">{{ returnItem ? returnItem.unit : '' }}</span>
+          <span v-if="returnItem && store.pendingReturnQuantity(returnItem.id) > 0" class="unit-text">
+            （已领未退 {{ store.issuedQuantity(returnItem.id) }}，其中 {{ store.pendingReturnQuantity(returnItem.id) }} 已被审批中退库单占用）
+          </span>
         </el-form-item>
         <el-form-item label="退库数量" prop="quantity">
           <el-input-number v-model="returnDialog.form.quantity" :min="1" :precision="0" :step="1" />
@@ -419,21 +461,38 @@
         <el-button type="primary" @click="submitReturn">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 审批信息（领用/退库共用） -->
+    <DocApprovalDialog
+      v-model="approvalVisible"
+      :doc="approvalDoc"
+      :doc-key="approvalKind"
+      :biz-type="LV_BIZ[approvalKind]"
+      :ctx="approvalCtx"
+      @act="onApprovalAct"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, nextTick } from 'vue'
+import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Download } from '@element-plus/icons-vue'
 import { useLowValueAssetStore } from '../../store/lowValueAsset'
 import { useOrgStore } from '../../store/org'
 import { useUserStore } from '../../store/user'
+import { useApprovalStore } from '../../store/approval'
+import DocApprovalDialog from '../fixed-asset/DocApprovalDialog.vue'
 import { labelOf, optionsOf } from '../../constants/enums'
+import {
+  getFlow, effectiveSteps, approvalsOf, currentStep,
+  canSubmit, canApprove, runApproval
+} from '../../services/approval'
 
 const store = useLowValueAssetStore()
 const orgStore = useOrgStore()
 const userStore = useUserStore()
+const approvalStore = useApprovalStore()
 /** 权限判定：按钮级鉴权 */
 const can = code => userStore.can(code)
 
@@ -576,6 +635,124 @@ function resetReturnSearch() {
   returnPage.value = 1
 }
 
+// ---------- 审批（按「系统管理 → 流程配置」执行） ----------
+/** 低值单据类型 → 审批业务类型（低值退库与固定资产退库是两条不同的流程） */
+const LV_BIZ = { requisition: 'REQUISITION', return: 'LV_RETURN' }
+
+function docStatusType(status) {
+  return { DONE: 'success', PROCESSING: 'primary', DRAFT: 'warning', REJECTED: 'danger', REVOKED: 'info' }[status] || 'info'
+}
+
+/** 条件上下文：金额门槛类环节按单据金额判断 */
+function ctxOf(doc) {
+  return { amount: Number(doc?.amount || 0), hasDiff: false }
+}
+
+function flowOf(kind) {
+  return getFlow(LV_BIZ[kind], approvalStore.flows)
+}
+function currentOf(kind, doc) {
+  const flow = flowOf(kind)
+  if (!flow) return null
+  const steps = effectiveSteps(flow, ctxOf(doc))
+  const records = approvalsOf(approvalStore.approvals, kind, doc?.id)
+  return currentStep(steps, records, orgStore)
+}
+function canSubmitDoc(doc, kind) {
+  const flow = flowOf(kind)
+  if (!flow) return false
+  if (doc.status !== 'DRAFT' && doc.status !== 'REJECTED') return false
+  return canSubmit(doc, flow, userStore.user, orgStore)
+}
+function canApproveDoc(doc, kind) {
+  if (doc.status !== 'PROCESSING') return false
+  const cur = currentOf(kind, doc)
+  if (!cur) return false
+  return canApprove(cur.step, userStore.user, orgStore)
+}
+function canRevokeDoc(doc, kind) {
+  const flow = flowOf(kind)
+  if (!flow || doc.status !== 'PROCESSING') return false
+  return canSubmit(doc, flow, userStore.user, orgStore)
+}
+
+/**
+ * 执行审批动作
+ * 状态迁移由引擎完成库存结算：审批中预占可用量、已完结扣减/回补、驳回撤销释放预占。
+ */
+async function runDocApproval(doc, kind, action, comment = '') {
+  if (!approvalStore.loaded) await approvalStore.load()
+  const res = await runApproval({
+    doc,
+    docKey: kind,
+    bizType: LV_BIZ[kind],
+    action,
+    comment,
+    ctx: ctxOf(doc),
+    flows: approvalStore.flows,
+    approvals: approvalStore.approvals,
+    saveDoc: async next => {
+      const patch = { ...next }
+      if (!patch.submitTime) patch.submitTime = new Date().toISOString()
+      if (patch.status === 'DONE' && !patch.settleTime) patch.settleTime = new Date().toISOString()
+      if (kind === 'return') await store.updateReturnDoc(doc.id, patch)
+      else await store.updateRequisitionDoc(doc.id, patch)
+    },
+    saveApproval: row => approvalStore.addApproval(row)
+  })
+  return res
+}
+
+async function submitDoc(row, kind) {
+  const res = await runDocApproval(row, kind, 'submit', '提交审批申请')
+  if (res.ok) ElMessage.success('已提交审批')
+  else ElMessage.error(res.message)
+}
+async function approveDoc(row, kind) {
+  const res = await runDocApproval(row, kind, 'approve', '同意')
+  if (res.ok) ElMessage.success('已通过')
+  else ElMessage.error(res.message)
+}
+async function rejectDoc(row, kind) {
+  try {
+    const { value } = await ElMessageBox.prompt('请填写驳回意见', '驳回审批', {
+      inputValidator: v => (v && v.trim() ? true : '驳回必须填写意见')
+    })
+    const res = await runDocApproval(row, kind, 'reject', value.trim())
+    if (res.ok) ElMessage.success('已驳回')
+    else ElMessage.error(res.message)
+  } catch (e) {
+    // 取消
+  }
+}
+async function revokeDoc(row, kind) {
+  try {
+    await ElMessageBox.confirm('确认撤销该单据的审批申请？', '撤销审批', { type: 'warning' })
+  } catch (e) {
+    return
+  }
+  const res = await runDocApproval(row, kind, 'revoke', '发起人撤销')
+  if (res.ok) ElMessage.success('已撤销')
+  else ElMessage.error(res.message)
+}
+
+const approvalVisible = ref(false)
+const approvalDoc = ref(null)
+const approvalKind = ref('requisition')
+const approvalCtx = computed(() => ctxOf(approvalDoc.value))
+
+function openApproval(row, kind) {
+  approvalDoc.value = row
+  approvalKind.value = kind
+  approvalVisible.value = true
+}
+
+async function onApprovalAct({ action, comment }) {
+  const res = await runDocApproval(approvalDoc.value, approvalKind.value, action, comment)
+  if (res.ok) approvalVisible.value = false
+  else ElMessage.error(res.message)
+}
+
 // ---------- 导出 ----------
 function downloadCsv(headers, rows, filename) {
   const csv = '\uFEFF' + [headers.join(','), ...rows.map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(','))].join('\n')
@@ -590,8 +767,8 @@ function downloadCsv(headers, rows, filename) {
 }
 
 function exportItems() {
-  const headers = ['物品编码', '物品类别', '物品名称', '规格型号', '单位', '物品单价(元)', '物品数量', '安全库存', '存放位置', '状态']
-  const rows = filteredItemList.value.map(i => [i.code, i.categoryName, i.name, i.spec, i.unit, i.price, i.stock, i.safetyStock, i.location, i.statusText])
+  const headers = ['物品编码', '物品类别', '物品名称', '规格型号', '单位', '物品单价(元)', '物品数量', '审批占用', '可用数量', '安全库存', '存放位置', '状态']
+  const rows = filteredItemList.value.map(i => [i.code, i.categoryName, i.name, i.spec, i.unit, i.price, i.stock, i.reservedQty, i.availableQty, i.safetyStock, i.location, i.statusText])
   downloadCsv(headers, rows, `导出_低值资产台账_${today()}.csv`)
 }
 
@@ -604,14 +781,14 @@ const DOC_EXPORT = {
   },
   requisition: {
     name: '低值资产领用',
-    headers: ['单据编号', '物品名称', '物品类别', '规格型号', '单位', '领用数量', '金额(元)', '领用人', '领用部门', '领用日期', '用途', '经办人'],
-    fields: r => [r.docNo, r.itemName, r.categoryName, r.spec, r.unit, r.quantity, r.amount, r.receiver, deptNameOf(r.deptId), r.requisitionDate, r.purpose, r.operator],
+    headers: ['单据编号', '物品名称', '物品类别', '规格型号', '单位', '领用数量', '金额(元)', '领用人', '领用部门', '领用日期', '用途', '经办人', '单据状态'],
+    fields: r => [r.docNo, r.itemName, r.categoryName, r.spec, r.unit, r.quantity, r.amount, r.receiver, deptNameOf(r.deptId), r.requisitionDate, r.purpose, r.operator, labelOf('DOC_STATUS', r.status)],
     list: () => filteredRequisitionList.value
   },
   return: {
     name: '低值资产退库',
-    headers: ['单据编号', '物品名称', '物品类别', '规格型号', '单位', '退库数量', '金额(元)', '退库人', '退库部门', '退库日期', '退库原因', '经办人'],
-    fields: r => [r.docNo, r.itemName, r.categoryName, r.spec, r.unit, r.quantity, r.amount, r.returner, deptNameOf(r.deptId), r.returnDate, r.reason, r.operator],
+    headers: ['单据编号', '物品名称', '物品类别', '规格型号', '单位', '退库数量', '金额(元)', '退库人', '退库部门', '退库日期', '退库原因', '经办人', '单据状态'],
+    fields: r => [r.docNo, r.itemName, r.categoryName, r.spec, r.unit, r.quantity, r.amount, r.returner, deptNameOf(r.deptId), r.returnDate, r.reason, r.operator, labelOf('DOC_STATUS', r.status)],
     list: () => filteredReturnList.value
   }
 }
@@ -712,11 +889,17 @@ function onInboundItemChange(itemId) {
   if (item) inboundDialog.form.price = item.price
 }
 
-/** 已领未退数量：领用总量 - 退库总量 */
+/** 已领未退数量（只算已生效单据，口径与 store 一致） */
 function issuedOf(itemId) {
-  const taken = store.requisitionRecords.filter(r => r.itemId === itemId).reduce((s, r) => s + (Number(r.quantity) || 0), 0)
-  const back = store.returnRecords.filter(r => r.itemId === itemId).reduce((s, r) => s + (Number(r.quantity) || 0), 0)
-  return Math.max(taken - back, 0)
+  return store.issuedQuantity(itemId)
+}
+
+/** 切换领用物品：数量上限跟随可用量 */
+function onRequisitionItemChange(itemId) {
+  const available = store.availableStock(itemId)
+  if (available > 0 && requisitionDialog.form.quantity > available) {
+    requisitionDialog.form.quantity = available
+  }
 }
 
 function openInboundDialog() {
@@ -753,9 +936,12 @@ async function submitRequisition() {
   const valid = await requisitionFormRef.value.validate().catch(() => false)
   if (!valid) return
   try {
-    await store.addRequisition(requisitionDialog.form)
-    ElMessage.success('领用成功，库存已扣减')
+    const row = await store.addRequisition(requisitionDialog.form)
     requisitionDialog.visible = false
+    // 新建后自动提交审批：库存不立即扣减，审批通过后才结算
+    const res = await runDocApproval(row, 'requisition', 'submit', '提交领用审批')
+    if (res.ok) ElMessage.success('领用单已提交审批，审批通过后扣减库存')
+    else ElMessage.warning(`领用单已保存为草稿：${res.message}`)
   } catch (e) {
     ElMessage.error(e.message || '领用失败')
   }
@@ -765,13 +951,20 @@ async function submitReturn() {
   const valid = await returnFormRef.value.validate().catch(() => false)
   if (!valid) return
   try {
-    await store.addReturn(returnDialog.form)
-    ElMessage.success('退库成功，库存已回补')
+    const row = await store.addReturn(returnDialog.form)
     returnDialog.visible = false
+    // 新建后自动提交审批：库存不立即回补，审批通过后才结算
+    const res = await runDocApproval(row, 'return', 'submit', '提交退库审批')
+    if (res.ok) ElMessage.success('退库单已提交审批，审批通过后回补库存')
+    else ElMessage.warning(`退库单已保存为草稿：${res.message}`)
   } catch (e) {
     ElMessage.error(e.message || '退库失败')
   }
 }
+
+onMounted(() => {
+  approvalStore.load()
+})
 </script>
 
 <style scoped>

@@ -312,6 +312,8 @@ const LOW_VALUE_ITEMS = {
     unit: f.str(),
     price: f.num(),
     stock: f.num(),
+    // reserved：审批中领用单占用的数量（在库数不变，但不可再被领用）
+    reserved: f.num(),
     safetyStock: f.num(),
     location: f.str(),
     status: f.enum('LOW_VALUE_ITEM_STATUS', { required: true })
@@ -325,11 +327,24 @@ const LOW_VALUE_ITEMS = {
       { collection: 'low-value-inbound', field: 'itemId', message: '该物品已产生入库单据，不能删除' },
       { collection: 'low-value-requisition', field: 'itemId', message: '该物品已产生领用单据，不能删除' }
     ],
-    stockGuard: { field: 'stock', message: '该物品仍有库存，不能删除' }
+    stockGuard: [
+      { field: 'stock', message: '该物品仍有库存，不能删除' },
+      { field: 'reserved', message: '该物品有审批中的单据占用，不能删除' }
+    ]
   }
 }
 
-function lowValueDoc(key, label, effect, extra = {}) {
+/**
+ * 低值单据（入库 / 领用 / 退库）通用契约
+ *
+ * 库存语义（与审批联动的核心）：
+ * - 单据 status 决定库存何时生效：
+ *   DRAFT（草稿）不动物品 → PROCESSING（审批中）按需预占 → DONE（已完结）才真正结算库存；
+ *   REJECTED / REVOKED 释放预占。
+ * - 领用单（出库）在审批中会占用"可用量"（stock - reserved），避免并发超领；
+ * - 退库单（入库）审批中不动库存，只在已完结时回补。
+ */
+function lowValueDoc(key, label, effect, extra = {}, stockExtra = {}) {
   return {
     key,
     label,
@@ -350,33 +365,50 @@ function lowValueDoc(key, label, effect, extra = {}) {
       deptId: f.ref('org-departments'),
       operator: f.str(),
       remark: f.str(),
+      // 审批相关：状态机由「系统管理 → 流程配置」驱动
+      status: f.enum('DOC_STATUS', { required: true }),
+      creatorId: f.ref('org-users'),
+      submitTime: f.date(),
+      settleTime: f.date(),
       ...extra
     },
-    query: { keyword: ['docNo'], filters: ['itemId', 'categoryId', 'deptId'], sort: ['createTime'], page: true },
+    query: { keyword: ['docNo'], filters: ['itemId', 'categoryId', 'deptId', 'status'], sort: ['createTime'], page: true },
     rules: {
       unique: ['docNo'],
       refs: [
         { field: 'itemId', collection: 'low-value-items' },
         { field: 'categoryId', collection: 'low-value-settings-categories' },
-        { field: 'deptId', collection: 'org-departments' }
+        { field: 'deptId', collection: 'org-departments' },
+        { field: 'creatorId', collection: 'org-users' }
       ],
-      // 库存联动：入库/退库加库存，领用扣库存
-      stock: { effect, target: 'low-value-items', itemField: 'itemId', qtyField: 'quantity', stockField: 'stock' }
+      // 库存联动：入库/退库加库存，领用扣库存；settleOn 指定"结算"状态
+      stock: {
+        effect,
+        target: 'low-value-items',
+        itemField: 'itemId',
+        qtyField: 'quantity',
+        stockField: 'stock',
+        settleOn: 'DONE',
+        ...stockExtra
+      }
     }
   }
 }
 
+// 入库单：货到即入，直接以"已完结"状态创建（无需审批）
 const LOW_VALUE_INBOUND = lowValueDoc('low-value-inbound', '低值资产入库单', 'in', {
   supplier: f.str(),
   inboundDate: f.date()
 })
 
+// 领用单：出库方向，审批中占用可用量（reserved）
 const LOW_VALUE_REQUISITION = lowValueDoc('low-value-requisition', '低值资产领用单', 'out', {
   receiver: f.str(),
   requisitionDate: f.date(),
   purpose: f.str()
-})
+}, { reservedField: 'reserved', reserveOn: 'PROCESSING', releaseOn: ['REJECTED', 'REVOKED'] })
 
+// 退库单：入库方向，审批中不动物品，通过后回补库存
 const LOW_VALUE_RETURN = lowValueDoc('low-value-return', '低值资产退库单', 'in', {
   returner: f.str(),
   returnDate: f.date(),

@@ -4,11 +4,17 @@ import { dataService, COLLECTION, useMock } from '../services'
 import { paramValue, paramNumber } from '../services/sysParams'
 import { LOW_VALUE_SEEDS } from '../services/mock/seed/lowValueAsset'
 import { useOrgStore } from './org'
+import { useUserStore } from './user'
 import { STATUS_ENABLED, LOW_VALUE_ITEM_STATUS, labelOf } from '../constants/enums'
 
 function money(value) {
   return Math.round((Number(value) || 0) * 100) / 100
 }
+
+/** 单据已生效状态：只有已完结的单据才计入库存与统计 */
+const SETTLED = 'DONE'
+/** 单据审批中状态：占用可用量 / 可退额度 */
+const PENDING = 'PROCESSING'
 
 export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
   // 种子由 services/mock/seed/index.js 统一注册；这里仅在 mock 模式下同步取一份填充首屏
@@ -127,7 +133,11 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
       inboundDate: data.inboundDate || '',
       deptId: data.deptId || '',
       operator: data.operator || '',
-      remark: data.remark || ''
+      remark: data.remark || '',
+      // 入库货到即入：以"已完结"创建，引擎据此直接回补库存
+      status: SETTLED,
+      creatorId: currentUserId(),
+      settleTime: new Date().toISOString()
     }
     const created = await dataService.create(COLLECTION.lowValueInbound, record)
     const row = created || record
@@ -136,11 +146,21 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     return row
   }
 
+  /**
+   * 新建领用单（草稿）
+   *
+   * 库存语义：领用单不"填单即扣库存"——
+   * 草稿不动库存 → 提交审批时预占可用量 → 审批通过才真正扣减；
+   * 驳回或撤销则释放预占。
+   */
   async function addRequisition(data) {
     const item = findItem(data.itemId)
     if (!item) throw new Error('请选择要领用的物品')
     const quantity = toPositiveInt(data.quantity, '领用数量')
-    if (item.stock < quantity) throw new Error(`库存不足，当前库存 ${item.stock}${item.unit || ''}`)
+    const available = availableStock(item.id)
+    if (available < quantity) {
+      throw new Error(`可用库存不足，当前可用 ${available}${item.unit || ''}${pendingHint(item.id)}`)
+    }
     const record = {
       docNo: data.docNo || nextDocNo('PY', requisitionRecords.value),
       itemId: item.id,
@@ -157,29 +177,64 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
       requisitionDate: data.requisitionDate || '',
       purpose: data.purpose || '',
       operator: data.operator || '',
-      remark: data.remark || ''
+      remark: data.remark || '',
+      status: 'DRAFT',
+      creatorId: currentUserId()
     }
     const created = await dataService.create(COLLECTION.lowValueRequisition, record)
     const row = created || record
     requisitionRecords.value.unshift(row)
-    await syncItemStock(item.id)
     return row
   }
 
-  /** 已领未退数量 = 领用总量 - 退库总量（与引擎的退库限额规则一致） */
+  /** 已领未退数量 = 已生效领用总量 - 已生效退库总量（与引擎的退库限额规则一致） */
   function issuedQuantity(itemId) {
-    const taken = requisitionRecords.value.filter(r => r.itemId === itemId).reduce((s, r) => s + (Number(r.quantity) || 0), 0)
-    const back = returnRecords.value.filter(r => r.itemId === itemId).reduce((s, r) => s + (Number(r.quantity) || 0), 0)
+    const taken = requisitionRecords.value.filter(r => r.itemId === itemId && r.status === SETTLED)
+      .reduce((s, r) => s + (Number(r.quantity) || 0), 0)
+    const back = returnRecords.value.filter(r => r.itemId === itemId && r.status === SETTLED)
+      .reduce((s, r) => s + (Number(r.quantity) || 0), 0)
     return taken - back
   }
 
+  /** 审批中退库单占用的可退额度 */
+  function pendingReturnQuantity(itemId) {
+    return returnRecords.value.filter(r => r.itemId === itemId && r.status === PENDING)
+      .reduce((s, r) => s + (Number(r.quantity) || 0), 0)
+  }
+
+  /** 可退额度 = 已领未退 - 审批中占用 */
+  function returnableQuantity(itemId) {
+    return Math.max(issuedQuantity(itemId) - pendingReturnQuantity(itemId), 0)
+  }
+
+  /** 可用库存 = 在库数量 - 审批中占用 */
+  function availableStock(itemId) {
+    const item = findItem(itemId)
+    if (!item) return 0
+    return Math.max(Number(item.stock || 0) - Number(item.reserved || 0), 0)
+  }
+
+  /** 审批中占用量 */
+  function reservedQuantity(itemId) {
+    const item = findItem(itemId)
+    if (!item) return 0
+    return Number(item.reserved || 0)
+  }
+
+  /** 提示语：说明可用量里已有多少被审批中的单据占用 */
+  function pendingHint(itemId) {
+    const reserved = reservedQuantity(itemId)
+    return reserved > 0 ? `（其中 ${reserved}${findItem(itemId)?.unit || ''} 已被审批中的单据占用）` : ''
+  }
+
+  /** 新建退库单（草稿）：审批通过后才回补库存 */
   async function addReturn(data) {
     const item = findItem(data.itemId)
     if (!item) throw new Error('请选择要退库的物品')
     const quantity = toPositiveInt(data.quantity, '退库数量')
-    const issued = issuedQuantity(item.id)
-    if (quantity > issued) {
-      throw new Error(`退库数量超过已领未退数量（${issued}${item.unit || ''}）`)
+    const available = returnableQuantity(item.id)
+    if (quantity > available) {
+      throw new Error(`退库数量超过可退范围（当前可退 ${available}${item.unit || ''}）`)
     }
     const record = {
       docNo: data.docNo || nextDocNo('TK', returnRecords.value),
@@ -197,13 +252,48 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
       returnDate: data.returnDate || '',
       reason: data.reason || '',
       operator: data.operator || '',
-      remark: data.remark || ''
+      remark: data.remark || '',
+      status: 'DRAFT',
+      creatorId: currentUserId()
     }
     const created = await dataService.create(COLLECTION.lowValueReturn, record)
     const row = created || record
     returnRecords.value.unshift(row)
-    await syncItemStock(item.id)
     return row
+  }
+
+  /**
+   * 更新单据（审批状态迁移）
+   * 引擎按状态迁移结算库存：审批中预占、已完结扣减/回补、驳回撤销释放。
+   */
+  async function updateDoc(kind, id, patch) {
+    const key = kind === 'return' ? COLLECTION.lowValueReturn : COLLECTION.lowValueRequisition
+    const list = kind === 'return' ? returnRecords : requisitionRecords
+    const idx = list.value.findIndex(r => r.id === id)
+    if (idx === -1) return null
+    const next = { ...list.value[idx], ...patch }
+    list.value[idx] = next
+    const saved = await dataService.update(key, id, next)
+    if (saved) list.value[idx] = saved
+    await syncItemStock(next.itemId)
+    return list.value[idx]
+  }
+
+  function updateRequisitionDoc(id, patch) {
+    return updateDoc('requisition', id, patch)
+  }
+
+  function updateReturnDoc(id, patch) {
+    return updateDoc('return', id, patch)
+  }
+
+  /** 当前登录用户 id（单据创建人 = 发起人） */
+  function currentUserId() {
+    try {
+      return useUserStore().user?.id || ''
+    } catch (e) {
+      return ''
+    }
   }
 
   // ---- 基础设置（id 由服务端生成） ----
@@ -270,7 +360,10 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
   const itemRows = computed(() => items.value.map(i => ({
     ...i,
     categoryName: categoryName(i.categoryId),
-    statusText: labelOf('LOW_VALUE_ITEM_STATUS', i.status)
+    statusText: labelOf('LOW_VALUE_ITEM_STATUS', i.status),
+    // 在库 / 审批占用 / 可用
+    reservedQty: Number(i.reserved || 0),
+    availableQty: Math.max(Number(i.stock || 0) - Number(i.reserved || 0), 0)
   })))
 
   const stats = computed(() => {
@@ -287,10 +380,19 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     }).length
     const inboundQuantity = inboundRecords.value.reduce((s, r) => s + (Number(r.quantity) || 0), 0)
     const inboundAmount = inboundRecords.value.reduce((s, r) => s + (Number(r.amount) || 0), 0)
-    const requisitionQuantity = requisitionRecords.value.reduce((s, r) => s + (Number(r.quantity) || 0), 0)
-    const requisitionAmount = requisitionRecords.value.reduce((s, r) => s + (Number(r.amount) || 0), 0)
-    const returnQuantity = returnRecords.value.reduce((s, r) => s + (Number(r.quantity) || 0), 0)
-    const returnAmount = returnRecords.value.reduce((s, r) => s + (Number(r.amount) || 0), 0)
+    // 领用/退库只统计"已完结"（已生效并已结算库存）的单据
+    const settledReq = requisitionRecords.value.filter(r => r.status === SETTLED)
+    const settledRet = returnRecords.value.filter(r => r.status === SETTLED)
+    const requisitionQuantity = settledReq.reduce((s, r) => s + (Number(r.quantity) || 0), 0)
+    const requisitionAmount = settledReq.reduce((s, r) => s + (Number(r.amount) || 0), 0)
+    const returnQuantity = settledRet.reduce((s, r) => s + (Number(r.quantity) || 0), 0)
+    const returnAmount = settledRet.reduce((s, r) => s + (Number(r.amount) || 0), 0)
+    // 审批中（在途）数量：已提交未生效，不计入出入库统计
+    const requisitionPendingQuantity = requisitionRecords.value.filter(r => r.status === PENDING)
+      .reduce((s, r) => s + (Number(r.quantity) || 0), 0)
+    const returnPendingQuantity = returnRecords.value.filter(r => r.status === PENDING)
+      .reduce((s, r) => s + (Number(r.quantity) || 0), 0)
+    const reservedQuantityTotal = items.value.reduce((s, i) => s + (Number(i.reserved || 0)), 0)
     return {
       total,
       stockQuantity,
@@ -303,7 +405,10 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
       requisitionQuantity,
       requisitionAmount: money(requisitionAmount),
       returnQuantity,
-      returnAmount: money(returnAmount)
+      returnAmount: money(returnAmount),
+      requisitionPendingQuantity,
+      returnPendingQuantity,
+      reservedQuantityTotal
     }
   })
 
@@ -324,11 +429,11 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
       .sort((a, b) => b.amount - a.amount)
   })
 
-  /** 部门领用统计：deptId 解析为部门名 */
+  /** 部门领用统计：deptId 解析为部门名（只算已生效单据） */
   const deptStats = computed(() => {
     const org = useOrgStore()
     const map = new Map()
-    requisitionRecords.value.forEach(r => {
+    requisitionRecords.value.filter(r => r.status === SETTLED).forEach(r => {
       const key = r.deptId ? (org.deptName(r.deptId) || r.deptId) : '未指定'
       const cur = map.get(key) || { dept: key, times: 0, quantity: 0, amount: 0 }
       cur.times += 1
@@ -362,8 +467,8 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
       if (row) row[field] += Number(qty) || 0
     }
     inboundRecords.value.forEach(r => bump(r.itemId, 'inbound', r.quantity))
-    requisitionRecords.value.forEach(r => bump(r.itemId, 'requisition', r.quantity))
-    returnRecords.value.forEach(r => bump(r.itemId, 'return', r.quantity))
+    requisitionRecords.value.filter(r => r.status === SETTLED).forEach(r => bump(r.itemId, 'requisition', r.quantity))
+    returnRecords.value.filter(r => r.status === SETTLED).forEach(r => bump(r.itemId, 'return', r.quantity))
     return [...map.values()].filter(r => r.inbound || r.requisition || r.return)
   })
 
@@ -380,9 +485,15 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     updateItem,
     removeItem,
     issuedQuantity,
+    availableStock,
+    reservedQuantity,
+    returnableQuantity,
+    pendingReturnQuantity,
     addInbound,
     addRequisition,
     addReturn,
+    updateRequisitionDoc,
+    updateReturnDoc,
     addCategory,
     updateCategory,
     removeCategory,

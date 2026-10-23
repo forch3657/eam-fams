@@ -153,7 +153,8 @@ export const CALC_TIME = {
 /** 审批适用业务（与「系统管理 → 流程配置」的业务类型一一对应） */
 export const BUSINESS_TYPE = {
   INBOUND: '入库',
-  REQUISITION: '领用',
+  REQUISITION: '低值领用',
+  LV_RETURN: '低值退库',
   RETURN: '退库',
   DISPATCH: '派发',
   BORROW: '借出',

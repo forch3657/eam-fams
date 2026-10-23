@@ -159,6 +159,15 @@ const SEED_FLOWS = [
       STEP('s1', '部门主管审批', 'R5', '部门主管', 'ANY'),
       STEP('s2', '仓管员出库确认', 'R8', '仓管员', 'SEQUENCE')
     ]
+  },
+  {
+    id: 'WF11', code: 'FLOW_LV_RETURN', name: '低值资产退库流程', bizType: 'LV_RETURN',
+    initiator: '资产使用人', initiatorRoleId: 'R3', enabled: true,
+    ...AUDIT('2026-01-06T12:50:00', '2026-10-22T09:10:00'),
+    steps: [
+      STEP('s1', '部门主管确认', 'R5', '部门主管', 'ANY'),
+      STEP('s2', '仓管员验收入库', 'R8', '仓管员', 'SEQUENCE')
+    ]
   }
 ]
 

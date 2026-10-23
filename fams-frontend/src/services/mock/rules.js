@@ -74,14 +74,15 @@ export function checkProtect(ctx, key, contract, id) {
     if (children.length) throw apiError.hasChildren(self.message || '存在下级数据，不能删除')
   }
 
-  // 库存保护：仍有库存不允许删除
+  // 库存保护：仍有库存（或仍有审批占用）不允许删除
   const guard = contract?.rules?.stockGuard
-  if (guard) {
+  const guards = Array.isArray(guard) ? guard : (guard ? [guard] : [])
+  guards.forEach(g => {
     const row = ctx.read(key).find(r => primaryOf(key, r) === id)
-    if (row && Number(row[guard.field] || 0) > 0) {
-      throw apiError.hasReference(guard.message || '该数据仍在在用，不能删除')
+    if (row && Number(row[g.field] || 0) > 0) {
+      throw apiError.hasReference(g.message || '该数据仍在在用，不能删除')
     }
-  }
+  })
 }
 
 function findValue(ctx, key, id, field) {
@@ -90,7 +91,7 @@ function findValue(ctx, key, id, field) {
 }
 
 /**
- * 库存联动：入库/退库加库存，领用扣库存
+ * 库存联动（结算）：入库/退库加库存，领用扣库存
  * @param {string} mode 'create' | 'delete' —— 删除单据时反向回退库存
  */
 export function applyStock(ctx, contract, row, mode = 'create') {
@@ -112,16 +113,84 @@ export function applyStock(ctx, contract, row, mode = 'create') {
   ctx.persist(target)
 }
 
-/** 退库数量不得超过"已领未退" */
+/**
+ * 预占库存（审批中的领用单）：
+ * 在库数不变，但把数量记入 reserved 作为"占用量"，可用量 = stock - reserved，
+ * 避免多张审批中的领用单把同一批库存重复占用。
+ */
+export function reserveStock(ctx, contract, row) {
+  const rule = contract?.rules?.stock
+  if (!rule?.reservedField) return
+  const { target, itemField, qtyField, stockField, reservedField } = rule
+  const itemId = row[itemField]
+  const qty = Number(row[qtyField] || 0)
+  if (!itemId || !Number.isFinite(qty) || qty === 0) return
+
+  const item = ctx.read(target).find(r => primaryOf(target, r) === itemId)
+  if (!item) throw apiError.refNotFound('关联物品不存在')
+  const reserved = Number(item[reservedField] || 0)
+  const available = Number(item[stockField] || 0) - reserved
+  if (available < qty) throw apiError.stockInsufficient(`可用库存不足，当前可用 ${available}`)
+  item[reservedField] = reserved + qty
+  ctx.persist(target)
+}
+
+/** 释放预占（驳回 / 撤销 / 结算完成） */
+export function releaseStock(ctx, contract, row) {
+  const rule = contract?.rules?.stock
+  if (!rule?.reservedField) return
+  const { target, itemField, qtyField, reservedField } = rule
+  const itemId = row[itemField]
+  const qty = Number(row[qtyField] || 0)
+  if (!itemId || !Number.isFinite(qty) || qty === 0) return
+
+  const item = ctx.read(target).find(r => primaryOf(target, r) === itemId)
+  if (!item) return
+  const reserved = Number(item[reservedField] || 0)
+  item[reservedField] = Math.max(0, reserved - qty)
+  ctx.persist(target)
+}
+
+/**
+ * 状态迁移驱动的库存结算：
+ * - 进入 settleOn（已完结）→ 结算库存（先结算成功再释放预占，避免半途失败丢占用）
+ * - 离开 settleOn（已完结 → 其他）→ 反向回退
+ * - 进入 reserveOn（审批中）→ 预占
+ * - 进入 releaseOn（驳回 / 撤销）→ 释放预占
+ */
+export function applyStockOnStatusChange(ctx, contract, oldRow, newRow) {
+  const rule = contract?.rules?.stock
+  if (!rule?.settleOn) return
+  const oldStatus = oldRow?.status
+  const newStatus = newRow?.status
+  if (oldStatus === newStatus) return
+
+  if (newStatus === rule.settleOn) {
+    applyStock(ctx, contract, newRow, 'create')
+    releaseStock(ctx, contract, newRow)
+  } else if (oldStatus === rule.settleOn) {
+    applyStock(ctx, contract, newRow, 'delete')
+  } else if (rule.reserveOn && newStatus === rule.reserveOn) {
+    reserveStock(ctx, contract, newRow)
+  } else if (Array.isArray(rule.releaseOn) && rule.releaseOn.includes(newStatus)) {
+    releaseStock(ctx, contract, newRow)
+  }
+}
+
+/**
+ * 退库数量不得超过"已领未退"
+ * 口径：只认已完结（DONE）的领用与退库；审批中（PROCESSING）的退库单会占用额度；
+ * 草稿不占用额度。
+ */
 export function checkReturnLimit(ctx, contract, row) {
   if (contract?.key !== 'low-value-return') return
-  const issued = ctx.read('low-value-requisition')
-    .filter(r => r.itemId === row.itemId)
-    .reduce((sum, r) => sum + Number(r.quantity || 0), 0)
-  const returned = ctx.read('low-value-return')
-    .filter(r => r.itemId === row.itemId)
-    .reduce((sum, r) => sum + Number(r.quantity || 0), 0)
-  const available = issued - returned
+  const status = row.status
+  if (status && status !== 'DONE' && status !== 'PROCESSING') return
+  const sum = (rows, filter) => rows.filter(filter).reduce((s, r) => s + Number(r.quantity || 0), 0)
+  const issued = sum(ctx.read('low-value-requisition'), r => r.itemId === row.itemId && r.status === 'DONE')
+  const returned = sum(ctx.read('low-value-return'), r => r.itemId === row.itemId && r.status === 'DONE')
+  const pending = sum(ctx.read('low-value-return'), r => r.itemId === row.itemId && r.status === 'PROCESSING' && r.id !== row.id)
+  const available = issued - returned - pending
   if (Number(row.quantity || 0) > available) {
     throw new ApiError(ERROR_CODES.EXCEED_RETURNED, `退库数量超出可退范围，当前可退 ${available}`)
   }

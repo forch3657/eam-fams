@@ -53,10 +53,12 @@ const SEED_RETURN = [
 ]
 
 export const LOW_VALUE_SEEDS = {
-  items: SEED_ITEMS,
-  inbound: SEED_INBOUND,
-  requisition: SEED_REQUISITION,
-  return: SEED_RETURN,
+  // 台账补默认占用量（reserved）：审批中领用单占用的数量
+  items: SEED_ITEMS.map(i => ({ reserved: 0, ...i })),
+  // 历史单据一律视为"已完结"：即已生效并已计入库存与统计
+  inbound: SEED_INBOUND.map(r => ({ status: 'DONE', ...r })),
+  requisition: SEED_REQUISITION.map(r => ({ status: 'DONE', ...r })),
+  return: SEED_RETURN.map(r => ({ status: 'DONE', ...r })),
   categories: SEED_CATEGORIES,
   locations: SEED_LOCATIONS
 }

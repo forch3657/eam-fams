@@ -8,7 +8,7 @@
     <template v-if="doc">
       <el-descriptions :column="2" border size="small">
         <el-descriptions-item label="单据编号">{{ doc.code || doc.docNo || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="单据名称">{{ doc.name || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="单据名称">{{ doc.name || doc.itemName || '-' }}</el-descriptions-item>
         <el-descriptions-item label="单据状态">
           <el-tag :type="statusType(doc.status)" size="small">{{ labelOf('DOC_STATUS', doc.status) }}</el-tag>
         </el-descriptions-item>
@@ -106,6 +106,8 @@ const props = defineProps({
   doc: { type: Object, default: null },
   /** 单据类型：inbound / alloc / back / borrow / transfer / repair / change / dispose / inventory */
   docKey: { type: String, required: true },
+  /** 业务类型：默认按 docKey 映射；同名但业务不同的单据（如低值退库）显式指定 */
+  bizType: { type: String, default: '' },
   /** 条件上下文：{ amount, hasDiff }，决定哪些环节在本单据上生效 */
   ctx: { type: Object, default: () => ({}) }
 })
@@ -120,7 +122,7 @@ onMounted(() => approvalStore.load())
 
 watch(() => props.modelValue, v => { if (v) comment.value = '' })
 
-const bizType = computed(() => DOC_BIZ_TYPE[props.docKey] || props.docKey.toUpperCase())
+const bizType = computed(() => props.bizType || DOC_BIZ_TYPE[props.docKey] || props.docKey.toUpperCase())
 const flow = computed(() => getFlow(bizType.value, approvalStore.flows))
 const steps = computed(() => effectiveSteps(flow.value, props.ctx))
 const records = computed(() => props.doc ? approvalsOf(approvalStore.approvals, props.docKey, props.doc.id) : [])
@@ -135,7 +137,7 @@ const creatorName = computed(() => {
     const u = orgStore.users.find(x => x.id === d.creatorId)
     if (u) return `${u.name}（${u.username}）`
   }
-  return d.applicant || d.creatorName || '-'
+  return d.applicant || d.creatorName || d.receiver || d.returner || '-'
 })
 
 const stepDesc = step => {
