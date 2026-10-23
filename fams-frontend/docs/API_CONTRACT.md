@@ -1,9 +1,12 @@
 # 资产管理系统 接口契约（API Contract）
 
-> 本文件是前后端**唯一真源**。前端 `src/services/contract/schema.js` 中的契约定义与本文件一致，
-> mock 引擎与 HTTP 适配层均按此实现。后端按本契约提供接口后，前端仅需修改 `.env` 即可切换，业务代码零改动。
+> 本文件**完整覆盖**前后端协作所需的全部约定：31 个集合的字段定义、端点与响应信封、错误码、
+> 业务规则（删除保护 / 库存联动 / 退库限额）、乐观锁、认证方式、32 个枚举、36 个权限码、验收清单。
 >
-> 生成依据：`src/services/contract/schema.js`（实体字段/查询能力/业务规则）、`src/constants/enums.js`（枚举编码）。
+> 前端 `src/services/contract/schema.js` 是本契约的**机器可读副本**（同一份定义，供 mock 引擎与
+> 契约校验运行时使用）。第 4 节的字段表由该文件直接导出生成，两者不会脱节。
+>
+> 后端按本契约提供接口后，前端仅需修改 `.env` 即可切换，业务代码零改动。
 
 ---
 
@@ -278,23 +281,359 @@ PUT body 里可能自带 `id`，请**以路径段 `{id}` 为准**，忽略 body 
 | `conditionValue` | 条件阈值（`AMOUNT_GT` 时为金额） |
 | `condition` | 条件说明（冗余） |
 
-### 4.8 其余集合的字段定义
+### 4.8 其余集合字段定义
 
-上文已给出主要集合的字段表。其余集合（盘点计划/单据、折旧方案/报表/明细、
-位置、分类、折旧规则、字典项、系统参数、终端、终端异常、消息、消息模板、操作日志）
-的字段以 **`src/services/contract/schema.js` 为唯一真源** —— 该文件是机器可读的契约，
-含字段名、类型、必填、枚举、唯一键与引用关系，请直接参照建表。
+以下 21 个集合的字段表由 `src/services/contract/schema.js` 直接导出生成，涵盖 8 张固定资产业务单据、盘点计划/单据、折旧相关 4 张表、设置类 5 张表、以及字典项、系统参数、终端 2 张表、消息 2 张表与操作日志。
 
-重点关注以下几个已在契约里声明、容易漏建的字段：
+#### `fixed-asset-doc-lists-{biz}` 固定资产业务单据（8 张表共用同一结构）
 
-| 集合 | 易漏字段 | 说明 |
+`biz` 取值：`inbound` 入库 / `alloc` 派发 / `back` 退库 / `borrow` 借出 / `transfer` 调拨 / `repair` 维修 / `change` 变更 / `dispose` 处置。
+八张表结构完全相同，差异体现在 `status` 所用的状态枚举上（见第 7 节）。
+
+| 字段 | 类型 | 约束 |
 | --- | --- | --- |
-| `system-dict-types` | `remark` | 字典类型的说明 |
-| `system-terminal-abnormal` | `handleResult` | 处理结果 |
-| `low-value-settings-locations` | `parentName` | 上级位置名称（表单整表提交） |
-| `org-users` | `passwordResetAt` | 管理员重置密码时间 |
-| `system-terminal-devices` | `bindUserId` | 绑定的盘点人 → `org-users` |
-| 全部 `audit: true` 集合 | `createTime`/`createBy`/`updateTime`/`updateBy`/`version` | 服务端维护，见第 3 节 |
+| `id` | string | 主键（服务端生成） |
+| `code` \* | string | **必填**、唯一 |
+| `name` \* | string | **必填** |
+| `companyId` | ref → `org-companies` | — |
+| `assetId` | ref → `fixed-assets` | — |
+| `creatorId` | ref → `org-users` | — |
+| `createTime` | date（ISO 8601） | **业务字段**，与下方审计字段同名但含义不同 |
+| `finishTime` | date（ISO 8601） | — |
+| `remark` | string | — |
+| `status` \* | enum `DOC_STATUS` | **必填** |
+| `createBy` / `updateBy` | string | 服务端维护 |
+| `version` | number | 乐观锁，服务端维护（见第 3 节） |
+
+#### `system-dict-types-{code}-items` 字典项（每个字典类型一张表）
+
+`{code}` 为字典类型编码（见 7.1）。`value` 即枚举编码，**不可修改**（改动等价于改契约）。
+
+| 字段 | 类型 | 约束 |
+| --- | --- | --- |
+| `id` | string | 主键（服务端生成） |
+| `label` \* | string | **必填** |
+| `value` \* | string | **必填** |
+| `sort` | number | — |
+| `status` \* | enum `ENABLE_STATUS` | **必填** |
+| `remark` | string | — |
+| `createTime` / `updateTime` | date（ISO 8601） | 服务端维护 |
+| `createBy` / `updateBy` | string | 服务端维护 |
+| `version` | number | 乐观锁，服务端维护（见第 3 节） |
+
+#### `fixed-asset-inventory-plans`　盘点计划
+
+| 字段 | 类型 | 约束 |
+| --- | --- | --- |
+| `id` | string | 主键（服务端生成） |
+| `planNo` \* | string | **必填**、唯一 |
+| `planName` \* | string | **必填** |
+| `scope` | string | — |
+| `counter` | string | — |
+| `planDate` | date（ISO 8601） | — |
+| `status` \* | enum `DOC_STATUS` | **必填** |
+| `items` | array（元素结构见 4.9） | — |
+| `createTime` / `updateTime` | date（ISO 8601） | 服务端维护 |
+| `createBy` / `updateBy` | string | 服务端维护 |
+| `version` | number | 乐观锁，服务端维护（见第 3 节） |
+
+#### `fixed-asset-inventory-docs`　盘点单据
+
+| 字段 | 类型 | 约束 |
+| --- | --- | --- |
+| `id` | string | 主键（服务端生成） |
+| `docNo` \* | string | **必填**、唯一 |
+| `name` \* | string | **必填** |
+| `companyId` | ref → `org-companies` | — |
+| `applicant` | string | — |
+| `creatorId` | ref → `org-users` | — |
+| `scope` | string | — |
+| `assetTypes` | array（元素结构见 4.9） | — |
+| `createTime` | date（ISO 8601） | **业务字段**，与下方审计字段同名但含义不同 |
+| `finishTime` | date（ISO 8601） | — |
+| `remark` | string | — |
+| `status` \* | enum `DOC_STATUS` | **必填** |
+| `items` | array（元素结构见 4.9） | — |
+| `counters` | array（元素结构见 4.9） | — |
+| `createBy` / `updateBy` | string | 服务端维护 |
+| `version` | number | 乐观锁，服务端维护（见第 3 节） |
+
+#### `fixed-asset-depreciation-schemes`　折旧方案
+
+| 字段 | 类型 | 约束 |
+| --- | --- | --- |
+| `id` | string | 主键（服务端生成） |
+| `schemeNo` \* | string | **必填**、唯一 |
+| `schemeName` \* | string | **必填** |
+| `method` \* | enum `DEPRECIATION_METHOD` | **必填** |
+| `years` | number | — |
+| `residualRate` | number | — |
+| `monthlyRate` | number | — |
+| `applicableCategory` | string | — |
+| `enabled` | boolean | — |
+| `createTime` / `updateTime` | date（ISO 8601） | 服务端维护 |
+| `createBy` / `updateBy` | string | 服务端维护 |
+| `version` | number | 乐观锁，服务端维护（见第 3 节） |
+
+#### `fixed-asset-depreciation-reports`　折旧报表
+
+| 字段 | 类型 | 约束 |
+| --- | --- | --- |
+| `id` | string | 主键（服务端生成） |
+| `period` \* | string | **必填**、唯一 |
+| `openingValue` | number | — |
+| `periodDepreciation` | number | — |
+| `accumulated` | number | — |
+| `closingNet` | number | — |
+| `assetCount` | number | — |
+| `operator` | string | — |
+| `runDate` | date（ISO 8601） | — |
+| `createTime` / `updateTime` | date（ISO 8601） | 服务端维护 |
+| `createBy` / `updateBy` | string | 服务端维护 |
+| `version` | number | 乐观锁，服务端维护（见第 3 节） |
+
+#### `fixed-asset-settings-locations`　存放位置
+
+| 字段 | 类型 | 约束 |
+| --- | --- | --- |
+| `code` \* | string | **必填**、唯一、主键（服务端生成） |
+| `name` \* | string | **必填** |
+| `parentName` | string | — |
+| `manager` | string | — |
+| `assetCount` | number | — |
+| `createTime` / `updateTime` | date（ISO 8601） | 服务端维护 |
+| `createBy` / `updateBy` | string | 服务端维护 |
+| `version` | number | 乐观锁，服务端维护（见第 3 节） |
+
+#### `fixed-asset-settings-location-options`　位置候选项
+
+| 字段 | 类型 | 约束 |
+| --- | --- | --- |
+| `code` \* | string | **必填**、唯一、主键（服务端生成） |
+| `name` \* | string | **必填** |
+
+#### `fixed-asset-settings-categories`　资产分类
+
+| 字段 | 类型 | 约束 |
+| --- | --- | --- |
+| `id` | string | 主键（服务端生成） |
+| `code` \* | string | **必填**、唯一 |
+| `name` \* | string | **必填** |
+| `parentCode` | string | — |
+| `parentName` | string | — |
+| `depreciationMethod` | enum `DEPRECIATION_METHOD` | — |
+| `usefulLife` | number | — |
+| `assetCount` | number | — |
+| `status` \* | enum `ENABLE_STATUS` | **必填** |
+| `children` | array（元素结构见 4.9） | — |
+| `createTime` / `updateTime` | date（ISO 8601） | 服务端维护 |
+| `createBy` / `updateBy` | string | 服务端维护 |
+| `version` | number | 乐观锁，服务端维护（见第 3 节） |
+
+#### `fixed-asset-settings-depreciation-rules`　折旧规则
+
+| 字段 | 类型 | 约束 |
+| --- | --- | --- |
+| `name` \* | string | **必填**、唯一、主键（服务端生成） |
+| `method` \* | enum `DEPRECIATION_METHOD` | **必填** |
+| `usefulLife` | number | — |
+| `residualRate` | number | — |
+| `description` | string | — |
+| `createTime` / `updateTime` | date（ISO 8601） | 服务端维护 |
+| `createBy` / `updateBy` | string | 服务端维护 |
+| `version` | number | 乐观锁，服务端维护（见第 3 节） |
+
+#### `fixed-asset-settings-depreciation-plans`　折旧方案（设置）
+
+| 字段 | 类型 | 约束 |
+| --- | --- | --- |
+| `id` | string | 主键（服务端生成） |
+| `companyId` | ref → `org-companies` | — |
+| `name` \* | string | **必填**、唯一 |
+| `method` | enum `DEPRECIATION_METHOD` | — |
+| `assetTypes` | array（元素结构见 4.9） | — |
+| `residualRate` | number | — |
+| `calcTime` | enum `CALC_TIME` | — |
+| `monthlyDay` | number | — |
+| `purchaseMode` | enum `PURCHASE_MODE` | — |
+| `remark` | string | — |
+| `createTime` / `updateTime` | date（ISO 8601） | 服务端维护 |
+| `createBy` / `updateBy` | string | 服务端维护 |
+| `version` | number | 乐观锁，服务端维护（见第 3 节） |
+
+#### `fixed-asset-report-depreciation-details`　折旧明细
+
+| 字段 | 类型 | 约束 |
+| --- | --- | --- |
+| `id` | string | 主键（服务端生成） |
+| `assetId` | ref → `fixed-assets` | — |
+| `name` | string | — |
+| `originalValue` | number | — |
+| `depreciationMethod` | enum `DEPRECIATION_METHOD` | — |
+| `usefulLife` | number | — |
+| `accumulatedDepreciation` | number | — |
+| `netValue` | number | — |
+| `depreciationRate` | number | — |
+| `purchaseDate` | date（ISO 8601） | — |
+| `createTime` / `updateTime` | date（ISO 8601） | 服务端维护 |
+| `createBy` / `updateBy` | string | 服务端维护 |
+| `version` | number | 乐观锁，服务端维护（见第 3 节） |
+
+#### `fixed-asset-report-depreciation-plan-details`　折旧计划明细
+
+| 字段 | 类型 | 约束 |
+| --- | --- | --- |
+| `id` | string | 主键（服务端生成） |
+| `planName` | string | — |
+| `assetId` | ref → `fixed-assets` | — |
+| `assetName` | string | — |
+| `assetType` | enum `ASSET_CATEGORY` | — |
+| `companyId` | ref → `org-companies` | — |
+| `original` | number | — |
+| `residualRate` | number | — |
+| `totalLife` | number | — |
+| `usedLife` | number | — |
+| `depDate` | date（ISO 8601） | — |
+| `finished` | boolean | — |
+| `createTime` / `updateTime` | date（ISO 8601） | 服务端维护 |
+| `createBy` / `updateBy` | string | 服务端维护 |
+| `version` | number | 乐观锁，服务端维护（见第 3 节） |
+
+#### `low-value-settings-locations`　低值资产存放位置
+
+| 字段 | 类型 | 约束 |
+| --- | --- | --- |
+| `id` | string | 主键（服务端生成） |
+| `code` \* | string | **必填**、唯一 |
+| `name` \* | string | **必填** |
+| `parentCode` | string | — |
+| `parentName` | string | — |
+| `manager` | string | — |
+| `itemCount` | number | — |
+| `status` \* | enum `ENABLE_STATUS` | **必填** |
+| `createTime` / `updateTime` | date（ISO 8601） | 服务端维护 |
+| `createBy` / `updateBy` | string | 服务端维护 |
+| `version` | number | 乐观锁，服务端维护（见第 3 节） |
+
+#### `system-dict-types`　数据字典类型
+
+| 字段 | 类型 | 约束 |
+| --- | --- | --- |
+| `code` \* | string | **必填**、唯一、主键（服务端生成） |
+| `name` \* | string | **必填** |
+| `count` | number | — |
+| `status` \* | enum `ENABLE_STATUS` | **必填** |
+| `remark` | string | — |
+| `createTime` / `updateTime` | date（ISO 8601） | 服务端维护 |
+| `createBy` / `updateBy` | string | 服务端维护 |
+| `version` | number | 乐观锁，服务端维护（见第 3 节） |
+
+#### `system-params`　系统参数
+
+| 字段 | 类型 | 约束 |
+| --- | --- | --- |
+| `id` | string | 主键（服务端生成） |
+| `name` \* | string | **必填** |
+| `key` \* | string | **必填**、唯一 |
+| `value` | string | — |
+| `type` | enum `PARAM_TYPE` | — |
+| `remark` | string | — |
+| `createTime` / `updateTime` | date（ISO 8601） | 服务端维护 |
+| `createBy` / `updateBy` | string | 服务端维护 |
+| `version` | number | 乐观锁，服务端维护（见第 3 节） |
+
+#### `system-terminal-devices`　盘点终端
+
+| 字段 | 类型 | 约束 |
+| --- | --- | --- |
+| `code` \* | string | **必填**、唯一、主键（服务端生成） |
+| `name` \* | string | **必填** |
+| `type` \* | enum `DEVICE_TYPE` | **必填** |
+| `location` | string | — |
+| `bindUserId` | ref → `org-users` | — |
+| `status` \* | enum `DEVICE_STATUS` | **必填** |
+| `lastActive` | date（ISO 8601） | — |
+| `vendor` | string | — |
+| `model` | string | — |
+| `sn` | string | — |
+| `ip` | string | — |
+| `installDate` | date（ISO 8601） | — |
+| `maintainer` | string | — |
+| `maintainerPhone` | string | — |
+| `remark` | string | — |
+| `createTime` / `updateTime` | date（ISO 8601） | 服务端维护 |
+| `createBy` / `updateBy` | string | 服务端维护 |
+| `version` | number | 乐观锁，服务端维护（见第 3 节） |
+
+#### `system-terminal-abnormal`　终端异常记录
+
+| 字段 | 类型 | 约束 |
+| --- | --- | --- |
+| `recordNo` \* | string | **必填**、唯一、主键（服务端生成） |
+| `deviceCode` \* | ref → `system-terminal-devices` | **必填** |
+| `operatorId` | ref → `org-users` | — |
+| `type` \* | enum `DEVICE_ABNORMAL_TYPE` | **必填** |
+| `detail` | string | — |
+| `affectedCount` | number | — |
+| `handled` | boolean | — |
+| `handleResult` | string | — |
+| `createTime` | date（ISO 8601） | **业务字段**，与下方审计字段同名但含义不同 |
+| `createBy` / `updateBy` | string | 服务端维护 |
+| `version` | number | 乐观锁，服务端维护（见第 3 节） |
+
+#### `notify-messages`　站内消息
+
+| 字段 | 类型 | 约束 |
+| --- | --- | --- |
+| `id` | string | 主键（服务端生成） |
+| `time` | date（ISO 8601） | — |
+| `type` | string | — |
+| `level` | string | — |
+| `title` \* | string | **必填** |
+| `content` | string | — |
+| `target` | string | — |
+| `channel` | string | — |
+| `bizType` | string | — |
+| `bizId` | string | — |
+| `route` | string | — |
+| `read` | boolean | — |
+| `createTime` / `updateTime` | date（ISO 8601） | 服务端维护 |
+| `createBy` / `updateBy` | string | 服务端维护 |
+| `version` | number | 乐观锁，服务端维护（见第 3 节） |
+
+#### `notify-templates`　消息模板
+
+| 字段 | 类型 | 约束 |
+| --- | --- | --- |
+| `key` \* | string | **必填**、唯一、主键（服务端生成） |
+| `scene` | string | — |
+| `channel` | string | — |
+| `title` | string | — |
+| `content` | string | — |
+| `enabled` | boolean | — |
+| `createTime` / `updateTime` | date（ISO 8601） | 服务端维护 |
+| `createBy` / `updateBy` | string | 服务端维护 |
+| `version` | number | 乐观锁，服务端维护（见第 3 节） |
+
+#### `operation-logs`　操作日志
+
+| 字段 | 类型 | 约束 |
+| --- | --- | --- |
+| `id` | string | 主键（服务端生成） |
+| `time` | date（ISO 8601） | — |
+| `module` | string | — |
+| `action` | string | — |
+| `target` | string | — |
+| `result` | string | — |
+| `detail` | string | — |
+| `ip` | string | — |
+| `operator` | string | — |
+| `operatorOrg` | string | — |
+| `createTime` / `updateTime` | date（ISO 8601） | 服务端维护 |
+| `createBy` / `updateBy` | string | 服务端维护 |
+| `version` | number | 乐观锁，服务端维护（见第 3 节） |
+
+---
 
 ### 4.9 嵌套数组说明
 
@@ -306,7 +645,7 @@ PUT body 里可能自带 `id`，请**以路径段 `{id}` 为准**，忽略 body 
 | `fixed-asset-inventory-plans` / `-docs` | `counters[]` | `status` 取 `INVENTORY_COUNTER_STATUS`（`COUNTING`/`DONE`） |
 | `fixed-asset-settings-depreciation-plans` | `assetTypes[]` | `ASSET_CATEGORY` 编码数组 |
 | `org-users` | `roleIds[]` | `org-roles` 主键数组 |
-| `org-roles` | `permissions[]` | 权限码字符串数组（见 `src/config/permissions.js`） |
+| `org-roles` | `permissions[]` | 权限码字符串数组（完整清单见 7.3） |
 | `system-workflow-flows` | `steps[]` | 见 4.7 |
 
 ---
@@ -438,6 +777,28 @@ VITE_API_BASE_URL=http://your-backend/api
 
 ---
 
+### 7.3 权限码清单（RBAC）
+
+前端采用**扁平权限码**模型：角色持有一组权限码，用户的权限为其所有角色权限码的**并集**。
+前端只做「有 / 无」判断，不做层级推导。共 **36 个**叶子权限码，分 5 组：
+
+| 分组 | 权限码 | 含义 |
+| --- | --- | --- |
+| 工作台 | `wm:view` `wm:todo` `wm:alert` `wm:overview` `wm:message` | 工作台访问 / 我的待办 / 预警中心 / 概览看板 / 我的消息 |
+| 固定资产 | `fa:view` `fa:add` `fa:edit` `fa:delete` `fa:export` `fa:inbound` `fa:dispatch` `fa:borrow` `fa:change` `fa:dispose` `fa:inventory` `fa:depreciation` `fa:report` | 台账查看 / 新增 / 编辑 / 删除 / 导出 / 入库验收 / 派发退库 / 借出 / 变更 / 处置 / 盘点 / 折旧 / 报表 |
+| 低值资产 | `lv:view` `lv:edit` `lv:export` `lv:inbound` `lv:requisition` `lv:return` `lv:report` | 台账查看 / 物品维护 / 导出 / 入库 / 领用 / 退库 / 报表 |
+| 组织架构 | `org:company` `org:dept` `org:user` `org:role` | 公司 / 部门 / 用户 / 角色管理 |
+| 系统管理 | `sys:dict` `sys:log` `sys:workflow` `sys:params` `sys:message` `sys:template` `sys:terminal` | 数据字典 / 操作日志 / 流程配置 / 系统参数 / 消息中心 / 消息模板 / 盘点终端 |
+
+**存储方式**
+
+- `org-roles.permissions[]` — 该角色被勾选的权限码数组
+- `org-users.roleIds[]` — 用户所属角色；用户权限 = 各角色 `permissions` 的**并集**
+
+> 后端必须保证 `GET /auth/profile` 返回的用户信息包含 `roleIds`，
+> 否则前端无法计算权限，会表现为「菜单全部不可见」或「按钮全部隐藏」。
+
+---
 ## 8. 验收清单（后端交付时逐项核对）
 
 - [ ] 所有接口返回统一信封 `{ code, message, data }`
