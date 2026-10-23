@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '../store/user'
 import { useAuditStore } from '../store/audit'
 import { useOrgStore } from '../store/org'
+import { setUnauthorizedHandler } from '../services/http'
 
 const routes = [
   {
@@ -192,6 +193,19 @@ router.afterEach((to) => {
     target: to.meta.title,
     detail: `进入${to.meta.title}页面`
   })
+})
+
+/**
+ * 401 统一处理：任何接口返回未登录/令牌失效，清空本地会话并跳登录。
+ * 只做本地清理（clearSession），不再发请求，避免用失效 token 反复触发 401。
+ */
+setUnauthorizedHandler(() => {
+  const userStore = useUserStore()
+  const wasLoggedIn = userStore.isLoggedIn
+  userStore.clearSession()
+  if (wasLoggedIn && router.currentRoute.value.path !== '/login') {
+    router.replace({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } })
+  }
 })
 
 export default router

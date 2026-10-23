@@ -162,7 +162,10 @@ async function persistDoc(item, next) {
   if (item.bizType === 'REQUISITION') return lowValueStore.updateRequisitionDoc(next.id, next)
   if (item.bizType === 'LV_RETURN') return lowValueStore.updateReturnDoc(next.id, next)
   const reg = BIZ_DOC_REGISTRY[item.bizType]
-  return dataService.update(reg.collection, next.id, next)
+  const saved = await dataService.update(reg.collection, next.id, next)
+  // 写回服务端返回（含自增 version），避免同一单据连续审批时被乐观锁误判为冲突
+  if (saved) { Object.assign(next, saved); Object.assign(item.doc, saved) }
+  return saved
 }
 
 /** 执行审批动作 */

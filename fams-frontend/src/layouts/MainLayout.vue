@@ -180,9 +180,10 @@ onMounted(() => {
   loadSysParams()
 })
 
-function handleCommand(cmd) {
+async function handleCommand(cmd) {
   if (cmd === 'logout') {
-    userStore.logout()
+    // logout 会通知后端登出，需等其完成再跳，避免跳转打断请求
+    await userStore.logout()
     router.push('/login')
   }
 }

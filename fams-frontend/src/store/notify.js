@@ -89,13 +89,16 @@ export const useNotifyStore = defineStore('notify', () => {
     const m = messages.value.find(x => x.id === id)
     if (!m) return
     m.read = true
-    await dataService.update(COLLECTION.notifyMessages, m.id, m)
+    const saved = await dataService.update(COLLECTION.notifyMessages, m.id, m)
+    // 写回服务端返回（含自增 version），否则同一条消息第二次操作时会被乐观锁误判为冲突
+    if (saved) Object.assign(m, saved)
   }
 
   async function markAllRead() {
     for (const m of inbox.value) {
       m.read = true
-      await dataService.update(COLLECTION.notifyMessages, m.id, m)
+      const saved = await dataService.update(COLLECTION.notifyMessages, m.id, m)
+      if (saved) Object.assign(m, saved)
     }
   }
 
@@ -115,7 +118,8 @@ export const useNotifyStore = defineStore('notify', () => {
     const idx = templates.value.findIndex(t => t.key === key)
     if (idx === -1) return false
     Object.assign(templates.value[idx], updates)
-    await dataService.update(COLLECTION.notifyTemplates, templates.value[idx].key || key, templates.value[idx])
+    const saved = await dataService.update(COLLECTION.notifyTemplates, templates.value[idx].key || key, templates.value[idx])
+    if (saved) templates.value[idx] = saved
     return true
   }
 

@@ -288,7 +288,9 @@ async function saveItem() {
         remark: itemForm.value.remark,
         updateTime: now
       })
-      await dataService.update(col, row.id, { ...row })
+      const saved = await dataService.update(col, row.id, { ...row })
+      // 写回服务端返回（含自增 version），否则再次编辑同一字典项会被乐观锁误判为冲突
+      if (saved) Object.assign(row, saved)
     }
   } else {
     if (itemRows.value.some(i => i.value === value)) { ElMessage.warning('该编码已存在'); return }
@@ -325,7 +327,8 @@ async function syncTypeCount() {
 async function toggleItem(row) {
   row.status = row.status === 'ENABLED' ? 'DISABLED' : 'ENABLED'
   row.updateTime = new Date().toISOString()
-  await dataService.update(itemsCollection(selectedType.value), row.id, { ...row })
+  const saved = await dataService.update(itemsCollection(selectedType.value), row.id, { ...row })
+  if (saved) Object.assign(row, saved)
   await loadItems(selectedType.value)
   await refreshEnums()
   ElMessage.success(row.status === 'ENABLED' ? '已启用' : '已停用')

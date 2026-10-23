@@ -331,9 +331,6 @@ export const ENUM_DICT_META = [
 /** 字典类型编码 → 枚举名 */
 export const DICT_CODE_TO_ENUM = ENUM_DICT_META.reduce((m, d) => { m[d.code] = d.enumName; return m }, {})
 
-/** 枚举名 → 字典类型编码 */
-export const ENUM_TO_DICT_CODE = ENUM_DICT_META.reduce((m, d) => { m[d.enumName] = d.code; return m }, {})
-
 /**
  * 运行时字典覆盖：{ ASSET_STATUS: { IDLE: '空闲', ... } }，只含"启用"状态的字典项。
  * 由 services/dictEnums.js 在应用启动与字典变更后灌入。
@@ -343,16 +340,6 @@ const runtimeEnums = ref({})
 /** 灌入字典维护后的枚举文案（数据字典 = 枚举统一维护入口） */
 export function applyDictEnums(map) {
   runtimeEnums.value = map && typeof map === 'object' ? map : {}
-}
-
-/** 清空运行时覆盖，回到内置枚举 */
-export function clearDictEnums() {
-  runtimeEnums.value = {}
-}
-
-/** 当前已被字典接管的枚举名列表 */
-export function dictManagedEnums() {
-  return Object.keys(runtimeEnums.value)
 }
 
 /** 取枚举文案：labelOf('ASSET_STATUS', 'IDLE') -> '空闲'；未知编码原样返回，避免白屏 */

@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --experimental-loader ./.test-loader.mjs ./approval.test.mjs && node --experimental-loader ./.test-loader.mjs ./lowValue.test.mjs && node --experimental-loader ./.test-loader.mjs ./workbench.test.mjs",
+    "test": "node --experimental-loader ./.test-loader.mjs ./approval.test.mjs && node --experimental-loader ./.test-loader.mjs ./lowValue.test.mjs && node --experimental-loader ./.test-loader.mjs ./workbench.test.mjs && node --experimental-loader ./.test-loader.mjs ./auth.test.mjs",
     "check": "node .chkfn.cjs"
   },
   "dependencies": {

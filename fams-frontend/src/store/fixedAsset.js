@@ -58,10 +58,22 @@ export const useFixedAssetStore = defineStore('fixedAsset', () => {
     const idx = assets.value.findIndex(a => a.id === id)
     if (idx === -1) return null
     const next = { ...assets.value[idx], ...data }
-    assets.value[idx] = next
+    // 服务端确认后才更新本地：乐观锁冲突时界面不会残留与服务端不一致的数据
     const saved = await dataService.update(COLLECTION.assets, id, next)
     if (saved) assets.value[idx] = saved
     return assets.value[idx]
+  }
+
+  /**
+   * 删除资产。
+   * 安全性由契约保证：存在任意一类业务单据的资产会被服务端拒绝（1003），
+   * 因此这里不需要前端再重复校验。
+   */
+  async function removeAsset(id) {
+    await dataService.remove(COLLECTION.assets, id)
+    const idx = assets.value.findIndex(a => a.id === id || a.code === id)
+    if (idx > -1) assets.value.splice(idx, 1)
+    return true
   }
 
   /**
@@ -122,6 +134,7 @@ export const useFixedAssetStore = defineStore('fixedAsset', () => {
     loadAll,
     addAsset,
     updateAsset,
+    removeAsset,
     inventoryRemindDays,
     stats
   }

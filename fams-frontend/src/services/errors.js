@@ -73,7 +73,12 @@ export const apiError = {
   stockInsufficient: (msg) => new ApiError(ERROR_CODES.STOCK_INSUFFICIENT, msg),
   hasChildren: (msg) => new ApiError(ERROR_CODES.HAS_CHILDREN, msg),
   hasReference: (msg) => new ApiError(ERROR_CODES.HAS_REFERENCE, msg),
-  refNotFound: (msg) => new ApiError(ERROR_CODES.REF_NOT_FOUND, msg)
+  refNotFound: (msg) => new ApiError(ERROR_CODES.REF_NOT_FOUND, msg),
+  /** 乐观锁冲突：提交时携带的 version 与服务端当前 version 不一致 */
+  versionConflict: (current, submitted) => new ApiError(
+    ERROR_CODES.CONFLICT,
+    `数据已被他人修改（当前版本 ${current}，你基于版本 ${submitted}），请刷新后重试`
+  )
 }
 
 export default ApiError

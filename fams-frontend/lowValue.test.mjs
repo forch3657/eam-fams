@@ -288,6 +288,38 @@ eq(uniform.category, 'UNIFORM', '应能保存字典新增的类别')
 eq(lv.categoryName('UNIFORM'), '劳保服', '字典文案即时生效')
 ok(lv.itemRows.some(i => i.name === '反光背心' && i.categoryName === '劳保服'), '台账应展示新类别文案')
 
+// ---------------------------------------------------------------- 14. version 乐观锁
+const ITEM_COL = 'low-value-items'
+const lockItem = (await dataService.list(ITEM_COL))[0]
+const v0 = Number(lockItem.version) || 0
+ok(v0 > 0, '种子数据应带 version')
+
+// 1) 基于最新 version 可连续更新，version 每次自增
+const saved1 = await dataService.update(ITEM_COL, lockItem.id, { ...lockItem, safetyStock: 99 })
+eq(Number(saved1.version), v0 + 1, '更新后 version 自增 1')
+const saved2 = await dataService.update(ITEM_COL, lockItem.id, { ...saved1, safetyStock: 88 })
+eq(Number(saved2.version), v0 + 2, '基于最新 version 可继续更新')
+
+// 2) 基于过期 version 提交 → 409 冲突（模拟期间已被他人修改）
+threw = false
+let conflictCode = 0
+try {
+  await dataService.update(ITEM_COL, lockItem.id, { ...saved1, safetyStock: 77 })
+} catch (e) {
+  threw = true
+  conflictCode = e.code
+}
+ok(threw, '基于过期 version 应被拦截')
+eq(conflictCode, 409, '过期 version 应抛 409 冲突')
+
+// 3) 不带 version → 视为不参与并发控制，放行
+const noVer = await dataService.update(ITEM_COL, lockItem.id, { safetyStock: 66 })
+eq(Number(noVer.safetyStock), 66, '不带 version 应放行')
+
+// 4) 冲突提交不得改动服务端数据
+const afterConflict = await dataService.get(ITEM_COL, lockItem.id)
+eq(Number(afterConflict.safetyStock), 66, '冲突提交不应改动服务端数据')
+
 // ---------------------------------------------------------------- 输出
 console.log(`\n低值库存语义测试：通过 ${pass} 项，失败 ${fails.length} 项`)
 if (fails.length) {

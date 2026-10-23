@@ -33,8 +33,8 @@ async function goHome() {
   router.replace(target ? target.path : "/login")
 }
 
-function logout() {
-  userStore.logout()
+async function logout() {
+  await userStore.logout()
   router.replace("/login")
 }
 </script>

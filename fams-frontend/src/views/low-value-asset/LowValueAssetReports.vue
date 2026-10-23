@@ -3,7 +3,7 @@
     <div class="page-header">
       <h2>低值资产报表</h2>
       <div>
-        <el-button type="primary" @click="handleExport">
+        <el-button v-if="can('lv:export')" type="primary" @click="handleExport">
           <el-icon><Download /></el-icon>
           导出报表
         </el-button>
@@ -184,8 +184,10 @@ import { ref, reactive, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Download, Search } from '@element-plus/icons-vue'
 import { useLowValueAssetStore } from '../../store/lowValueAsset'
+import { useUserStore } from '../../store/user'
 
 const store = useLowValueAssetStore()
+const userStore = useUserStore()
 const activeTab = ref('category')
 /** 类别选项取自数据字典（系统管理 > 数据字典 > 低值资产类别） */
 const categoryOptions = computed(() => store.categoryOptions)
@@ -240,6 +242,9 @@ function resetFlowSearch() {
   flowSearch.category = ''
   flowPage.value = 1
 }
+
+/** 权限判定：报表导出受 lv:export 控制 */
+const can = code => userStore.can(code)
 
 function downloadCsv(headers, rows, filename) {
   const csv = '\uFEFF' + [headers.join(','), ...rows.map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(','))].join('\n')

@@ -52,12 +52,53 @@
 | GET | `/{key}/page` | 分页查询 | `{ rows, total, page, pageSize }` |
 | GET | `/{key}/{id}` | 详情 | `Row` |
 | POST | `/{key}` | 新增（body 为实体，不含 id） | `Row`（含服务端生成的 id） |
-| PUT | `/{key}/{id}` | 更新（body 为补丁） | `Row` |
+| PUT | `/{key}/{id}` | 更新（**body 为整行**，见下） | `Row` |
 | DELETE | `/{key}/{id}` | 删除 | `true` |
 | PUT | `/{key}/batch` | 批量保存（body 为 `Row[]`，按主键 upsert） | `Row[]` |
 | DELETE | `/{key}/all` | 清空集合 | `true` |
 
 > `id` 由**服务端生成**，前端不再自行拼装。删除失败时按第 2 节错误码返回，前端直接提示 `message`。
+
+#### PUT 语义：**全量替换**，不是稀疏 merge
+
+前端调用 `update` 时传的是**整行对象**（不是补丁），请以**全量替换**实现：
+body 里出现什么字段，库里就存什么字段；**body 里没有的字段应被清空**。
+若按 merge 实现，前端在本地删掉的字段将永远清不掉（例如清空某行的 `remark`）。
+
+PUT body 里可能自带 `id`，请**以路径段 `{id}` 为准**，忽略 body 内的 id。
+
+#### 乐观锁 `version`（必须实现）
+
+所有 `audit: true` 的集合都带 `version` 字段：
+
+| 时机 | 服务端行为 |
+| --- | --- |
+| 新增 | `version = 1` |
+| 更新 | `version += 1` |
+| 更新时比对 | body 携带 `version` 时，与库里当前值比对；**不一致返回 409**，文案形如「数据已被他人修改（当前版本 N，你基于版本 M），请刷新后重试」 |
+| body 未携带 `version` | 视为不参与并发控制，**放行**（兼容只改部分字段的调用） |
+
+`PUT /{key}/batch` 同样按此规则逐行比对。
+
+#### 审计字段（服务端维护）
+
+`createTime` / `createBy` / `updateTime` / `updateBy` / `version` 由服务端写入，前端不传也接受（传了以服务端为准）。
+时间一律 **ISO 8601**（`2026-09-18T10:22:31.000Z`），不接受 `2026-09-18 10:22:31` 空格格式。
+
+注意部分集合存在同名业务字段（如低值入库单的 `settleTime`），请勿与 `updateTime` 混淆。
+
+#### 认证端点
+
+| 方法 | 路径 | body / 说明 | `data` |
+| --- | --- | --- | --- |
+| POST | `/auth/login` | `{ username, password }` | `{ token, user }` |
+| POST | `/auth/logout` | — | `true` |
+| GET | `/auth/profile` | 用 token 换当前用户 | `user` |
+
+- 前端把 `token` 存 `sessionStorage`，每次请求带 `Authorization: Bearer {token}`。
+- 任何接口返回 **401**，前端会清空本地会话并跳登录页（已实现，见 `src/router/index.js`）。
+- `user` 至少包含：`id` / `username` / `name` / `roleIds` / `companyId` / `deptId`；前端按 `roleIds` 从**本地缓存的角色权限**做按钮级鉴权，因此后端还需提供角色与权限的查询能力（见 `org-roles`）。
+- mock 模式下登录不走网络，但仍签发 token，用于保证链路一致。
 
 ---
 
@@ -190,8 +231,83 @@
 | --- | --- |
 | `org-companies` | `code*`(唯一) `name*`(唯一) `shortName` `parentId`(自关联) `type` `creditCode` `legalPerson` `contact` `phone` `address` `status*`(ENABLE_STATUS) `sort` |
 | `org-departments` | `code*`(唯一) `name*` `parentId`(自关联) `companyId*` `leader` `headcount` `phone` `status*` `sort` |
-| `org-users` | `username*`(唯一) `name*` `companyId*` `deptId` `position` `roleIds[]` `phone` `email` `status*` `createdAt` `lastLoginAt` |
+| `org-users` | `username*`(唯一) `name*` `companyId*` `deptId` `position` `roleIds[]` `phone` `email` `status*` `createdAt` `lastLoginAt` `passwordResetAt` |
 | `org-roles` | `code*`(唯一) `name*`(唯一) `orgScope` `dataScope` `status*` `sort` `remark` `permissions[]` |
+
+### 4.6 `fixed-asset-doc-approvals` 审批记录（审批轨迹）
+
+> 一条记录 = 单据在某个环节上的一次动作。前端工作台的「我的待办 / 审批时效」完全依赖此表。
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `docKey` * | string | 单据集合标识（如 `low-value-requisition`） |
+| `docId` * | string | 单据 id |
+| `docCode` | string | 单据编号（冗余，便于检索） |
+| `bizType` * | enum | `BUSINESS_TYPE` |
+| `flowId` | ref | → `system-workflow-flows` |
+| `flowCode` | string | 流程编码（冗余） |
+| `stepKey` / `stepName` | string | 环节标识 / 环节名称 |
+| `result` * | enum | `APPROVE_RESULT`：`SUBMIT`/`AGREE`/`REJECT`/`REVOKE` |
+| `comment` | string | 审批意见（驳回时必填） |
+| `approverId` | ref | → `org-users` |
+| `approverName` / `approverRoleName` | string | 审批人 / 角色名（文本快照） |
+| `time` | date | 动作时间（ISO 8601） |
+
+### 4.7 `system-workflow-flows` 工作流程
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `code` * | string | 流程编码（唯一） |
+| `name` * | string | 流程名称 |
+| `bizType` * | enum | `BUSINESS_TYPE` |
+| `initiator` | string | 发起人角色名（冗余） |
+| `initiatorRoleId` | ref | → `org-roles` |
+| `enabled` | boolean | 是否启用 |
+| `steps` | array | 审批环节数组，**元素结构见下** |
+
+`steps[]` 元素（审批引擎的核心输入，后端需单独建模）：
+
+| 字段 | 说明 |
+| --- | --- |
+| `key` | 环节标识（与审批记录的 `stepKey` 对应） |
+| `name` | 环节名称 |
+| `approverRoleId` | 审批角色 id → `org-roles` |
+| `approver` | 审批人（冗余展示） |
+| `mode` | enum `APPROVE_MODE`：`ANY` 任一通过 / `SEQUENCE` 依次 / `ALL` 全部通过 |
+| `conditionType` | enum `APPROVE_CONDITION`：`NONE` 无条件 / `AMOUNT_GT` 金额大于 / `HAS_DIFF` 存在差异 |
+| `conditionValue` | 条件阈值（`AMOUNT_GT` 时为金额） |
+| `condition` | 条件说明（冗余） |
+
+### 4.8 其余集合的字段定义
+
+上文已给出主要集合的字段表。其余集合（盘点计划/单据、折旧方案/报表/明细、
+位置、分类、折旧规则、字典项、系统参数、终端、终端异常、消息、消息模板、操作日志）
+的字段以 **`src/services/contract/schema.js` 为唯一真源** —— 该文件是机器可读的契约，
+含字段名、类型、必填、枚举、唯一键与引用关系，请直接参照建表。
+
+重点关注以下几个已在契约里声明、容易漏建的字段：
+
+| 集合 | 易漏字段 | 说明 |
+| --- | --- | --- |
+| `system-dict-types` | `remark` | 字典类型的说明 |
+| `system-terminal-abnormal` | `handleResult` | 处理结果 |
+| `low-value-settings-locations` | `parentName` | 上级位置名称（表单整表提交） |
+| `org-users` | `passwordResetAt` | 管理员重置密码时间 |
+| `system-terminal-devices` | `bindUserId` | 绑定的盘点人 → `org-users` |
+| 全部 `audit: true` 集合 | `createTime`/`createBy`/`updateTime`/`updateBy`/`version` | 服务端维护，见第 3 节 |
+
+### 4.9 嵌套数组说明
+
+以下字段在契约里声明为 `array`，但其**元素结构不在顶层字段表中**，后端需单独建模：
+
+| 集合 | 字段 | 元素要点 |
+| --- | --- | --- |
+| `fixed-asset-inventory-plans` / `-docs` | `items[]` | `itemStatus` 取 `INVENTORY_ITEM_STATUS`（`UNCHECKED`/`CHECKED`/`LOSS`/`ABNORMAL`）；`result` 取 `INVENTORY_RESULT`（`UNCHECKED`/`MATCHED`/`SURPLUS`/`LOSS`）；另含资产快照 `assetNo`/`assetName`/`assetStatus` |
+| `fixed-asset-inventory-plans` / `-docs` | `counters[]` | `status` 取 `INVENTORY_COUNTER_STATUS`（`COUNTING`/`DONE`） |
+| `fixed-asset-settings-depreciation-plans` | `assetTypes[]` | `ASSET_CATEGORY` 编码数组 |
+| `org-users` | `roleIds[]` | `org-roles` 主键数组 |
+| `org-roles` | `permissions[]` | 权限码字符串数组（见 `src/config/permissions.js`） |
+| `system-workflow-flows` | `steps[]` | 见 4.7 |
 
 ---
 
@@ -201,18 +317,48 @@
 | --- | --- | --- |
 | 唯一性校验 | `code`/`name`/`username`/`key` 等契约声明的唯一字段 | 409 |
 | 外键引用完整性 | 所有 `ref` 字段指向的记录必须存在 | 1005 |
-| 资产删除保护 | 存在派发/借出/处置单据的资产不能删除 | 1003 |
+| 资产删除保护 | 存在**任意一类**业务单据（8 类：入库/派发/退库/借出/调拨/维修/变更/处置）的资产不能删除 | 1003 |
 | 公司删除保护 | 有子公司 / 部门 / 用户的公司不能删除 | 1002 / 1003 |
 | 部门删除保护 | 有子部门或人员的部门不能删除 | 1002 / 1003 |
 | 角色删除保护 | 已关联用户的角色不能删除 | 1003 |
-| 类别/位置删除保护 | 仍被物品引用的类别、位置不能删除 | 1003 |
+| **用户删除保护** | 用户是资产使用人 / 单据创建人 / 审批人 / 已绑定终端时不能删除 | 1003 |
+| 位置删除保护 | 仍被物品或资产引用的位置不能删除（**按 name 匹配**，见下方说明） | 1003 |
 | 分类删除保护 | 有子分类的分类不能删除 | 1002 |
-| 低值物品删除保护 | 仍有库存或已产生单据的物品不能删除 | 1003 |
+| 低值物品删除保护 | 仍有库存 / 仍有审批占用 / 已产生入库·领用·退库单据的物品不能删除 | 1003 |
+| **终端删除保护** | 已产生异常记录的盘点终端不能删除 | 1003 |
+| **流程删除保护** | 已产生审批记录的工作流程不能删除（且流程 code 唯一） | 1003 |
+| **字典类型删除** | 必须**级联删除**其字典项集合 `system-dict-types-{code}-items`，否则产生孤儿数据 | — |
 | **库存联动** | 入库 `stock += qty`；领用 `stock -= qty`（不足报 1001）；退库 `stock += qty` | 1001 |
 | **退库限额** | 退库数量 ≤「已领未退」= 领用总量 − 退库总量 | 1006 |
 | 单据删除回退库存 | 删除入库/领用/退库单据时，反向回退库存 | — |
 
 > 前端 mock 引擎已按上述规则实现（`src/services/mock/rules.js`），签约后以服务端为准，前端不再重复校验。
+
+#### 库存三段结算（状态驱动，服务端逻辑）
+
+低值单据的 `status` 决定库存何时变动，三者必须严格一致：
+
+| 状态 | 库存行为 |
+| --- | --- |
+| `DRAFT` 草稿 | **不动**库存 |
+| `PROCESSING` 审批中 | 领用单**预占** `reserved += qty`（`stock` 不变，可用量 = `stock - reserved`）；入库/退库单不动作 |
+| `DONE` 已完结 | 真正结算：`stock ± qty`，同时释放 `reserved` |
+| `REJECTED` / `REVOKED` | 释放 `reserved`，不动 `stock` |
+| 单据被删除 | 按删除时的状态**反向回退**（已结算的退回库存，审批中的释放预占） |
+
+**顺序要求**：`checkProtect`（删除保护）必须在库存回退**之前**执行，否则会出现「报了 1003 但库存已回退」的脏数据。
+
+> 前端「可用库存」=`stock - reserved` 是本地计算。若后端不返回这两个字段，前端可用量会算错。
+
+#### 快照字段不可覆盖
+
+低值单据（入库/领用/退库）带 `itemName` / `categoryName` / `spec` / `unit` / `price` 五个**快照字段**，
+记录办理当时的物品信息。后端**不可按 `itemId` 实时关联取值**，否则物品改名/改价会污染历史单据。
+
+#### 位置按 name 引用（非规范化设计）
+
+`low-value-items.location` 与 `fixed-assets.location` 存的是**位置名称字符串**，不是位置 id。
+删除位置时的保护规则因此是「按 name 比对」，后端需按此实现。
 
 ---
 
@@ -227,6 +373,9 @@ VITE_API_BASE_URL=http://your-backend/api
 - `VITE_USE_MOCK=true` 或 `VITE_API_BASE_URL` 为空 → 使用内置 mock（离线演示）。
 - 两者都配置正确 → 走真实接口，**业务代码无需任何修改**。
 - mock 模式可选环境变量：`VITE_MOCK_LATENCY`（模拟网络延迟 ms）、`VITE_MOCK_ERROR_RATE`（随机故障概率 0~1），用于演练 loading 与错误分支。
+
+> 开发服务器端口为 **5174**（见 `vite.config.js`），且未配置 proxy，
+> 联调期请由后端开启 CORS 允许该来源。
 
 ---
 
@@ -248,10 +397,13 @@ VITE_API_BASE_URL=http://your-backend/api
 | `DOC_STATUS` | DRAFT 待提交 / PROCESSING 进行中 / REJECTED 已驳回 / REVOKED 已撤销 / DONE 已完结 |
 | `LOW_VALUE_ITEM_STATUS` | NORMAL 正常 / LOW_STOCK 低库存 / DISABLED 停用 |
 | `INVENTORY_ITEM_STATUS` | UNCHECKED 未盘 / CHECKED 已盘 / LOSS 盘亏 / ABNORMAL 异常 |
+| `INVENTORY_RESULT` | UNCHECKED 未盘 / MATCHED 账实相符 / SURPLUS 盘盈 / LOSS 盘亏 |
 | `INVENTORY_COUNTER_STATUS` | COUNTING 盘点中 / DONE 已完成 |
+| `APPROVE_RESULT` | SUBMIT 提交 / AGREE 通过 / REJECT 驳回 / REVOKE 撤销 |
+| `APPROVE_CONDITION` | NONE 无条件 / AMOUNT_GT 金额大于 / HAS_DIFF 存在差异 |
 | `DEPRECIATION_METHOD` | STRAIGHT_LINE 年限平均法 / DOUBLE_DECLINE 双倍余额递减法 / SUM_YEARS 年数总和法 / WORKLOAD 工作量法 |
 | `CALC_TIME` | MONTHLY 按月计提 / QUARTERLY 按季计提 / YEARLY 按年计提 |
-| `BUSINESS_TYPE` | INBOUND 入库 / REQUISITION 领用 / RETURN 退库 / DISPATCH 派发 / BORROW 借出 / DISPOSE 处置 / INVENTORY 盘点 / CHANGE 变更 |
+| `BUSINESS_TYPE` | INBOUND 入库 / REQUISITION 领用 / **LV_RETURN 低值退库** / RETURN 退库 / DISPATCH 派发 / BORROW 借出 / TRANSFER 调拨 / REPAIR 维修 / DISPOSE 处置 / INVENTORY 盘点 / CHANGE 变更 |
 | `APPROVE_MODE` | ANY 或签 / SEQUENCE 依次 / ALL 会签 |
 | `DEVICE_STATUS` | ONLINE 在线 / OFFLINE 离线 / MAINTENANCE 维护中 / DISABLED 停用 |
 | `DEVICE_TYPE` | PDA 手持盘点终端 / SCANNER 无线扫码枪 / TABLET 盘点平板 / FIXED 固定读码器 / OTHER 其他 |

@@ -54,9 +54,18 @@ export function useCollection(key, { immediate = true, params } = {}) {
   async function update(row, patch = {}) {
     const target = typeof row === 'number' ? items.value[row] : row
     if (!target) return null
+    const before = { ...target }
     Object.assign(target, patch)
-    const saved = await dataService.update(key, primaryOf(target), target)
-    return saved || target
+    try {
+      const saved = await dataService.update(key, primaryOf(target), target)
+      // 把服务端返回写回本地：含自增后的 version，否则本地版本落后，下次更新会被乐观锁误判为冲突
+      if (saved) Object.assign(target, saved)
+      return saved || target
+    } catch (e) {
+      // 乐观锁冲突等失败场景：回滚本地改动，避免界面显示与服务端不一致
+      Object.assign(target, before)
+      throw e
+    }
   }
 
   async function remove(row) {

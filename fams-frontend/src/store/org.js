@@ -4,12 +4,6 @@ import { dataService, COLLECTION, useMock } from '../services'
 import { ORG_SEEDS } from '../services/mock/seed/org'
 import { STATUS_ENABLED } from '../constants/enums'
 
-function nowText() {
-  const d = new Date()
-  const pad = n => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-}
-
 function nextCode(prefix, rows, digits = 4) {
   const max = rows.reduce((m, r) => {
     const n = Number(String(r.code || '').replace(/\D/g, ''))
@@ -148,7 +142,7 @@ export const useOrgStore = defineStore('org', () => {
     const idx = companies.value.findIndex(c => c.id === id || c.code === id || c._id === id)
     if (idx === -1) return null
     const next = { ...companies.value[idx], ...data }
-    companies.value[idx] = next
+    // 服务端确认后才更新本地：乐观锁冲突时界面不会残留与服务端不一致的数据
     const saved = await dataService.update(COLLECTION.orgCompanies, id, next)
     if (saved) companies.value[idx] = saved
     return companies.value[idx]
@@ -182,7 +176,6 @@ export const useOrgStore = defineStore('org', () => {
     const idx = departments.value.findIndex(d => d.id === id || d.code === id || d._id === id)
     if (idx === -1) return null
     const next = { ...departments.value[idx], ...data }
-    departments.value[idx] = next
     const saved = await dataService.update(COLLECTION.orgDepartments, id, next)
     if (saved) departments.value[idx] = saved
     return departments.value[idx]
@@ -217,7 +210,9 @@ export const useOrgStore = defineStore('org', () => {
       }
     }
     for (const u of touched) {
-      await dataService.update(COLLECTION.orgUsers, u.id, u)
+      const saved = await dataService.update(COLLECTION.orgUsers, u.id, u)
+      // 写回服务端返回（含自增 version），否则本地版本落后，下次更新会被乐观锁误判为冲突
+      if (saved) Object.assign(u, saved)
     }
     return touched.length
   }
@@ -241,7 +236,6 @@ export const useOrgStore = defineStore('org', () => {
     const idx = users.value.findIndex(u => u.id === id || u.username === id || u._id === id)
     if (idx === -1) return null
     const next = { ...users.value[idx], ...data }
-    users.value[idx] = next
     const saved = await dataService.update(COLLECTION.orgUsers, id, next)
     if (saved) users.value[idx] = saved
     return users.value[idx]
@@ -257,9 +251,9 @@ export const useOrgStore = defineStore('org', () => {
     const idx = users.value.findIndex(u => u.id === id)
     if (idx === -1) throw new Error('未找到用户')
     const pwd = randomPassword()
-    const next = { ...users.value[idx], password: pwd, passwordResetAt: nowText() }
-    users.value[idx] = next
-    await dataService.update(COLLECTION.orgUsers, id, next)
+    const next = { ...users.value[idx], password: pwd, passwordResetAt: new Date().toISOString() }
+    const saved = await dataService.update(COLLECTION.orgUsers, id, next)
+    if (saved) users.value[idx] = saved
     return pwd
   }
 
@@ -277,7 +271,6 @@ export const useOrgStore = defineStore('org', () => {
     const idx = roles.value.findIndex(r => r.id === id || r.code === id || r._id === id)
     if (idx === -1) return null
     const next = { ...roles.value[idx], ...data }
-    roles.value[idx] = next
     const saved = await dataService.update(COLLECTION.orgRoles, id, next)
     if (saved) roles.value[idx] = saved
     return roles.value[idx]

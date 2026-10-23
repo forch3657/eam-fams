@@ -96,7 +96,7 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     if (idx === -1) return null
     const next = { ...items.value[idx], ...data, price: money(data.price ?? items.value[idx].price) }
     if (data.category !== undefined) next.category = codeOf('LOW_VALUE_CATEGORY', data.category)
-    items.value[idx] = next
+    // 服务端确认后才更新本地：乐观锁冲突时界面不会残留与服务端不一致的数据
     const saved = await dataService.update(COLLECTION.lowValueItems, id, next)
     if (saved) items.value[idx] = saved
     return items.value[idx]
@@ -271,7 +271,6 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     const idx = list.value.findIndex(r => r.id === id)
     if (idx === -1) return null
     const next = { ...list.value[idx], ...patch }
-    list.value[idx] = next
     const saved = await dataService.update(key, id, next)
     if (saved) list.value[idx] = saved
     await syncItemStock(next.itemId)
@@ -307,7 +306,6 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     const idx = locations.value.findIndex(l => l.id === id || l.code === id)
     if (idx === -1) return null
     const next = { ...locations.value[idx], ...data }
-    locations.value[idx] = next
     const saved = await dataService.update(COLLECTION.lowValueSettingsLocations, id, next)
     if (saved) locations.value[idx] = saved
     return locations.value[idx]

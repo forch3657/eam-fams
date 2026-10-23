@@ -40,7 +40,7 @@ VITE_API_BASE_URL=http://your-backend/api
 
 ### 注意事项
 
-- mock 数据落在 localStorage，键为 `fams-mock-db-v3`；数据模型变更后旧键已失效，无需手动清理（如需重置：控制台执行 `localStorage.removeItem('fams-mock-db-v3')` 后刷新）。
+- mock 数据落在 localStorage，键为 `fams-mock-db-v10`；数据模型变更后旧键已失效，无需手动清理（如需重置：控制台执行 `localStorage.removeItem('fams-mock-db-v10')` 后刷新）。
 - 开发期若种子数据与契约不符，控制台会打印 `[契约校验]` 告警，便于在切后端前发现字段/枚举问题。
 - 可通过 `VITE_MOCK_LATENCY`（毫秒）与 `VITE_MOCK_ERROR_RATE`（0~1）模拟网络延迟与随机故障，演练 loading 与错误分支。
 
@@ -101,10 +101,10 @@ npm run dev     # http://localhost:5174/
 ```
 src/
 ├── main.js / App.vue          入口
-├── router/index.js            登录 + 三条业务路由（含登录守卫）
-├── layouts/MainLayout.vue     侧边栏（固定资产 / 低值资产 / 组织架构 / 系统管理）+ 顶栏 + 页签栏
-├── views/Login.vue            轻量登录页（sessionStorage 存登录态）
-├── views/fixed-asset/         固定资产三个业务页面
+├── router/index.js            登录 + 工作台 + 18 条业务路由（含登录守卫、401 拦截）
+├── layouts/MainLayout.vue     侧边栏（工作台 / 固定资产 / 低值资产 / 组织架构 / 系统管理）+ 顶栏 + 页签栏
+├── views/Login.vue            轻量登录页（token 存 sessionStorage，登录后跳工作台）
+├── views/fixed-asset/         固定资产业务页面（台账 / 单据 / 报表 / 基础设置）
 ├── views/low-value-asset/     低值资产三个业务页面
 ├── views/system/              组织架构（公司/部门/用户/角色）与系统管理页面
 ├── config/permissions.js      权限树定义（固定资产/低值资产/组织架构/系统管理）
@@ -202,7 +202,7 @@ VITE_API_BASE_URL=      # 后端根地址，为空时自动回落 mock，避免�
 
 - mock 与 HTTP 行为一致：读取返回深拷贝、写入只落库，页面/store 维护自己的响应式副本（避免同一条数据被插入两次）。
 - 业务写入统一走 `useCollection().add/update/remove`；行内嵌套字段（如盘点明细、分类树、流程环节）就地修改后需调用 `update()` 或 `save()` 回写。
-- mock 数据落 `localStorage`（键名 `fams-mock-db-v1`），刷新后仍保留改动；清空该键即可恢复种子数据。
+- mock 数据落 `localStorage`（键名 `fams-mock-db-v10`），刷新后仍保留改动；清空该键即可恢复种子数据。
 
 ## 与原系统的关系
 

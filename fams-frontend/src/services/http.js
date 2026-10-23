@@ -16,9 +16,23 @@
  * 因此上层业务代码在两种模式下无需分支。
  */
 import { ApiError, ERROR_CODES } from './errors'
+import { TOKEN_STORAGE_KEY } from './keys'
 
 const BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
 const DEFAULT_TIMEOUT = 15000
+
+/**
+ * 401 处理器：由应用入口注入（router/index.js）。
+ * http 层不反向依赖 router / store，避免循环依赖。
+ */
+let unauthorizedHandler = null
+export function setUnauthorizedHandler(fn) {
+  unauthorizedHandler = fn
+}
+function notifyUnauthorized() {
+  if (!unauthorizedHandler) return
+  try { unauthorizedHandler() } catch (e) { console.error('[http] 401 处理器异常', e) }
+}
 
 function buildQuery(params) {
   if (!params) return ''
@@ -36,7 +50,8 @@ function buildQuery(params) {
 }
 
 function authHeaders() {
-  const token = sessionStorage.getItem('token') || ''
+  let token = ''
+  try { token = sessionStorage.getItem(TOKEN_STORAGE_KEY) || '' } catch (e) { /* 隐私模式下不可用 */ }
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
@@ -63,13 +78,16 @@ async function request(path, { method = 'GET', params, data, timeout = DEFAULT_T
     }
 
     if (!res.ok) {
-      const code = body?.code || res.status || ERROR_CODES.SERVER
+      const code = Number(body?.code ?? res.status ?? ERROR_CODES.SERVER)
+      // 未登录 / token 失效：统一跳登录（文档约定 401 → 跳转登录）
+      if (code === ERROR_CODES.UNAUTHORIZED) notifyUnauthorized()
       throw new ApiError(code, body?.message || `接口请求失败：${res.status}`, res.status, body?.details)
     }
 
     // 兼容统一信封 { code, message, data } 与裸数据两种形式
     if (body && typeof body === 'object' && !Array.isArray(body) && 'code' in body) {
       if (Number(body.code) !== 0) {
+        if (Number(body.code) === ERROR_CODES.UNAUTHORIZED) notifyUnauthorized()
         throw new ApiError(Number(body.code), body.message || '操作失败', res.status, body.details)
       }
       return body.data

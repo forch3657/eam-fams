@@ -31,6 +31,14 @@ function docFields(extra = {}) {
   }
 }
 
+// ---------------------------------------------------------------- 固定资产单据集合清单
+// 必须在下方 ASSETS 契约之前定义：ASSETS 的删除保护规则按此清单展开
+const DOC_LIST_KEYS = ['inbound', 'alloc', 'back', 'borrow', 'transfer', 'repair', 'change', 'dispose']
+const DOC_LIST_LABELS = {
+  inbound: '入库单列表', alloc: '派发单列表', back: '退库单列表', borrow: '借出单列表',
+  transfer: '调拨单列表', repair: '维修单列表', change: '资产变更单列表', dispose: '处置单列表'
+}
+
 // ---------------------------------------------------------------- 固定资产
 
 const ASSETS = {
@@ -71,13 +79,13 @@ const ASSETS = {
       { field: 'deptId', collection: 'org-departments' },
       { field: 'userId', collection: 'org-users' }
     ],
-    // 资产被业务单据引用时禁止删除
-    protect: [
-      { collection: 'fixed-asset-doc-lists-inbound', field: 'assetId', message: '该资产存在入库单据，不能删除' },
-      { collection: 'fixed-asset-doc-lists-alloc', field: 'assetId', message: '该资产存在派发单据，不能删除' },
-      { collection: 'fixed-asset-doc-lists-borrow', field: 'assetId', message: '该资产存在借出单据，不能删除' },
-      { collection: 'fixed-asset-doc-lists-dispose', field: 'assetId', message: '该资产存在处置单据，不能删除' }
-    ]
+    // 资产被业务单据引用时禁止删除（覆盖全部 8 类单据，原先只保护 4 类，
+    // 导致有退库/调拨/维修/变更单据的资产仍可被删除）
+    protect: DOC_LIST_KEYS.map(biz => ({
+      collection: `fixed-asset-doc-lists-${biz}`,
+      field: 'assetId',
+      message: `该资产存在${DOC_LIST_LABELS[biz] || biz}单据，不能删除`
+    }))
   }
 }
 
@@ -325,7 +333,8 @@ const LOW_VALUE_ITEMS = {
     // 仍有库存或已产生单据时禁止删除
     protect: [
       { collection: 'low-value-inbound', field: 'itemId', message: '该物品已产生入库单据，不能删除' },
-      { collection: 'low-value-requisition', field: 'itemId', message: '该物品已产生领用单据，不能删除' }
+      { collection: 'low-value-requisition', field: 'itemId', message: '该物品已产生领用单据，不能删除' },
+      { collection: 'low-value-return', field: 'itemId', message: '该物品已产生退库单据，不能删除' }
     ],
     stockGuard: [
       { field: 'stock', message: '该物品仍有库存，不能删除' },
@@ -424,12 +433,18 @@ const LOW_VALUE_LOCATIONS = {
     code: f.str({ required: true, unique: true }),
     name: f.str({ required: true }),
     parentCode: f.str(),
+    // 上级位置名称（表单带该字段，整表提交）
+    parentName: f.str(),
     manager: f.str(),
     itemCount: f.num(),
     status: f.enum('ENABLE_STATUS', { required: true })
   },
   query: { keyword: ['name', 'code'], filters: ['status', 'parentCode'], sort: ['code'], page: true },
-  rules: { unique: ['code'] }
+  rules: {
+    unique: ['code'],
+    // 被物品引用时禁止删除（低值物品按位置名引用，非 id）
+    protect: [{ collection: 'low-value-items', field: 'location', valueFrom: 'name', message: '该位置下仍有物品，不能删除' }]
+  }
 }
 
 // ---------------------------------------------------------------- 组织架构
@@ -505,6 +520,8 @@ const ORG_USERS = {
     username: f.str({ required: true, unique: true }),
     // 登录口令（前端演示用明文存储；接入后端后由后端校验，前端不再持有）
     password: f.str(),
+    // 管理员重置密码的时间（「重置密码」会写入）
+    passwordResetAt: f.date(),
     name: f.str({ required: true }),
     companyId: f.ref('org-companies', { required: true }),
     deptId: f.ref('org-departments'),
@@ -522,6 +539,21 @@ const ORG_USERS = {
     refs: [
       { field: 'companyId', collection: 'org-companies' },
       { field: 'deptId', collection: 'org-departments' }
+    ],
+    // 被业务数据引用的用户禁止删除：原先无任何保护，
+    // 删除后资产/单据/审批记录/终端会留下悬空引用
+    protect: [
+      { collection: 'fixed-assets', field: 'userId', message: '该用户仍是资产使用人，不能删除' },
+      { collection: 'fixed-asset-doc-approvals', field: 'approverId', message: '该用户已有审批记录，不能删除' },
+      { collection: 'system-terminal-devices', field: 'bindUserId', message: '该用户已绑定盘点终端，不能删除' },
+      { collection: 'low-value-inbound', field: 'creatorId', message: '该用户已创建入库单，不能删除' },
+      { collection: 'low-value-requisition', field: 'creatorId', message: '该用户已创建领用单，不能删除' },
+      { collection: 'low-value-return', field: 'creatorId', message: '该用户已创建退库单，不能删除' },
+      ...DOC_LIST_KEYS.map(biz => ({
+        collection: `fixed-asset-doc-lists-${biz}`,
+        field: 'creatorId',
+        message: `该用户已创建${DOC_LIST_LABELS[biz] || biz}单据，不能删除`
+      }))
     ]
   }
 }
@@ -559,11 +591,19 @@ const SYSTEM_DICT_TYPES = {
   fields: {
     code: f.str({ required: true, unique: true }),
     name: f.str({ required: true }),
+    // 字典项数（由「数据字典」页在项增删改后同步）
     count: f.num(),
-    status: f.enum('ENABLE_STATUS', { required: true })
+    status: f.enum('ENABLE_STATUS', { required: true }),
+    remark: f.str()
   },
   query: { keyword: ['name', 'code'], filters: ['status'], sort: ['code'], page: true },
-  rules: { unique: ['code', 'name'] }
+  rules: {
+    unique: ['code', 'name'],
+    // 字典项是动态集合（system-dict-types-{code}-items），静态契约无法枚举，
+    // 因此这里只声明"删除字典类型必须级联清理其字典项"，
+    // 由「数据字典」页在删除时一并清除（见 SystemDict.vue）
+    cascade: [{ pattern: 'system-dict-types-{code}-items', message: '删除字典类型会同时删除其全部字典项' }]
+  }
 }
 
 const SYSTEM_PARAMS = {
@@ -597,7 +637,12 @@ const SYSTEM_FLOWS = {
     steps: f.arr()
   },
   query: { keyword: ['name', 'code'], filters: ['bizType', 'enabled'], sort: ['code'], page: true },
-  rules: { unique: ['code'] }
+  rules: {
+    unique: ['code'],
+    refs: [{ field: 'initiatorRoleId', collection: 'org-roles' }],
+    // 已产生审批记录的流程不允许删除
+    protect: [{ collection: 'fixed-asset-doc-approvals', field: 'flowId', message: '该流程已产生审批记录，不能删除' }]
+  }
 }
 
 /**
@@ -626,7 +671,12 @@ const DOC_APPROVALS = {
     time: f.date()
   },
   query: { keyword: ['docCode', 'approverName', 'stepName'], filters: ['docKey', 'bizType', 'result', 'approverId'], sort: ['time'], page: true },
-  rules: { refs: [{ field: 'approverId', collection: 'org-users' }] }
+  rules: {
+    refs: [
+      { field: 'approverId', collection: 'org-users' },
+      { field: 'flowId', collection: 'system-workflow-flows' }
+    ]
+  }
 }
 
 const SYSTEM_DEVICES = {
@@ -652,7 +702,11 @@ const SYSTEM_DEVICES = {
     remark: f.str()
   },
   query: { keyword: ['name', 'code', 'sn', 'ip'], filters: ['status', 'type'], sort: ['code'], page: true },
-  rules: { unique: ['code'], refs: [{ field: 'bindUserId', collection: 'org-users' }] }
+  rules: {
+    unique: ['code'],
+    refs: [{ field: 'bindUserId', collection: 'org-users' }],
+    protect: [{ collection: 'system-terminal-abnormal', field: 'deviceCode', message: '该终端已有异常记录，不能删除' }]
+  }
 }
 
 const SYSTEM_DEVICE_ABNORMAL = {
@@ -668,10 +722,18 @@ const SYSTEM_DEVICE_ABNORMAL = {
     detail: f.str(),
     affectedCount: f.num(),
     handled: f.bool(),
+    // 处理结果：终端异常页会写入该字段
+    handleResult: f.str(),
     createTime: f.date()
   },
   query: { keyword: ['recordNo', 'detail'], filters: ['type', 'handled'], sort: ['createTime'], page: true },
-  rules: { unique: ['recordNo'], refs: [{ field: 'deviceCode', collection: 'system-terminal-devices' }] }
+  rules: {
+    unique: ['recordNo'],
+    refs: [
+      { field: 'deviceCode', collection: 'system-terminal-devices' },
+      { field: 'operatorId', collection: 'org-users' }
+    ]
+  }
 }
 
 const NOTIFY_MESSAGES = {
@@ -760,12 +822,6 @@ export const CONTRACTS = CONTRACT_LIST.reduce((acc, c) => {
  * 动态集合的契约模式（如按业务类型拆分的单据列表、按字典类型拆分的字典项）
  * 命中模式的 key 会套用同一个契约模板，避免为每类重复定义。
  */
-const DOC_LIST_KEYS = ['inbound', 'alloc', 'back', 'borrow', 'transfer', 'repair', 'change', 'dispose']
-const DOC_LIST_LABELS = {
-  inbound: '入库单列表', alloc: '派发单列表', back: '退库单列表', borrow: '借出单列表',
-  transfer: '调拨单列表', repair: '维修单列表', change: '资产变更单列表', dispose: '处置单列表'
-}
-
 export const CONTRACT_PATTERNS = [
   {
     test: key => key.startsWith('fixed-asset-doc-lists-'),
@@ -788,7 +844,15 @@ export const CONTRACT_PATTERNS = [
           status: f.enum('DOC_STATUS', { required: true })
         },
         query: { keyword: ['code', 'name'], filters: ['status', 'companyId'], sort: ['createTime'], page: true },
-        rules: { unique: ['docNo'], refs: [{ field: 'companyId', collection: 'org-companies' }] }
+        rules: {
+          // 字段名是 code 不是 docNo：写成 docNo 时 checkUnique 取到 undefined，唯一性校验会静默失效
+          unique: ['code'],
+          refs: [
+            { field: 'companyId', collection: 'org-companies' },
+            { field: 'assetId', collection: 'fixed-assets' },
+            { field: 'creatorId', collection: 'org-users' }
+          ]
+        }
       }
     }
   },

@@ -3,7 +3,7 @@
     <div class="page-header">
       <h2>固定资产报表</h2>
       <div>
-        <el-button type="primary" @click="handleExport">
+        <el-button v-if="can('fa:export')" type="primary" @click="handleExport">
           <el-icon><Download /></el-icon>
           导出报表
         </el-button>
@@ -164,7 +164,7 @@
                 搜索
               </el-button>
               <el-button @click="handleDetailReset">重置</el-button>
-              <el-button type="primary" plain @click="handleDetailExport">
+              <el-button v-if="can('fa:export')" type="primary" plain @click="handleDetailExport">
                 <el-icon><Download /></el-icon>
                 导出
               </el-button>
@@ -221,9 +221,8 @@
             </el-form-item>
             <el-form-item label="折旧方式">
               <el-select v-model="depreciationSearch.method" placeholder="请选择" clearable style="width: 140px">
-                <el-option label="直线法" value="直线法" />
-                <el-option label="双倍余额递减法" value="双倍余额递减法" />
-                <el-option label="年数总和法" value="年数总和法" />
+                <!-- 存编码不存文案：与折旧方案集合的 DEPRECIATION_METHOD 枚举一致 -->
+                <el-option v-for="m in depreciationMethodOptions" :key="m.value" :label="m.label" :value="m.value" />
               </el-select>
             </el-form-item>
             <el-form-item>
@@ -273,7 +272,7 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Download, Search } from '@element-plus/icons-vue'
-import { labelOf } from '../../constants/enums'
+import { labelOf, optionsOf } from '../../constants/enums'
 import { useFixedAssetStore } from '../../store/fixedAsset'
 import { useOrgStore } from '../../store/org'
 import { useCollection } from '../../composables/useCollection'
@@ -281,6 +280,12 @@ import { COLLECTION } from '../../services'
 
 const fixedAssetStore = useFixedAssetStore()
 const orgStore = useOrgStore()
+
+/** 折旧方式选项取自数据字典：下拉展示中文，筛选与落库存编码 */
+const depreciationMethodOptions = computed(() => optionsOf('DEPRECIATION_METHOD'))
+
+/** 权限判定：报表导出受 fa:export 控制 */
+const can = code => userStore.can(code)
 
 const activeTab = ref('category')
 

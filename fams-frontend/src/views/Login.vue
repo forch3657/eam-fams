@@ -83,12 +83,13 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Monitor, User, Lock } from '@element-plus/icons-vue'
 import { useUserStore } from '../store/user'
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
 
 const form = ref({ username: 'admin', password: '123456' })
@@ -97,7 +98,8 @@ const loading = ref(false)
 const FAIL_TIPS = {
   NOT_FOUND: '账号不存在，请联系管理员在「系统管理 → 用户管理」中创建',
   DISABLED: '账号已停用，请联系管理员启用后登录',
-  PASSWORD: '密码错误'
+  PASSWORD: '密码错误',
+  SERVER: '登录服务异常，请稍后重试'
 }
 
 async function handleLogin() {
@@ -119,11 +121,13 @@ async function handleLogin() {
   }
   loading.value = false
   if (!res.ok) {
-    ElMessage.error(FAIL_TIPS[res.reason] || '登录失败')
+    ElMessage.error(res.message || FAIL_TIPS[res.reason] || '登录失败')
     return
   }
   ElMessage.success(`欢迎回来，${userStore.user.name}`)
-  router.replace('/workbench')
+  // 401 跳登录时带了 redirect，登录后回到原来要去的页面
+  const redirect = String(route.query.redirect || '').trim()
+  router.replace(redirect && redirect.startsWith('/') ? redirect : '/workbench')
 }
 </script>
 

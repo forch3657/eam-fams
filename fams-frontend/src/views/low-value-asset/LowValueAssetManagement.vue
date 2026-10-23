@@ -42,7 +42,7 @@
                 搜索
               </el-button>
               <el-button @click="resetItemSearch">重置</el-button>
-              <el-button type="primary" plain @click="exportItems">
+              <el-button v-if="can('lv:export')" type="primary" plain @click="exportItems">
                 <el-icon><Download /></el-icon>
                 导出
               </el-button>
@@ -112,7 +112,7 @@
                 搜索
               </el-button>
               <el-button @click="resetInboundSearch">重置</el-button>
-              <el-button type="primary" plain @click="exportDocs('inbound')">
+              <el-button v-if="can('lv:export')" type="primary" plain @click="exportDocs('inbound')">
                 <el-icon><Download /></el-icon>
                 导出
               </el-button>
@@ -170,7 +170,7 @@
                 搜索
               </el-button>
               <el-button @click="resetRequisitionSearch">重置</el-button>
-              <el-button type="primary" plain @click="exportDocs('requisition')">
+              <el-button v-if="can('lv:export')" type="primary" plain @click="exportDocs('requisition')">
                 <el-icon><Download /></el-icon>
                 导出
               </el-button>
@@ -239,7 +239,7 @@
                 搜索
               </el-button>
               <el-button @click="resetReturnSearch">重置</el-button>
-              <el-button type="primary" plain @click="exportDocs('return')">
+              <el-button v-if="can('lv:export')" type="primary" plain @click="exportDocs('return')">
                 <el-icon><Download /></el-icon>
                 导出
               </el-button>

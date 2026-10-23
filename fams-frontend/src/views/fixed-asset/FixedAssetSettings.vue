@@ -106,8 +106,8 @@
         <el-tab-pane label="折旧设置" name="depreciation">
           <el-form :inline="true" class="search-form">
             <el-form-item label="所属公司">
-              <el-select v-model="depSearch.company" placeholder="请选择公司" clearable style="width: 200px">
-                <el-option v-for="c in companyOptions" :key="c" :label="c" :value="c" />
+              <el-select v-model="depSearch.companyId" placeholder="请选择公司" clearable style="width: 200px">
+                <el-option v-for="c in companyOptions" :key="c.id" :label="c.name" :value="c.id" />
               </el-select>
             </el-form-item>
             <el-form-item label="折旧名称">
@@ -115,12 +115,12 @@
             </el-form-item>
             <el-form-item label="计算时间">
               <el-select v-model="depSearch.calcTime" placeholder="请选择" clearable style="width: 120px">
-                <el-option v-for="c in calcTimeOptions" :key="c" :label="c" :value="c" />
+                <el-option v-for="c in calcTimeOptions" :key="c.value" :label="c.label" :value="c.value" />
               </el-select>
             </el-form-item>
             <el-form-item label="购置方式">
               <el-select v-model="depSearch.purchaseMode" placeholder="请选择" clearable style="width: 120px">
-                <el-option v-for="m in purchaseModeOptions" :key="m" :label="m" :value="m" />
+                <el-option v-for="m in purchaseModeOptions" :key="m.value" :label="m.label" :value="m.value" />
               </el-select>
             </el-form-item>
             <el-form-item>
@@ -313,9 +313,8 @@
         </el-form-item>
         <el-form-item label="折旧方式">
           <el-select v-model="depreciationForm.method" placeholder="请选择" style="width: 100%">
-            <el-option label="直线法" value="直线法" />
-            <el-option label="双倍余额递减法" value="双倍余额递减法" />
-            <el-option label="年数总和法" value="年数总和法" />
+            <!-- 存编码不存文案：契约声明为 DEPRECIATION_METHOD 枚举，写中文会校验失败 -->
+            <el-option v-for="m in depreciationMethodOptions" :key="m.value" :label="m.label" :value="m.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="使用年限">
@@ -342,8 +341,8 @@
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="所属公司" required>
-              <el-select v-model="planForm.company" placeholder="请选择公司" style="width: 100%">
-                <el-option v-for="c in companyOptions" :key="c" :label="c" :value="c" />
+              <el-select v-model="planForm.companyId" placeholder="请选择公司" style="width: 100%">
+                <el-option v-for="c in companyOptions" :key="c.id" :label="c.name" :value="c.id" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -362,7 +361,7 @@
           <el-col :span="12">
             <el-form-item label="资产类型">
               <el-select v-model="planForm.assetTypes" multiple collapse-tags collapse-tags-tooltip placeholder="请选择资产类型" style="width: 100%">
-                <el-option v-for="t in assetTypeOptions" :key="t" :label="t" :value="t" />
+                <el-option v-for="t in assetTypeOptions" :key="t.value" :label="t.label" :value="t.value" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -374,7 +373,7 @@
           <el-col :span="12">
             <el-form-item label="计算时间">
               <el-select v-model="planForm.calcTime" placeholder="请选择计算时间" style="width: 100%">
-                <el-option v-for="c in calcTimeOptions" :key="c" :label="c" :value="c" />
+                <el-option v-for="c in calcTimeOptions" :key="c.value" :label="c.label" :value="c.value" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -387,7 +386,7 @@
           <el-col :span="12">
             <el-form-item label="购置方式">
               <el-select v-model="planForm.purchaseMode" placeholder="请选择购置方式" style="width: 100%">
-                <el-option v-for="m in purchaseModeOptions" :key="m" :label="m" :value="m" />
+                <el-option v-for="m in purchaseModeOptions" :key="m.value" :label="m.label" :value="m.value" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -421,11 +420,16 @@ const router = useRouter()
 const orgStore = useOrgStore()
 const activeTab = ref('location')
 
-const FALLBACK_COMPANIES = ['华信科技集团有限公司', '云鼎资产管理有限公司', '恒信融资租赁有限公司', '中天建设集团有限公司']
-const companyOptions = computed(() => (orgStore.companyOptions.length ? orgStore.companyOptions : FALLBACK_COMPANIES))
-const assetTypeOptions = ['电子设备', '机械设备', '运输设备', '办公家具', '房屋建筑物', '其他设备']
-const purchaseModeOptions = ['购买', '租赁', '自建', '受赠']
-const calcTimeOptions = ['按月计提', '按季计提', '按年计提']
+// 所属公司：下拉展示公司名、落库存 companyId（契约与种子都用 companyId，
+// 原先存公司名导致表格「所属公司」列读 companyId 永远为空）
+const companyOptions = computed(() => {
+  const list = orgStore.companies.filter(c => c.status === 'ENABLED').map(c => ({ id: c.id, name: c.name }))
+  return list.length ? list : FALLBACK_COMPANIES
+})
+// 全部下拉统一取数据字典：下拉展示中文、落库存编码，改文案不必改代码
+const assetTypeOptions = computed(() => optionsOf('ASSET_CATEGORY'))
+const purchaseModeOptions = computed(() => optionsOf('PURCHASE_MODE'))
+const calcTimeOptions = computed(() => optionsOf('CALC_TIME'))
 const depreciationMethodOptions = computed(() => optionsOf('DEPRECIATION_METHOD'))
 
 // 位置设置
@@ -504,10 +508,9 @@ const catPage = ref(1)
 const catPageSize = ref(15)
 watch(catSearch, () => { catPage.value = 1 }, { deep: true })
 
+/** 统一 ISO 8601：契约与后端只认这种格式，空格分隔的本地格式会被判为非法 */
 function nowText() {
-  const d = new Date()
-  const p = n => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+  return new Date().toISOString()
 }
 
 function filterCategoryNodes(nodes) {
@@ -614,7 +617,7 @@ const handleAddSubCategory = (row) => {
     code: '',
     name: '',
     parentCode: node ? node.code : row.code,
-    depreciationMethod: node ? node.depreciationMethod : '年限平均法',
+    depreciationMethod: node ? node.depreciationMethod : 'STRAIGHT_LINE',
     usefulLife: node ? node.usefulLife : 5,
     status: 'ENABLED'
   })
@@ -736,12 +739,12 @@ const depreciationRules = depreciationRuleCol.items
 const depreciationDialogVisible = ref(false)
 const isEditDepreciation = ref(false)
 const editingDepreciationIndex = ref(-1)
-const depreciationForm = reactive({ name: '', method: '直线法', usefulLife: 5, residualRate: 5, description: '' })
+const depreciationForm = reactive({ name: '', method: 'STRAIGHT_LINE', usefulLife: 5, residualRate: 5, description: '' })
 
 const handleAddDepreciation = () => {
   isEditDepreciation.value = false
   editingDepreciationIndex.value = -1
-  Object.assign(depreciationForm, { name: '', method: '直线法', usefulLife: 5, residualRate: 5, description: '' })
+  Object.assign(depreciationForm, { name: '', method: 'STRAIGHT_LINE', usefulLife: 5, residualRate: 5, description: '' })
   depreciationDialogVisible.value = true
 }
 
@@ -783,13 +786,13 @@ const handleDepreciationSubmit = () => {
 const depreciationPlanCol = useCollection(COLLECTION.settingsDepreciationPlans)
 const depreciationPlans = depreciationPlanCol.items
 
-const depSearch = reactive({ company: '', name: '', calcTime: '', purchaseMode: '' })
+const depSearch = reactive({ companyId: '', name: '', calcTime: '', purchaseMode: '' })
 const depPage = ref(1)
 const depPageSize = ref(15)
 watch(depSearch, () => { depPage.value = 1 }, { deep: true })
 
 const filteredDepreciationPlans = computed(() => depreciationPlans.value.filter(p =>
-  (!depSearch.company || p.company === depSearch.company) &&
+  (!depSearch.companyId || p.companyId === depSearch.companyId) &&
   (!depSearch.name || p.name.includes(depSearch.name)) &&
   (!depSearch.calcTime || p.calcTime === depSearch.calcTime) &&
   (!depSearch.purchaseMode || p.purchaseMode === depSearch.purchaseMode)
@@ -803,19 +806,19 @@ const pagedDepreciationPlans = computed(() => {
 const depTotal = computed(() => filteredDepreciationPlans.value.length)
 
 function resetDepSearch() {
-  Object.assign(depSearch, { company: '', name: '', calcTime: '', purchaseMode: '' })
+  Object.assign(depSearch, { companyId: '', name: '', calcTime: '', purchaseMode: '' })
   depPage.value = 1
 }
 
 const planDialogVisible = ref(false)
 const isEditPlan = ref(false)
 const editingPlanId = ref('')
-const planForm = reactive({ company: '', name: '', method: 'STRAIGHT_LINE', assetTypes: [], residualRate: 5, calcTime: 'MONTHLY', monthlyDay: 25, purchaseMode: 'PURCHASE', remark: '' })
+const planForm = reactive({ companyId: '', name: '', method: 'STRAIGHT_LINE', assetTypes: [], residualRate: 5, calcTime: 'MONTHLY', monthlyDay: 25, purchaseMode: 'PURCHASE', remark: '' })
 
 const handleAddPlan = () => {
   isEditPlan.value = false
   editingPlanId.value = ''
-  Object.assign(planForm, { company: '', name: '', method: 'STRAIGHT_LINE', assetTypes: [], residualRate: 5, calcTime: 'MONTHLY', monthlyDay: 25, purchaseMode: 'PURCHASE', remark: '' })
+  Object.assign(planForm, { companyId: '', name: '', method: 'STRAIGHT_LINE', assetTypes: [], residualRate: 5, calcTime: 'MONTHLY', monthlyDay: 25, purchaseMode: 'PURCHASE', remark: '' })
   planDialogVisible.value = true
 }
 
@@ -823,7 +826,7 @@ const handleEditPlan = (row) => {
   isEditPlan.value = true
   editingPlanId.value = row.id
   Object.assign(planForm, {
-    company: row.company,
+    companyId: row.companyId,
     name: row.name,
     method: row.method,
     assetTypes: [...row.assetTypes],
@@ -848,7 +851,7 @@ const handleDeletePlan = (row) => {
 }
 
 const handlePlanSubmit = () => {
-  if (!planForm.company || !planForm.name) {
+  if (!planForm.companyId || !planForm.name) {
     ElMessage.warning('请填写所属公司与折旧名称')
     return
   }
@@ -862,7 +865,7 @@ const handlePlanSubmit = () => {
   } else {
     depreciationPlanCol.add({
       id: `DP${Date.now()}`,
-      company: planForm.company,
+      companyId: planForm.companyId,
       name: planForm.name,
       method: planForm.method,
       assetTypes: [...planForm.assetTypes],

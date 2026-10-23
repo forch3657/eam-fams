@@ -40,277 +40,220 @@ design:
       - "#D93026"
       - "#2B6CB0"
 todos:
-  - id: write-plan-doc
-    content: 编写 fams-frontend/docs/WORKBENCH_PLAN.md 规划存档（现状分析、四区功能、技术方案、权限矩阵、分期与验收口径）
+  - id: auth-http-chain
+    content: 用 [subagent:code-explorer] 定位认证相关全部调用点，打通 login/logout 接口、token 写入 sessionStorage、401 拦截跳登录与路由守卫改造
     status: pending
-  - id: registry-and-perms
-    content: 抽出 BIZ_DOC_REGISTRY 业务注册表并补 LV_RETURN 映射；新增工作台权限码与角色默认授权；补预警参数与审批待办消息模板种子，存储键升 v9
+  - id: fix-enum-date
+    content: 修复枚举中文与日期格式违规：盘点计划 status、折旧 method、折旧规则与方案的 calcTime/purchaseMode 改绑 optionsOf 并用 codeOf 写入，nowText 统一 ISO 8601
     status: pending
-    dependencies:
-      - write-plan-doc
-  - id: workbench-core
-    content: 新增 services/workbench.js 聚合层与 store/workbench.js：并发加载 11 集合、待办判定、预警与概览派生、审批记录索引优化
+  - id: contract-field-rules
+    content: 契约纠偏：补 parentName/passwordResetAt/remark/handleResult 字段，company 改 companyId，doc-lists unique 改 code，SYSTEM_FLOWS 补 rules 并声明 steps 子结构
     status: pending
-    dependencies:
-      - registry-and-perms
-  - id: workbench-page
-    content: 新建 views/workbench 工作台页面与 TodoPanel/AlertPanel/OverviewPanel/MyMessages 组件，卡片内复用 DocApprovalDialog 完成审批
+  - id: protect-batch
+    content: 删除保护补齐（4 类单据、low-value-return、users/devices/flows/dict-types），移除 store 层重复保护，mock.batch 补 assertValid 与 rules
     status: pending
     dependencies:
-      - workbench-core
-  - id: route-menu-badge
-    content: 新增 /workbench 路由并设为默认首页；侧边栏置顶工作台；顶栏加待办与消息铃铛徽标；角色管理勾选权限码即生效
+      - contract-field-rules
+  - id: api-doc-complete
+    content: 补全 API_CONTRACT.md：审批记录表、19 个集合字段表、APPROVE_RESULT/APPROVE_CONDITION 枚举、PUT 全量替换语义、审计字段与库存三段结算说明
     status: pending
     dependencies:
-      - workbench-page
-  - id: deep-link
-    content: 固定资产与低值页面支持 query 定位 tab/sub，实现待办"去处理"直达对应单据页
+      - contract-field-rules
+  - id: permission-wiring
+    content: 权限码接线：删除按钮接 fa:delete，导出按钮接 fa:export 与 lv:export，保持与种子角色权限口径一致
+    status: pending
+  - id: cleanup-and-verify
+    content: 清理死代码与过时文档（死导出、.scope-trigger、README、.env.example、vite 端口），升存储键到 v11，跑全量测试与构建验证
     status: pending
     dependencies:
-      - workbench-core
-  - id: verify-and-doc
-    content: 新增 workbench.test.mjs 并回归 npm test 与 vite build、模板静态检查；更新 WORKBENCH_PLAN.md 分期状态并给出点测路径
-    status: pending
-    dependencies:
-      - route-menu-badge
-      - deep-link
+      - auth-http-chain
+      - fix-enum-date
+      - protect-batch
+      - api-doc-complete
+      - permission-wiring
 ---
 
-## 用户需求
+## 用户原始需求（verbatim）
 
-新增一个"工作台"模块，作为登录后的默认首页，把审批待办、库存预警、经营概览聚合到一屏，并让所有功能开关可由组织架构 → 角色管理配置。
+「对前端进行综合评审，是否开发完成，是否还有什么待改善的，对进行后端和数据库开发都准备好了吗？」
 
-已确认的四项决策：
+## 需求澄清
 
-1. **工作台作为登录默认首页**（根路由重定向到工作台）。
-2. **不做独立审批中心页面**，待办只以工作台卡片呈现，卡片内可直接完成通过/驳回。
-3. **消息中心是否对普通用户开放不硬编码**，改为由组织架构 → 角色管理的权限码配置决定（管理员勾选/取消勾选即可改变开放范围）；工作台所有功能一律权限码驱动。
-4. **先写规划存档再开工**：第一件事产出 `fams-frontend/docs/WORKBENCH_PLAN.md`。
+这是一次**交付前评审 + 整改**任务，不是新增功能。需回答三个问题并给出可执行的整改清单。
 
-## 产品概述
+## 评审结论（直接回答）
 
-工作台是"按角色聚合的个人首页"：**我的待办 + 我的预警 + 我的资产 + 全局概览**四块内容按权限动态组合，点击直达处理现场。它不重复造报表、列表和消息中心，只做"聚合 + 直达"，解决当前"登录无落点、待办散落在 10 个 tab、预警藏在报表里、消息到不了人"四个问题。
+**1）是否开发完成：功能页面层面基本完成，但整体未达可交付状态。**
 
-## 核心功能
+已完成：18 条业务路由，`views/` 下 29 个组件全部真实存在，无空壳、无「待开发/敬请期待」占位（全仓 TODO/FIXME 为 0）；菜单 ↔ 路由 ↔ 权限码三者高度对齐（菜单有而路由无 = 0 条）；测试 186 + 59 + 123 项全绿，`vite build` 通过。
 
-### A 区 我的待办（P0）
+**2）待改善：4 个阻塞级对接缺口 + 6 类数据模型问题 + 6 类前端打磨项。**
 
-- **待我审批**：跨 11 类业务（8 类固资单据 + 盘点 + 低值领用/退库）自动聚合，判定"当前审批环节的审批角色 ∈ 当前用户角色"；卡片显示单据号、业务类型、当前环节、金额/数量、提交人、停留时长（超期标红），可直接在卡片内"通过/驳回"（驳回强制填意见），也可"去处理"跳到对应单据页。
-- **我发起的**：待提交 / 审批中 / 被驳回（置顶高亮，支持重新提交与撤销）。
-- **我已处理**：近期我通过或驳回的单据，可回看审批轨迹。
-- **顶部待办红点**：顶栏铃铛显示待我审批数量。
+最严重的三条：
 
-### B 区 预警中心（P0）
+- **认证链路完全断裂**：`http.js` 读 `sessionStorage['token']` 发 `Authorization` 头，但全仓无一处写入该 key；`login()` 是本地明文比对密码；无 login/logout 接口；401 无拦截（文档却承诺了「401 → 跳转登录」）
+- **http 模式不走契约校验**：切到真实后端后所有必填/类型/枚举/日期校验彻底失效
+- **已声明 enum 却写中文**：盘点计划 `status='盘点中'`、折旧 `method='年限平均法'`、折旧设置下拉全中文数组 → 切后端必抛 422，功能直接不可用
 
-低值低库存、严重低库存、库存被审批占用、盘点到期倒计时、单据审批滞留超时、驳回后未重新提交、资产长期处于派发/借出/处置中。每条预警给出级别（严重/一般）、原因说明与处理入口。
+**3）后端准备度：暂不具备开工条件。**
 
-### C 区 概览看板（P1）
+`docs/API_CONTRACT.md` 完成度约 70%，缺审批记录表、19 个集合无字段定义、2 个枚举未入表；PUT 语义（整行 vs 补丁）前后端矛盾；删除保护有 6 处缺口；审计字段与乐观锁约定未写进文档。**必须先完成本计划的第 1、2 批整改，才能把文档交给后端。**
 
-- 资产总览：总数、原值、净值、状态分布、分类 Top5、闲置资产数。
-- 低值总览：物品种类、库存金额、预警数、在途审批量。
-- 审批时效：近 7 天提交/通过/驳回量、平均审批时长、各环节平均耗时。
-- 每张卡片带"查看更多"跳对应报表页。
+## 范围边界
 
-### D 区 我的消息与快捷入口（P1/P2）
+- 纳入：阻塞项修复、契约与数据模型纠偏、API 文档补全、权限码接线、死代码清理
+- 不纳入（需用户另行决策）：固定资产类别「字典 + 自建树表」双轨的取舍、低值资产是否补盘点/报废、是否新增「个人中心/修改密码」页与 404 页
 
-- "我的消息"卡片与顶栏铃铛：可见范围由角色权限码决定（普通用户是否开放由管理员在角色管理中勾选），只读与本人相关的消息。
-- 快捷入口：按权限显示新建入库/派发/借出/盘点/领用等按钮。
-- 审批动作可触发站内消息提醒（新增审批待办模板）。
+## 技术栈
 
-### 视觉与交互效果
+沿用项目现有栈，不引入新依赖：
 
-顶部为问候语 + 角色/公司信息 + 四个待办/预警/概览计数胶囊；主体为"待办 → 预警 → 概览"自上而下的卡片栅格，卡片内表格紧凑可扫读，待办行左侧以色条区分状态（待审=蓝、驳回=红、超期=橙）；空态给出明确引导（如"当前没有需要你审批的单据"）；审批操作在卡片内就地完成并即时刷新计数。
+- Vue 3 `<script setup>` + Element Plus + Pinia + Vue Router（`createWebHistory`）
+- 契约驱动数据层：`services/contract/schema.js`（唯一真源）+ `validate.js` + `mock/rules.js`
+- 双模服务层：`services/index.js` 按 `VITE_USE_MOCK` / `VITE_API_BASE_URL` 分发 `mockService` / `httpService`
+- 零 axios：`services/http.js` 是唯一网络出口（单处 `fetch`）
+- 字典机制：`constants/enums.js`（29 枚举 + `ENUM_DICT_META`）+ `services/dictEnums.js` 装载器
+- 测试：`node --experimental-loader ./.test-loader.mjs` 三个 `.test.mjs`（ESM，无测试框架）
 
-## 一、技术栈与约束
+## 实现方案与关键技术决策
 
-- **前端**：Vue 3 `<script setup>` + Element Plus + Pinia + Vite（沿用现有项目技术栈，不引入新组件库）
-- **状态与数据**：现有契约驱动 mock 引擎（`src/services/mock`）+ `dataService` 统一读写；后端切换时把聚合层换成服务端接口即可
-- **样式**：沿用 `src/styles/global.css` 的 CSS 变量（`--c-primary #1668DC`、`--c-danger #D93026`、`--c-warning #E8912A`、`--bd #E2E8F0`、`--bg-page #F0F2F5`）与既有栅格类（`grid-4 / grid-3 / grid-2 / grid-auto`）
-- **硬约束**：
+### 决策 1：认证统一走「token 存 sessionStorage + 401 全局拦截」
 
-1. 审批判定一律复用 `src/services/approval.js`（`getFlow/effectiveSteps/currentStep/canApprove/approvalsOf/runApproval`），工作台**不得自造审批语义**
-2. 可见性/开关全部由权限码驱动，权限码必须登记到 `src/config/permissions.js` 的 `PERMISSION_TREE`，否则角色管理里无法勾选
-3. 数据层只存枚举编码，展示层用 `labelOf`
-4. 不新增集合（审批记录已在 `fixed-asset-doc-approvals`，预警全为派生数据）
+- `store/user.js` 的 `login()` 改为调 `POST /auth/login`，拿到 `{ token, user }` 后：token 写入 `sessionStorage['token']`，user 写入 pinia 与 `sessionStorage['fams-user']`
+- `logout()` 调 `POST /auth/logout` 后再清本地 —— **必须让服务端使 token 失效**，不能只 `sessionStorage.removeItem`
+- 401 拦截下沉到 `http.js` 的 `request()` 单点：清 token → 清 user → `router.push('/login?redirect=' + 当前路径)`
+- 路由守卫：从「只看本地 user」改为「有 token 才放行，无 token 跳登录」，并在进入业务路由前由服务端返回的用户权限刷新 `userStore`
+- 路由守卫里的权限判定仍走 `userStore.can(code)`，但**必须明确告知后端：前端 `can()` 只控按钮显示，接口侧必须独立做角色鉴权**
 
-## 二、实现方案
+> 安全约束（来自此前 A18 项目审计教训，新后端必须避免）：密码不得明文存储与比对，必须哈希加盐；不得存在免鉴权重置密码接口；登出必须使 token 失效；登录要有失败限流。
 
-### 2.1 前置改造：业务类型注册表（关键解耦点）
+### 决策 2：枚举违规优先「写编码 + 展示走字典」，而非改契约
 
-当前"业务类型 → 单据集合/页面"的映射散落在 `approval.js`（`DOC_BIZ_TYPE`）、`FixedAssetDocList.vue`、`FixedAssetManagement.vue`（盘点独立集合）、`LowValueAssetManagement.vue`（`LV_BIZ`）四处，工作台要遍历 11 类单据必须先收敛。
+契约中 `DOC_STATUS` / `DEPRECIATION_METHOD` / `CALC_TIME` / `PURCHASE_MODE` 的定义是对的，错在视图层写了中文。
 
-在 `src/services/approval.js` 新增并导出 `BIZ_DOC_REGISTRY`（业务类型 → 单据 docKey、集合 key、显示名、所属模块、跳转路由与 tab），并补 `DOC_BIZ_TYPE.return = 'LV_RETURN'`（低值退库；固资退库 docKey 是 `back`，二者不冲突，`approvalsOf` 依赖 docKey 唯一性，注册表内 docKey 互不重复）。`FixedAssetDocList.vue`、`LowValueAssetManagement.vue` 中的本地映射改为引用注册表，消除硬编码漂移。
+- 下拉统一改绑 `optionsOf('XXX')`（返回 `[{value,label}]`），与低值资产类别、资产类型已确立的写法一致
+- 写入用 `codeOf('XXX', value)` 把可能的中文回退成编码
+- 存量中文数据：在 `labelOf()` 已能正确显示的前提下，**种子数据一并改为编码**，避免留两套值域
 
-### 2.2 聚合层 `src/services/workbench.js`（只读，不落库）
+### 决策 3：日期统一 ISO 8601，禁止 `toLocaleString`
 
-三个纯函数 + 一个加载器，职责与现有 `services/approval.js` 同级：
+全项目三套格式并存（`toISOString` / `YYYY-MM-DD HH:mm:ss` / `toLocaleString('zh-CN')`）。统一为 `toISOString()`，并删除 `nowText()` 里的斜杠格式分支。折旧计提的 `runDate` 是首个必崩点。
 
-- `loadWorkbenchDocs()`：`Promise.all` 并发拉取 11 个集合（8 个 `fixed-asset-doc-lists-*` + `fixed-asset-inventory-docs` + `low-value-requisition` + `low-value-return`），返回按业务类型分组的文档数组。
-- `myTodos({ user, org, flows, approvals, docs, assets })`：逐单据复用审批引擎求当前环节，产出三组——`pending`（待我审批）、`mine`（我发起的，DRAFT/PROCESSING/REJECTED）、`done`（我已处理，近 N 天）。
-- `buildAlerts({ org, docs, approvals, items, plans, params })`：产出预警数组（级别、类型、标题、说明、跳转地址）。
-- `buildOverview({ assets, lowValue, approvals })`：产出资产/低值/审批时效指标。
+### 决策 4：契约补字段时同步补文档，二者不得分家
 
-**性能要点**：审批记录按 `docId` 建 `Map` 索引（避免每单据重复 `filter` 全表，复杂度从 O(单据数×记录数) 降到 O(记录数)）；派生结果在 store 内用 `computed` 缓存；集合只加载一次并缓存，审批动作后按受影响集合增量刷新。
+`validateFields` 只遍历 `contract.fields`，额外字段静默放过 —— 这是「前端写了但后端不知道」的根因。整改时每改一处契约，必须在同一次提交里更新 `docs/API_CONTRACT.md` 的对应字段表。
 
-### 2.3 状态层 `src/store/workbench.js`
+### 决策 5：batch 补校验而非禁用
 
-集中持有 `docs / alerts / overview / loading / loaded`，对外暴露 `load(force)`、`refreshAfterApproval(bizType, docId)`、`todoCount`（顶栏红点）、`pendingList / myList / doneList`。避免多个子组件各自拉数据。
+`mock.batch()` 是固资分类树 `save()` 的唯一调用点。补齐 `assertValid` 与 `rules` 后，分类树的中文 `depreciationMethod` 会暴露为校验错误 —— 与决策 2 一起修，不能靠绕过。
 
-### 2.4 待办判定与卡片内审批
+## 实现要点（防回归）
 
-- 判定：单据 → `getFlow(bizType, flows)` → `effectiveSteps(flow, ctx)` → `currentStep(steps, records, org)` → `canApprove(cur.step, user, org)`。`ctx` 构造：固资单据取关联资产 `original` 作金额、盘点单据按明细 `LOSS/ABNORMAL` 判 `hasDiff`、低值单据取 `amount`（与 `FixedAssetDocList.ctxOf` / `FixedAssetManagement.invCtx` / 低值页 `ctxOf` 三处口径一致，聚合层统一实现）。
-- 卡片内审批：复用 `DocApprovalDialog.vue`（props `modelValue/doc/docKey/bizType/ctx`，emit `act{action, comment}`），`saveDoc` 回调直接 `dataService.update(注册表集合, doc.id, next)`——引擎按状态迁移自动结算库存（低值单据），无需与各页面本地 store 耦合；工作台自身数据在动作成功后按受影响集合增量刷新。
-- **深链**：工作台"去处理"跳转 `/fixed-assets?tab=dispose&sub=dispose`、`/low-value-assets?tab=requisition`；两个页面 `onMounted` 读 `route.query` 定位 tab（`activeTab / dispatchSub / disposeSub / inventorySub`），实现"从工作台直达现场"。
+- **`fams-mock-db-v10`**：契约字段变更会让旧 localStorage 数据结构不兼容，需按项目既有约定升到 v11（旧键自动失效按种子重建）
+- **测试即回归网**：改完后必须跑全量 `npm test`（368 项）+ `npm run check`（模板函数静态检查）+ `vite build`
+- **字典可新增项**：`allowedEnumCodes()` 的「内置 ∪ 字典项」语义不能回退，否则字典页新增的类别存不进去
+- **快照字段**：低值单据的 `itemName/categoryName/spec/unit/price` 是办理当时快照，后端不可按 `itemId` 实时关联覆盖
+- **PUT 全量替换语义**：前端传整行，文档与 `http.js:110` 注释必须改为「body 为整行（全量替换）」，后端不做稀疏 merge
 
-### 2.5 权限与路由（决策 3 的落点）
+## 架构设计
 
-新增 `PERMISSION_TREE` 分组"工作台"，权限码：
-
-| 权限码 | 含义 | 默认授权（角色管理可改） |
-| --- | --- | --- |
-| `wb:todo` | 查看我的待办 | R1~R8 全部 |
-| `wb:approval` | 在待办卡片内审批 | R1~R8 全部 |
-| `wb:alert` | 查看预警中心 | R1、R2、R4 |
-| `wb:overview` | 查看概览看板 | R1、R2、R4 |
-| `wb:message` | 查看我的消息（消息中心对普通用户是否开放） | 仅 R1（管理员在角色管理里勾选后即对相应角色开放） |
-
-
-- 路由 `/workbench` 不设 `meta.permission`（全员可进），卡片与顶栏铃铛按 `userStore.can()` 显隐；根路由 `redirect` 改 `/workbench`，`FALLBACK_ROUTES` 首位加 `/workbench`（无任何权限的用户也有落点）。
-- 侧边栏"工作台"置顶（`el-menu-item index="/workbench"`，图标 `HomeFilled`），不设权限码门槛。
-- 顶栏新增铃铛 + 未读/待办徽标（`el-badge`），点击展开消息与待办下拉；铃铛可见性由 `wb:todo` / `wb:message` 决定。
-
-### 2.6 预警参数与消息模板（种子）
-
-`SEED_PARAMS` 新增：`sys.approval.timeout.days=3`（审批滞留超时）、`sys.alert.rejected.days=3`（驳回未重提）、`sys.workbench.done.days=30`（我已处理回看天数）；`SEED_NOTIFY_TEMPLATES` 新增 `approval_todo`（审批待办提醒）。`services/sysParams.js` 顶部注释同步补"已接入的参数"。因新增种子，`services/mock/index.js` 存储键 **v8 → v9**（旧键自动失效并按最新种子重建）。
-
-### 2.7 消息下沉（决策 3）
-
-工作台"我的消息"卡片只读展示与当前用户相关的消息（`target` 为 `all` 或本人公司），`wb:message` 控制可见性；原「系统管理 → 消息中心」页面与 `sys:message` 权限保持不变（管理视角全量消息）。审批动作推送站内信采用**回调注入**：`runApproval` 增加可选 `onEvent(event)` 参数（submit/approve/reject/revoke/settle），由视图层决定是否 `notify.sendByTemplate`，避免 `services` 层反向依赖 store。
-
-### 2.8 页面结构（避免重复建设）
-
-工作台只做聚合与直达：卡片"查看更多"跳 `/fixed-assets`（资产报表）、`/low-value-assets`（低值报表）；待办"去处理"跳对应单据 tab；消息"查看业务"复用 `notifyMessages.route` 字段跳转。
-
-## 三、架构设计
+整改集中在三层，自上而下：
 
 ```mermaid
-graph TD
-    A[MainLayout 顶栏铃铛 + 侧边栏工作台] --> B[/workbench 路由]
-    B --> C[views/workbench/Workbench.vue]
-    C --> D[store/workbench.js 集中加载与派生]
-    D --> E[services/workbench.js 聚合层]
-    E --> F[services/approval.js 审批引擎复用]
-    E --> G[store/fixedAsset.js / store/lowValueAsset.js / store/notify.js]
-    E --> H[services/mock dataService 11 个集合]
-    C --> I[components/TodoPanel / AlertPanel / OverviewPanel / MyMessages]
-    I --> J[DocApprovalDialog 卡片内审批]
-    J --> F
-    F --> H
-    K[config/permissions.js 新增工作台权限码] --> C
-    K --> A
-    L[组织架构 角色管理 勾选权限码] --> K
-    style B fill:#1668DC,color:#fff
-    style E fill:#E8F2FF
-    style F fill:#E8F2FF
+flowchart TB
+    subgraph V["视图层 views/"]
+        A1["FixedAssetManagement<br/>盘点计划 status / 折旧 method"]
+        A2["FixedAssetSettings<br/>折旧规则·方案 下拉中文"]
+        A3["删除·导出按钮<br/>缺 fa:delete / fa:export / lv:export"]
+    end
+    subgraph S["服务层 services/"]
+        B1["http.js<br/>补 401 拦截 + 校验钩子"]
+        B2["store/user.js<br/>login/logout 走接口 + 写 token"]
+        B3["mock/index.js<br/>batch 补校验 + actorName 修复"]
+    end
+    subgraph C["契约层 services/contract/"]
+        C1["schema.js<br/>补字段 / 补 rules / 改 unique / 声明 steps"]
+        C2["validate.js<br/>统一枚举与日期校验"]
+        C3["mock/rules.js<br/>删除保护补齐"]
+    end
+    subgraph D["交付物 docs/"]
+        D1["API_CONTRACT.md<br/>审批记录 + 19 集合字段表 + 2 枚举"]
+        D2["README.md<br/>localStorage 键 / 端点表 / 路由数"]
+    end
+    V --> S --> C
+    C -.同步更新.-> D
 ```
 
-## 四、目录结构
+关键约束：**视图层的 enum 违规修复（A1/A2）依赖契约层不改语义**；**文档的每一次更新都必须与 schema.js 同批**。
 
-### 目录结构摘要
-
-新增规划文档 1 份、工作台聚合服务与 store 各 1 个、工作台视图目录 1 组（页面 + 4 个子组件）；修改审批引擎（注册表与事件回调）、路由、布局、权限树、种子与系统参数、两个业务页面的深链定位。**不新增任何数据集合**。
+## 目录结构
 
 ```
-fams-frontend/
-├── docs/
-│   └── WORKBENCH_PLAN.md                 # [NEW] 工作台规划存档（用户要求先落地）。内容：现状分析与痛点、定位与信息架构、四区功能清单、技术方案（注册表/聚合层/权限矩阵/分期）、权限矩阵表、实施分期与勾选状态、验收口径与点测路径。开工后随每期完成更新勾选状态
+f:/work/EAM-FAMS/fams-frontend/
 ├── src/
-│   ├── config/
-│   │   └── permissions.js                # [MODIFY] 新增"工作台"权限分组：wb:todo / wb:approval / wb:alert / wb:overview / wb:message（角色管理权限弹窗依赖 PERMISSION_TREE 渲染，必须登记才能被勾选）
 │   ├── services/
-│   │   ├── approval.js                   # [MODIFY] 新增并导出 BIZ_DOC_REGISTRY（11 类业务 → docKey/集合 key/显示名/模块/跳转路由+tab）；DOC_BIZ_TYPE 补 'return'→'LV_RETURN'；runApproval 增加可选 onEvent(event) 回调用于审批事件通知（不在 services 层依赖 store）
-│   │   ├── workbench.js                  # [NEW] 工作台聚合层（纯函数，只读）。导出 loadWorkbenchDocs()（Promise.all 并发拉 11 集合）/ myTodos()（待我审批·我发起的·我已处理，审批判定全部委托 approval.js）/ buildAlerts()（低值库存·盘点到期·审批滞留·驳回未重提·资产长期未处理）/ buildOverview()（资产·低值·审批时效）/ buildDocCtx()（统一金额与差异口径）。审批记录按 docId 建 Map 索引避免重复全表扫描
-│   │   ├── sysParams.js                  # [MODIFY] 顶部"已接入的参数"注释补充 sys.approval.timeout.days / sys.alert.rejected.days / sys.workbench.done.days
-│   │   ├── collections.js                # [CHECK] 确认无需新增集合（审批记录复用 docApprovals）
+│   │   ├── http.js                 # [MODIFY] 401 拦截跳登录；PUT 语义注释改为全量替换；暴露 create/update/batch 前的校验钩子
+│   │   ├── index.js                # [MODIFY] 新增 authService 出口（login/logout/userInfo），与 dataService 并列
+│   │   ├── errors.js               # [MODIFY] 补 duplicate / exceedReturned 构造器，删死代码 apiError.validation
+│   │   ├── collections.js          # [MODIFY] 移除孤儿 key `docLists`（伪集合，匹配不到任何契约）
+│   │   ├── contract/
+│   │   │   ├── schema.js           # [MODIFY] 补 parentName / passwordResetAt / remark / handleResult；
+│   │   │   │                       #          company→companyId；doc-lists unique 改 'code'；
+│   │   │   │                       #          SYSTEM_FLOWS 补 rules；声明 steps 元素结构；
+│   │   │   │                       #          补 4 类单据 protect、low-value-return、users/devices/flows/dict-types
+│   │   │   └── validate.js         # [MODIFY] 审计字段纳入校验；日期格式统一 ISO
 │   │   └── mock/
-│   │       ├── index.js                  # [MODIFY] 存储键 v8 → v9（新增系统参数与消息模板种子，模型不兼容需重建）
-│   │       └── seed/
-│   │           ├── system.js             # [MODIFY] SEED_PARAMS 新增 3 个预警参数；SEED_NOTIFY_TEMPLATES 新增 approval_todo（审批待办提醒）模板
-│   │           └── org.js                # [MODIFY] 角色种子默认授权：R1 全部 wb:*；R2 加 wb:alert/wb:overview；R4 加 wb:alert/wb:overview；R3/R5/R6/R7/R8 加 wb:todo/wb:approval；wb:message 默认仅 R1（普通角色由管理员在角色管理勾选后开放）
+│   │       ├── index.js            # [MODIFY] batch 补 assertValid 与 rules；actorName 改读 fams-user；
+│   │       │                       #          STORAGE_KEY v10 → v11
+│   │       └── rules.js            # [MODIFY] 删除保护规则随契约扩充
 │   ├── store/
-│   │   └── workbench.js                  # [NEW] 工作台状态中枢。持有 docs/alerts/overview/loaded/loading；load(force) 一次拉全量并缓存；refreshAfterApproval(bizType) 增量刷新受影响集合；派生 todoCount（顶栏红点）、pendingList/myList/doneList；对外不暴露原始集合细节
-│   ├── router/
-│   │   └── index.js                      # [MODIFY] 新增 /workbench 路由（meta 不设 permission，全员可进）；根路由 redirect 由 /fixed-assets 改 /workbench；FALLBACK_ROUTES 首位加 /workbench
-│   ├── layouts/
-│   │   └── MainLayout.vue                # [MODIFY] 侧边栏顶部新增"工作台"菜单项（HomeFilled 图标，不设权限码门槛）；顶部栏新增铃铛 el-badge（待办数 wb:todo / 未读消息数 wb:message），点击弹出待办与消息下拉，可直接跳工作台
-│   └── views/
-│       ├── workbench/
-│       │   ├── Workbench.vue             # [NEW] 工作台主页面。顶部问候区（姓名/角色/公司 + 待办·预警·消息计数胶囊）；主区自上而下：待办区 → 预警区 → 概览区 → 我的消息 + 快捷入口；按 can() 显隐各区；卡片内审批复用 DocApprovalDialog；各卡片"查看更多/去处理"按注册表路由参数深链跳转
-│       │   └── components/
-│       │       ├── TodoPanel.vue         # [NEW] 待办面板（三个子块：待我审批/我发起的/我已处理）。表格紧凑可扫读，状态色条区分待审·驳回·超期；行内"通过/驳回"直接调 DocApprovalDialog，"去处理"按注册表深链；被驳回行置顶高亮并可"重新提交/撤销"
-│       │       ├── AlertPanel.vue        # [NEW] 预警中心。按级别（严重/一般）分组，条目含类型标签、原因说明、发生时间与处理入口；空态引导用户到对应模块巡检
-│       │       ├── OverviewPanel.vue     # [NEW] 概览看板。资产/低值/审批时效三组指标卡，资产状态分布用横向条形占比，审批时效用近 7 天迷你柱状；每组带"查看更多"跳对应报表页
-│       │       └── MyMessages.vue        # [NEW] 我的消息（可见性由 wb:message 决定）。只读展示与本人相关消息（target=all 或本人公司），未读高亮、点击标记已读、有 route 则"查看业务"跳转；底部"全部已读"
-│       ├── fixed-asset/
-│       │   ├── FixedAssetManagement.vue  # [MODIFY] 支持深链定位：onMounted 读 route.query 的 tab/sub 设置 activeTab/dispatchSub/disposeSub/inventorySub（供工作台"去处理"直达对应单据页）
-│       │   └── FixedAssetDocList.vue     # [MODIFY] 本地 bizType 映射改为引用 approval.js 的 BIZ_DOC_REGISTRY，消除硬编码（保持行为不变）
-│       └── low-value-asset/
-│           └── LowValueAssetManagement.vue # [MODIFY] 支持深链定位：onMounted 读 route.query.tab 设置 activeTab；LV_BIZ 改为引用 DOC_BIZ_TYPE（requisition→REQUISITION、return→LV_RETURN）
-├── workbench.test.mjs                     # [NEW] 工作台自动化测试：注册表完整性（11 类业务都有启用流程、docKey 唯一、集合可读）/ 待我审批判定只含当前环节角色匹配单据 / 我发起的按 creatorId 过滤且 REJECTED 置顶 / 预警四类判定 / 概览指标 / 权限码显隐
-├── approval.test.mjs                      # [MODIFY] 回归：新增注册表与业务类型数量的断言
-└── package.json                           # [MODIFY] test 脚本串联 workbench.test.mjs
+│   │   ├── user.js                 # [MODIFY] login/logout 改走接口、写 sessionStorage['token']、
+│   │   │                           #          401 时清态；删死导出 canAny
+│   │   └── org.js                  # [MODIFY] 移除本地重复的删除保护（改由引擎抛 ApiError 1003）
+│   ├── views/fixed-asset/
+│   │   ├── FixedAssetManagement.vue    # [MODIFY] 盘点计划 status / 折旧 method 改绑 optionsOf；
+│   │   │                               #          nowText 改 ISO；删除·导出按钮接 fa:delete / fa:export
+│   │   └── FixedAssetSettings.vue      # [MODIFY] 折旧规则·方案下拉改绑字典 + codeOf 写入；
+│   │                                   #          company 改 companyId；删除按钮接守卫
+│   ├── views/low-value-asset/
+│   │   ├── LowValueAssetManagement.vue # [MODIFY] 导出按钮接 lv:export
+│   │   └── LowValueAssetReports.vue    # [MODIFY] 导出按钮接 lv:export
+│   ├── config/permissions.js       # [MODIFY] 删死导出 ALL_PERMISSIONS（保留 3 个权限码并接线）
+│   ├── constants/enums.js          # [MODIFY] 删死导出 STATUS_DISABLED / ENUM_TO_DICT_CODE /
+│   │                               #          clearDictEnums / dictManagedEnums（保留 allowedEnumCodes 语义）
+│   ├── styles/global.css           # [MODIFY] 删 .scope-trigger 与 .role-tag cursor 残留
+│   └── router/index.js             # [MODIFY] 守卫改为 token 驱动，401 后带 redirect 回跳
+├── docs/
+│   ├── API_CONTRACT.md             # [MODIFY] 补 fixed-asset-doc-approvals 全表；补 19 个集合字段表；
+│   │                               #          补 APPROVE_RESULT / APPROVE_CONDITION 枚举；
+│   │                               #          PUT 语义改为全量替换；补审计字段与 version 约定；补库存三段结算说明
+│   └── README.md                   # [MODIFY] localStorage 键改 v11；端点表补 /page、/{id}、/all；
+│                                   #          响应体描述补 code/message；路由数改 18
+├── .env.example                    # [MODIFY] 补 VITE_MOCK_LATENCY / VITE_MOCK_ERROR_RATE；
+│                                   #          VITE_USE_MOCK 改 true 并加注释说明接后端时改 false
+└── vite.config.js                  # [MODIFY] dev 端口 5174 → 5173；可选加 /api proxy
 ```
 
-## 五、关键代码结构
+## 关键代码结构
+
+前端与后端对接的两处核心契约，整改时必须精确：
 
 ```js
-// src/services/approval.js —— 业务类型注册表（工作台遍历与深链跳转的唯一依据）
-export const BIZ_DOC_REGISTRY = [
-  // bizType, docKey, collection, title, module(fa|lv), route, tab, sub
-  { bizType: 'INBOUND', docKey: 'inbound', collection: 'fixed-asset-doc-lists-inbound', title: '入库', module: 'fa', route: '/fixed-assets', tab: 'inbound' },
-  { bizType: 'DISPOSE', docKey: 'dispose', collection: 'fixed-asset-doc-lists-dispose', title: '处置', module: 'fa', route: '/fixed-assets', tab: 'dispose', sub: 'dispose' },
-  { bizType: 'INVENTORY', docKey: 'inventory', collection: 'fixed-asset-inventory-docs', title: '盘点', module: 'fa', route: '/fixed-assets', tab: 'inventory', sub: 'docs' },
-  { bizType: 'LV_RETURN', docKey: 'return', collection: 'low-value-return', title: '低值退库', module: 'lv', route: '/low-value-assets', tab: 'return' }
-  // …共 11 条，docKey 互不重复
-]
-
-// src/services/workbench.js —— 聚合层对外接口（纯函数，只读）
-export function buildDocCtx(doc, { assets })            // → { amount, hasDiff }：固资取关联资产 original；低值取 amount；盘点按明细判差异
-export function myTodos({ user, org, flows, approvals, docs, assets })
-                                                        // → { pending: [], mine: [], done: [] }（pending 判定全部委托 approval.js）
-export function buildAlerts({ org, docs, approvals, items, plans, params })
-                                                        // → [{ level: 'critical'|'warning', type, title, desc, route, tab }]
-export function buildOverview({ assets, lowValue, approvals }) // → { asset: {}, lowValue: {}, approval: {} }
+// services/index.js —— 认证出口与数据出口并列，二者互不混淆
+export const dataService = useMock ? mockService : httpService   // 集合 CRUD
+export const authService = useMock ? mockAuth : httpAuth         // login / logout / userInfo
 ```
 
-## 六、实施要点
+```js
+// services/http.js —— 401 单点拦截（全项目唯一网络出口，勿在多处重复实现）
+// 约定：code === 401 → 清 sessionStorage['token'] + userStore.logout() →
+//       router.push({ path: '/login', query: { redirect: route.fullPath } })
+```
 
-- **不重写审批语义**：待办"谁能审"必须与单据面板完全一致（同一 `currentStep` + `canApprove`），否则会出现"工作台能审、列表不能审"的不一致；因此 ctx 口径、注册表、按钮显隐三处必须共用同一实现。
-- **权限码是唯一开关来源**：工作台不判断角色名（不写 `role.name === '仓管员'`），一律 `userStore.can('wb:xxx')`；角色开放范围由角色管理勾选，改完立即生效（`store/user.js` 的 `permissions` 是角色权限并集，实时计算）。
-- **性能**：11 个集合并发加载一次并缓存；审批记录建 `docId` 索引；`computed` 缓存派生；顶栏红点读 store 派生值，不重复计算。真实后端接入时把 `loadWorkbenchDocs` 换成一次聚合接口即可，前端零改动。
-- **爆炸半径控制**：只新增工作台相关文件与注册表/权限码/路由/菜单/顶部栏；单据面板与业务页面的改动仅限"引用注册表"与"读 query 定位 tab"，不改既有业务逻辑；存储键升版是唯一影响演示数据的地方（刷新自动重建）。
-- **日志**：沿用 `router.afterEach` 的页面访问留痕（工作台访问自动记录），业务动作日志由 `store/audit.js` 既有机制处理，不额外打印。
-- **构建与测试**：Node 需先设 `$env:Path = "$env:USERPROFILE\.workbuddy\binaries\node\versions\22.22.2-6;$env:Path"`；`npx vite build` + `npm test` + `node .chkfn.cjs`（模板静态检查）；不跑浏览器自动化测试，由用户点测。
+## Agent Extensions
 
-## 设计定位
+### SubAgent
 
-桌面端（1440px+）业务工作台，沿用项目既有的 Element Plus + CSS 变量设计语言（`--c-primary #1668DC`、`--bg-page #F0F2F5`、`--bg-card #FFFFFF`、`--bd #E2E8F0`、`--r-md` 圆角），与现有资产/低值页面观感统一，不引入新组件库。
-
-## 整体骨架（自上而下）
-
-1. **页头区**：左侧"工作台"标题 + 副标题（当前公司 · 当前角色 · 数据截止时间）；右侧四个计数胶囊（待我审批 / 被驳回 / 预警 / 未读消息），胶囊为浅色底 + 强调色数字，预警与被驳回为红/橙色，可点击直接滚动到对应卡片。
-2. **待办区**（首屏重点）：三张并列卡片——待我审批（主卡，占 2/3 宽）、我发起的、我已处理（各 1/3）。主卡表头含业务类型筛选与"仅看超期"开关；行左侧 4px 状态色条（待审蓝 / 超期橙 / 驳回红），行内右侧为"通过""驳回"文字按钮与"去处理"链接。
-3. **预警区**：左右两栏——左为预警列表（按严重/一般分组，条目左侧圆点色标 + 类型标签 + 说明 + 时间），右为"处理建议"小卡（3 条以内的操作指引）。
-4. **概览区**：三张指标卡横排（资产 / 低值 / 审批时效），每张由 2~4 个大数字 + 细分项构成，底部"查看更多 →"。资产状态分布用横向条形占比条（各状态取语义色），审批时效用近 7 天迷你柱状（提交/通过/驳回三色）。
-5. **底部区**：左侧"我的消息"（未读加粗、点行标已读、右侧"查看业务"链接），右侧"快捷入口"宫格按钮（按权限显形）。
-
-## 交互与动效
-
-- 卡片入场 6px 上移 + 淡入（160ms ease-out），卡片 hover 抬升 2px 并加深阴影
-- 待办行 hover 整行浅蓝底；审批成功后行以 240ms 淡出并从计数胶囊中扣减
-- 预警严重项左侧 3px 红条 + 轻微脉冲提示（3s 一次，仅严重级）
-- 数字变化用 200ms 数值滚动过渡；审批弹窗沿用既有 `DocApprovalDialog` 样式
-
-## 响应式
-
-≥1600px 三栏并排；1280~1600px 待办主卡与两个次卡纵向堆叠为两列；<1280px 全部单列，计数胶囊换行。侧边栏折叠时页头区保持两行内不溢出。
+- **code-explorer**
+- Purpose：整改前精确定位所有散落调用点 —— 全部中文枚举写入处、三套日期格式的所有产出点（`nowText` / `toLocaleString` / `YYYY-MM-DD HH:mm:ss`）、所有未守卫的删除与导出按钮、所有 `store` 层抛普通 Error 的位置
+- Expected outcome：输出带绝对路径与行号的完整清单，确保整改无遗漏（此类问题在 95KB 的 `FixedAssetManagement.vue` 里人工排查极易漏项）

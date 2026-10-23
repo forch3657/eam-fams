@@ -213,8 +213,9 @@ body {
   color: #fff;
 }
 
+/* 用户管理的角色名标签：纯展示，不做成可点击样式 */
 .role-tag {
-  cursor: pointer;
+  margin-right: 4px;
 }
 
 /* 顶栏模式标签：半透明描边，避免深色实心块在深蓝顶栏上过于刺眼 */
@@ -600,20 +601,6 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.scope-trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.85);
-  cursor: pointer;
-  outline: none;
-}
-
-.scope-trigger:hover {
-  color: #fff;
 }
 
 .avatar {

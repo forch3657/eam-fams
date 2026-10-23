@@ -73,10 +73,13 @@
                 <el-tag :type="assetStatusType(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="170" fixed="right">
+            <el-table-column label="操作" width="230" fixed="right">
               <template #default="{ row }">
                 <el-button v-if="can('fa:edit')" link type="primary" size="small" @click="openAssetDialog(row)">修改</el-button>
                 <el-button link type="primary" size="small" @click="downloadAssetQr(row)">下载二维码</el-button>
+                <!-- fa:delete 此前定义了却无任何消费点。删除安全性由契约保护：
+                     存在任意一类业务单据的资产由服务端拒绝，前端无需重复校验 -->
+                <el-button v-if="can('fa:delete')" link type="danger" size="small" @click="deleteAsset(row)">删除</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -145,9 +148,8 @@
               </el-form-item>
               <el-form-item label="盘点单状态">
                 <el-select v-model="invSearch.status" placeholder="请选择状态" clearable style="width: 160px">
-                  <el-option label="已完结" value="已完结" />
-                  <el-option label="盘点中" value="盘点中" />
-                  <el-option label="盘点报告审批中" value="盘点报告审批中" />
+                  <!-- 存编码不存文案：契约声明为 DOC_STATUS 枚举 -->
+                  <el-option v-for="s in docStatusOptions" :key="s.value" :label="s.label" :value="s.value" />
                 </el-select>
               </el-form-item>
               <el-form-item label="创建时间">
@@ -222,7 +224,7 @@
                   <el-button v-if="canApproveInvDoc(row)" link type="success" size="small" @click="approveInvDoc(row)">通过</el-button>
                   <el-button v-if="canApproveInvDoc(row)" link type="danger" size="small" @click="rejectInvDoc(row)">驳回</el-button>
                   <el-button link type="primary" size="small" @click="openDocDialog(row)">修改</el-button>
-                  <el-button link type="danger" size="small" @click="deleteInvDoc(row)">删除</el-button>
+                  <el-button v-if="can('fa:inventory')" link type="danger" size="small" @click="deleteInvDoc(row)">删除</el-button>
                 </template>
               </el-table-column>
             </el-table>
@@ -262,13 +264,13 @@
             <el-table-column label="盘点进度" min-width="180">
               <template #default="{ row }">
                 <el-progress :percentage="progressOf(row)" :status="progressOf(row) === 100 ? 'success' : ''" />
-                <span class="progress-text">已盘 {{ row.items.filter(i => i.result === '已盘' || i.result === '盘亏').length }} / {{ row.items.length }}</span>
+                <span class="progress-text">已盘 {{ countedOf(row) }} / {{ row.items.length }}</span>
               </template>
             </el-table-column>
             <el-table-column label="盘盈/盘亏" width="110">
               <template #default="{ row }">
-                <el-tag type="primary" size="small" effect="plain">盈 {{ row.items.filter(i => i.result === '盘盈').length }}</el-tag>
-                <el-tag type="danger" size="small" effect="plain" style="margin-left:4px">亏 {{ row.items.filter(i => i.result === '盘亏').length }}</el-tag>
+                <el-tag type="primary" size="small" effect="plain">盈 {{ countResult(row.items, 'SURPLUS') }}</el-tag>
+                <el-tag type="danger" size="small" effect="plain" style="margin-left:4px">亏 {{ countResult(row.items, 'LOSS') }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column prop="status" label="状态" width="100">
@@ -278,11 +280,11 @@
             </el-table-column>
             <el-table-column label="操作" width="230" fixed="right">
               <template #default="{ row }">
-                <el-button link type="primary" size="small" :disabled="row.status === '已完成'" @click="openInventory(row)">执行盘点</el-button>
-                <el-button link type="primary" size="small" @click="exportInventory(row)">报表下载</el-button>
-                <el-button v-if="row.status === '盘点中'" link type="success" size="small" @click="submitInventoryApproval(row)">提交审批</el-button>
-                <el-button v-else-if="row.status === '待审批'" link type="warning" size="small" @click="approveInventory(row)">盘点审批</el-button>
-                <el-button link type="danger" size="small" @click="deletePlan(row)">删除</el-button>
+                <el-button link type="primary" size="small" :disabled="row.status === 'DONE'" @click="openInventory(row)">执行盘点</el-button>
+                <el-button v-if="can('fa:export')" link type="primary" size="small" @click="exportInventory(row)">报表下载</el-button>
+                <el-button v-if="canSubmitPlan(row)" link type="success" size="small" @click="submitInventoryApproval(row)">提交审批</el-button>
+                <el-button v-else-if="row.status === 'PROCESSING'" link type="warning" size="small" @click="approveInventory(row)">盘点审批</el-button>
+                <el-button v-if="can('fa:inventory')" link type="danger" size="small" @click="deletePlan(row)">删除</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -323,15 +325,15 @@
             </el-table-column>
             <el-table-column label="操作" width="130" fixed="right">
               <template #default="{ row }">
-                <el-button link type="primary" size="small" @click="editScheme(row)">编辑</el-button>
-                <el-button link type="danger" size="small" @click="deleteScheme(row)">删除</el-button>
+                <el-button v-if="can('fa:depreciation')" link type="primary" size="small" @click="editScheme(row)">编辑</el-button>
+                <el-button v-if="can('fa:depreciation')" link type="danger" size="small" @click="deleteScheme(row)">删除</el-button>
               </template>
             </el-table-column>
           </el-table>
 
           <div class="section-title" style="margin-top:24px">
             <span>资产折旧台账</span>
-            <el-button type="primary" plain size="small" @click="exportDepreciationLedger">导出台账</el-button>
+            <el-button v-if="can('fa:export')" type="primary" plain size="small" @click="exportDepreciationLedger">导出台账</el-button>
           </div>
           <el-table :data="depreciationLedger" style="width: 100%">
             <el-table-column prop="assetNo" label="资产编号" width="120" />
@@ -362,7 +364,7 @@
 
           <div class="section-title" style="margin-top:24px">
             <span>折旧计提报表</span>
-            <el-button type="primary" plain size="small" @click="exportDepreciation">导出折旧报表</el-button>
+            <el-button v-if="can('fa:export')" type="primary" plain size="small" @click="exportDepreciation">导出折旧报表</el-button>
           </div>
           <el-table :data="depreciationReports" style="width: 100%" show-summary :summary-method="depreciationSummaries">
             <el-table-column prop="period" label="折旧期间" width="120" />
@@ -478,7 +480,7 @@
           <el-table-column prop="user" label="使用人" width="90" />
           <el-table-column label="盘点结果" width="100">
             <template #default="{ row }">
-              <el-tag :type="resultType(row.result)" size="small">{{ row.result }}</el-tag>
+              <el-tag :type="resultType(row.result)" size="small">{{ labelOf('INVENTORY_RESULT', row.result) }}</el-tag>
             </template>
           </el-table-column>
           <el-table-column prop="countMethod" label="盘点方式" width="110">
@@ -509,10 +511,8 @@
         </el-form-item>
         <el-form-item label="折旧方式" required>
           <el-select v-model="schemeForm.method" style="width:100%">
-            <el-option label="年限平均法" value="年限平均法" />
-            <el-option label="工作量法" value="工作量法" />
-            <el-option label="双倍余额递减法" value="双倍余额递减法" />
-            <el-option label="年数总和法" value="年数总和法" />
+            <!-- 存编码不存文案：契约声明为 DEPRECIATION_METHOD 枚举，写中文会校验失败 -->
+            <el-option v-for="m in depreciationMethodOptions" :key="m.value" :label="m.label" :value="m.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="折旧年限" required>
@@ -890,7 +890,7 @@
         </el-table-column>
         <el-table-column label="状态" min-width="90">
           <template #default="{ row }">
-            <el-tag :type="row.status === '已完成' ? 'success' : 'primary'" size="small">{{ statusText(row.status) }}</el-tag>
+            <el-tag :type="row.status === 'DONE' ? 'success' : 'primary'" size="small">{{ statusText(row.status) }}</el-tag>
           </template>
         </el-table-column>
       </el-table>
@@ -1016,11 +1016,19 @@ const assetLedger = computed(() => fixedAssetStore.assetLedger.map(a => ({
 })))
 
 const categoryOptions = computed(() => optionsOf('ASSET_CATEGORY').map(o => o.label))
+/** 单据 / 盘点计划状态选项：下拉展示中文，落库存编码 */
+const docStatusOptions = computed(() => optionsOf('DOC_STATUS'))
+const depreciationMethodOptions = computed(() => optionsOf('DEPRECIATION_METHOD'))
 const counterOptions = ['张三', '李四', '王五', '赵会计', '钱助理', '孙主管']
 const departmentOptions = computed(() => [...new Set(assetLedger.value.map(a => a.department))])
 
+/**
+ * 统一 ISO 8601。
+ * 原先 toLocaleString 产出 `2026/10/21 09:18:02`（斜杠分隔），连日期正则都不过，
+ * 写入 runDate 等字段后必然校验失败。
+ */
 function nowText() {
-  return new Date().toLocaleString('zh-CN', { hour12: false })
+  return new Date().toISOString()
 }
 
 function downloadCsv(filename, header, rows) {
@@ -1045,7 +1053,7 @@ function buildPlanItems(scopeType, scopeValue) {
       location: a.location,
       user: a.user,
       bookQty: a.quantity,
-      result: '未盘',
+      result: 'UNCHECKED',
       countMethod: '',
       countTime: '',
       remark: ''
@@ -1060,8 +1068,17 @@ function scopeLabel(scopeType, scopeValue) {
 const inventoryPlanCol = useCollection(COLLECTION.inventoryPlans)
 const inventoryPlans = inventoryPlanCol.items
 
+/**
+ * 盘点明细结果统一存 INVENTORY_RESULT 编码：
+ * UNCHECKED 未盘 / MATCHED 已盘(账实相符) / SURPLUS 盘盈 / LOSS 盘亏
+ * 原先存中文，与种子数据（编码）对不上，导致进度与盘盈亏统计恒为 0。
+ */
+function countResult(items = [], value) {
+  return items.filter(i => i.result === value).length
+}
+
 function countedOf(plan) {
-  return plan.items.filter(i => i.result === '已盘' || i.result === '盘亏').length
+  return plan.items.filter(i => i.result === 'MATCHED' || i.result === 'SURPLUS' || i.result === 'LOSS').length
 }
 
 function progressOf(plan) {
@@ -1099,11 +1116,11 @@ function remindTagType(row) {
 const inventoryStats = computed(() => {
   const items = inventoryPlans.value.flatMap(p => p.items)
   return {
-    running: inventoryPlans.value.filter(p => p.status === '盘点中' || p.status === '待审批').length,
+    running: inventoryPlans.value.filter(p => p.status !== 'DONE').length,
     total: items.length,
-    counted: items.filter(i => i.result === '已盘' || i.result === '盘亏').length,
-    profit: items.filter(i => i.result === '盘盈').length,
-    loss: items.filter(i => i.result === '盘亏').length
+    counted: items.filter(i => i.result === 'MATCHED' || i.result === 'SURPLUS' || i.result === 'LOSS').length,
+    profit: countResult(items, 'SURPLUS'),
+    loss: countResult(items, 'LOSS')
   }
 })
 
@@ -1112,7 +1129,7 @@ function planStatusType(status) {
 }
 
 function resultType(result) {
-  return { 已盘: 'success', 盘亏: 'danger', 盘盈: 'primary' }[result] || 'info'
+  return { MATCHED: 'success', LOSS: 'danger', SURPLUS: 'primary' }[result] || 'info'
 }
 
 const planDialogVisible = ref(false)
@@ -1155,7 +1172,7 @@ function submitPlan() {
     scope: scopeLabel(planForm.scopeType, planForm.scopeValue),
     counter: planForm.counter,
     planDate: planForm.planDate,
-    status: '盘点中',
+    status: 'DRAFT',
     items
   })
   planDialogVisible.value = false
@@ -1178,12 +1195,12 @@ function applyCount(row, method, result) {
 }
 
 function scanCount(row) {
-  applyCount(row, '小程序扫码', '已盘')
+  applyCount(row, '小程序扫码', 'MATCHED')
   ElMessage.success(`${row.assetName} 扫码盘点成功`)
 }
 
 function pcCount(row) {
-  applyCount(row, 'PC手动', '已盘')
+  applyCount(row, 'PC手动', 'MATCHED')
   ElMessage.success(`${row.assetName} 已登记盘点`)
 }
 
@@ -1193,18 +1210,18 @@ function markLoss(row) {
     inputValidator: v => (v && v.trim() ? true : '盘亏原因不能为空')
   }).then(({ value }) => {
     row.remark = value
-    applyCount(row, '现场核查', '盘亏')
+    applyCount(row, '现场核查', 'LOSS')
     ElMessage.warning(`${row.assetName} 已标记盘亏，审批通过后将转入资产处置`)
   }).catch(() => {})
 }
 
 function batchScanCount() {
-  const pending = currentPlan.value.items.filter(i => i.result === '未盘')
+  const pending = currentPlan.value.items.filter(i => i.result === 'UNCHECKED')
   if (!pending.length) {
     ElMessage.info('没有待盘点的资产')
     return
   }
-  pending.forEach(i => applyCount(i, '小程序扫码', '已盘'))
+  pending.forEach(i => applyCount(i, '小程序扫码', 'MATCHED'))
   ElMessage.success(`批量扫码盘点完成，本次盘到 ${pending.length} 项资产`)
 }
 
@@ -1221,7 +1238,7 @@ function addProfitItem() {
       location: '待确认',
       user: '待确认',
       bookQty: 0,
-      result: '盘盈',
+      result: 'SURPLUS',
       countMethod: '小程序扫码',
       countTime: nowText(),
       remark: '账外资产，需补办入库'
@@ -1235,7 +1252,7 @@ function exportInventory(row) {
   downloadCsv(
     `${row.planNo}_盘点报表.csv`,
     ['计划编号', '资产编号', '资产名称', '分类', '使用部门', '存放位置', '使用人', '账面数量', '盘点结果', '盘点方式', '盘点时间', '备注'],
-    row.items.map(i => [row.planNo, i.assetNo, i.assetName, i.category, i.department, i.location, i.user, i.bookQty, i.result, i.countMethod, i.countTime, i.remark])
+    row.items.map(i => [row.planNo, i.assetNo, i.assetName, i.category, i.department, i.location, i.user, i.bookQty, labelOf('INVENTORY_RESULT', i.result), i.countMethod, i.countTime, i.remark])
   )
   ElMessage.success(`盘点报表 ${row.planNo} 已导出`)
 }
@@ -1246,16 +1263,23 @@ function submitInventoryApproval(row) {
     ElMessage.warning(`还有 ${unfinished} 项资产未盘点，无法提交审批`)
     return
   }
-  const loss = row.items.filter(i => i.result === '盘亏').length
-  const profit = row.items.filter(i => i.result === '盘盈').length
+  const loss = countResult(row.items, 'LOSS')
+  const profit = countResult(row.items, 'SURPLUS')
   ElMessageBox.confirm(
     `盘点已完成，共 ${row.items.length} 项：盘亏 ${loss} 项、盘盈 ${profit} 项。确认提交盘点结果审批？`,
     '提交审批',
     { type: 'info' }
-  ).then(() => {
-    row.status = '待审批'
+  ).then(async () => {
+    row.status = 'PROCESSING'
+    // 落库：原先只改内存对象，刷新后状态回退
+    await inventoryPlanCol.update(row)
     ElMessage.success('盘点结果已提交审批')
   }).catch(() => {})
+}
+
+/** 草稿 / 被驳回的盘点计划可再次提交审批 */
+function canSubmitPlan(row) {
+  return row.status === 'DRAFT' || row.status === 'REJECTED'
 }
 
 function approveInventory(row) {
@@ -1265,8 +1289,9 @@ function approveInventory(row) {
     cancelButtonText: '驳回',
     type: 'warning'
   }).then(async () => {
-    row.status = '已完成'
-    const losses = row.items.filter(i => i.result === '盘亏')
+    row.status = 'DONE'
+    await inventoryPlanCol.update(row)
+    const losses = row.items.filter(i => i.result === 'LOSS')
     for (const item of losses) {
       await disposeDocCol.add({
         name: `${item.assetName} 盘亏核销处置`,
@@ -1286,16 +1311,17 @@ function approveInventory(row) {
     if (action !== 'cancel') return
     ElMessageBox.prompt('请填写驳回意见', '盘点审批驳回', {
       inputValidator: v => (v && v.trim() ? true : '驳回意见不能为空')
-    }).then(({ value }) => {
-      row.status = '盘点中'
+    }).then(async ({ value }) => {
+      row.status = 'REJECTED'
       row.items.forEach(i => {
-        if (i.result === '盘亏' || i.result === '盘盈') {
-          i.result = '未盘'
+        if (i.result === 'LOSS' || i.result === 'SURPLUS') {
+          i.result = 'UNCHECKED'
           i.countMethod = ''
           i.countTime = ''
           i.remark = `审批驳回：${value}`
         }
       })
+      await inventoryPlanCol.update(row)
       ElMessage.warning('审批已驳回，盘盈盘亏项已重置为未盘，请重新核查')
     }).catch(() => {})
   })
@@ -1455,7 +1481,7 @@ const categoryDepreciation = computed(() => {
 })
 
 const schemeDialogVisible = ref(false)
-const schemeForm = reactive({ schemeNo: '', schemeName: '', method: '年限平均法', years: 5, residualRate: 5, applicableCategory: '全部分类' })
+const schemeForm = reactive({ schemeNo: '', schemeName: '', method: 'STRAIGHT_LINE', years: 5, residualRate: 5, applicableCategory: '全部分类' })
 
 const computedMonthlyRate = computed(() => {
   if (!schemeForm.years) return '0.0000'
@@ -1463,7 +1489,7 @@ const computedMonthlyRate = computed(() => {
 })
 
 function handleCreateScheme() {
-  Object.assign(schemeForm, { schemeNo: '', schemeName: '', method: '年限平均法', years: 5, residualRate: 5, applicableCategory: '全部分类' })
+  Object.assign(schemeForm, { schemeNo: '', schemeName: '', method: 'STRAIGHT_LINE', years: 5, residualRate: 5, applicableCategory: '全部分类' })
   schemeDialogVisible.value = true
 }
 
@@ -1526,7 +1552,7 @@ function deleteScheme(row) {
 
 const inventoryDocCol = useCollection(COLLECTION.inventoryDocs)
 /** 处置单集合：盘点盘亏核销时补建处置单 */
-const disposeDocCol = useCollection(`${COLLECTION.docLists}-dispose`)
+const disposeDocCol = useCollection(`${COLLECTION.docListPrefix}-dispose`)
 const inventoryDocs = inventoryDocCol.items
 
 const invSearch = reactive({ docNo: '', company: '', status: '', createRange: null, finishRange: null })
@@ -1570,7 +1596,30 @@ function invItemDone(d) {
 }
 
 function invEmpDone(d) {
-  return d.counters.filter(c => c.status === 'DONE' || c.status === '已完成').length
+  // counters.status 取 INVENTORY_COUNTER_STATUS：COUNTING 盘点中 / DONE 已完成
+  return d.counters.filter(c => c.status === 'DONE').length
+}
+
+/**
+ * 删除资产。
+ * 存在任意一类业务单据时服务端会返回 1003 拒绝，这里直接把错误透传给用户即可。
+ */
+async function deleteAsset(row) {
+  try {
+    await ElMessageBox.confirm(
+      `确认删除资产「${row.assetName}」（${row.assetNo}）？已产生业务单据的资产无法删除。`,
+      '删除确认',
+      { type: 'warning' }
+    )
+  } catch (e) {
+    return
+  }
+  try {
+    await fixedAssetStore.removeAsset(row.id)
+    ElMessage.success('资产已删除')
+  } catch (e) {
+    ElMessage.error(e.message || '删除失败')
+  }
 }
 
 function deleteInvDoc(row) {

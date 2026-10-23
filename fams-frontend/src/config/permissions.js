@@ -68,7 +68,4 @@ export const PERMISSION_TREE = [
   }
 ]
 
-/** 全部叶子权限编码 */
-export const ALL_PERMISSIONS = PERMISSION_TREE.flatMap(m => m.children.map(c => c.id))
-
 export default PERMISSION_TREE

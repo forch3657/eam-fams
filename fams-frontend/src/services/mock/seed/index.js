@@ -28,7 +28,7 @@ export function registerAllSeeds() {
 
   // 固定资产：六类单据列表（每类一个集合）
   DOC_LIST_KEYS.forEach(k => {
-    registerSeed(`${COLLECTION.docLists}-${k}`, ASSET_SEEDS.docLists[k] || [])
+    registerSeed(`${COLLECTION.docListPrefix}-${k}`, ASSET_SEEDS.docLists[k] || [])
   })
 
   // 固定资产：基础设置与报表

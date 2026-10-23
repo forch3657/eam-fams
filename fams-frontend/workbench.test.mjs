@@ -179,6 +179,45 @@ eq(daysSince(new Date(Date.now() - 3 * 86400000).toISOString()), 3, 'daysSince �
 eq(daysUntil(new Date(Date.now() + 5 * 86400000).toISOString()), 5, 'daysUntil 计算剩余天数')
 eq(daysUntil(new Date(Date.now() - 2 * 86400000).toISOString()), -2, 'daysUntil 过期为负')
 
+// ---------------------------------------------------------------- 8. 枚举值必须是编码，不能是中文
+// 回归保护：曾经有页面把中文文案直接写进声明为 enum 的字段，
+// 与种子数据（编码）对不上，切到真实后端后必然被契约校验拒掉。
+const DOC_STATUS_CODES = Object.keys(ENUMS.DOC_STATUS)
+const DEPRECIATION_CODES = Object.keys(ENUMS.DEPRECIATION_METHOD)
+
+ok(wb.plans.length > 0, '应有盘点计划种子数据')
+ok(
+  wb.plans.every(p => DOC_STATUS_CODES.includes(p.status)),
+  '盘点计划 status 应为 DOC_STATUS 编码（实际：' + wb.plans.map(p => p.status).join(',') + '）'
+)
+
+// 折旧方案 method 必须是编码
+const schemes = await dataService.list('fixed-asset-depreciation-schemes')
+ok(schemes.length > 0, '应有折旧方案种子数据')
+ok(
+  schemes.every(s => DEPRECIATION_CODES.includes(s.method)),
+  '折旧方案 method 应为 DEPRECIATION_METHOD 编码（实际：' + schemes.map(s => s.method).join(',') + '）'
+)
+
+// 盘点明细：itemStatus 与 result 都要是编码，且 result 必须存在
+// （result 缺失会导致盘点进度与盘盈/盘亏统计恒为 0）
+const ITEM_STATUS_CODES = Object.keys(ENUMS.INVENTORY_ITEM_STATUS)
+const RESULT_CODES = Object.keys(ENUMS.INVENTORY_RESULT)
+const planItems = wb.plans.flatMap(p => p.items || [])
+ok(planItems.length > 0, '盘点计划应含明细')
+ok(
+  planItems.every(i => ITEM_STATUS_CODES.includes(i.itemStatus)),
+  '盘点明细 itemStatus 应为 INVENTORY_ITEM_STATUS 编码'
+)
+ok(
+  planItems.every(i => RESULT_CODES.includes(i.result)),
+  '盘点明细 result 应为 INVENTORY_RESULT 编码且不能缺失'
+)
+ok(
+  planItems.some(i => i.result !== 'UNCHECKED'),
+  '种子盘点明细应存在已盘记录（否则进度恒为 0）'
+)
+
 // ---------------------------------------------------------------- 输出
 console.log(`\n工作台聚合测试：通过 ${pass} 项，失败 ${fails.length} 项`)
 if (fails.length) {

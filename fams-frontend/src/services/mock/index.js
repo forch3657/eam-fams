@@ -9,7 +9,8 @@
  *
  * 因此业务代码面向 dataService 编写时，切到真实后端无需改动。
  */
-import { ApiError, ERROR_CODES } from '../errors'
+import { ApiError, ERROR_CODES, apiError } from '../errors'
+import { USER_STORAGE_KEY } from '../keys'
 import { getContract, idFieldOf, validateSeed, assertValid } from '../contract'
 import { applyQuery, paginate } from './query'
 import { checkUnique, checkRefs, checkProtect, applyStock, applyStockOnStatusChange, releaseStock, checkReturnLimit, primaryOf } from './rules'
@@ -43,7 +44,8 @@ function nowIso() {
 
 function actorName() {
   try {
-    const raw = sessionStorage.getItem('user')
+    // 键必须与 store/user.js 写入的一致，否则审计字段恒为 'system'
+    const raw = sessionStorage.getItem(USER_STORAGE_KEY)
     const u = raw ? JSON.parse(raw) : null
     return u?.name || u?.username || 'system'
   } catch (e) {
@@ -139,6 +141,24 @@ function stampUpdate(row, contract) {
   row.version = (Number(row.version) || 0) + 1
 }
 
+/**
+ * 乐观锁校验：提交方携带 version 时，与服务端当前 version 比对。
+ *
+ * - 携带 version 且不一致 → 说明期间已被他人修改，抛 409 冲突
+ * - 不携带 version → 视为"不参与并发控制"（兼容只改部分字段的调用），放行
+ *
+ * 后端需按同样语义实现：PUT 时比对 body.version 与库里 version，不一致返回 409。
+ */
+function assertVersionMatch(contract, previous, patch) {
+  if (!contract?.audit) return
+  const given = patch?.version
+  if (given === undefined || given === null || given === '') return
+  const current = Number(previous.version) || 0
+  const submitted = Number(given)
+  if (!Number.isFinite(submitted)) return
+  if (submitted !== current) throw apiError.versionConflict(current, submitted)
+}
+
 async function simulate() {
   if (LATENCY) await new Promise(resolve => setTimeout(resolve, LATENCY))
   if (ERROR_RATE > 0 && Math.random() < ERROR_RATE) {
@@ -217,6 +237,8 @@ export const mockService = {
     if (idx === -1) throw new ApiError(ERROR_CODES.NOT_FOUND, '数据不存在')
 
     const previous = rows[idx]
+    // 乐观锁：先比对版本，避免已被他人修改的行继续走后续业务规则
+    assertVersionMatch(contract, previous, patch)
     const next = { ...previous, ...clone(patch) }
     assertValid(contract, next, { partial: true })
 
@@ -281,9 +303,19 @@ export const mockService = {
       const idx = id === undefined ? -1 : locate(current, id, contract)
       if (idx === -1) {
         if (!record[idField]) record[idField] = nextId()
+        // 与 create 保持一致：契约校验 + 唯一性 + 引用完整性
+        assertValid(contract, record)
+        checkUnique(ctx, key, contract, record)
+        checkRefs(ctx, contract, record)
         stampCreate(record, contract)
         current.unshift(record)
       } else {
+        // 批量保存同样受乐观锁约束，避免整表回写静默吞掉他人改动
+        assertVersionMatch(contract, current[idx], record)
+        const merged = { ...current[idx], ...record }
+        assertValid(contract, merged, { partial: true })
+        checkUnique(ctx, key, contract, merged, primaryOf(key, current[idx]))
+        checkRefs(ctx, contract, merged)
         stampUpdate(record, contract)
         current[idx] = { ...current[idx], ...record }
       }

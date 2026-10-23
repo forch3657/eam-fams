@@ -5,7 +5,12 @@ export const COLLECTION = {
   inventoryDocs: 'fixed-asset-inventory-docs',
   depreciationSchemes: 'fixed-asset-depreciation-schemes',
   depreciationReports: 'fixed-asset-depreciation-reports',
-  docLists: 'fixed-asset-doc-lists',
+  /**
+   * 注意：这是**前缀**，不是集合。
+   * 六类单据各自一个集合：fixed-asset-doc-lists-{inbound|alloc|back|borrow|transfer|repair|change|dispose}。
+   * 后端不要建 fixed-asset-doc-lists 这张表。
+   */
+  docListPrefix: 'fixed-asset-doc-lists',
   docApprovals: 'fixed-asset-doc-approvals',
   settingsLocations: 'fixed-asset-settings-locations',
   settingsLocationOptions: 'fixed-asset-settings-location-options',

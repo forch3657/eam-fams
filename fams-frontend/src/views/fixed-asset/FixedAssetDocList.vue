@@ -164,7 +164,7 @@ const orgStore = useOrgStore()
 const userStore = useUserStore()
 const approvalStore = useApprovalStore()
 const assetStore = useFixedAssetStore()
-const col = useCollection(`${COLLECTION.docLists}-${props.docKey}`)
+const col = useCollection(`${COLLECTION.docListPrefix}-${props.docKey}`)
 const items = col.items
 
 const search = reactive({ docNo: '', company: '', status: '' })

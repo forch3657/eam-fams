@@ -29,6 +29,15 @@ export function pad2(n) { return String(n).padStart(2, '0') }
  * @param {number} seed 随机种子（保证演示数据稳定）
  * @param {Array} assets 资产台账（用于带出资产编号/名称快照）
  */
+/**
+ * 盘点结果（INVENTORY_RESULT）由盘点单状态（INVENTORY_ITEM_STATUS）派生。
+ * 说明：明细上同时存在两个语义字段——
+ *   itemStatus 盘点单状态 UNCHECKED / CHECKED / LOSS / ABNORMAL
+ *   result     盘点结果   UNCHECKED / MATCHED / SURPLUS / LOSS
+ * 二者都存编码（契约里 items 为嵌套数组，后端需单独建模）。
+ */
+const RESULT_OF = { UNCHECKED: 'UNCHECKED', CHECKED: 'MATCHED', LOSS: 'LOSS', ABNORMAL: 'MATCHED' }
+
 export function buildCheckItems(total, counted, seed, assets = []) {
   const items = []
   for (let i = 0; i < total; i++) {
@@ -65,6 +74,8 @@ export function buildCheckItems(total, counted, seed, assets = []) {
       assetStatus: asset ? asset.status : ASSET_STATUS_POOL[(i + seed) % ASSET_STATUS_POOL.length],
       location: LOCATION_POOL[(i + seed) % LOCATION_POOL.length],
       itemStatus,
+      // 补齐 result：否则盘点进度与盘盈/盘亏统计对种子数据恒为 0
+      result: RESULT_OF[itemStatus] || 'UNCHECKED',
       remark,
       checker,
       createTime: `2026-09-0${(seed % 8) + 1}T10:00:00`,
