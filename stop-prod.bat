@@ -1,0 +1,3 @@
+@echo off
+echo 停止 EAM-FAMS 生产服务（nginx + 后端 jar）...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0stop-prod.ps1"

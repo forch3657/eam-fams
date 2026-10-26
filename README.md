@@ -252,6 +252,58 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 
 ---
 
+## 8. 生产部署（本机企业级形态）
+
+> 把系统跑成「类生产」形态：后端打 jar（`prod` profile）+ 前端静态化 + nginx 做 HTTPS 反向代理。与第 1 节的 dev 联调（H2 / vite dev）区分开。本机单公司演示可用；真正的多公司、等保、备份、审计见第 7 节与后续规划。
+
+### 拓扑
+
+```
+浏览器 https://localhost
+        │
+        ▼
+   nginx (:443, HTTPS)  ── /api 反代 ──▶  后端 jar (:8080, prod profile)
+        │
+        └── 静态托管前端 dist/
+后端 jar(prod)  ──▶  MySQL(fams)，专用账号 fams@127.0.0.1（仅授权 fams.*）
+```
+
+### 凭据（部署时请改掉默认值）
+
+| 项 | 默认值 | 说明 |
+|---|---|---|
+| 应用登录口令 | `Fzidt@123`（全员统一强口令） | 业务账号 `admin`/`zhangwei`/`wangqiang`/… 均用此登录 |
+| 数据库账号 | `fams` @ `127.0.0.1` | 仅授权 `fams.*`，最小权限（已收回调试期建的 `root@127.0.0.1` 全权限） |
+| 数据库口令 | `FamsDb@2026!` | 在 `application-dev.yml` / `application-prod.yml` 默认值 |
+| JWT 密钥 | `FamsJwtProdKey@2026!kP9zQx7vB2mC8wE3rT5yU` | HS256 要求 ≥32 字符；用环境变量 `JWT_SECRET` 覆盖 |
+
+### 一键启动 / 停止
+
+- `start-prod.bat`：自动确保 `MySQL80` 服务运行 → 启动后端 jar（`prod`）→ 启动 nginx（HTTPS）。
+- `stop-prod.bat`：停 nginx + 后端 jar。
+- **首次部署前置**：先按第 2 节建好 `fams` 库（脚本不会自动建库）。
+- 访问 `https://localhost`。自签证书浏览器会报安全警告，**点「继续 / 高级 → 继续」**即可（本机演示；正式环境换 CA 签发证书）。
+
+### 构建与关键目录
+
+- 前端：`fams-frontend` 下 `.env.development`（dev 直连 8080）/ `.env.production`（`/api` 同源走 nginx）；`npm run build` 产物在 `dist/`。
+- 后端：`mvn package -DskipTests` → `fams-backend/target/fams-backend-1.0.0-SNAPSHOT.jar`；`prod` profile 在 `application-prod.yml`（外部化 `JWT_SECRET`、CORS 收紧到 `https://localhost`、关 `sql.init`）。**改了 `application-prod.yml` 后必须重新 `mvn package`**（jar 在构建时把配置打进去）。
+- nginx：`deploy/nginx/conf/nginx.conf`；证书 `deploy/certs/localhost.crt` + `localhost.key`（自签，SAN = `localhost` + `127.0.0.1`）。
+
+### dev 联调 vs 生产形态
+
+| 维度 | dev 联调 | 生产形态 |
+|---|---|---|
+| 后端 | `mvn spring-boot:run`（h2 / dev profile） | `java -jar`（prod profile） |
+| 前端 | `npm run dev`（vite :5174） | `npm run build` 静态化由 nginx 托管 |
+| 数据库 | H2 内存 / MySQL（专用 fams 账号） | MySQL（专用 fams 账号） |
+| 协议 | http | https（自签证书） |
+| 启动脚本 | `start-dev.bat` / `start-dev-mysql.bat` | `start-prod.bat` |
+
+> 本机生产形态已端到端冒烟通过（HTTPS 登录、中文无乱码、折旧方案启停持久化、领用默认本人+部门过滤代申请、前端资源加载）。后续未覆盖项（按落地顺序）：数据范围隔离已定为单公司不实现（见第 7 节）；审批闭环、折旧合规口径、审计日志为后续阶段。
+
+---
+
 ## 目录结构
 
 ```

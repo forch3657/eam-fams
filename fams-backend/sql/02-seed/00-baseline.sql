@@ -33,7 +33,7 @@ INSERT INTO `org_departments` (`id`, `code`, `name`, `parent_id`, `company_id`, 
 
 -- 用户 (org-users)
 INSERT INTO `org_users` (`id`, `username`, `password`, `password_reset_at`, `name`, `company_id`, `dept_id`, `position`, `role_ids`, `phone`, `email`, `status`, `created_at`, `last_login_at`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
-('U1', 'admin', '123456', NULL, '系统管理员', 'C1', 'D1', '信息中心主任', '["R1"]', '13800000001', 'admin@huaxin.com', 'ENABLED', '2024-01-05 09:00:00', '2026-10-22 09:12:33', 'seed', '2024-01-05 09:00:00', 'seed', '2026-10-22 09:12:33', 1);
+('U1', 'admin', 'Fzidt@123', NULL, '系统管理员', 'C1', 'D1', '信息中心主任', '["R1"]', '13800000001', 'admin@huaxin.com', 'ENABLED', '2024-01-05 09:00:00', '2026-10-22 09:12:33', 'seed', '2024-01-05 09:00:00', 'seed', '2026-10-22 09:12:33', 1);
 
 -- 角色 (org-roles)
 INSERT INTO `org_roles` (`id`, `code`, `name`, `org_scope`, `data_scope`, `status`, `sort`, `remark`, `permissions`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES

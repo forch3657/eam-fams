@@ -22,7 +22,7 @@ spring:
 
 fams:
   security:
-    bootstrap-password: Fams@2026
+    bootstrap-password: Fzidt@123
     jwt-secret: ZmFtc0Bsb2NhbC1kZXYtc2VjcmV0LWtleS1mb3ItaDJ8b25seQ==
     jwt-expire-minutes: 480
     password-max-age-days: 90
