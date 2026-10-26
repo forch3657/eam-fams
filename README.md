@@ -42,11 +42,40 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 
 ---
 
+### 用 MySQL 联调（一键切 MySQL）
+
+上面是 H2 内存库联调；如果你想直接连本机真实 MySQL 调试，用另一套脚本即可，无需改任何配置：
+
+双击 **`start-dev-mysql.bat`**（逻辑在 `start-dev-mysql.ps1`）。它会：
+
+1. 检查本机 MySQL 服务（`MySQL80`）是否已监听 `3306`；未启动则自动拉起（需管理员权限，失败会提示你手动启动）。
+2. 启动后端 **`mvn spring-boot:run -Dspring-boot.run.profiles=dev`**（dev = MySQL 模式）与前端 `npm run dev`，同样开两个独立窗口。
+
+| 项 | 值 |
+|---|---|
+| 数据库地址 | `jdbc:mysql://127.0.0.1:3306/fams` |
+| 数据库名 | `fams` |
+| 用户名 | `root` |
+| 密码 | `123456`（在 `application-dev.yml` 中为默认值） |
+| 连接参数 | `useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai`（适配 MySQL 8 的 `caching_sha2_password`） |
+
+> ⚠️ **前置条件**：`start-dev-mysql.bat` **不会自动建库建表**。必须先按下面第 2 节把 `fams` 库建好、灌入 schema+数据，否则后端起不来（Hikari 连不上 / 表不存在）。
+>
+> 切换回 H2 联调：停掉服务（双击 `stop-dev.bat`），再双击 `start-dev.bat` 即可。两套脚本共用 `stop-dev.bat`（按 8080/5174 端口精准结束）。
+>
+> 改数据库密码：直接改 `fams-backend/src/main/resources/application-dev.yml` 里的 `password: ${DB_PASSWORD:123456}` 默认值，**不要用** `mvn -DDB_PASSWORD=xxx`——`spring-boot:run` 会 fork 新 JVM，命令行 `-D` 不一定透传，导致仍用默认值。
+
+---
+
 ## 2. 上 MySQL 前清单
 
 联调稳定、准备部署到真实 MySQL 时，按以下清单操作（**先上 SQL 再测**，因为部分功能依赖 schema；不要拿旧 SQL 建库测出假结果）：
 
-1. **切换 profile**：把后端 `application.yml` 的默认激活 profile 改成 `dev`（MySQL 模式，`spring.sql.init.mode` 为 `never`，由你手动执行 SQL）。MySQL 连接串已带 `characterEncoding=utf8`。
+1. **切换 profile（本地联调用脚本，部署改 yaml）**：
+   - **本地联调**：直接双击 `start-dev-mysql.bat`，脚本已用 `-Dspring-boot.run.profiles=dev` 启动后端（dev = MySQL 模式，`spring.sql.init.mode` 为 `never`，由你手动执行下面的 SQL），**无需改 `application.yml`**。
+   - **正式部署**：把后端 `application.yml` 的默认激活 profile 改成 `dev`。
+   - `application-dev.yml` 里连接串已带 `characterEncoding=utf8` 与 `allowPublicKeyRetrieval=true`（适配 MySQL 8 的 `caching_sha2_password`），默认账号 `root`、密码 `123456`（改密码直接改 yaml 默认值；不要用 `mvn -DDB_PASSWORD=xxx`，`spring-boot:run` 会 fork 新 JVM 导致 `-D` 不透传）。
+   - 若用命令行 `-h 127.0.0.1` 连不上但本地 socket 能连，多为缺 `root@127.0.0.1` TCP 账户，补建即可：`CREATE USER 'root'@'127.0.0.1' IDENTIFIED BY '123456'; GRANT ALL PRIVILEGES ON *.* TO 'root'@'127.0.0.1' WITH GRANT OPTION;`。
 2. **按顺序执行建库脚本**（在 `fams-backend/sql/` 下）：
    - `sql/01-schema/00-schema.sql` —— 建表
    - `sql/02-seed/` —— 基础主数据（公司/部门/用户/角色/字典等）
