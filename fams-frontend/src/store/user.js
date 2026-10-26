@@ -50,10 +50,12 @@ export const useUserStore = defineStore('user', () => {
    */
   async function login(username, password) {
     const org = useOrgStore()
-    if (!org.loaded) await org.loadAll()
 
     // ---- api 模式：凭证校验由后端完成 ----
     if (!useMock) {
+      // 注意：登录前**不能**先拉组织主数据 —— 此时还没有 token，
+      // 这些请求必然 401 并触发「被动登出」横幅，登录请求根本发不出去。
+      // 组织数据在登录成功、拿到 token 之后再加载（见下方）。
       let res = null
       try {
         res = await authService.login(username, password)
@@ -62,18 +64,25 @@ export const useUserStore = defineStore('user', () => {
       }
       const issued = res?.token || ''
       if (!issued) return { ok: false, reason: 'SERVER', message: '登录接口未返回 token' }
+      // 先把 token 写入 sessionStorage，后续请求（含组织数据加载）才会带上 Authorization
+      setToken(issued)
       const account = res?.user || {}
+      // 此时已持有 token，可以安全加载组织主数据（用于角色/公司名称展示与权限判定）。
+      // 加载失败不阻断登录：路由守卫与各页面挂载时都会兜底重试。
+      if (!org.loaded) {
+        try { await org.loadAll() } catch (e) { console.error('[login] 组织主数据加载失败（不阻断登录）', e) }
+      }
       user.value = {
         ...account,
         role: (account.roleIds || []).map(rid => org.roles.find(r => r.id === rid)?.name).filter(Boolean).join('、'),
         org: org.companyName(account.companyId) || '固定资产管理中心'
       }
-      issueToken(user.value, issued)
       persist()
       return { ok: true }
     }
 
-    // ---- mock 模式：本地校验 ----
+    // ---- mock 模式：本地校验（需要先加载本地用户表） ----
+    if (!org.loaded) await org.loadAll()
     const account = org.users.find(u => u.username === username)
     if (!account) return { ok: false, reason: 'NOT_FOUND' }
     if (account.status !== 'ENABLED') return { ok: false, reason: 'DISABLED' }

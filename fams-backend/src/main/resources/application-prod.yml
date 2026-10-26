@@ -1,0 +1,28 @@
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  sql:
+    init:
+      mode: never
+
+# 部门规范：生产环境不暴露任何监控端点（本项目未引入 actuator 依赖，此处为双重保险）
+management:
+  endpoints:
+    enabled-by-default: false
+    web:
+      exposure:
+        include:
+
+# 部门规范：生产禁用 API 文档。本项目全 profile 均未引入 Swagger/Knife4j 依赖，
+# 不存在任何文档端点，故无需再关闭；此处仅为显式声明，避免后续误引入。
+fams:
+  docs:
+    enabled: false
+
+logging:
+  level:
+    root: warn
+    com.fams: info

@@ -1,0 +1,7419 @@
+{
+  "generatedFrom": "fams-frontend/src/services/contract/schema.js",
+  "resources": [
+    {
+      "key": "fixed-assets",
+      "label": "固定资产台账",
+      "table": "fixed_assets",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "code",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "category",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ASSET_CATEGORY",
+          "refCollection": null
+        },
+        {
+          "name": "brand",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "model",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-companies"
+        },
+        {
+          "name": "deptId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-departments"
+        },
+        {
+          "name": "userId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-users"
+        },
+        {
+          "name": "location",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "purchaseDate",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "inboundDate",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "amount",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "original",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "net",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ASSET_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "depreciate",
+          "type": "boolean",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "purchaseMode",
+          "type": "enum",
+          "required": false,
+          "unique": false,
+          "enumName": "PURCHASE_MODE",
+          "refCollection": null
+        },
+        {
+          "name": "leaseMonths",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "code"
+      ],
+      "refs": [
+        {
+          "field": "companyId",
+          "collection": "org-companies"
+        },
+        {
+          "field": "deptId",
+          "collection": "org-departments"
+        },
+        {
+          "field": "userId",
+          "collection": "org-users"
+        }
+      ],
+      "protect": [
+        {
+          "collection": "fixed-asset-doc-lists-inbound",
+          "field": "assetId",
+          "message": "该资产存在入库单列表单据，不能删除"
+        },
+        {
+          "collection": "fixed-asset-doc-lists-alloc",
+          "field": "assetId",
+          "message": "该资产存在派发单列表单据，不能删除"
+        },
+        {
+          "collection": "fixed-asset-doc-lists-back",
+          "field": "assetId",
+          "message": "该资产存在退库单列表单据，不能删除"
+        },
+        {
+          "collection": "fixed-asset-doc-lists-borrow",
+          "field": "assetId",
+          "message": "该资产存在借出单列表单据，不能删除"
+        },
+        {
+          "collection": "fixed-asset-doc-lists-transfer",
+          "field": "assetId",
+          "message": "该资产存在调拨单列表单据，不能删除"
+        },
+        {
+          "collection": "fixed-asset-doc-lists-repair",
+          "field": "assetId",
+          "message": "该资产存在维修单列表单据，不能删除"
+        },
+        {
+          "collection": "fixed-asset-doc-lists-change",
+          "field": "assetId",
+          "message": "该资产存在资产变更单列表单据，不能删除"
+        },
+        {
+          "collection": "fixed-asset-doc-lists-dispose",
+          "field": "assetId",
+          "message": "该资产存在处置单列表单据，不能删除"
+        }
+      ],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "name",
+        "code",
+        "brand",
+        "model"
+      ],
+      "filterFields": [
+        "companyId",
+        "deptId",
+        "userId",
+        "status",
+        "category"
+      ],
+      "sortFields": [
+        "updateTime",
+        "code"
+      ],
+      "paged": true
+    },
+    {
+      "key": "fixed-asset-inventory-plans",
+      "label": "盘点计划",
+      "table": "fixed_asset_inventory_plans",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "planNo",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "planName",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "counter",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "planDate",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "DOC_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "items",
+          "type": "array",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "planNo"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "planNo",
+        "planName"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "planDate"
+      ],
+      "paged": true
+    },
+    {
+      "key": "fixed-asset-inventory-docs",
+      "label": "盘点单据",
+      "table": "fixed_asset_inventory_docs",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "docNo",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-companies"
+        },
+        {
+          "name": "applicant",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "creatorId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-users"
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "assetTypes",
+          "type": "array",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "createTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "finishTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "DOC_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "items",
+          "type": "array",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "counters",
+          "type": "array",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "docNo"
+      ],
+      "refs": [
+        {
+          "field": "companyId",
+          "collection": "org-companies"
+        }
+      ],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "docNo",
+        "name",
+        "applicant"
+      ],
+      "filterFields": [
+        "status",
+        "companyId"
+      ],
+      "sortFields": [
+        "createTime"
+      ],
+      "paged": true
+    },
+    {
+      "key": "fixed-asset-depreciation-schemes",
+      "label": "折旧方案",
+      "table": "fixed_asset_depreciation_schemes",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "schemeNo",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "schemeName",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "method",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "DEPRECIATION_METHOD",
+          "refCollection": null
+        },
+        {
+          "name": "years",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "residualRate",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "monthlyRate",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "applicableCategory",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "enabled",
+          "type": "boolean",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "schemeNo"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "schemeNo",
+        "schemeName"
+      ],
+      "filterFields": [
+        "method",
+        "enabled"
+      ],
+      "sortFields": [
+        "schemeNo"
+      ],
+      "paged": true
+    },
+    {
+      "key": "fixed-asset-depreciation-reports",
+      "label": "折旧报表",
+      "table": "fixed_asset_depreciation_reports",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "period",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "openingValue",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "periodDepreciation",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "accumulated",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "closingNet",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "assetCount",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "operator",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "runDate",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "period"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "period"
+      ],
+      "filterFields": [
+        "period"
+      ],
+      "sortFields": [
+        "period"
+      ],
+      "paged": true
+    },
+    {
+      "key": "fixed-asset-report-depreciation-details",
+      "label": "折旧明细",
+      "table": "fixed_asset_report_depreciation_details",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "assetId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "fixed-assets"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "originalValue",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "depreciationMethod",
+          "type": "enum",
+          "required": false,
+          "unique": false,
+          "enumName": "DEPRECIATION_METHOD",
+          "refCollection": null
+        },
+        {
+          "name": "usefulLife",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "accumulatedDepreciation",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "netValue",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "depreciationRate",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "purchaseDate",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "name"
+      ],
+      "filterFields": [
+        "depreciationMethod"
+      ],
+      "sortFields": [
+        "purchaseDate"
+      ],
+      "paged": true
+    },
+    {
+      "key": "fixed-asset-report-depreciation-plan-details",
+      "label": "折旧计划明细",
+      "table": "fixed_asset_report_depreciation_plan_details",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "planName",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "assetId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "fixed-assets"
+        },
+        {
+          "name": "assetName",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "assetType",
+          "type": "enum",
+          "required": false,
+          "unique": false,
+          "enumName": "ASSET_CATEGORY",
+          "refCollection": null
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-companies"
+        },
+        {
+          "name": "original",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "residualRate",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "totalLife",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "usedLife",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "depDate",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "finished",
+          "type": "boolean",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "planName",
+        "assetName"
+      ],
+      "filterFields": [
+        "assetType",
+        "companyId",
+        "finished"
+      ],
+      "sortFields": [
+        "depDate"
+      ],
+      "paged": true
+    },
+    {
+      "key": "fixed-asset-settings-locations",
+      "label": "存放位置",
+      "table": "fixed_asset_settings_locations",
+      "fixedFilters": {},
+      "pkField": "code",
+      "idGenerated": false,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "code",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "parentName",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "manager",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "assetCount",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "code",
+        "name"
+      ],
+      "refs": [],
+      "protect": [
+        {
+          "collection": "fixed-assets",
+          "field": "location",
+          "valueFrom": "name",
+          "message": "该位置下仍有资产，不能删除"
+        }
+      ],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "name",
+        "code"
+      ],
+      "filterFields": [
+        "parentName"
+      ],
+      "sortFields": [
+        "code"
+      ],
+      "paged": true
+    },
+    {
+      "key": "fixed-asset-settings-location-options",
+      "label": "位置候选项",
+      "table": "fixed_asset_settings_location_options",
+      "fixedFilters": {},
+      "pkField": "code",
+      "idGenerated": false,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "code",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "code"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "name"
+      ],
+      "filterFields": [],
+      "sortFields": [
+        "code"
+      ],
+      "paged": false
+    },
+    {
+      "key": "fixed-asset-settings-categories",
+      "label": "资产分类",
+      "table": "fixed_asset_settings_categories",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "code",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "parentCode",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "parentName",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "depreciationMethod",
+          "type": "enum",
+          "required": false,
+          "unique": false,
+          "enumName": "DEPRECIATION_METHOD",
+          "refCollection": null
+        },
+        {
+          "name": "usefulLife",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "assetCount",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "children",
+          "type": "array",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "code",
+        "name"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": {
+        "field": "parentCode",
+        "idField": "code",
+        "message": "该分类下仍有子分类，不能删除"
+      },
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "name",
+        "code"
+      ],
+      "filterFields": [
+        "status",
+        "parentCode"
+      ],
+      "sortFields": [
+        "code"
+      ],
+      "paged": true
+    },
+    {
+      "key": "fixed-asset-settings-depreciation-rules",
+      "label": "折旧规则",
+      "table": "fixed_asset_settings_depreciation_rules",
+      "fixedFilters": {},
+      "pkField": "name",
+      "idGenerated": false,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "method",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "DEPRECIATION_METHOD",
+          "refCollection": null
+        },
+        {
+          "name": "usefulLife",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "residualRate",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "name"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "name"
+      ],
+      "filterFields": [
+        "method"
+      ],
+      "sortFields": [
+        "name"
+      ],
+      "paged": true
+    },
+    {
+      "key": "fixed-asset-settings-depreciation-plans",
+      "label": "折旧方案（设置）",
+      "table": "fixed_asset_settings_depreciation_plans",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-companies"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "method",
+          "type": "enum",
+          "required": false,
+          "unique": false,
+          "enumName": "DEPRECIATION_METHOD",
+          "refCollection": null
+        },
+        {
+          "name": "assetTypes",
+          "type": "array",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "residualRate",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "calcTime",
+          "type": "enum",
+          "required": false,
+          "unique": false,
+          "enumName": "CALC_TIME",
+          "refCollection": null
+        },
+        {
+          "name": "monthlyDay",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "purchaseMode",
+          "type": "enum",
+          "required": false,
+          "unique": false,
+          "enumName": "PURCHASE_MODE",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "name"
+      ],
+      "refs": [
+        {
+          "field": "companyId",
+          "collection": "org-companies"
+        }
+      ],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "name"
+      ],
+      "filterFields": [
+        "companyId",
+        "calcTime",
+        "method"
+      ],
+      "sortFields": [
+        "name"
+      ],
+      "paged": true
+    },
+    {
+      "key": "low-value-items",
+      "label": "低值资产台账",
+      "table": "low_value_items",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "code",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "category",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "LOW_VALUE_CATEGORY",
+          "refCollection": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "spec",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "unit",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "price",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "stock",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "reserved",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "safetyStock",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "location",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "LOW_VALUE_ITEM_STATUS",
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "code"
+      ],
+      "refs": [],
+      "protect": [
+        {
+          "collection": "low-value-inbound",
+          "field": "itemId",
+          "message": "该物品已产生入库单据，不能删除"
+        },
+        {
+          "collection": "low-value-requisition",
+          "field": "itemId",
+          "message": "该物品已产生领用单据，不能删除"
+        },
+        {
+          "collection": "low-value-return",
+          "field": "itemId",
+          "message": "该物品已产生退库单据，不能删除"
+        }
+      ],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [
+        {
+          "field": "stock",
+          "message": "该物品仍有库存，不能删除"
+        },
+        {
+          "field": "reserved",
+          "message": "该物品有审批中的单据占用，不能删除"
+        }
+      ],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "name",
+        "code",
+        "spec"
+      ],
+      "filterFields": [
+        "category",
+        "status",
+        "location"
+      ],
+      "sortFields": [
+        "updateTime",
+        "code"
+      ],
+      "paged": true
+    },
+    {
+      "key": "low-value-inbound",
+      "label": "低值资产入库单",
+      "table": "low_value_inbound",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "docNo",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "itemId",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "low-value-items"
+        },
+        {
+          "name": "category",
+          "type": "enum",
+          "required": false,
+          "unique": false,
+          "enumName": "LOW_VALUE_CATEGORY",
+          "refCollection": null
+        },
+        {
+          "name": "itemName",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "categoryName",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "spec",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "unit",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "quantity",
+          "type": "number",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "price",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "amount",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "deptId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-departments"
+        },
+        {
+          "name": "operator",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "DOC_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "creatorId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-users"
+        },
+        {
+          "name": "submitTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "settleTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "supplier",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "inboundDate",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "docNo"
+      ],
+      "refs": [
+        {
+          "field": "itemId",
+          "collection": "low-value-items"
+        },
+        {
+          "field": "deptId",
+          "collection": "org-departments"
+        },
+        {
+          "field": "creatorId",
+          "collection": "org-users"
+        }
+      ],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": {
+        "effect": "in",
+        "target": "low-value-items",
+        "itemField": "itemId",
+        "qtyField": "quantity",
+        "stockField": "stock",
+        "settleOn": "DONE"
+      },
+      "cascade": [],
+      "keywordFields": [
+        "docNo"
+      ],
+      "filterFields": [
+        "itemId",
+        "category",
+        "deptId",
+        "status"
+      ],
+      "sortFields": [
+        "createTime"
+      ],
+      "paged": true
+    },
+    {
+      "key": "low-value-requisition",
+      "label": "低值资产领用单",
+      "table": "low_value_requisition",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "docNo",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "itemId",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "low-value-items"
+        },
+        {
+          "name": "category",
+          "type": "enum",
+          "required": false,
+          "unique": false,
+          "enumName": "LOW_VALUE_CATEGORY",
+          "refCollection": null
+        },
+        {
+          "name": "itemName",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "categoryName",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "spec",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "unit",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "quantity",
+          "type": "number",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "price",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "amount",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "deptId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-departments"
+        },
+        {
+          "name": "operator",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "DOC_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "creatorId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-users"
+        },
+        {
+          "name": "submitTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "settleTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "receiver",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "requisitionDate",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "purpose",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "docNo"
+      ],
+      "refs": [
+        {
+          "field": "itemId",
+          "collection": "low-value-items"
+        },
+        {
+          "field": "deptId",
+          "collection": "org-departments"
+        },
+        {
+          "field": "creatorId",
+          "collection": "org-users"
+        }
+      ],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": {
+        "effect": "out",
+        "target": "low-value-items",
+        "itemField": "itemId",
+        "qtyField": "quantity",
+        "stockField": "stock",
+        "settleOn": "DONE",
+        "reservedField": "reserved",
+        "reserveOn": "PROCESSING",
+        "releaseOn": [
+          "REJECTED",
+          "REVOKED"
+        ]
+      },
+      "cascade": [],
+      "keywordFields": [
+        "docNo"
+      ],
+      "filterFields": [
+        "itemId",
+        "category",
+        "deptId",
+        "status"
+      ],
+      "sortFields": [
+        "createTime"
+      ],
+      "paged": true
+    },
+    {
+      "key": "low-value-return",
+      "label": "低值资产退库单",
+      "table": "low_value_return",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "docNo",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "itemId",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "low-value-items"
+        },
+        {
+          "name": "category",
+          "type": "enum",
+          "required": false,
+          "unique": false,
+          "enumName": "LOW_VALUE_CATEGORY",
+          "refCollection": null
+        },
+        {
+          "name": "itemName",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "categoryName",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "spec",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "unit",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "quantity",
+          "type": "number",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "price",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "amount",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "deptId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-departments"
+        },
+        {
+          "name": "operator",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "DOC_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "creatorId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-users"
+        },
+        {
+          "name": "submitTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "settleTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "returner",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "returnDate",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "reason",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "docNo"
+      ],
+      "refs": [
+        {
+          "field": "itemId",
+          "collection": "low-value-items"
+        },
+        {
+          "field": "deptId",
+          "collection": "org-departments"
+        },
+        {
+          "field": "creatorId",
+          "collection": "org-users"
+        }
+      ],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": {
+        "effect": "in",
+        "target": "low-value-items",
+        "itemField": "itemId",
+        "qtyField": "quantity",
+        "stockField": "stock",
+        "settleOn": "DONE"
+      },
+      "cascade": [],
+      "keywordFields": [
+        "docNo"
+      ],
+      "filterFields": [
+        "itemId",
+        "category",
+        "deptId",
+        "status"
+      ],
+      "sortFields": [
+        "createTime"
+      ],
+      "paged": true
+    },
+    {
+      "key": "low-value-settings-locations",
+      "label": "低值资产存放位置",
+      "table": "low_value_settings_locations",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "code",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "parentCode",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "parentName",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "manager",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "itemCount",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "code"
+      ],
+      "refs": [],
+      "protect": [
+        {
+          "collection": "low-value-items",
+          "field": "location",
+          "valueFrom": "name",
+          "message": "该位置下仍有物品，不能删除"
+        }
+      ],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "name",
+        "code"
+      ],
+      "filterFields": [
+        "status",
+        "parentCode"
+      ],
+      "sortFields": [
+        "code"
+      ],
+      "paged": true
+    },
+    {
+      "key": "org-companies",
+      "label": "公司",
+      "table": "org_companies",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "code",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "shortName",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "parentId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-companies"
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "creditCode",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "legalPerson",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "contact",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "phone",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "address",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "code",
+        "name"
+      ],
+      "refs": [
+        {
+          "field": "parentId",
+          "collection": "org-companies"
+        }
+      ],
+      "protect": [
+        {
+          "collection": "org-companies",
+          "field": "parentId",
+          "message": "该公司下仍有子公司，不能删除"
+        },
+        {
+          "collection": "org-departments",
+          "field": "companyId",
+          "message": "该公司下仍有部门，不能删除"
+        },
+        {
+          "collection": "org-users",
+          "field": "companyId",
+          "message": "该公司下仍有用户，不能删除"
+        }
+      ],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "name",
+        "shortName",
+        "code"
+      ],
+      "filterFields": [
+        "status",
+        "parentId"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "org-departments",
+      "label": "部门",
+      "table": "org_departments",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "code",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "parentId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-departments"
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-companies"
+        },
+        {
+          "name": "leader",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "headcount",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "phone",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "code"
+      ],
+      "refs": [
+        {
+          "field": "companyId",
+          "collection": "org-companies"
+        },
+        {
+          "field": "parentId",
+          "collection": "org-departments"
+        }
+      ],
+      "protect": [
+        {
+          "collection": "org-departments",
+          "field": "parentId",
+          "message": "该部门下仍有子部门，不能删除"
+        },
+        {
+          "collection": "org-users",
+          "field": "deptId",
+          "message": "该部门下仍有人员，请先调整人员归属"
+        }
+      ],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "name",
+        "code"
+      ],
+      "filterFields": [
+        "companyId",
+        "parentId",
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "org-users",
+      "label": "用户",
+      "table": "org_users",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "password",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "passwordResetAt",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-companies"
+        },
+        {
+          "name": "deptId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-departments"
+        },
+        {
+          "name": "position",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "roleIds",
+          "type": "array",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "phone",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "createdAt",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "lastLoginAt",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "username"
+      ],
+      "refs": [
+        {
+          "field": "companyId",
+          "collection": "org-companies"
+        },
+        {
+          "field": "deptId",
+          "collection": "org-departments"
+        }
+      ],
+      "protect": [
+        {
+          "collection": "fixed-assets",
+          "field": "userId",
+          "message": "该用户仍是资产使用人，不能删除"
+        },
+        {
+          "collection": "fixed-asset-doc-approvals",
+          "field": "approverId",
+          "message": "该用户已有审批记录，不能删除"
+        },
+        {
+          "collection": "system-terminal-devices",
+          "field": "bindUserId",
+          "message": "该用户已绑定盘点终端，不能删除"
+        },
+        {
+          "collection": "low-value-inbound",
+          "field": "creatorId",
+          "message": "该用户已创建入库单，不能删除"
+        },
+        {
+          "collection": "low-value-requisition",
+          "field": "creatorId",
+          "message": "该用户已创建领用单，不能删除"
+        },
+        {
+          "collection": "low-value-return",
+          "field": "creatorId",
+          "message": "该用户已创建退库单，不能删除"
+        },
+        {
+          "collection": "fixed-asset-doc-lists-inbound",
+          "field": "creatorId",
+          "message": "该用户已创建入库单列表单据，不能删除"
+        },
+        {
+          "collection": "fixed-asset-doc-lists-alloc",
+          "field": "creatorId",
+          "message": "该用户已创建派发单列表单据，不能删除"
+        },
+        {
+          "collection": "fixed-asset-doc-lists-back",
+          "field": "creatorId",
+          "message": "该用户已创建退库单列表单据，不能删除"
+        },
+        {
+          "collection": "fixed-asset-doc-lists-borrow",
+          "field": "creatorId",
+          "message": "该用户已创建借出单列表单据，不能删除"
+        },
+        {
+          "collection": "fixed-asset-doc-lists-transfer",
+          "field": "creatorId",
+          "message": "该用户已创建调拨单列表单据，不能删除"
+        },
+        {
+          "collection": "fixed-asset-doc-lists-repair",
+          "field": "creatorId",
+          "message": "该用户已创建维修单列表单据，不能删除"
+        },
+        {
+          "collection": "fixed-asset-doc-lists-change",
+          "field": "creatorId",
+          "message": "该用户已创建资产变更单列表单据，不能删除"
+        },
+        {
+          "collection": "fixed-asset-doc-lists-dispose",
+          "field": "creatorId",
+          "message": "该用户已创建处置单列表单据，不能删除"
+        }
+      ],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "username",
+        "name",
+        "phone"
+      ],
+      "filterFields": [
+        "companyId",
+        "deptId",
+        "status"
+      ],
+      "sortFields": [
+        "createdAt"
+      ],
+      "paged": true
+    },
+    {
+      "key": "org-roles",
+      "label": "角色",
+      "table": "org_roles",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "code",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "orgScope",
+          "type": "enum",
+          "required": false,
+          "unique": false,
+          "enumName": "ORG_SCOPE",
+          "refCollection": null
+        },
+        {
+          "name": "dataScope",
+          "type": "enum",
+          "required": false,
+          "unique": false,
+          "enumName": "DATA_SCOPE",
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "permissions",
+          "type": "array",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "code",
+        "name"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [
+        {
+          "collection": "org-users",
+          "field": "roleIds",
+          "message": "该角色已关联用户，不能删除"
+        }
+      ],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "name",
+        "code"
+      ],
+      "filterFields": [
+        "status",
+        "orgScope"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types",
+      "label": "数据字典类型",
+      "table": "system_dict_types",
+      "fixedFilters": {},
+      "pkField": "code",
+      "idGenerated": false,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "code",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "count",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "code",
+        "name"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [
+        {
+          "pattern": "system-dict-types-{code}-items",
+          "message": "删除字典类型会同时删除其全部字典项"
+        }
+      ],
+      "keywordFields": [
+        "name",
+        "code"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "code"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-params",
+      "label": "系统参数",
+      "table": "system_params",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "key",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "type",
+          "type": "enum",
+          "required": false,
+          "unique": false,
+          "enumName": "PARAM_TYPE",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "key"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "name",
+        "key"
+      ],
+      "filterFields": [
+        "type"
+      ],
+      "sortFields": [
+        "key"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-workflow-flows",
+      "label": "工作流程",
+      "table": "system_workflow_flows",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "code",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "bizType",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "BUSINESS_TYPE",
+          "refCollection": null
+        },
+        {
+          "name": "initiator",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "initiatorRoleId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-roles"
+        },
+        {
+          "name": "enabled",
+          "type": "boolean",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "steps",
+          "type": "array",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "code"
+      ],
+      "refs": [
+        {
+          "field": "initiatorRoleId",
+          "collection": "org-roles"
+        }
+      ],
+      "protect": [
+        {
+          "collection": "fixed-asset-doc-approvals",
+          "field": "flowId",
+          "message": "该流程已产生审批记录，不能删除"
+        }
+      ],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "name",
+        "code"
+      ],
+      "filterFields": [
+        "bizType",
+        "enabled"
+      ],
+      "sortFields": [
+        "code"
+      ],
+      "paged": true
+    },
+    {
+      "key": "fixed-asset-doc-approvals",
+      "label": "审批记录",
+      "table": "fixed_asset_doc_approvals",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "docKey",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "docId",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "docCode",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "bizType",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "BUSINESS_TYPE",
+          "refCollection": null
+        },
+        {
+          "name": "flowId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "system-workflow-flows"
+        },
+        {
+          "name": "flowCode",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "stepKey",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "stepName",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "result",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "APPROVE_RESULT",
+          "refCollection": null
+        },
+        {
+          "name": "comment",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "approverId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-users"
+        },
+        {
+          "name": "approverName",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "approverRoleName",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "time",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [],
+      "refs": [
+        {
+          "field": "approverId",
+          "collection": "org-users"
+        },
+        {
+          "field": "flowId",
+          "collection": "system-workflow-flows"
+        }
+      ],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "docCode",
+        "approverName",
+        "stepName"
+      ],
+      "filterFields": [
+        "docKey",
+        "bizType",
+        "result",
+        "approverId"
+      ],
+      "sortFields": [
+        "time"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-terminal-devices",
+      "label": "盘点终端",
+      "table": "system_terminal_devices",
+      "fixedFilters": {},
+      "pkField": "code",
+      "idGenerated": false,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "code",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "type",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "DEVICE_TYPE",
+          "refCollection": null
+        },
+        {
+          "name": "location",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "bindUserId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-users"
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "DEVICE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "lastActive",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "vendor",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "model",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sn",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "ip",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "installDate",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "maintainer",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "maintainerPhone",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "code"
+      ],
+      "refs": [
+        {
+          "field": "bindUserId",
+          "collection": "org-users"
+        }
+      ],
+      "protect": [
+        {
+          "collection": "system-terminal-abnormal",
+          "field": "deviceCode",
+          "message": "该终端已有异常记录，不能删除"
+        }
+      ],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "name",
+        "code",
+        "sn",
+        "ip"
+      ],
+      "filterFields": [
+        "status",
+        "type"
+      ],
+      "sortFields": [
+        "code"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-terminal-abnormal",
+      "label": "终端异常记录",
+      "table": "system_terminal_abnormal",
+      "fixedFilters": {},
+      "pkField": "recordNo",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "recordNo",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "deviceCode",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "system-terminal-devices"
+        },
+        {
+          "name": "operatorId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-users"
+        },
+        {
+          "name": "type",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "DEVICE_ABNORMAL_TYPE",
+          "refCollection": null
+        },
+        {
+          "name": "detail",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "affectedCount",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "handled",
+          "type": "boolean",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "handleResult",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "createTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "recordNo"
+      ],
+      "refs": [
+        {
+          "field": "deviceCode",
+          "collection": "system-terminal-devices"
+        },
+        {
+          "field": "operatorId",
+          "collection": "org-users"
+        }
+      ],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "recordNo",
+        "detail"
+      ],
+      "filterFields": [
+        "type",
+        "handled"
+      ],
+      "sortFields": [
+        "createTime"
+      ],
+      "paged": true
+    },
+    {
+      "key": "notify-messages",
+      "label": "站内消息",
+      "table": "notify_messages",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "time",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "level",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "content",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "target",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "channel",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "bizType",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "bizId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "route",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "read",
+          "type": "boolean",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "title",
+        "content"
+      ],
+      "filterFields": [
+        "type",
+        "level",
+        "read",
+        "target"
+      ],
+      "sortFields": [
+        "time"
+      ],
+      "paged": true
+    },
+    {
+      "key": "notify-templates",
+      "label": "消息模板",
+      "table": "notify_templates",
+      "fixedFilters": {},
+      "pkField": "key",
+      "idGenerated": false,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "key",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "scene",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "channel",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "content",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "enabled",
+          "type": "boolean",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "key"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "key",
+        "scene",
+        "title"
+      ],
+      "filterFields": [
+        "enabled",
+        "channel"
+      ],
+      "sortFields": [
+        "key"
+      ],
+      "paged": true
+    },
+    {
+      "key": "operation-logs",
+      "label": "操作日志",
+      "table": "operation_logs",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "time",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "module",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "action",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "target",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "result",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "detail",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "ip",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "operator",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "operatorOrg",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "operator",
+        "target",
+        "detail",
+        "module"
+      ],
+      "filterFields": [
+        "module",
+        "action",
+        "result"
+      ],
+      "sortFields": [
+        "time"
+      ],
+      "paged": true
+    },
+    {
+      "key": "fixed-asset-doc-lists-inbound",
+      "label": "入库单列表",
+      "table": "fixed_asset_doc_lists_inbound",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "code",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-companies"
+        },
+        {
+          "name": "assetId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "fixed-assets"
+        },
+        {
+          "name": "creatorId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-users"
+        },
+        {
+          "name": "createTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "finishTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "DOC_STATUS",
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "code"
+      ],
+      "refs": [
+        {
+          "field": "companyId",
+          "collection": "org-companies"
+        },
+        {
+          "field": "assetId",
+          "collection": "fixed-assets"
+        },
+        {
+          "field": "creatorId",
+          "collection": "org-users"
+        }
+      ],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "code",
+        "name"
+      ],
+      "filterFields": [
+        "status",
+        "companyId"
+      ],
+      "sortFields": [
+        "createTime"
+      ],
+      "paged": true
+    },
+    {
+      "key": "fixed-asset-doc-lists-alloc",
+      "label": "派发单列表",
+      "table": "fixed_asset_doc_lists_alloc",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "code",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-companies"
+        },
+        {
+          "name": "assetId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "fixed-assets"
+        },
+        {
+          "name": "creatorId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-users"
+        },
+        {
+          "name": "createTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "finishTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "DOC_STATUS",
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "code"
+      ],
+      "refs": [
+        {
+          "field": "companyId",
+          "collection": "org-companies"
+        },
+        {
+          "field": "assetId",
+          "collection": "fixed-assets"
+        },
+        {
+          "field": "creatorId",
+          "collection": "org-users"
+        }
+      ],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "code",
+        "name"
+      ],
+      "filterFields": [
+        "status",
+        "companyId"
+      ],
+      "sortFields": [
+        "createTime"
+      ],
+      "paged": true
+    },
+    {
+      "key": "fixed-asset-doc-lists-back",
+      "label": "退库单列表",
+      "table": "fixed_asset_doc_lists_back",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "code",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-companies"
+        },
+        {
+          "name": "assetId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "fixed-assets"
+        },
+        {
+          "name": "creatorId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-users"
+        },
+        {
+          "name": "createTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "finishTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "DOC_STATUS",
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "code"
+      ],
+      "refs": [
+        {
+          "field": "companyId",
+          "collection": "org-companies"
+        },
+        {
+          "field": "assetId",
+          "collection": "fixed-assets"
+        },
+        {
+          "field": "creatorId",
+          "collection": "org-users"
+        }
+      ],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "code",
+        "name"
+      ],
+      "filterFields": [
+        "status",
+        "companyId"
+      ],
+      "sortFields": [
+        "createTime"
+      ],
+      "paged": true
+    },
+    {
+      "key": "fixed-asset-doc-lists-borrow",
+      "label": "借出单列表",
+      "table": "fixed_asset_doc_lists_borrow",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "code",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-companies"
+        },
+        {
+          "name": "assetId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "fixed-assets"
+        },
+        {
+          "name": "creatorId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-users"
+        },
+        {
+          "name": "createTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "finishTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "DOC_STATUS",
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "code"
+      ],
+      "refs": [
+        {
+          "field": "companyId",
+          "collection": "org-companies"
+        },
+        {
+          "field": "assetId",
+          "collection": "fixed-assets"
+        },
+        {
+          "field": "creatorId",
+          "collection": "org-users"
+        }
+      ],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "code",
+        "name"
+      ],
+      "filterFields": [
+        "status",
+        "companyId"
+      ],
+      "sortFields": [
+        "createTime"
+      ],
+      "paged": true
+    },
+    {
+      "key": "fixed-asset-doc-lists-transfer",
+      "label": "调拨单列表",
+      "table": "fixed_asset_doc_lists_transfer",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "code",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-companies"
+        },
+        {
+          "name": "assetId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "fixed-assets"
+        },
+        {
+          "name": "creatorId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-users"
+        },
+        {
+          "name": "createTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "finishTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "DOC_STATUS",
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "code"
+      ],
+      "refs": [
+        {
+          "field": "companyId",
+          "collection": "org-companies"
+        },
+        {
+          "field": "assetId",
+          "collection": "fixed-assets"
+        },
+        {
+          "field": "creatorId",
+          "collection": "org-users"
+        }
+      ],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "code",
+        "name"
+      ],
+      "filterFields": [
+        "status",
+        "companyId"
+      ],
+      "sortFields": [
+        "createTime"
+      ],
+      "paged": true
+    },
+    {
+      "key": "fixed-asset-doc-lists-repair",
+      "label": "维修单列表",
+      "table": "fixed_asset_doc_lists_repair",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "code",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-companies"
+        },
+        {
+          "name": "assetId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "fixed-assets"
+        },
+        {
+          "name": "creatorId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-users"
+        },
+        {
+          "name": "createTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "finishTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "DOC_STATUS",
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "code"
+      ],
+      "refs": [
+        {
+          "field": "companyId",
+          "collection": "org-companies"
+        },
+        {
+          "field": "assetId",
+          "collection": "fixed-assets"
+        },
+        {
+          "field": "creatorId",
+          "collection": "org-users"
+        }
+      ],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "code",
+        "name"
+      ],
+      "filterFields": [
+        "status",
+        "companyId"
+      ],
+      "sortFields": [
+        "createTime"
+      ],
+      "paged": true
+    },
+    {
+      "key": "fixed-asset-doc-lists-change",
+      "label": "资产变更单列表",
+      "table": "fixed_asset_doc_lists_change",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "code",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-companies"
+        },
+        {
+          "name": "assetId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "fixed-assets"
+        },
+        {
+          "name": "creatorId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-users"
+        },
+        {
+          "name": "createTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "finishTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "DOC_STATUS",
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "code"
+      ],
+      "refs": [
+        {
+          "field": "companyId",
+          "collection": "org-companies"
+        },
+        {
+          "field": "assetId",
+          "collection": "fixed-assets"
+        },
+        {
+          "field": "creatorId",
+          "collection": "org-users"
+        }
+      ],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "code",
+        "name"
+      ],
+      "filterFields": [
+        "status",
+        "companyId"
+      ],
+      "sortFields": [
+        "createTime"
+      ],
+      "paged": true
+    },
+    {
+      "key": "fixed-asset-doc-lists-dispose",
+      "label": "处置单列表",
+      "table": "fixed_asset_doc_lists_dispose",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "code",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-companies"
+        },
+        {
+          "name": "assetId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "fixed-assets"
+        },
+        {
+          "name": "creatorId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-users"
+        },
+        {
+          "name": "createTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "finishTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "DOC_STATUS",
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "code"
+      ],
+      "refs": [
+        {
+          "field": "companyId",
+          "collection": "org-companies"
+        },
+        {
+          "field": "assetId",
+          "collection": "fixed-assets"
+        },
+        {
+          "field": "creatorId",
+          "collection": "org-users"
+        }
+      ],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "code",
+        "name"
+      ],
+      "filterFields": [
+        "status",
+        "companyId"
+      ],
+      "sortFields": [
+        "createTime"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-asset_status-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "asset_status"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-asset_type-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "asset_type"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-enable_status-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "enable_status"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-doc_status-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "doc_status"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-inbound_status-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "inbound_status"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-dispatch_status-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "dispatch_status"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-borrow_status-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "borrow_status"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-dispose_status-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "dispose_status"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-dispose_type-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "dispose_type"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-change_type-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "change_type"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-purchase_mode-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "purchase_mode"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-low_value_status-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "low_value_status"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-low_value_category-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "low_value_category"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-inventory_result-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "inventory_result"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-inventory_item_status-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "inventory_item_status"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-inventory_counter_status-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "inventory_counter_status"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-depreciation_method-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "depreciation_method"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-calc_time-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "calc_time"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-business_type-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "business_type"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-approve_mode-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "approve_mode"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-approve_condition-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "approve_condition"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-approve_result-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "approve_result"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-message_level-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "message_level"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-device_status-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "device_status"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-device_type-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "device_type"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-device_abnormal_type-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "device_abnormal_type"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-param_type-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "param_type"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-data_scope-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "data_scope"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    },
+    {
+      "key": "system-dict-types-org_scope-items",
+      "label": "字典项",
+      "table": "system_dict_items",
+      "fixedFilters": {
+        "dictCode": "org_scope"
+      },
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "value"
+      ],
+      "refs": [],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "label",
+        "value"
+      ],
+      "filterFields": [
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": true
+    }
+  ]
+}

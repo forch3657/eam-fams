@@ -1539,8 +1539,14 @@ function submitScheme() {
   schemeDialogVisible.value = false
 }
 
-function toggleScheme(row) {
-  ElMessage.success(`折旧方案"${row.schemeName}"已${row.enabled ? '启用' : '停用'}`)
+async function toggleScheme(row) {
+  // v-model 已把 row.enabled 翻到新值；这里负责持久化（失败由 useCollection 回滚本地值）
+  try {
+    await depreciationSchemeCol.update(row)
+    ElMessage.success(`折旧方案"${row.schemeName}"已${row.enabled ? '启用' : '停用'}`)
+  } catch (e) {
+    ElMessage.error(e?.message || '折旧方案状态保存失败')
+  }
 }
 
 function deleteScheme(row) {

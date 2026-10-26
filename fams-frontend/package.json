@@ -9,7 +9,10 @@
     "preview": "vite preview",
     "test": "node --experimental-loader ./.test-loader.mjs ./approval.test.mjs && node --experimental-loader ./.test-loader.mjs ./lowValue.test.mjs && node --experimental-loader ./.test-loader.mjs ./workbench.test.mjs && node --experimental-loader ./.test-loader.mjs ./auth.test.mjs",
     "check": "node .chkfn.cjs",
-    "check:pages": "node ./check-pages.mjs"
+    "check:pages": "node ./check-pages.mjs",
+    "export:contract": "node ./tools/export-contract.mjs",
+    "export:db": "node ./tools/export-db.mjs",
+    "export:pdman": "node ./tools/export-pdman.mjs"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",

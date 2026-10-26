@@ -1,0 +1,6434 @@
+{
+  "project": {
+    "code": "fams",
+    "name": "资产管理系统",
+    "description": "固定资产 + 低值耗材一体化资产管理平台，表结构由 fams-frontend/src/services/contract/schema.js 生成",
+    "database": "MySQL 8.0",
+    "company": "",
+    "author": "",
+    "version": "1.0.0"
+  },
+  "version": "2.0",
+  "profile": {
+    "defaultDbVersion": "MySQL 8.0",
+    "generatedFrom": "fams-frontend/tools/export-pdman.mjs"
+  },
+  "dataTypeDomains": {
+    "默认": {
+      "code": "默认",
+      "datatypes": [
+        {
+          "code": "varchar",
+          "name": "VARCHAR",
+          "apply": {
+            "MYSQL": "VARCHAR({L})"
+          }
+        },
+        {
+          "code": "int",
+          "name": "INT",
+          "apply": {
+            "MYSQL": "INT"
+          }
+        },
+        {
+          "code": "bigint",
+          "name": "BIGINT",
+          "apply": {
+            "MYSQL": "BIGINT"
+          }
+        },
+        {
+          "code": "decimal",
+          "name": "DECIMAL",
+          "apply": {
+            "MYSQL": "DECIMAL(20,6)"
+          }
+        },
+        {
+          "code": "tinyint",
+          "name": "TINYINT",
+          "apply": {
+            "MYSQL": "TINYINT(1)"
+          }
+        },
+        {
+          "code": "datetime",
+          "name": "DATETIME",
+          "apply": {
+            "MYSQL": "DATETIME(3)"
+          }
+        },
+        {
+          "code": "text",
+          "name": "TEXT",
+          "apply": {
+            "MYSQL": "TEXT"
+          }
+        }
+      ]
+    }
+  },
+  "modules": [
+    {
+      "name": "其他",
+      "code": "其他",
+      "remark": "其他相关表",
+      "entities": [
+        {
+          "title": "固定资产台账",
+          "defKey": "fixed_assets",
+          "defName": "fixed_assets",
+          "comment": "固定资产台账",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "code",
+              "defKey": "code",
+              "defName": "code",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "name",
+              "defKey": "name",
+              "defName": "name",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "category",
+              "defKey": "category",
+              "defName": "category",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 ASSET_CATEGORY / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 3
+            },
+            {
+              "name": "brand",
+              "defKey": "brand",
+              "defName": "brand",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "model",
+              "defKey": "model",
+              "defName": "model",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "company_id",
+              "defKey": "company_id",
+              "defName": "companyId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-companies",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "dept_id",
+              "defKey": "dept_id",
+              "defName": "deptId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-departments",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "user_id",
+              "defKey": "user_id",
+              "defName": "userId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-users",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 8
+            },
+            {
+              "name": "location",
+              "defKey": "location",
+              "defName": "location",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "purchase_date",
+              "defKey": "purchase_date",
+              "defName": "purchaseDate",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "inbound_date",
+              "defKey": "inbound_date",
+              "defName": "inboundDate",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "amount",
+              "defKey": "amount",
+              "defName": "amount",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "original",
+              "defKey": "original",
+              "defName": "original",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            },
+            {
+              "name": "net",
+              "defKey": "net",
+              "defName": "net",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 14
+            },
+            {
+              "name": "status",
+              "defKey": "status",
+              "defName": "status",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 ASSET_STATUS / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 15
+            },
+            {
+              "name": "depreciate",
+              "defKey": "depreciate",
+              "defName": "depreciate",
+              "type": "TINYINT(1)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 16
+            },
+            {
+              "name": "purchase_mode",
+              "defKey": "purchase_mode",
+              "defName": "purchaseMode",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 PURCHASE_MODE",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 17
+            },
+            {
+              "name": "lease_months",
+              "defKey": "lease_months",
+              "defName": "leaseMonths",
+              "type": "BIGINT",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 18
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 19
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 20
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 21
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 22
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 23
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "盘点",
+      "code": "盘点",
+      "remark": "盘点相关表",
+      "entities": [
+        {
+          "title": "盘点计划",
+          "defKey": "fixed_asset_inventory_plans",
+          "defName": "fixed_asset_inventory_plans",
+          "comment": "盘点计划",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "plan_no",
+              "defKey": "plan_no",
+              "defName": "planNo",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "plan_name",
+              "defKey": "plan_name",
+              "defName": "planName",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "scope",
+              "defKey": "scope",
+              "defName": "scope",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "counter",
+              "defKey": "counter",
+              "defName": "counter",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "plan_date",
+              "defKey": "plan_date",
+              "defName": "planDate",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "status",
+              "defKey": "status",
+              "defName": "status",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 DOC_STATUS / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 6
+            },
+            {
+              "name": "items",
+              "defKey": "items",
+              "defName": "items",
+              "type": "TEXT",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 8
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            }
+          ]
+        },
+        {
+          "title": "盘点单据",
+          "defKey": "fixed_asset_inventory_docs",
+          "defName": "fixed_asset_inventory_docs",
+          "comment": "盘点单据",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "doc_no",
+              "defKey": "doc_no",
+              "defName": "docNo",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "name",
+              "defKey": "name",
+              "defName": "name",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "company_id",
+              "defKey": "company_id",
+              "defName": "companyId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-companies",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "applicant",
+              "defKey": "applicant",
+              "defName": "applicant",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "creator_id",
+              "defKey": "creator_id",
+              "defName": "creatorId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-users",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "scope",
+              "defKey": "scope",
+              "defName": "scope",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "asset_types",
+              "defKey": "asset_types",
+              "defName": "assetTypes",
+              "type": "TEXT",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "finish_time",
+              "defKey": "finish_time",
+              "defName": "finishTime",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 8
+            },
+            {
+              "name": "remark",
+              "defKey": "remark",
+              "defName": "remark",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "status",
+              "defKey": "status",
+              "defName": "status",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 DOC_STATUS / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 10
+            },
+            {
+              "name": "items",
+              "defKey": "items",
+              "defName": "items",
+              "type": "TEXT",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "counters",
+              "defKey": "counters",
+              "defName": "counters",
+              "type": "TEXT",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 14
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 15
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 16
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 17
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "折旧",
+      "code": "折旧",
+      "remark": "折旧相关表",
+      "entities": [
+        {
+          "title": "折旧方案",
+          "defKey": "fixed_asset_depreciation_schemes",
+          "defName": "fixed_asset_depreciation_schemes",
+          "comment": "折旧方案",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "scheme_no",
+              "defKey": "scheme_no",
+              "defName": "schemeNo",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "scheme_name",
+              "defKey": "scheme_name",
+              "defName": "schemeName",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "method",
+              "defKey": "method",
+              "defName": "method",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 DEPRECIATION_METHOD / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 3
+            },
+            {
+              "name": "years",
+              "defKey": "years",
+              "defName": "years",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "residual_rate",
+              "defKey": "residual_rate",
+              "defName": "residualRate",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "monthly_rate",
+              "defKey": "monthly_rate",
+              "defName": "monthlyRate",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "applicable_category",
+              "defKey": "applicable_category",
+              "defName": "applicableCategory",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "enabled",
+              "defKey": "enabled",
+              "defName": "enabled",
+              "type": "TINYINT(1)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 8
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            }
+          ]
+        },
+        {
+          "title": "折旧报表",
+          "defKey": "fixed_asset_depreciation_reports",
+          "defName": "fixed_asset_depreciation_reports",
+          "comment": "折旧报表",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "period",
+              "defKey": "period",
+              "defName": "period",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "opening_value",
+              "defKey": "opening_value",
+              "defName": "openingValue",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 2
+            },
+            {
+              "name": "period_depreciation",
+              "defKey": "period_depreciation",
+              "defName": "periodDepreciation",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "accumulated",
+              "defKey": "accumulated",
+              "defName": "accumulated",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "closing_net",
+              "defKey": "closing_net",
+              "defName": "closingNet",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "asset_count",
+              "defKey": "asset_count",
+              "defName": "assetCount",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "operator",
+              "defKey": "operator",
+              "defName": "operator",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "run_date",
+              "defKey": "run_date",
+              "defName": "runDate",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 8
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            }
+          ]
+        },
+        {
+          "title": "折旧明细",
+          "defKey": "fixed_asset_report_depreciation_details",
+          "defName": "fixed_asset_report_depreciation_details",
+          "comment": "折旧明细",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "asset_id",
+              "defKey": "asset_id",
+              "defName": "assetId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → fixed-assets",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 1
+            },
+            {
+              "name": "name",
+              "defKey": "name",
+              "defName": "name",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 2
+            },
+            {
+              "name": "original_value",
+              "defKey": "original_value",
+              "defName": "originalValue",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "depreciation_method",
+              "defKey": "depreciation_method",
+              "defName": "depreciationMethod",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 DEPRECIATION_METHOD",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "useful_life",
+              "defKey": "useful_life",
+              "defName": "usefulLife",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "accumulated_depreciation",
+              "defKey": "accumulated_depreciation",
+              "defName": "accumulatedDepreciation",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "net_value",
+              "defKey": "net_value",
+              "defName": "netValue",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "depreciation_rate",
+              "defKey": "depreciation_rate",
+              "defName": "depreciationRate",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 8
+            },
+            {
+              "name": "purchase_date",
+              "defKey": "purchase_date",
+              "defName": "purchaseDate",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 14
+            }
+          ]
+        },
+        {
+          "title": "折旧计划明细",
+          "defKey": "fixed_asset_report_depreciation_plan_details",
+          "defName": "fixed_asset_report_depreciation_plan_details",
+          "comment": "折旧计划明细",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "plan_name",
+              "defKey": "plan_name",
+              "defName": "planName",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 1
+            },
+            {
+              "name": "asset_id",
+              "defKey": "asset_id",
+              "defName": "assetId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → fixed-assets",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 2
+            },
+            {
+              "name": "asset_name",
+              "defKey": "asset_name",
+              "defName": "assetName",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "asset_type",
+              "defKey": "asset_type",
+              "defName": "assetType",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 ASSET_CATEGORY",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "company_id",
+              "defKey": "company_id",
+              "defName": "companyId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-companies",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "original",
+              "defKey": "original",
+              "defName": "original",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "residual_rate",
+              "defKey": "residual_rate",
+              "defName": "residualRate",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "total_life",
+              "defKey": "total_life",
+              "defName": "totalLife",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 8
+            },
+            {
+              "name": "used_life",
+              "defKey": "used_life",
+              "defName": "usedLife",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "dep_date",
+              "defKey": "dep_date",
+              "defName": "depDate",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "finished",
+              "defKey": "finished",
+              "defName": "finished",
+              "type": "TINYINT(1)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 14
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 15
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 16
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "资产设置",
+      "code": "资产设置",
+      "remark": "资产设置相关表",
+      "entities": [
+        {
+          "title": "存放位置",
+          "defKey": "fixed_asset_settings_locations",
+          "defName": "fixed_asset_settings_locations",
+          "comment": "存放位置",
+          "fields": [
+            {
+              "name": "code",
+              "defKey": "code",
+              "defName": "code",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "name",
+              "defKey": "name",
+              "defName": "name",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "parent_name",
+              "defKey": "parent_name",
+              "defName": "parentName",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 2
+            },
+            {
+              "name": "manager",
+              "defKey": "manager",
+              "defName": "manager",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "asset_count",
+              "defKey": "asset_count",
+              "defName": "assetCount",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 8
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            }
+          ]
+        },
+        {
+          "title": "位置候选项",
+          "defKey": "fixed_asset_settings_location_options",
+          "defName": "fixed_asset_settings_location_options",
+          "comment": "位置候选项",
+          "fields": [
+            {
+              "name": "code",
+              "defKey": "code",
+              "defName": "code",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "name",
+              "defKey": "name",
+              "defName": "name",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 2
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            }
+          ]
+        },
+        {
+          "title": "资产分类",
+          "defKey": "fixed_asset_settings_categories",
+          "defName": "fixed_asset_settings_categories",
+          "comment": "资产分类",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "code",
+              "defKey": "code",
+              "defName": "code",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "name",
+              "defKey": "name",
+              "defName": "name",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "parent_code",
+              "defKey": "parent_code",
+              "defName": "parentCode",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "parent_name",
+              "defKey": "parent_name",
+              "defName": "parentName",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "depreciation_method",
+              "defKey": "depreciation_method",
+              "defName": "depreciationMethod",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 DEPRECIATION_METHOD",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "useful_life",
+              "defKey": "useful_life",
+              "defName": "usefulLife",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "asset_count",
+              "defKey": "asset_count",
+              "defName": "assetCount",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "status",
+              "defKey": "status",
+              "defName": "status",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 ENABLE_STATUS / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 8
+            },
+            {
+              "name": "children",
+              "defKey": "children",
+              "defName": "children",
+              "type": "TEXT",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 14
+            }
+          ]
+        },
+        {
+          "title": "折旧规则",
+          "defKey": "fixed_asset_settings_depreciation_rules",
+          "defName": "fixed_asset_settings_depreciation_rules",
+          "comment": "折旧规则",
+          "fields": [
+            {
+              "name": "name",
+              "defKey": "name",
+              "defName": "name",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "method",
+              "defKey": "method",
+              "defName": "method",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 DEPRECIATION_METHOD / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "useful_life",
+              "defKey": "useful_life",
+              "defName": "usefulLife",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 2
+            },
+            {
+              "name": "residual_rate",
+              "defKey": "residual_rate",
+              "defName": "residualRate",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "description",
+              "defKey": "description",
+              "defName": "description",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 8
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            }
+          ]
+        },
+        {
+          "title": "折旧方案（设置）",
+          "defKey": "fixed_asset_settings_depreciation_plans",
+          "defName": "fixed_asset_settings_depreciation_plans",
+          "comment": "折旧方案（设置）",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "company_id",
+              "defKey": "company_id",
+              "defName": "companyId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-companies",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 1
+            },
+            {
+              "name": "name",
+              "defKey": "name",
+              "defName": "name",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "method",
+              "defKey": "method",
+              "defName": "method",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 DEPRECIATION_METHOD",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "asset_types",
+              "defKey": "asset_types",
+              "defName": "assetTypes",
+              "type": "TEXT",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "residual_rate",
+              "defKey": "residual_rate",
+              "defName": "residualRate",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "calc_time",
+              "defKey": "calc_time",
+              "defName": "calcTime",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 CALC_TIME",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "monthly_day",
+              "defKey": "monthly_day",
+              "defName": "monthlyDay",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "purchase_mode",
+              "defKey": "purchase_mode",
+              "defName": "purchaseMode",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 PURCHASE_MODE",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 8
+            },
+            {
+              "name": "remark",
+              "defKey": "remark",
+              "defName": "remark",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 14
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "低值资产",
+      "code": "低值资产",
+      "remark": "低值资产相关表",
+      "entities": [
+        {
+          "title": "低值资产台账",
+          "defKey": "low_value_items",
+          "defName": "low_value_items",
+          "comment": "低值资产台账",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "code",
+              "defKey": "code",
+              "defName": "code",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "category",
+              "defKey": "category",
+              "defName": "category",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 LOW_VALUE_CATEGORY / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "name",
+              "defKey": "name",
+              "defName": "name",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 3
+            },
+            {
+              "name": "spec",
+              "defKey": "spec",
+              "defName": "spec",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "unit",
+              "defKey": "unit",
+              "defName": "unit",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "price",
+              "defKey": "price",
+              "defName": "price",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "stock",
+              "defKey": "stock",
+              "defName": "stock",
+              "type": "BIGINT",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "reserved",
+              "defKey": "reserved",
+              "defName": "reserved",
+              "type": "BIGINT",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 8
+            },
+            {
+              "name": "safety_stock",
+              "defKey": "safety_stock",
+              "defName": "safetyStock",
+              "type": "BIGINT",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "location",
+              "defKey": "location",
+              "defName": "location",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "status",
+              "defKey": "status",
+              "defName": "status",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 LOW_VALUE_ITEM_STATUS / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 11
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 14
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 15
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 16
+            }
+          ]
+        },
+        {
+          "title": "低值资产入库单",
+          "defKey": "low_value_inbound",
+          "defName": "low_value_inbound",
+          "comment": "低值资产入库单",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "doc_no",
+              "defKey": "doc_no",
+              "defName": "docNo",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "item_id",
+              "defKey": "item_id",
+              "defName": "itemId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → low-value-items / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "category",
+              "defKey": "category",
+              "defName": "category",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 LOW_VALUE_CATEGORY",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "item_name",
+              "defKey": "item_name",
+              "defName": "itemName",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "category_name",
+              "defKey": "category_name",
+              "defName": "categoryName",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "spec",
+              "defKey": "spec",
+              "defName": "spec",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "unit",
+              "defKey": "unit",
+              "defName": "unit",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "quantity",
+              "defKey": "quantity",
+              "defName": "quantity",
+              "type": "BIGINT",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 8
+            },
+            {
+              "name": "price",
+              "defKey": "price",
+              "defName": "price",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "amount",
+              "defKey": "amount",
+              "defName": "amount",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "dept_id",
+              "defKey": "dept_id",
+              "defName": "deptId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-departments",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "operator",
+              "defKey": "operator",
+              "defName": "operator",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "remark",
+              "defKey": "remark",
+              "defName": "remark",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            },
+            {
+              "name": "status",
+              "defKey": "status",
+              "defName": "status",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 DOC_STATUS / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 14
+            },
+            {
+              "name": "creator_id",
+              "defKey": "creator_id",
+              "defName": "creatorId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-users",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 15
+            },
+            {
+              "name": "submit_time",
+              "defKey": "submit_time",
+              "defName": "submitTime",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 16
+            },
+            {
+              "name": "settle_time",
+              "defKey": "settle_time",
+              "defName": "settleTime",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 17
+            },
+            {
+              "name": "supplier",
+              "defKey": "supplier",
+              "defName": "supplier",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 18
+            },
+            {
+              "name": "inbound_date",
+              "defKey": "inbound_date",
+              "defName": "inboundDate",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 19
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 20
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 21
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 22
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 23
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 24
+            }
+          ]
+        },
+        {
+          "title": "低值资产领用单",
+          "defKey": "low_value_requisition",
+          "defName": "low_value_requisition",
+          "comment": "低值资产领用单",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "doc_no",
+              "defKey": "doc_no",
+              "defName": "docNo",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "item_id",
+              "defKey": "item_id",
+              "defName": "itemId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → low-value-items / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "category",
+              "defKey": "category",
+              "defName": "category",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 LOW_VALUE_CATEGORY",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "item_name",
+              "defKey": "item_name",
+              "defName": "itemName",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "category_name",
+              "defKey": "category_name",
+              "defName": "categoryName",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "spec",
+              "defKey": "spec",
+              "defName": "spec",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "unit",
+              "defKey": "unit",
+              "defName": "unit",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "quantity",
+              "defKey": "quantity",
+              "defName": "quantity",
+              "type": "BIGINT",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 8
+            },
+            {
+              "name": "price",
+              "defKey": "price",
+              "defName": "price",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "amount",
+              "defKey": "amount",
+              "defName": "amount",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "dept_id",
+              "defKey": "dept_id",
+              "defName": "deptId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-departments",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "operator",
+              "defKey": "operator",
+              "defName": "operator",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "remark",
+              "defKey": "remark",
+              "defName": "remark",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            },
+            {
+              "name": "status",
+              "defKey": "status",
+              "defName": "status",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 DOC_STATUS / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 14
+            },
+            {
+              "name": "creator_id",
+              "defKey": "creator_id",
+              "defName": "creatorId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-users",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 15
+            },
+            {
+              "name": "submit_time",
+              "defKey": "submit_time",
+              "defName": "submitTime",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 16
+            },
+            {
+              "name": "settle_time",
+              "defKey": "settle_time",
+              "defName": "settleTime",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 17
+            },
+            {
+              "name": "receiver",
+              "defKey": "receiver",
+              "defName": "receiver",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 18
+            },
+            {
+              "name": "requisition_date",
+              "defKey": "requisition_date",
+              "defName": "requisitionDate",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 19
+            },
+            {
+              "name": "purpose",
+              "defKey": "purpose",
+              "defName": "purpose",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 20
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 21
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 22
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 23
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 24
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 25
+            }
+          ]
+        },
+        {
+          "title": "低值资产退库单",
+          "defKey": "low_value_return",
+          "defName": "low_value_return",
+          "comment": "低值资产退库单",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "doc_no",
+              "defKey": "doc_no",
+              "defName": "docNo",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "item_id",
+              "defKey": "item_id",
+              "defName": "itemId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → low-value-items / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "category",
+              "defKey": "category",
+              "defName": "category",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 LOW_VALUE_CATEGORY",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "item_name",
+              "defKey": "item_name",
+              "defName": "itemName",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "category_name",
+              "defKey": "category_name",
+              "defName": "categoryName",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "spec",
+              "defKey": "spec",
+              "defName": "spec",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "unit",
+              "defKey": "unit",
+              "defName": "unit",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "quantity",
+              "defKey": "quantity",
+              "defName": "quantity",
+              "type": "BIGINT",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 8
+            },
+            {
+              "name": "price",
+              "defKey": "price",
+              "defName": "price",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "amount",
+              "defKey": "amount",
+              "defName": "amount",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "dept_id",
+              "defKey": "dept_id",
+              "defName": "deptId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-departments",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "operator",
+              "defKey": "operator",
+              "defName": "operator",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "remark",
+              "defKey": "remark",
+              "defName": "remark",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            },
+            {
+              "name": "status",
+              "defKey": "status",
+              "defName": "status",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 DOC_STATUS / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 14
+            },
+            {
+              "name": "creator_id",
+              "defKey": "creator_id",
+              "defName": "creatorId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-users",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 15
+            },
+            {
+              "name": "submit_time",
+              "defKey": "submit_time",
+              "defName": "submitTime",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 16
+            },
+            {
+              "name": "settle_time",
+              "defKey": "settle_time",
+              "defName": "settleTime",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 17
+            },
+            {
+              "name": "returner",
+              "defKey": "returner",
+              "defName": "returner",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 18
+            },
+            {
+              "name": "return_date",
+              "defKey": "return_date",
+              "defName": "returnDate",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 19
+            },
+            {
+              "name": "reason",
+              "defKey": "reason",
+              "defName": "reason",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 20
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 21
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 22
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 23
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 24
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 25
+            }
+          ]
+        },
+        {
+          "title": "低值资产存放位置",
+          "defKey": "low_value_settings_locations",
+          "defName": "low_value_settings_locations",
+          "comment": "低值资产存放位置",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "code",
+              "defKey": "code",
+              "defName": "code",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "name",
+              "defKey": "name",
+              "defName": "name",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "parent_code",
+              "defKey": "parent_code",
+              "defName": "parentCode",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "parent_name",
+              "defKey": "parent_name",
+              "defName": "parentName",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "manager",
+              "defKey": "manager",
+              "defName": "manager",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "item_count",
+              "defKey": "item_count",
+              "defName": "itemCount",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "status",
+              "defKey": "status",
+              "defName": "status",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 ENABLE_STATUS / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 7
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 8
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "组织架构",
+      "code": "组织架构",
+      "remark": "组织架构相关表",
+      "entities": [
+        {
+          "title": "公司",
+          "defKey": "org_companies",
+          "defName": "org_companies",
+          "comment": "公司",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "code",
+              "defKey": "code",
+              "defName": "code",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "name",
+              "defKey": "name",
+              "defName": "name",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "short_name",
+              "defKey": "short_name",
+              "defName": "shortName",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "parent_id",
+              "defKey": "parent_id",
+              "defName": "parentId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-companies",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "type",
+              "defKey": "type",
+              "defName": "type",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "credit_code",
+              "defKey": "credit_code",
+              "defName": "creditCode",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "legal_person",
+              "defKey": "legal_person",
+              "defName": "legalPerson",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "contact",
+              "defKey": "contact",
+              "defName": "contact",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 8
+            },
+            {
+              "name": "phone",
+              "defKey": "phone",
+              "defName": "phone",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "address",
+              "defKey": "address",
+              "defName": "address",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "status",
+              "defKey": "status",
+              "defName": "status",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 ENABLE_STATUS / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 11
+            },
+            {
+              "name": "sort",
+              "defKey": "sort",
+              "defName": "sort",
+              "type": "BIGINT",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 14
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 15
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 16
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 17
+            }
+          ]
+        },
+        {
+          "title": "部门",
+          "defKey": "org_departments",
+          "defName": "org_departments",
+          "comment": "部门",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "code",
+              "defKey": "code",
+              "defName": "code",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "name",
+              "defKey": "name",
+              "defName": "name",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "parent_id",
+              "defKey": "parent_id",
+              "defName": "parentId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-departments",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "company_id",
+              "defKey": "company_id",
+              "defName": "companyId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-companies / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 4
+            },
+            {
+              "name": "leader",
+              "defKey": "leader",
+              "defName": "leader",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "headcount",
+              "defKey": "headcount",
+              "defName": "headcount",
+              "type": "BIGINT",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "phone",
+              "defKey": "phone",
+              "defName": "phone",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "status",
+              "defKey": "status",
+              "defName": "status",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 ENABLE_STATUS / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 8
+            },
+            {
+              "name": "sort",
+              "defKey": "sort",
+              "defName": "sort",
+              "type": "BIGINT",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 14
+            }
+          ]
+        },
+        {
+          "title": "用户",
+          "defKey": "org_users",
+          "defName": "org_users",
+          "comment": "用户",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "username",
+              "defKey": "username",
+              "defName": "username",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "password",
+              "defKey": "password",
+              "defName": "password",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 2
+            },
+            {
+              "name": "password_reset_at",
+              "defKey": "password_reset_at",
+              "defName": "passwordResetAt",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "name",
+              "defKey": "name",
+              "defName": "name",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 4
+            },
+            {
+              "name": "company_id",
+              "defKey": "company_id",
+              "defName": "companyId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-companies / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 5
+            },
+            {
+              "name": "dept_id",
+              "defKey": "dept_id",
+              "defName": "deptId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-departments",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "position",
+              "defKey": "position",
+              "defName": "position",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "role_ids",
+              "defKey": "role_ids",
+              "defName": "roleIds",
+              "type": "TEXT",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 8
+            },
+            {
+              "name": "phone",
+              "defKey": "phone",
+              "defName": "phone",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "email",
+              "defKey": "email",
+              "defName": "email",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "status",
+              "defKey": "status",
+              "defName": "status",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 ENABLE_STATUS / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 11
+            },
+            {
+              "name": "created_at",
+              "defKey": "created_at",
+              "defName": "createdAt",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "last_login_at",
+              "defKey": "last_login_at",
+              "defName": "lastLoginAt",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 14
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 15
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 16
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 17
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 18
+            }
+          ]
+        },
+        {
+          "title": "角色",
+          "defKey": "org_roles",
+          "defName": "org_roles",
+          "comment": "角色",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "code",
+              "defKey": "code",
+              "defName": "code",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "name",
+              "defKey": "name",
+              "defName": "name",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "org_scope",
+              "defKey": "org_scope",
+              "defName": "orgScope",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 ORG_SCOPE",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "data_scope",
+              "defKey": "data_scope",
+              "defName": "dataScope",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 DATA_SCOPE",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "status",
+              "defKey": "status",
+              "defName": "status",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 ENABLE_STATUS / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 5
+            },
+            {
+              "name": "sort",
+              "defKey": "sort",
+              "defName": "sort",
+              "type": "BIGINT",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "remark",
+              "defKey": "remark",
+              "defName": "remark",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "permissions",
+              "defKey": "permissions",
+              "defName": "permissions",
+              "type": "TEXT",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 8
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "系统管理",
+      "code": "系统管理",
+      "remark": "系统管理相关表",
+      "entities": [
+        {
+          "title": "数据字典类型",
+          "defKey": "system_dict_types",
+          "defName": "system_dict_types",
+          "comment": "数据字典类型",
+          "fields": [
+            {
+              "name": "code",
+              "defKey": "code",
+              "defName": "code",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "name",
+              "defKey": "name",
+              "defName": "name",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "count",
+              "defKey": "count",
+              "defName": "count",
+              "type": "BIGINT",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 2
+            },
+            {
+              "name": "status",
+              "defKey": "status",
+              "defName": "status",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 ENABLE_STATUS / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 3
+            },
+            {
+              "name": "remark",
+              "defKey": "remark",
+              "defName": "remark",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 8
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            }
+          ]
+        },
+        {
+          "title": "系统参数",
+          "defKey": "system_params",
+          "defName": "system_params",
+          "comment": "系统参数",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "name",
+              "defKey": "name",
+              "defName": "name",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "key",
+              "defKey": "key",
+              "defName": "key",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "value",
+              "defKey": "value",
+              "defName": "value",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "type",
+              "defKey": "type",
+              "defName": "type",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 PARAM_TYPE",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "remark",
+              "defKey": "remark",
+              "defName": "remark",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 8
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            }
+          ]
+        },
+        {
+          "title": "工作流程",
+          "defKey": "system_workflow_flows",
+          "defName": "system_workflow_flows",
+          "comment": "工作流程",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "code",
+              "defKey": "code",
+              "defName": "code",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "name",
+              "defKey": "name",
+              "defName": "name",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "biz_type",
+              "defKey": "biz_type",
+              "defName": "bizType",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 BUSINESS_TYPE / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 3
+            },
+            {
+              "name": "initiator",
+              "defKey": "initiator",
+              "defName": "initiator",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "initiator_role_id",
+              "defKey": "initiator_role_id",
+              "defName": "initiatorRoleId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-roles",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "enabled",
+              "defKey": "enabled",
+              "defName": "enabled",
+              "type": "TINYINT(1)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "steps",
+              "defKey": "steps",
+              "defName": "steps",
+              "type": "TEXT",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 8
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            }
+          ]
+        },
+        {
+          "title": "盘点终端",
+          "defKey": "system_terminal_devices",
+          "defName": "system_terminal_devices",
+          "comment": "盘点终端",
+          "fields": [
+            {
+              "name": "code",
+              "defKey": "code",
+              "defName": "code",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "name",
+              "defKey": "name",
+              "defName": "name",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "type",
+              "defKey": "type",
+              "defName": "type",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 DEVICE_TYPE / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "location",
+              "defKey": "location",
+              "defName": "location",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "bind_user_id",
+              "defKey": "bind_user_id",
+              "defName": "bindUserId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-users",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "status",
+              "defKey": "status",
+              "defName": "status",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 DEVICE_STATUS / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 5
+            },
+            {
+              "name": "last_active",
+              "defKey": "last_active",
+              "defName": "lastActive",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "vendor",
+              "defKey": "vendor",
+              "defName": "vendor",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "model",
+              "defKey": "model",
+              "defName": "model",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 8
+            },
+            {
+              "name": "sn",
+              "defKey": "sn",
+              "defName": "sn",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "ip",
+              "defKey": "ip",
+              "defName": "ip",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "install_date",
+              "defKey": "install_date",
+              "defName": "installDate",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "maintainer",
+              "defKey": "maintainer",
+              "defName": "maintainer",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "maintainer_phone",
+              "defKey": "maintainer_phone",
+              "defName": "maintainerPhone",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            },
+            {
+              "name": "remark",
+              "defKey": "remark",
+              "defName": "remark",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 14
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 15
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 16
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 17
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 18
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 19
+            }
+          ]
+        },
+        {
+          "title": "终端异常记录",
+          "defKey": "system_terminal_abnormal",
+          "defName": "system_terminal_abnormal",
+          "comment": "终端异常记录",
+          "fields": [
+            {
+              "name": "record_no",
+              "defKey": "record_no",
+              "defName": "recordNo",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "device_code",
+              "defKey": "device_code",
+              "defName": "deviceCode",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → system-terminal-devices / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "operator_id",
+              "defKey": "operator_id",
+              "defName": "operatorId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-users",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 2
+            },
+            {
+              "name": "type",
+              "defKey": "type",
+              "defName": "type",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 DEVICE_ABNORMAL_TYPE / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 3
+            },
+            {
+              "name": "detail",
+              "defKey": "detail",
+              "defName": "detail",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "affected_count",
+              "defKey": "affected_count",
+              "defName": "affectedCount",
+              "type": "DECIMAL(20,6)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "handled",
+              "defKey": "handled",
+              "defName": "handled",
+              "type": "TINYINT(1)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "handle_result",
+              "defKey": "handle_result",
+              "defName": "handleResult",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 8
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            }
+          ]
+        },
+        {
+          "title": "站内消息",
+          "defKey": "notify_messages",
+          "defName": "notify_messages",
+          "comment": "站内消息",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "time",
+              "defKey": "time",
+              "defName": "time",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 1
+            },
+            {
+              "name": "type",
+              "defKey": "type",
+              "defName": "type",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 2
+            },
+            {
+              "name": "level",
+              "defKey": "level",
+              "defName": "level",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "title",
+              "defKey": "title",
+              "defName": "title",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 4
+            },
+            {
+              "name": "content",
+              "defKey": "content",
+              "defName": "content",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "target",
+              "defKey": "target",
+              "defName": "target",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "channel",
+              "defKey": "channel",
+              "defName": "channel",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "biz_type",
+              "defKey": "biz_type",
+              "defName": "bizType",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 8
+            },
+            {
+              "name": "biz_id",
+              "defKey": "biz_id",
+              "defName": "bizId",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "route",
+              "defKey": "route",
+              "defName": "route",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "read",
+              "defKey": "read",
+              "defName": "read",
+              "type": "TINYINT(1)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 14
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 15
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 16
+            }
+          ]
+        },
+        {
+          "title": "消息模板",
+          "defKey": "notify_templates",
+          "defName": "notify_templates",
+          "comment": "消息模板",
+          "fields": [
+            {
+              "name": "key",
+              "defKey": "key",
+              "defName": "key",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "scene",
+              "defKey": "scene",
+              "defName": "scene",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 1
+            },
+            {
+              "name": "channel",
+              "defKey": "channel",
+              "defName": "channel",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 2
+            },
+            {
+              "name": "title",
+              "defKey": "title",
+              "defName": "title",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "content",
+              "defKey": "content",
+              "defName": "content",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "enabled",
+              "defKey": "enabled",
+              "defName": "enabled",
+              "type": "TINYINT(1)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 8
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            }
+          ]
+        },
+        {
+          "title": "操作日志",
+          "defKey": "operation_logs",
+          "defName": "operation_logs",
+          "comment": "操作日志",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "time",
+              "defKey": "time",
+              "defName": "time",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 1
+            },
+            {
+              "name": "module",
+              "defKey": "module",
+              "defName": "module",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 2
+            },
+            {
+              "name": "action",
+              "defKey": "action",
+              "defName": "action",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "target",
+              "defKey": "target",
+              "defName": "target",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "result",
+              "defKey": "result",
+              "defName": "result",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "detail",
+              "defKey": "detail",
+              "defName": "detail",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "ip",
+              "defKey": "ip",
+              "defName": "ip",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "operator",
+              "defKey": "operator",
+              "defName": "operator",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 8
+            },
+            {
+              "name": "operator_org",
+              "defKey": "operator_org",
+              "defName": "operatorOrg",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 14
+            }
+          ]
+        },
+        {
+          "title": "字典项",
+          "defKey": "system_dict_items",
+          "defName": "system_dict_items",
+          "comment": "字典项",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "label",
+              "defKey": "label",
+              "defName": "label",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "value",
+              "defKey": "value",
+              "defName": "value",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "sort",
+              "defKey": "sort",
+              "defName": "sort",
+              "type": "BIGINT",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "status",
+              "defKey": "status",
+              "defName": "status",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 ENABLE_STATUS / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 4
+            },
+            {
+              "name": "remark",
+              "defKey": "remark",
+              "defName": "remark",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 8
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "dict_code",
+              "defKey": "dict_code",
+              "defName": "dictCode",
+              "type": "VARCHAR(64)",
+              "remark": "所属字典类型（物理归一列）",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 11
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "固定资产",
+      "code": "固定资产",
+      "remark": "固定资产相关表",
+      "entities": [
+        {
+          "title": "审批记录",
+          "defKey": "fixed_asset_doc_approvals",
+          "defName": "fixed_asset_doc_approvals",
+          "comment": "审批记录",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "doc_key",
+              "defKey": "doc_key",
+              "defName": "docKey",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "doc_id",
+              "defKey": "doc_id",
+              "defName": "docId",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "doc_code",
+              "defKey": "doc_code",
+              "defName": "docCode",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "biz_type",
+              "defKey": "biz_type",
+              "defName": "bizType",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 BUSINESS_TYPE / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 4
+            },
+            {
+              "name": "flow_id",
+              "defKey": "flow_id",
+              "defName": "flowId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → system-workflow-flows",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "flow_code",
+              "defKey": "flow_code",
+              "defName": "flowCode",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "step_key",
+              "defKey": "step_key",
+              "defName": "stepKey",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "step_name",
+              "defKey": "step_name",
+              "defName": "stepName",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 8
+            },
+            {
+              "name": "result",
+              "defKey": "result",
+              "defName": "result",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 APPROVE_RESULT / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 9
+            },
+            {
+              "name": "comment",
+              "defKey": "comment",
+              "defName": "comment",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "approver_id",
+              "defKey": "approver_id",
+              "defName": "approverId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-users",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "approver_name",
+              "defKey": "approver_name",
+              "defName": "approverName",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "approver_role_name",
+              "defKey": "approver_role_name",
+              "defName": "approverRoleName",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            },
+            {
+              "name": "time",
+              "defKey": "time",
+              "defName": "time",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 14
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 15
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 16
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 17
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 18
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 19
+            }
+          ]
+        },
+        {
+          "title": "入库单列表",
+          "defKey": "fixed_asset_doc_lists_inbound",
+          "defName": "fixed_asset_doc_lists_inbound",
+          "comment": "入库单列表",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "code",
+              "defKey": "code",
+              "defName": "code",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "name",
+              "defKey": "name",
+              "defName": "name",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "company_id",
+              "defKey": "company_id",
+              "defName": "companyId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-companies",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "asset_id",
+              "defKey": "asset_id",
+              "defName": "assetId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → fixed-assets",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "creator_id",
+              "defKey": "creator_id",
+              "defName": "creatorId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-users",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "finish_time",
+              "defKey": "finish_time",
+              "defName": "finishTime",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "remark",
+              "defKey": "remark",
+              "defName": "remark",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "status",
+              "defKey": "status",
+              "defName": "status",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 DOC_STATUS / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 8
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            }
+          ]
+        },
+        {
+          "title": "派发单列表",
+          "defKey": "fixed_asset_doc_lists_alloc",
+          "defName": "fixed_asset_doc_lists_alloc",
+          "comment": "派发单列表",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "code",
+              "defKey": "code",
+              "defName": "code",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "name",
+              "defKey": "name",
+              "defName": "name",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "company_id",
+              "defKey": "company_id",
+              "defName": "companyId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-companies",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "asset_id",
+              "defKey": "asset_id",
+              "defName": "assetId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → fixed-assets",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "creator_id",
+              "defKey": "creator_id",
+              "defName": "creatorId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-users",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "finish_time",
+              "defKey": "finish_time",
+              "defName": "finishTime",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "remark",
+              "defKey": "remark",
+              "defName": "remark",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "status",
+              "defKey": "status",
+              "defName": "status",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 DOC_STATUS / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 8
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            }
+          ]
+        },
+        {
+          "title": "退库单列表",
+          "defKey": "fixed_asset_doc_lists_back",
+          "defName": "fixed_asset_doc_lists_back",
+          "comment": "退库单列表",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "code",
+              "defKey": "code",
+              "defName": "code",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "name",
+              "defKey": "name",
+              "defName": "name",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "company_id",
+              "defKey": "company_id",
+              "defName": "companyId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-companies",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "asset_id",
+              "defKey": "asset_id",
+              "defName": "assetId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → fixed-assets",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "creator_id",
+              "defKey": "creator_id",
+              "defName": "creatorId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-users",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "finish_time",
+              "defKey": "finish_time",
+              "defName": "finishTime",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "remark",
+              "defKey": "remark",
+              "defName": "remark",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "status",
+              "defKey": "status",
+              "defName": "status",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 DOC_STATUS / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 8
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            }
+          ]
+        },
+        {
+          "title": "借出单列表",
+          "defKey": "fixed_asset_doc_lists_borrow",
+          "defName": "fixed_asset_doc_lists_borrow",
+          "comment": "借出单列表",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "code",
+              "defKey": "code",
+              "defName": "code",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "name",
+              "defKey": "name",
+              "defName": "name",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "company_id",
+              "defKey": "company_id",
+              "defName": "companyId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-companies",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "asset_id",
+              "defKey": "asset_id",
+              "defName": "assetId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → fixed-assets",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "creator_id",
+              "defKey": "creator_id",
+              "defName": "creatorId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-users",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "finish_time",
+              "defKey": "finish_time",
+              "defName": "finishTime",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "remark",
+              "defKey": "remark",
+              "defName": "remark",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "status",
+              "defKey": "status",
+              "defName": "status",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 DOC_STATUS / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 8
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            }
+          ]
+        },
+        {
+          "title": "调拨单列表",
+          "defKey": "fixed_asset_doc_lists_transfer",
+          "defName": "fixed_asset_doc_lists_transfer",
+          "comment": "调拨单列表",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "code",
+              "defKey": "code",
+              "defName": "code",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "name",
+              "defKey": "name",
+              "defName": "name",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "company_id",
+              "defKey": "company_id",
+              "defName": "companyId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-companies",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "asset_id",
+              "defKey": "asset_id",
+              "defName": "assetId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → fixed-assets",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "creator_id",
+              "defKey": "creator_id",
+              "defName": "creatorId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-users",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "finish_time",
+              "defKey": "finish_time",
+              "defName": "finishTime",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "remark",
+              "defKey": "remark",
+              "defName": "remark",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "status",
+              "defKey": "status",
+              "defName": "status",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 DOC_STATUS / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 8
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            }
+          ]
+        },
+        {
+          "title": "维修单列表",
+          "defKey": "fixed_asset_doc_lists_repair",
+          "defName": "fixed_asset_doc_lists_repair",
+          "comment": "维修单列表",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "code",
+              "defKey": "code",
+              "defName": "code",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "name",
+              "defKey": "name",
+              "defName": "name",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "company_id",
+              "defKey": "company_id",
+              "defName": "companyId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-companies",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "asset_id",
+              "defKey": "asset_id",
+              "defName": "assetId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → fixed-assets",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "creator_id",
+              "defKey": "creator_id",
+              "defName": "creatorId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-users",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "finish_time",
+              "defKey": "finish_time",
+              "defName": "finishTime",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "remark",
+              "defKey": "remark",
+              "defName": "remark",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "status",
+              "defKey": "status",
+              "defName": "status",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 DOC_STATUS / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 8
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            }
+          ]
+        },
+        {
+          "title": "资产变更单列表",
+          "defKey": "fixed_asset_doc_lists_change",
+          "defName": "fixed_asset_doc_lists_change",
+          "comment": "资产变更单列表",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "code",
+              "defKey": "code",
+              "defName": "code",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "name",
+              "defKey": "name",
+              "defName": "name",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "company_id",
+              "defKey": "company_id",
+              "defName": "companyId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-companies",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "asset_id",
+              "defKey": "asset_id",
+              "defName": "assetId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → fixed-assets",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "creator_id",
+              "defKey": "creator_id",
+              "defName": "creatorId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-users",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "finish_time",
+              "defKey": "finish_time",
+              "defName": "finishTime",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "remark",
+              "defKey": "remark",
+              "defName": "remark",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "status",
+              "defKey": "status",
+              "defName": "status",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 DOC_STATUS / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 8
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            }
+          ]
+        },
+        {
+          "title": "处置单列表",
+          "defKey": "fixed_asset_doc_lists_dispose",
+          "defName": "fixed_asset_doc_lists_dispose",
+          "comment": "处置单列表",
+          "fields": [
+            {
+              "name": "id",
+              "defKey": "id",
+              "defName": "id",
+              "type": "VARCHAR(64)",
+              "remark": "主键",
+              "primaryKey": true,
+              "notNull": true,
+              "sort": 0
+            },
+            {
+              "name": "code",
+              "defKey": "code",
+              "defName": "code",
+              "type": "VARCHAR(255)",
+              "remark": "必填 / 唯一",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 1
+            },
+            {
+              "name": "name",
+              "defKey": "name",
+              "defName": "name",
+              "type": "VARCHAR(255)",
+              "remark": "必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 2
+            },
+            {
+              "name": "company_id",
+              "defKey": "company_id",
+              "defName": "companyId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-companies",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 3
+            },
+            {
+              "name": "asset_id",
+              "defKey": "asset_id",
+              "defName": "assetId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → fixed-assets",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 4
+            },
+            {
+              "name": "creator_id",
+              "defKey": "creator_id",
+              "defName": "creatorId",
+              "type": "VARCHAR(64)",
+              "remark": "外键 → org-users",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 5
+            },
+            {
+              "name": "finish_time",
+              "defKey": "finish_time",
+              "defName": "finishTime",
+              "type": "DATETIME(3)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 6
+            },
+            {
+              "name": "remark",
+              "defKey": "remark",
+              "defName": "remark",
+              "type": "VARCHAR(255)",
+              "remark": "",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 7
+            },
+            {
+              "name": "status",
+              "defKey": "status",
+              "defName": "status",
+              "type": "VARCHAR(64)",
+              "remark": "枚举 DOC_STATUS / 必填",
+              "primaryKey": false,
+              "notNull": true,
+              "sort": 8
+            },
+            {
+              "name": "create_by",
+              "defKey": "create_by",
+              "defName": "createBy",
+              "type": "VARCHAR(64)",
+              "remark": "创建人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 9
+            },
+            {
+              "name": "create_time",
+              "defKey": "create_time",
+              "defName": "createTime",
+              "type": "DATETIME(3)",
+              "remark": "创建时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 10
+            },
+            {
+              "name": "update_by",
+              "defKey": "update_by",
+              "defName": "updateBy",
+              "type": "VARCHAR(64)",
+              "remark": "更新人",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 11
+            },
+            {
+              "name": "update_time",
+              "defKey": "update_time",
+              "defName": "updateTime",
+              "type": "DATETIME(3)",
+              "remark": "更新时间",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 12
+            },
+            {
+              "name": "version",
+              "defKey": "version",
+              "defName": "version",
+              "type": "INT",
+              "remark": "乐观锁版本",
+              "primaryKey": false,
+              "notNull": false,
+              "sort": 13
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "diagrams": [],
+  "relations": []
+}

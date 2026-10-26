@@ -1,0 +1,325 @@
+{
+  "generatedFrom": "fams-frontend/src/constants/enums.js",
+  "enums": {
+    "ASSET_STATUS": {
+      "IDLE": "空闲",
+      "IN_USE": "使用中",
+      "DISPATCHING": "派发中",
+      "BORROWED": "借出中",
+      "REPAIRING": "维修中",
+      "DISPOSING": "处置中"
+    },
+    "ASSET_CATEGORY": {
+      "ELECTRONIC": "电子设备",
+      "MACHINE": "机械设备",
+      "VEHICLE": "运输设备",
+      "FURNITURE": "办公家具",
+      "BUILDING": "房屋建筑物",
+      "SUPPLIES": "办公用品",
+      "MATERIAL": "材料",
+      "OTHER": "其他设备"
+    },
+    "PURCHASE_MODE": {
+      "PURCHASE": "购买",
+      "LEASE": "租赁",
+      "SELF_BUILD": "自建",
+      "DONATION": "受赠"
+    },
+    "ENABLE_STATUS": {
+      "ENABLED": "启用",
+      "DISABLED": "停用"
+    },
+    "INBOUND_STATUS": {
+      "PENDING": "待验收",
+      "ACCEPTED": "已验收",
+      "STORED": "已入库"
+    },
+    "DISPATCH_STATUS": {
+      "DISPATCHED": "已派发",
+      "RETURNED": "已退库"
+    },
+    "BORROW_STATUS": {
+      "BORROWED": "借出中",
+      "OVERDUE": "逾期",
+      "RETURNED": "已归还"
+    },
+    "DISPOSE_STATUS": {
+      "PROCESSING": "处置中",
+      "DONE": "已完成"
+    },
+    "DISPOSE_TYPE": {
+      "SCRAP": "报废",
+      "SALE": "变卖",
+      "TRANSFER": "调拨",
+      "OTHER": "其他"
+    },
+    "CHANGE_TYPE": {
+      "TRANSFER": "调拨",
+      "REPAIR": "维修",
+      "OTHER": "其他"
+    },
+    "DOC_STATUS": {
+      "DRAFT": "待提交",
+      "PROCESSING": "进行中",
+      "REJECTED": "已驳回",
+      "REVOKED": "已撤销",
+      "DONE": "已完结"
+    },
+    "LOW_VALUE_ITEM_STATUS": {
+      "NORMAL": "正常",
+      "LOW_STOCK": "低库存",
+      "DISABLED": "停用"
+    },
+    "LOW_VALUE_CATEGORY": {
+      "OFFICE": "办公用品",
+      "WATER": "水",
+      "PPE": "劳保用品",
+      "PAPER": "纸品"
+    },
+    "INVENTORY_RESULT": {
+      "UNCHECKED": "未盘点",
+      "MATCHED": "相符",
+      "SURPLUS": "盘盈",
+      "LOSS": "盘亏"
+    },
+    "INVENTORY_ITEM_STATUS": {
+      "UNCHECKED": "未盘",
+      "CHECKED": "已盘",
+      "LOSS": "盘亏",
+      "ABNORMAL": "异常"
+    },
+    "INVENTORY_COUNTER_STATUS": {
+      "COUNTING": "盘点中",
+      "DONE": "已完成"
+    },
+    "DEPRECIATION_METHOD": {
+      "STRAIGHT_LINE": "年限平均法",
+      "DOUBLE_DECLINE": "双倍余额递减法",
+      "SUM_YEARS": "年数总和法",
+      "WORKLOAD": "工作量法"
+    },
+    "CALC_TIME": {
+      "MONTHLY": "按月计提",
+      "QUARTERLY": "按季计提",
+      "YEARLY": "按年计提"
+    },
+    "BUSINESS_TYPE": {
+      "INBOUND": "入库",
+      "REQUISITION": "低值领用",
+      "LV_RETURN": "低值退库",
+      "RETURN": "退库",
+      "DISPATCH": "派发",
+      "BORROW": "借出",
+      "TRANSFER": "调拨",
+      "REPAIR": "维修",
+      "DISPOSE": "处置",
+      "INVENTORY": "盘点",
+      "CHANGE": "变更"
+    },
+    "APPROVE_MODE": {
+      "ANY": "或签",
+      "SEQUENCE": "依次",
+      "ALL": "会签"
+    },
+    "APPROVE_CONDITION": {
+      "NONE": "无条件",
+      "AMOUNT_GT": "单据金额大于",
+      "HAS_DIFF": "存在盘点差异"
+    },
+    "APPROVE_RESULT": {
+      "SUBMIT": "提交",
+      "AGREE": "通过",
+      "REJECT": "驳回",
+      "REVOKE": "撤销"
+    },
+    "DEVICE_STATUS": {
+      "ONLINE": "在线",
+      "OFFLINE": "离线",
+      "MAINTENANCE": "维护中",
+      "DISABLED": "停用"
+    },
+    "DEVICE_TYPE": {
+      "PDA": "手持盘点终端",
+      "SCANNER": "无线扫码枪",
+      "TABLET": "盘点平板",
+      "FIXED": "固定读码器",
+      "OTHER": "其他"
+    },
+    "DEVICE_ABNORMAL_TYPE": {
+      "UNAUTHORIZED_BIND": "未授权绑定",
+      "OUT_OF_SCOPE": "越权盘点",
+      "OFFLINE_UPLOAD": "离线数据未上报",
+      "TAMPERED": "设备异常拆装",
+      "DATA_ABNORMAL": "盘点数据异常",
+      "OTHER": "其他"
+    },
+    "MESSAGE_LEVEL": {
+      "NORMAL": "普通",
+      "IMPORTANT": "重要",
+      "URGENT": "紧急"
+    },
+    "PARAM_TYPE": {
+      "SYSTEM": "系统内置",
+      "CUSTOM": "自定义"
+    },
+    "DATA_SCOPE": {
+      "ALL": "全部数据",
+      "COMPANY": "本公司及以下",
+      "DEPT": "本部门及以下",
+      "DEPT_ONLY": "本部门",
+      "SELF": "仅本人"
+    },
+    "ORG_SCOPE": {
+      "GROUP": "全集团",
+      "COMPANY": "本公司",
+      "DEPT": "本部门"
+    }
+  },
+  "dictMeta": [
+    {
+      "enumName": "ASSET_STATUS",
+      "code": "asset_status",
+      "name": "资产状态"
+    },
+    {
+      "enumName": "ASSET_CATEGORY",
+      "code": "asset_type",
+      "name": "资产分类"
+    },
+    {
+      "enumName": "ENABLE_STATUS",
+      "code": "enable_status",
+      "name": "启停状态"
+    },
+    {
+      "enumName": "DOC_STATUS",
+      "code": "doc_status",
+      "name": "单据状态"
+    },
+    {
+      "enumName": "INBOUND_STATUS",
+      "code": "inbound_status",
+      "name": "入库单状态"
+    },
+    {
+      "enumName": "DISPATCH_STATUS",
+      "code": "dispatch_status",
+      "name": "派发退库单状态"
+    },
+    {
+      "enumName": "BORROW_STATUS",
+      "code": "borrow_status",
+      "name": "借出单状态"
+    },
+    {
+      "enumName": "DISPOSE_STATUS",
+      "code": "dispose_status",
+      "name": "处置单状态"
+    },
+    {
+      "enumName": "DISPOSE_TYPE",
+      "code": "dispose_type",
+      "name": "处置方式"
+    },
+    {
+      "enumName": "CHANGE_TYPE",
+      "code": "change_type",
+      "name": "资产变更类型"
+    },
+    {
+      "enumName": "PURCHASE_MODE",
+      "code": "purchase_mode",
+      "name": "购置方式"
+    },
+    {
+      "enumName": "LOW_VALUE_ITEM_STATUS",
+      "code": "low_value_status",
+      "name": "低值物品状态"
+    },
+    {
+      "enumName": "LOW_VALUE_CATEGORY",
+      "code": "low_value_category",
+      "name": "低值资产类别"
+    },
+    {
+      "enumName": "INVENTORY_RESULT",
+      "code": "inventory_result",
+      "name": "盘点结果"
+    },
+    {
+      "enumName": "INVENTORY_ITEM_STATUS",
+      "code": "inventory_item_status",
+      "name": "盘点明细状态"
+    },
+    {
+      "enumName": "INVENTORY_COUNTER_STATUS",
+      "code": "inventory_counter_status",
+      "name": "盘点单状态"
+    },
+    {
+      "enumName": "DEPRECIATION_METHOD",
+      "code": "depreciation_method",
+      "name": "折旧方法"
+    },
+    {
+      "enumName": "CALC_TIME",
+      "code": "calc_time",
+      "name": "计提频率"
+    },
+    {
+      "enumName": "BUSINESS_TYPE",
+      "code": "business_type",
+      "name": "审批业务"
+    },
+    {
+      "enumName": "APPROVE_MODE",
+      "code": "approve_mode",
+      "name": "审批模式"
+    },
+    {
+      "enumName": "APPROVE_CONDITION",
+      "code": "approve_condition",
+      "name": "审批触发条件"
+    },
+    {
+      "enumName": "APPROVE_RESULT",
+      "code": "approve_result",
+      "name": "审批动作结果"
+    },
+    {
+      "enumName": "MESSAGE_LEVEL",
+      "code": "message_level",
+      "name": "消息级别"
+    },
+    {
+      "enumName": "DEVICE_STATUS",
+      "code": "device_status",
+      "name": "盘点终端状态"
+    },
+    {
+      "enumName": "DEVICE_TYPE",
+      "code": "device_type",
+      "name": "盘点终端类型"
+    },
+    {
+      "enumName": "DEVICE_ABNORMAL_TYPE",
+      "code": "device_abnormal_type",
+      "name": "终端异常类型"
+    },
+    {
+      "enumName": "PARAM_TYPE",
+      "code": "param_type",
+      "name": "参数类型"
+    },
+    {
+      "enumName": "DATA_SCOPE",
+      "code": "data_scope",
+      "name": "角色数据范围"
+    },
+    {
+      "enumName": "ORG_SCOPE",
+      "code": "org_scope",
+      "name": "角色组织范围"
+    }
+  ]
+}

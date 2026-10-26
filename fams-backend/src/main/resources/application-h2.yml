@@ -1,0 +1,40 @@
+# 本地零依赖运行 profile（无需安装 MySQL）：H2 内存库（MySQL 兼容模式），
+# 启动时自动建表并灌入「基线 + 演示」数据，与自动化测试同一份脚本。
+# 用法：mvn spring-boot:run -Dspring-boot.run.profiles=h2
+#      或设置环境变量 SPRING_PROFILES_ACTIVE=h2
+# 该 profile 是默认激活项；接入真实 MySQL 时改用 dev（SPRING_PROFILES_ACTIVE=dev）。
+spring:
+  datasource:
+    url: jdbc:h2:mem:fams;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ''
+  sql:
+    init:
+      mode: always
+      # SQL 脚本是 UTF-8；不指定时按平台默认字符集（中文 Windows 为 GBK）读取，
+      # 中文数据会整体乱码（「联想」→「鑱旀兂」），必须显式声明。
+      encoding: utf-8
+      schema-locations: classpath:db/schema.sql
+      data-locations: classpath:db/seed.sql
+      continue-on-error: false
+      separator: ;
+
+fams:
+  security:
+    bootstrap-password: Fams@2026
+    jwt-secret: ZmFtc0Bsb2NhbC1kZXYtc2VjcmV0LWtleS1mb3ItaDJ8b25seQ==
+    jwt-expire-minutes: 480
+    password-max-age-days: 90
+    max-failed-attempts: 5
+    lock-minutes: 30
+    permit-all:
+      - /health
+      - /auth/login
+  cors:
+    allowed-origins: http://localhost:5174
+
+logging:
+  level:
+    root: info
+    com.fams: debug

@@ -12,7 +12,8 @@
  *                              |--驳回--> REJECTED 已驳回（可修改后重新提交）
  *                              `--撤销--> REVOKED 已撤销
  */
-import { dataService, COLLECTION } from './index'
+import { dataService, COLLECTION, dataMode } from './index'
+import { httpService } from './http'
 import { useOrgStore } from '../store/org'
 import { useUserStore } from '../store/user'
 import { APPROVE_RESULT } from '../constants/enums'
@@ -214,6 +215,16 @@ export async function runApproval(p) {
     doc, docKey, bizType, action, comment = '', ctx = {},
     saveDoc, saveApproval, flows = [], approvals = []
   } = p
+
+  // 后端模式下把整个审批动作交给服务端完成：状态推进 + 轨迹落库在一次请求内原子完成，
+  // 避免前端「先写轨迹再改状态」两次写入导致轨迹缺失或重复。
+  if (dataMode === 'api') {
+    const data = await httpService.approvalAction(
+      { docKey, docId: doc.id, bizType, action, comment, ctx })
+    doc.status = data.status
+    return { ok: true, status: data.status, message: data.message }
+  }
+
   const org = useOrgStore()
   const me = useUserStore().user
   if (!doc || !me) return { ok: false, message: '未登录或单据不存在' }

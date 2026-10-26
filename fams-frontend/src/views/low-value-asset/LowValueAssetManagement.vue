@@ -396,12 +396,20 @@
         <el-form-item label="领用数量" prop="quantity">
           <el-input-number v-model="requisitionDialog.form.quantity" :min="1" :precision="0" :step="1" />
         </el-form-item>
-        <el-form-item label="领用人" prop="receiver">
-          <el-input v-model="requisitionDialog.form.receiver" placeholder="请输入领用人" />
-        </el-form-item>
         <el-form-item label="领用部门" prop="deptId">
-          <el-select v-model="requisitionDialog.form.deptId" placeholder="请选择领用部门" filterable style="width: 100%">
+          <el-select v-model="requisitionDialog.form.deptId" placeholder="请选择领用部门" filterable style="width: 100%" @change="onRequisitionDeptChange">
             <el-option v-for="d in deptOptions" :key="d.id" :label="d.label" :value="d.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="领用人" prop="receiver">
+          <el-select
+            v-model="requisitionDialog.form.receiver"
+            :placeholder="requisitionDialog.form.deptId ? '请选择领用人' : '请先选择领用部门'"
+            :disabled="!requisitionDialog.form.deptId"
+            filterable
+            style="width: 100%"
+          >
+            <el-option v-for="u in requisitionReceiverOptions" :key="u.id" :label="u.name" :value="u.name" />
           </el-select>
         </el-form-item>
         <el-form-item label="领用日期" prop="requisitionDate">
@@ -438,12 +446,20 @@
         <el-form-item label="退库数量" prop="quantity">
           <el-input-number v-model="returnDialog.form.quantity" :min="1" :precision="0" :step="1" />
         </el-form-item>
-        <el-form-item label="退库人" prop="returner">
-          <el-input v-model="returnDialog.form.returner" placeholder="请输入退库人" />
-        </el-form-item>
         <el-form-item label="退库部门" prop="deptId">
-          <el-select v-model="returnDialog.form.deptId" placeholder="请选择退库部门" filterable style="width: 100%">
+          <el-select v-model="returnDialog.form.deptId" placeholder="请选择退库部门" filterable style="width: 100%" @change="onReturnDeptChange">
             <el-option v-for="d in deptOptions" :key="d.id" :label="d.label" :value="d.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="退库人" prop="returner">
+          <el-select
+            v-model="returnDialog.form.returner"
+            :placeholder="returnDialog.form.deptId ? '请选择退库人' : '请先选择退库部门'"
+            :disabled="!returnDialog.form.deptId"
+            filterable
+            style="width: 100%"
+          >
+            <el-option v-for="u in returnerOptions" :key="u.id" :label="u.name" :value="u.name" />
           </el-select>
         </el-form-item>
         <el-form-item label="退库日期" prop="returnDate">
@@ -518,6 +534,28 @@ const deptOptions = computed(() => orgStore.departmentOptions.map(d => ({ ...d, 
 /** 部门 id -> 部门名（展示用） */
 function deptNameOf(deptId) {
   return deptId ? (orgStore.deptName(deptId) || deptId) : ''
+}
+
+/** 领用/退库人候选：所选部门下的在职用户；先选部门再选人，避免手输姓名出错 */
+function memberOptionsOf(deptId) {
+  if (!deptId) return []
+  return orgStore.users.filter(u => u.deptId === deptId && u.status === 'ENABLED')
+}
+const requisitionReceiverOptions = computed(() => memberOptionsOf(requisitionDialog.form.deptId))
+const returnerOptions = computed(() => memberOptionsOf(returnDialog.form.deptId))
+
+/** 换部门后，已选人若不属于新部门则清空 */
+function onRequisitionDeptChange() {
+  const r = requisitionDialog.form.receiver
+  if (r && !requisitionReceiverOptions.value.some(u => u.name === r)) {
+    requisitionDialog.form.receiver = ''
+  }
+}
+function onReturnDeptChange() {
+  const r = returnDialog.form.returner
+  if (r && !returnerOptions.value.some(u => u.name === r)) {
+    returnDialog.form.returner = ''
+  }
 }
 
 function today() {
@@ -886,8 +924,8 @@ const docRules = {
   inboundDate: [{ required: true, message: '请选择入库日期', trigger: 'change' }],
   requisitionDate: [{ required: true, message: '请选择领用日期', trigger: 'change' }],
   returnDate: [{ required: true, message: '请选择退库日期', trigger: 'change' }],
-  receiver: [{ required: true, message: '请输入领用人', trigger: 'blur' }],
-  returner: [{ required: true, message: '请输入退库人', trigger: 'blur' }],
+  receiver: [{ required: true, message: '请选择领用人', trigger: 'change' }],
+  returner: [{ required: true, message: '请选择退库人', trigger: 'change' }],
   deptId: [{ required: true, message: '请选择部门', trigger: 'change' }],
   reason: [{ required: true, message: '请输入退库原因', trigger: 'blur' }]
 }
@@ -920,14 +958,25 @@ function openInboundDialog() {
   nextTick(() => inboundFormRef.value?.clearValidate())
 }
 
+/** 当前登录人在组织架构中的档案：用于领用/退库默认「本人 + 本部门」，需要时可改选他人代申请 */
+function myProfile() {
+  const u = userStore.user || {}
+  const me = orgStore.users.find(x => x.id === u.id) ||
+             orgStore.users.find(x => u.username && x.username === u.username)
+  if (!me || me.status !== 'ENABLED') return { deptId: '', receiver: '' }
+  return { deptId: me.deptId || '', receiver: me.name || '' }
+}
+
 function openRequisitionDialog() {
-  Object.assign(requisitionDialog.form, { itemId: '', quantity: 1, receiver: '', deptId: '', requisitionDate: today(), purpose: '', operator: '' })
+  const mine = myProfile()
+  Object.assign(requisitionDialog.form, { itemId: '', quantity: 1, receiver: mine.receiver, deptId: mine.deptId, requisitionDate: today(), purpose: '', operator: '' })
   requisitionDialog.visible = true
   nextTick(() => requisitionFormRef.value?.clearValidate())
 }
 
 function openReturnDialog() {
-  Object.assign(returnDialog.form, { itemId: '', quantity: 1, returner: '', deptId: '', returnDate: today(), reason: '', operator: '' })
+  const mine = myProfile()
+  Object.assign(returnDialog.form, { itemId: '', quantity: 1, returner: mine.receiver, deptId: mine.deptId, returnDate: today(), reason: '', operator: '' })
   returnDialog.visible = true
   nextTick(() => returnFormRef.value?.clearValidate())
 }

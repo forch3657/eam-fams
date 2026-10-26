@@ -139,6 +139,34 @@ export const httpService = {
 
   async clear(key) {
     return request(`/${key}/all`, { method: 'DELETE' })
+  },
+
+  // ---------------------------------------------------------------- 业务动作
+
+  /** 执行折旧计提（period 形如 2026-09） */
+  async runDepreciation(period) {
+    return request('/depreciation/run', { method: 'POST', data: { period } })
+  },
+
+  /** 折旧试算，不落库 */
+  async previewDepreciation(period) {
+    return request('/depreciation/preview', { method: 'POST', data: { period } })
+  },
+
+  /** 折旧计划明细 */
+  async depreciationPlan(params) {
+    return request('/depreciation/plan', { params })
+  },
+
+  /**
+   * 执行审批动作（submit / approve / reject / revoke）。
+   *
+   * 审批是一个完整的业务动作，服务端会在一次请求内完成
+   * 流程解析 → 权限校验 → 单据状态推进 → 审批轨迹落库，
+   * 因此这里不走通用 CRUD，避免前端两次写入导致轨迹缺失或重复。
+   */
+  async approvalAction(payload) {
+    return request('/approvals/action', { method: 'POST', data: payload })
   }
 }
 
