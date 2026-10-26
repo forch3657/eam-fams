@@ -14,6 +14,9 @@ Write-Host ('Starting backend jar: ' + $jar)
 Start-Process -FilePath $java -ArgumentList '-jar', $jar, '--spring.profiles.active=prod' -WorkingDirectory (Join-Path $root 'fams-backend') -WindowStyle Normal
 $nginxDir = Join-Path $root 'deploy/nginx'
 $nginx = Join-Path $nginxDir 'nginx.exe'
+# 先强制结束所有已有 nginx 进程，再起一个干净的实例（避免依赖 pid 文件导致停不干净、多实例堆积）
+Get-Process -Name nginx -ErrorAction SilentlyContinue | Stop-Process -Force
+Start-Sleep -Seconds 1
 Write-Host 'Starting nginx'
 Start-Process -FilePath $nginx -WorkingDirectory $nginxDir -WindowStyle Normal
 Write-Host 'Done. Open https://localhost'

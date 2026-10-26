@@ -5,8 +5,8 @@ echo ============================================================
 echo  EAM-FAMS 本地联调一键启动（MySQL 模式）
 echo    后端  : http://localhost:8080   (dev profile, 连本机 MySQL)
 echo    前端  : http://localhost:5174
-echo    数据库: mysql://127.0.0.1:3306/fams   user=root   password=123456
-echo    登录  : admin / 123456
+echo    数据库: mysql://127.0.0.1:3306/fams   user=fams   password=FamsDb@2026!
+echo    登录  : admin / Fzidt@123
 echo    前置  : 需先按 README 第 2 节建好 fams 库（脚本不会自动建库）
 echo    停止  : 运行 stop-dev.bat，或直接关闭两个服务窗口
 echo ============================================================

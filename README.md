@@ -15,7 +15,7 @@
 | 后端 | http://localhost:8080 | `mvn spring-boot:run`，H2 内存库，自动建表 + 灌演示数据 |
 | 前端 | http://localhost:5174 | `npm run dev`（Vite） |
 
-- **登录账号**：`admin / 123456`（其余 19 个演示账号明文口令已迁移为 BCrypt，可在后端启动日志中查看）
+- **登录账号**：`admin / Fzidt@123`（全员统一强初始口令 `Fzidt@123`；19 个演示账号口令均已 BCrypt 化，可在后端启动日志中查看）
 - **停止**：双击 `stop-dev.bat`（按监听端口 8080/5174 精准结束，不会误杀其他 java/node），或直接关掉那两个窗口
 
 > 脚本会自动定位 `.workbuddy` 下的预装 Node，无需手动配 PATH。
@@ -33,7 +33,7 @@
 
 ```powershell
 # 登录
-$body = @{username='admin';password='123456'} | ConvertTo-Json
+$body = @{username='admin';password='Fzidt@123'} | ConvertTo-Json
 $r = Invoke-RestMethod -Uri http://localhost:8080/api/auth/login -Method POST -ContentType 'application/json' -Body $body
 $token = $r.data.token
 # 带 token 取数据
@@ -55,15 +55,15 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 |---|---|
 | 数据库地址 | `jdbc:mysql://127.0.0.1:3306/fams` |
 | 数据库名 | `fams` |
-| 用户名 | `root` |
-| 密码 | `123456`（在 `application-dev.yml` 中为默认值） |
+| 用户名 | `fams`（专用最小权限账号，仅授权 `fams.*`） |
+| 密码 | `FamsDb@2026!`（在 `application-dev.yml` 中为默认值；已收回调试期建的 `root@127.0.0.1` 全权限账户） |
 | 连接参数 | `useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai`（适配 MySQL 8 的 `caching_sha2_password`） |
 
 > ⚠️ **前置条件**：`start-dev-mysql.bat` **不会自动建库建表**。必须先按下面第 2 节把 `fams` 库建好、灌入 schema+数据，否则后端起不来（Hikari 连不上 / 表不存在）。
 >
 > 切换回 H2 联调：停掉服务（双击 `stop-dev.bat`），再双击 `start-dev.bat` 即可。两套脚本共用 `stop-dev.bat`（按 8080/5174 端口精准结束）。
 >
-> 改数据库密码：直接改 `fams-backend/src/main/resources/application-dev.yml` 里的 `password: ${DB_PASSWORD:123456}` 默认值，**不要用** `mvn -DDB_PASSWORD=xxx`——`spring-boot:run` 会 fork 新 JVM，命令行 `-D` 不一定透传，导致仍用默认值。
+> 改数据库密码：直接改 `fams-backend/src/main/resources/application-dev.yml` 里的 `password: ${DB_PASSWORD:FamsDb@2026!}` 默认值，**不要用** `mvn -DDB_PASSWORD=xxx`——`spring-boot:run` 会 fork 新 JVM，命令行 `-D` 不一定透传，导致仍用默认值。
 
 ---
 
@@ -74,8 +74,8 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 1. **切换 profile（本地联调用脚本，部署改 yaml）**：
    - **本地联调**：直接双击 `start-dev-mysql.bat`，脚本已用 `-Dspring-boot.run.profiles=dev` 启动后端（dev = MySQL 模式，`spring.sql.init.mode` 为 `never`，由你手动执行下面的 SQL），**无需改 `application.yml`**。
    - **正式部署**：把后端 `application.yml` 的默认激活 profile 改成 `dev`。
-   - `application-dev.yml` 里连接串已带 `characterEncoding=utf8` 与 `allowPublicKeyRetrieval=true`（适配 MySQL 8 的 `caching_sha2_password`），默认账号 `root`、密码 `123456`（改密码直接改 yaml 默认值；不要用 `mvn -DDB_PASSWORD=xxx`，`spring-boot:run` 会 fork 新 JVM 导致 `-D` 不透传）。
-   - 若用命令行 `-h 127.0.0.1` 连不上但本地 socket 能连，多为缺 `root@127.0.0.1` TCP 账户，补建即可：`CREATE USER 'root'@'127.0.0.1' IDENTIFIED BY '123456'; GRANT ALL PRIVILEGES ON *.* TO 'root'@'127.0.0.1' WITH GRANT OPTION;`。
+   - `application-dev.yml` 里连接串已带 `characterEncoding=utf8` 与 `allowPublicKeyRetrieval=true`（适配 MySQL 8 的 `caching_sha2_password`），默认账号 `fams`、密码 `FamsDb@2026!`（改密码直接改 yaml 默认值；不要用 `mvn -DDB_PASSWORD=xxx`，`spring-boot:run` 会 fork 新 JVM 导致 `-D` 不透传）。
+   - 若后端连不上 MySQL，多半是 `MySQL80` 服务未启动（脚本已尝试自动拉起）或账号口令与库不匹配；`fams`@`127.0.0.1` 专用最小权限账号已在初始化时建好，无需补建 root。
 2. **按顺序执行建库脚本**（在 `fams-backend/sql/` 下）：
    - `sql/01-schema/00-schema.sql` —— 建表
    - `sql/02-seed/` —— 基础主数据（公司/部门/用户/角色/字典等）
@@ -92,7 +92,7 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 
 切到 MySQL 后，JDBC 的 `tinyint/bool` 映射与 H2 可能有差异，至少跑一遍以下回归：
 
-- [ ] **登录**：`admin / 123456` 及各演示账号均能登录，无「未登录或登录已失效」横幅
+- [ ] **登录**：`admin / Fzidt@123` 及各演示账号均能登录，无「未登录或登录已失效」横幅
 - [ ] **中文显示**：资产名、用户名、品牌、预警文案等中文正常（无「鑱旀兂」类乱码）
 - [ ] **折旧方案启停**：`固定资产 → 资产管理 → 折旧管理`，拨动「启用」开关 → 提示「已启用/已停用」，**刷新页面后状态保持**（验证 `BOOLEAN` 在 MySQL 下也生效）
 - [ ] **领用 / 退库代申请**：`新增领用 / 新增退库` 打开后默认预填「本人 + 本部门」；先选部门、领用人下拉自动过滤该部门人员；可改选他人代申请
@@ -102,7 +102,7 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 
 ## 4. 演示账号清单
 
-> 所有账号初始口令均为 **`123456`**（seed 中明文，后端启动时会以 BCrypt 重新哈希落库）。
+> 所有账号初始口令均为 **`Fzidt@123`**（seed 中明文，后端启动时会以 BCrypt 重新哈希落库）。
 > 权限由 `组织架构 → 角色管理` 中的角色决定；同一个账号可绑定多个角色（seed 中均为单角色）。
 
 | 用户名 | 姓名 | 角色 | 部门 · 职位 | 状态 |
