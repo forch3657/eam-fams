@@ -2,8 +2,10 @@
   <el-container class="layout-container theme-ent">
     <el-aside :width="appStore.sidebarCollapsed ? '64px' : '200px'" class="sidebar">
       <div class="logo">
-        <span v-if="!appStore.sidebarCollapsed">固定资产管理</span>
-        <span v-else>固资</span>
+        <!-- 固定资产管理系统的标识图标：用 Box（实物资产/物资箱）表达"资产"，
+             折叠时只显示图标，展开时图标 + 名称 -->
+        <el-icon class="logo-icon"><Box /></el-icon>
+        <span v-if="!appStore.sidebarCollapsed" class="logo-text">固定资产管理</span>
       </div>
       <el-menu :default-active="activeMenu" :collapse="appStore.sidebarCollapsed" router class="sidebar-menu">
         <el-menu-item v-if="can('wm:view')" index="/workbench">
@@ -13,35 +15,35 @@
 
         <el-sub-menu v-if="groupVisible(['fa:view', 'fa:report'])" index="fixed-asset-group">
           <template #title><el-icon><Monitor /></el-icon><span>固定资产</span></template>
-          <el-menu-item v-if="can('fa:view')" index="/fixed-assets">资产管理</el-menu-item>
-          <el-menu-item v-if="can('fa:report')" index="/fixed-asset-reports">资产报表</el-menu-item>
-          <el-menu-item v-if="can('fa:view')" index="/fixed-asset-settings">基础设置</el-menu-item>
+          <el-menu-item v-if="can('fa:view')" index="/fixed-assets"><el-icon><Notebook /></el-icon><span>资产管理</span></el-menu-item>
+          <el-menu-item v-if="can('fa:report')" index="/fixed-asset-reports"><el-icon><DataAnalysis /></el-icon><span>资产报表</span></el-menu-item>
+          <el-menu-item v-if="can('fa:view')" index="/fixed-asset-settings"><el-icon><SetUp /></el-icon><span>基础设置</span></el-menu-item>
         </el-sub-menu>
 
         <el-sub-menu v-if="groupVisible(['lv:view', 'lv:report'])" index="low-value-asset-group">
           <template #title><el-icon><Box /></el-icon><span>低值资产</span></template>
-          <el-menu-item v-if="can('lv:view')" index="/low-value-assets">资产管理</el-menu-item>
-          <el-menu-item v-if="can('lv:report')" index="/low-value-asset-reports">资产报表</el-menu-item>
-          <el-menu-item v-if="can('lv:view')" index="/low-value-asset-settings">基础设置</el-menu-item>
+          <el-menu-item v-if="can('lv:view')" index="/low-value-assets"><el-icon><Goods /></el-icon><span>资产管理</span></el-menu-item>
+          <el-menu-item v-if="can('lv:report')" index="/low-value-asset-reports"><el-icon><Histogram /></el-icon><span>资产报表</span></el-menu-item>
+          <el-menu-item v-if="can('lv:view')" index="/low-value-asset-settings"><el-icon><SetUp /></el-icon><span>基础设置</span></el-menu-item>
         </el-sub-menu>
 
         <el-sub-menu v-if="groupVisible(['org:company', 'org:dept', 'org:user', 'org:role'])" index="org-group">
           <template #title><el-icon><User /></el-icon><span>组织架构</span></template>
-          <el-menu-item v-if="can('org:company')" index="/system/company">公司管理</el-menu-item>
-          <el-menu-item v-if="can('org:dept')" index="/system/dept">部门管理</el-menu-item>
-          <el-menu-item v-if="can('org:user')" index="/system/user">用户管理</el-menu-item>
-          <el-menu-item v-if="can('org:role')" index="/system/role">角色管理</el-menu-item>
+          <el-menu-item v-if="can('org:company')" index="/system/company"><el-icon><OfficeBuilding /></el-icon><span>公司管理</span></el-menu-item>
+          <el-menu-item v-if="can('org:dept')" index="/system/dept"><el-icon><Connection /></el-icon><span>部门管理</span></el-menu-item>
+          <el-menu-item v-if="can('org:user')" index="/system/user"><el-icon><UserFilled /></el-icon><span>用户管理</span></el-menu-item>
+          <el-menu-item v-if="can('org:role')" index="/system/role"><el-icon><Avatar /></el-icon><span>角色管理</span></el-menu-item>
         </el-sub-menu>
 
         <el-sub-menu v-if="groupVisible(['sys:dict', 'sys:log', 'sys:workflow', 'sys:params', 'sys:message', 'sys:template', 'sys:terminal'])" index="system-group">
           <template #title><el-icon><Setting /></el-icon><span>系统管理</span></template>
-          <el-menu-item v-if="can('sys:dict')" index="/system/dict">数据字典</el-menu-item>
-          <el-menu-item v-if="can('sys:log')" index="/system/log">操作日志</el-menu-item>
-          <el-menu-item v-if="can('sys:workflow')" index="/system/workflow">流程配置</el-menu-item>
-          <el-menu-item v-if="can('sys:params')" index="/system/params">系统参数</el-menu-item>
-          <el-menu-item v-if="can('sys:message')" index="/system/message-center">消息中心</el-menu-item>
-          <el-menu-item v-if="can('sys:template')" index="/system/message-template">消息模板</el-menu-item>
-          <el-menu-item v-if="can('sys:terminal')" index="/system/terminal">盘点终端</el-menu-item>
+          <el-menu-item v-if="can('sys:dict')" index="/system/dict"><el-icon><Collection /></el-icon><span>数据字典</span></el-menu-item>
+          <el-menu-item v-if="can('sys:log')" index="/system/log"><el-icon><Document /></el-icon><span>操作日志</span></el-menu-item>
+          <el-menu-item v-if="can('sys:workflow')" index="/system/workflow"><el-icon><Share /></el-icon><span>流程配置</span></el-menu-item>
+          <el-menu-item v-if="can('sys:params')" index="/system/params"><el-icon><Operation /></el-icon><span>系统参数</span></el-menu-item>
+          <el-menu-item v-if="can('sys:message')" index="/system/message-center"><el-icon><ChatDotRound /></el-icon><span>消息中心</span></el-menu-item>
+          <el-menu-item v-if="can('sys:template')" index="/system/message-template"><el-icon><Tickets /></el-icon><span>消息模板</span></el-menu-item>
+          <el-menu-item v-if="can('sys:terminal')" index="/system/terminal"><el-icon><Cellphone /></el-icon><span>盘点终端</span></el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>
@@ -125,7 +127,9 @@ import { dataMode } from '../services'
 import { loadDictEnums } from '../services/dictEnums'
 import { labelOf } from '../constants/enums'
 import { loadSysParams } from '../services/sysParams'
-import { Monitor, Setting, User, Box, Fold, Expand, OfficeBuilding, CaretBottom, HomeFilled, Bell, ChatDotRound } from '@element-plus/icons-vue'
+import { Monitor, Setting, User, Box, Fold, Expand, OfficeBuilding, CaretBottom, HomeFilled, Bell, ChatDotRound,
+  Notebook, DataAnalysis, SetUp, Goods, Histogram, Connection, UserFilled, Avatar,
+  Collection, Document, Share, Operation, Tickets, Cellphone } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()

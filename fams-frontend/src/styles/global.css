@@ -33,14 +33,22 @@ body {
 .sidebar .logo {
   height: var(--h-top);
   display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   color: var(--c-primary);
   font-size: 15px;
   font-weight: 600;
   border-bottom: 1px solid var(--bd-split);
   white-space: nowrap;
   overflow: hidden;
+}
+
+/* 侧边栏标识图标：实物资产/物资箱，表达固定资产管理系统 */
+.sidebar .logo .logo-icon {
+  font-size: 22px;
+  flex-shrink: 0;
 }
 
 .main-area {
