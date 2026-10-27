@@ -63,7 +63,7 @@
         </el-form>
 
         <div class="login-tip">
-          <div class="tip-title">演示账号（密码均为 123456）</div>
+          <div class="tip-title">演示账号（初始密码均为 Fzidt@123）</div>
           <ul class="tip-list">
             <li><b>admin</b><span>系统管理员</span><i>全部模块与系统配置</i></li>
             <li><b>asset</b><span>资产管理员</span><i>台账/入库/派发/借出/盘点/折旧 · 流程发起</i></li>
@@ -92,7 +92,7 @@ const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 
-const form = ref({ username: 'admin', password: '123456' })
+const form = ref({ username: 'admin', password: 'Fzidt@123' })
 const loading = ref(false)
 
 const FAIL_TIPS = {
