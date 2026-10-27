@@ -1,0 +1,10 @@
+# 本地密钥（生产 JWT_SECRET 等，绝不入库）
+deploy/.secrets/
+
+# 构建产物
+fams-backend/target/
+fams-frontend/node_modules/
+fams-frontend/dist/
+
+# 日志
+*.log

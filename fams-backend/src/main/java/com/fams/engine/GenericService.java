@@ -9,7 +9,9 @@ import com.fams.hook.HookRegistry;
 import com.fams.hook.ResourceHook;
 import com.fams.rule.RuleEngine;
 import com.fams.security.AuthContext;
+import com.fams.security.PasswordPolicy;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -59,6 +61,10 @@ public class GenericService {
 
     private final QueryAssembler assembler;
 
+    private final PasswordEncoder passwordEncoder;
+
+    private final PasswordPolicy passwordPolicy;
+
     private final AtomicLong sequence = new AtomicLong();
 
     // ------------------------------------------------------------------ 读
@@ -67,7 +73,7 @@ public class GenericService {
     public List<Map<String, Object>> list(String key, Map<String, String[]> raw) {
         ResourceMeta meta = registry.resolve(key);
         return mapper.selectList(assembler.buildList(meta, raw)).stream()
-                .map(row -> codec.toApiRow(meta, row))
+                .map(row -> sanitized(meta, codec.toApiRow(meta, row)))
                 .collect(Collectors.toList());
     }
 
@@ -77,7 +83,7 @@ public class GenericService {
         Map<String, Object> params = assembler.buildPage(meta, raw);
         long total = mapper.count(params);
         List<Map<String, Object>> rows = mapper.selectList(params).stream()
-                .map(row -> codec.toApiRow(meta, row))
+                .map(row -> sanitized(meta, codec.toApiRow(meta, row)))
                 .collect(Collectors.toList());
         return new PageResult(rows, total, (Long) params.get("page"), (Long) params.get("pageSize"));
     }
@@ -89,7 +95,7 @@ public class GenericService {
         if (row == null) {
             throw new ApiException(ErrorCode.NOT_FOUND, "数据不存在");
         }
-        return row;
+        return sanitized(meta, row);
     }
 
     // ------------------------------------------------------------------ 写
@@ -98,6 +104,7 @@ public class GenericService {
     public Map<String, Object> create(String key, Map<String, Object> body) {
         ResourceMeta meta = registry.resolve(key);
         Map<String, Object> row = codec.toDbRow(meta, body == null ? Collections.emptyMap() : body, false);
+        encodeOrgUserPasswordIfNeeded(key, row, true);
 
         Object pk = row.get(meta.getPkField());
         if (isBlank(pk)) {
@@ -120,7 +127,52 @@ public class GenericService {
         for (ResourceHook hook : hooks.forCollection(key)) {
             hook.afterCreate(meta, row);
         }
-        return codec.toApiRow(meta, row);
+        return sanitized(meta, codec.toApiRow(meta, row));
+    }
+
+    private static final String BCRYPT_PREFIX = "$2";
+
+    /**
+     * org-users 的 password 字段：新建强制复杂度 + BCrypt；编辑时若留空则保留原哈希；
+     * 若已是 BCrypt 哈希则不重复加密。避免新增用户口令明文落库（A18 同类问题）。
+     */
+    private void encodeOrgUserPasswordIfNeeded(String key, Map<String, Object> row, boolean isCreate) {
+        if (!ORG_USERS.equals(key)) {
+            return;
+        }
+        Object rawObj = row.get("password");
+        if (!(rawObj instanceof String)) {
+            if (isCreate) {
+                passwordPolicy.validate(null, String.valueOf(row.get("username")));
+            }
+            return;
+        }
+        String pwd = (String) rawObj;
+        if (pwd.startsWith(BCRYPT_PREFIX)) {
+            return; // 已是 BCrypt 哈希，不重复加密
+        }
+        if (pwd.isEmpty()) {
+            if (isCreate) {
+                passwordPolicy.validate(null, String.valueOf(row.get("username")));
+            } else {
+                row.remove("password"); // 编辑未填密码 → 保留原哈希
+            }
+            return;
+        }
+        passwordPolicy.validate(pwd, String.valueOf(row.get("username")));
+        row.put("password", passwordEncoder.encode(pwd));
+    }
+
+    /**
+     * 对外响应剔除 org-users 的 password（BCrypt 哈希也不回传，防离线爆破）。
+     * 仅用于 list/page/get/create/update 等对外出口；
+     * 认证内部链路 {@link #findByUsername} 不经过此处，仍能取到口令哈希。
+     */
+    private Map<String, Object> sanitized(ResourceMeta meta, Map<String, Object> apiRow) {
+        if (apiRow != null && ORG_USERS.equals(meta.getKey())) {
+            apiRow.remove("password");
+        }
+        return apiRow;
     }
 
     /**
@@ -139,6 +191,7 @@ public class GenericService {
 
         Map<String, Object> next = codec.toDbRow(meta, body == null ? Collections.emptyMap() : body, true);
         next.put(meta.getPkField(), id);
+        encodeOrgUserPasswordIfNeeded(key, next, false);
 
         for (ResourceHook hook : hooks.forCollection(key)) {
             hook.beforeUpdate(meta, next, previous);
@@ -149,7 +202,7 @@ public class GenericService {
         for (ResourceHook hook : hooks.forCollection(key)) {
             hook.afterUpdate(meta, saved, previous);
         }
-        return codec.toApiRow(meta, saved);
+        return sanitized(meta, codec.toApiRow(meta, saved));
     }
 
     /**
@@ -166,7 +219,7 @@ public class GenericService {
         assertVersionMatch(meta, previous, body);
         Map<String, Object> next = codec.toDbRow(meta, body == null ? Collections.emptyMap() : body, true);
         next.put(meta.getPkField(), id);
-        return codec.toApiRow(meta, writeUpdate(meta, id, next, previous));
+        return sanitized(meta, codec.toApiRow(meta, writeUpdate(meta, id, next, previous)));
     }
 
     /** 校验 → 库存状态流转 → 审计 → 落库 */

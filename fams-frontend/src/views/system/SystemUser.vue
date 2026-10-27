@@ -133,7 +133,7 @@
           <el-input v-model="dialog.form.email" style="width: 260px" />
         </el-form-item>
         <el-form-item v-if="!dialog.isEdit" label="初始密码" prop="password">
-          <el-input v-model="dialog.form.password" placeholder="留空则默认 123456" show-password style="width: 200px" />
+          <el-input v-model="dialog.form.password" placeholder="请输入初始密码（至少8位，含两类字符）；留空将被拒绝" show-password style="width: 200px" />
         </el-form-item>
         <el-form-item label="状态">
           <el-radio-group v-model="dialog.form.status">
@@ -252,7 +252,17 @@ const rules = {
   companyId: [{ required: true, message: '请选择所属公司', trigger: 'change' }],
   roleIds: [{ required: true, message: '请至少选择一个角色', trigger: 'change' }],
   phone: [{ pattern: /^1[3-9]\d{9}$/, message: '手机号格式不正确', trigger: 'blur' }],
-  email: [{ type: 'email', message: '邮箱格式不正确', trigger: 'blur' }]
+  email: [{ type: 'email', message: '邮箱格式不正确', trigger: 'blur' }],
+  password: [{
+    validator: (_rule, value, cb) => {
+      if (!dialog.isEdit) {
+        if (!value || !value.trim()) return cb(new Error('请设置初始密码（至少8位，含两类字符）'))
+        if (value.length < 8) return cb(new Error('密码至少8位'))
+      }
+      cb()
+    },
+    trigger: 'blur'
+  }]
 }
 
 function emptyForm() {
@@ -287,7 +297,7 @@ async function submit() {
       await orgStore.updateUser(dialog.form.id, payload)
       ElMessage.success('用户已更新')
     } else {
-      payload.password = payload.password || '123456'
+      // 初始密码由后端 PasswordPolicy 校验并 BCrypt；留空时后端拒绝（要求设置）
       await orgStore.addUser(payload)
       ElMessage.success('用户已新增')
     }

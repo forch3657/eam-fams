@@ -30,7 +30,10 @@ public class PasswordPolicy {
     }
 
     public void validate(String raw, String username) {
-        if (raw == null || raw.length() < minLength) {
+        if (raw == null || raw.isEmpty()) {
+            throw new ApiException(ErrorCode.VALIDATION, "请设置密码（至少 " + minLength + " 位，含字母/数字/符号中至少两类）");
+        }
+        if (raw.length() < minLength) {
             throw new ApiException(ErrorCode.VALIDATION, "密码长度至少 " + minLength + " 位");
         }
         int kinds = 0;
