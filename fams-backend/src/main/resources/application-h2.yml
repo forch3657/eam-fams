@@ -32,7 +32,8 @@ fams:
       - /health
       - /auth/login
   cors:
-    allowed-origins: http://localhost:5174
+    # 本地开发 / CI E2E 来源：localhost 与 127.0.0.1 都放行（避免绑定差异导致 403）
+    allowed-origins: http://localhost:5174,http://127.0.0.1:5174
 
 logging:
   level:

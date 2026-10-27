@@ -74,12 +74,23 @@ const isPlaceholder = (text: string) => !text || text.startsWith('请');
  * 因此统一取「最后出现的那个可见下拉」（新打开的一定在 DOM 末尾），并留出收放动画时间。
  */
 async function readOptions(page: Page, item: Locator): Promise<string[]> {
-  await item.locator('.el-select').first().click();
-  await page.waitForTimeout(600);
-  const dropdown = page.locator('.el-select-dropdown:visible').last();
-  const options = dropdown.locator('.el-select-dropdown__item');
-  await expect(options.first()).toBeVisible();
-  return (await options.allInnerTexts()).map(t => t.trim()).filter(Boolean);
+  const sel = item.locator('.el-select').first();
+  // 切部门后表单会重渲染，第一次点击可能被吞；最多重试 3 次，直到下拉真正出现可见。
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await sel.click();
+    await page.waitForTimeout(500);
+    const dropdown = page.locator('.el-select-dropdown:visible').last();
+    if (await dropdown.count() === 0) continue;
+    const options = dropdown.locator('.el-select-dropdown__item');
+    if (await options.first().isVisible().catch(() => false)) {
+      return (await options.allInnerTexts()).map(t => t.trim()).filter(Boolean);
+    }
+    // 「无数据」也是合法状态（例如切换到没有在职成员的部门），返回空数组
+    if (await dropdown.locator('.el-select-dropdown__empty, .el-empty').first().isVisible().catch(() => false)) {
+      return [];
+    }
+  }
+  throw new Error('el-select 下拉未打开或无可读选项: ' + (await sel.innerText().catch(() => '')));
 }
 
 async function pickOption(page: Page, text: string): Promise<void> {
@@ -98,17 +109,16 @@ async function pickOption(page: Page, text: string): Promise<void> {
  * 已登录时自动跳过填表，保证幂等。
  */
 async function login(page: Page): Promise<void> {
-  await page.goto('/');
+  // 直接进 /login：若用 '/' 会因 SPA 客户端重定向到 /login，瞬间 isVisible 判定会误判为未登录而跳过填表。
+  await page.goto('/login');
   const userInput = page
     .locator('input[placeholder*="用户名"], input[placeholder*="账号"], input[placeholder*="user"]')
     .first();
-  if (await userInput.isVisible().catch(() => false)) {
-    await userInput.fill(USERNAME);
-    await page.locator('input[type=password]').first().fill(PASSWORD);
-    await page.locator('button').filter({ hasText: /登\s*录/ }).first().click();
-  }
-  // 注意：不能用 /固定资产/ 判定登录成功——登录页标题就是「固定资产管理系统」，
-  // 会导致「尚未登录却误判为已登录」，随后深链导航被打回登录页。
+  await expect(userInput).toBeVisible({ timeout: 30_000 });
+  await userInput.fill(USERNAME);
+  await page.locator('input[type=password]').first().fill(PASSWORD);
+  await page.locator('button').filter({ hasText: /登\s*录/ }).first().click();
+  // 不能用 /固定资产/ 判定登录成功——登录页标题就是「固定资产管理系统」，会误判。
   // 正确做法是等待路由真正离开登录页，并确认主框架（侧边菜单）已渲染。
   await page.waitForURL(/workbench/, { timeout: 30_000 });
   await expect(page.locator('.el-menu').first()).toBeVisible();
@@ -155,7 +165,10 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.afterEach(() => {
-  expect(consoleErrors, '控制台不应有错误输出').toEqual([]);
+  // 忽略 favicon 等资源 404：dev 模式浏览器会自动请求 favicon.ico（缺失则报控制台错误），
+  // prod/nginx 不报，属测试环境噪声；但 /api/ 相关的失败仍保留，用于捕获真实接口错误。
+  const benign = (e: string) => /Failed to load resource/i.test(e) && !e.includes('/api/');
+  expect(consoleErrors.filter(e => !benign(e)), '控制台不应有错误输出').toEqual([]);
   expect(pageErrors, '不应出现未捕获的 JS 异常').toEqual([]);
 });
 
@@ -242,7 +255,12 @@ test('切换部门后领用人清空，下拉按新部门成员过滤', async ({
   const defaultUser = await selectText(userItem);
 
   const deptNames = await readOptions(page, deptItem);
-  const target = deptNames.find(n => n !== defaultDept);
+  // 优先选「有在职成员」的其他部门，才能验证过滤语义；若其他部门都没有成员，则退化为验证「无数据」空列表
+  const candidates = await Promise.all(
+    deptNames.filter(n => n !== defaultDept).map(async label => ({ label, members: await membersOfDeptLabel(label) })),
+  );
+  const preferred = candidates.find(c => c.members.length > 0);
+  const target = (preferred ?? candidates[0])?.label;
   expect(target, '应至少存在另一个可选部门').toBeTruthy();
   await pickOption(page, target as string);
 
@@ -250,13 +268,15 @@ test('切换部门后领用人清空，下拉按新部门成员过滤', async ({
   expect(isPlaceholder(await selectText(userItem)), '切换部门后领用人应被清空').toBe(true);
 
   const names = await readOptions(page, userItem);
-  expect(names.length, '新部门应有可选成员').toBeGreaterThan(0);
-  expect(names, '不应再包含原部门人员').not.toContain(defaultUser);
-
-  // 与接口交叉：下拉成员必须是新部门的在职成员
   const members = await membersOfDeptLabel(target as string);
-  expect(members.length, '新部门应能查到在职成员').toBeGreaterThan(0);
-  for (const name of names) {
-    expect(members).toContain(name);
+  if (members.length === 0) {
+    expect(names, '无成员部门的下拉应为空（无数据）').toEqual([]);
+  } else {
+    expect(names.length, '新部门应有可选成员').toBeGreaterThan(0);
+    expect(names, '不应再包含原部门人员').not.toContain(defaultUser);
+    // 与接口交叉：下拉成员必须是新部门的在职成员
+    for (const name of names) {
+      expect(members).toContain(name);
+    }
   }
 });

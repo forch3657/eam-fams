@@ -76,15 +76,40 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
    - **正式部署**：把后端 `application.yml` 的默认激活 profile 改成 `dev`。
    - `application-dev.yml` 里连接串已带 `characterEncoding=utf8` 与 `allowPublicKeyRetrieval=true`（适配 MySQL 8 的 `caching_sha2_password`），默认账号 `fams`、密码 `FamsDb@2026!`（改密码直接改 yaml 默认值；不要用 `mvn -DDB_PASSWORD=xxx`，`spring-boot:run` 会 fork 新 JVM 导致 `-D` 不透传）。
    - 若后端连不上 MySQL，多半是 `MySQL80` 服务未启动（脚本已尝试自动拉起）或账号口令与库不匹配；`fams`@`127.0.0.1` 专用最小权限账号已在初始化时建好，无需补建 root。
-2. **按顺序执行建库脚本**（在 `fams-backend/sql/` 下）：
-   - `sql/01-schema/00-schema.sql` —— 建表
-   - `sql/02-seed/` —— 基础主数据（公司/部门/用户/角色/字典等）
-   - `sql/03-demo/` —— 演示业务数据
+2. **按顺序执行建库脚本**（在 `deploy/sql/mysql/` 下，MySQL 直接可执行）：
+   - `deploy/sql/mysql/schema.sql` —— 建表（`DROP TABLE IF EXISTS` + `CREATE TABLE`，可重复执行）
+   - `deploy/sql/mysql/baseline-data.sql` —— 最小基础数据：根公司 `C1` / 根部门 `D1`、系统管理员 `U1`、角色预设 `R1~R8`，以及**全部数据字典**（字典为枚举校验与下拉选项所必需，不可省略）
+   - 需要演示业务数据：再执行 `fams-backend/src/main/resources/db/seed.sql`
+
+   > ⚠️ `prod` / `dev` profile 的 `spring.sql.init.mode` 均为 `never`，**不会自动建表**。
+   > 必须先执行上面两个脚本（或人工确认库已初始化），否则后端起不来（Hikari 连不上 / 表不存在）。
+   > 其中管理员口令 `Fzidt@123` 以明文写入，应用首次启动时会由 `DataInitializer` 自动迁移为 BCrypt。
+
 3. **脚本已同步的修复（务必确认已带入）**：
-   - 三张表的 `enabled` 列已为 **`BOOLEAN`**（折旧方案、流程配置、消息模板）。**不要改回 `TINYINT(1)`** —— 否则后端回读成 `0/1`，前端 `el-switch` 严格比较 `true` 失败，启停开关会「看似没启用」并反复弹回。`sql/01-schema/00-schema.sql` 与 `db/schema.sql`（H2 用）这两份都要保持 `BOOLEAN`。
+   - 三张表的 `enabled` 列已为 **`BOOLEAN`**（折旧方案、流程配置、消息模板）。**不要改回 `TINYINT(1)`** —— 否则后端回读成 `0/1`，前端 `el-switch` 严格比较 `true` 失败，启停开关会「看似没启用」并反复弹回。`deploy/sql/mysql/schema.sql` 与 `fams-backend/src/main/resources/db/schema.sql`（H2 用）这两份都要保持 `BOOLEAN`。
    - seed 中的 `1/0` 对 `BOOLEAN` 列兼容，无需改动。
 
-> 关键点：本项目有两套 schema —— 联调用的 `fams-backend/src/main/resources/db/schema.sql`（H2）和部署用的 `fams-backend/sql/01-schema/00-schema.sql`（MySQL）。改表结构时**两处都要同步**。
+> 关键点：本项目有两套同源 schema —— H2 联调用的 `fams-backend/src/main/resources/db/schema.sql`（源），与部署用的 `deploy/sql/mysql/schema.sql`（前者改动后需同步过去）。改表结构时**两处都要同步**。
+
+### 批量导入客户真实数据
+
+上面的 baseline 只含"系统能跑起来"的最小集。**客户的公司 / 部门 / 人员 / 资产等真实业务数据，请统一通过「数据导入」（系统管理 → 数据导入）批量灌入**，不要手工写 SQL：
+
+- **权限**：菜单与页面需要 `sys:import`；某个资源能否导入，由<u>该资源的写权限</u>决定（能新增单条即可批量导入）。`R1 系统管理员`已内置该权限，其它角色在「角色管理」勾选即可。
+
+  > 升级部署提示：既有库若要补授该权限，可执行
+  > `UPDATE org_roles SET permissions = REPLACE(permissions, ']', ',"sys:import"]') WHERE id='R1' AND permissions NOT LIKE '%sys:import%';`
+  > （更推荐直接在「角色管理」界面勾选，避免手工改 JSON 出错。）
+
+- **用法**：选择资源 → 下载模板 → **在示例行下方追加数据** → 上传导入。
+  模板共三行：第 1 行为字段名（表头，导入解析依赖此行，不要改）；第 2/3 行为「说明 / 示例」，以 `#` 开头，**导入时自动跳过，无需删除**。
+  说明行已标注每个字段的**类型 / 必填 / 唯一 / 枚举可选值 / 引用目标主键**（例如 `status` 会写明「可选值 ENABLED/DISABLED」），示例行给出可直接照抄的取值样式。
+- **两种校验模式**：
+  - *整批校验*（默认，推荐）：任一行不合法则**整批拒绝、不落库**，并逐行给出行号与失败原因；
+  - *跳过错误行*：合法行照常写入，失败行单独记录（结果标记 `PARTIAL`）。
+- **支持格式**：`.csv`、`.xlsx`、`.xls`。日期建议写 `yyyy-MM-dd` 或 `yyyy-MM-dd HH:mm:ss`；枚举列填**字典值**（如 `ENABLED`），引用列填**目标记录主键**（如 `companyId` 填 `C1`）。
+- **推荐导入顺序**：公司 → 部门 → 用户/角色 → 资产。引用列会校验目标记录是否存在，先建被引用方才能通过校验。
+- **实现要点**：导入复用与界面单条新增**完全相同**的链路（`RowCodec` 类型转换 / `RuleEngine` 必填·唯一·引用校验 / `GenericService.create`），因此密码加密、审计戳、业务钩子、库存联动等规则全部生效，不会绕开任何校验。接口：`GET /api/data-import/resources`、`GET /api/data-import/template?key=`、`POST /api/data-import/upload?key=&abortOnError=`。
 
 ---
 
@@ -357,6 +382,17 @@ E2E_CHANNEL=msedge npm run test:e2e                   # 本机未下载 chromium
 - 登录按钮文案是「登 录」（中间有空格），用正则 `/登\s*录/`。
 - E2E 不要开 `video`（依赖 ffmpeg 二进制），用 `trace` + 失败截图足够。
 - 折旧启停是写操作，`smoke.spec.ts` 的 `afterAll` 强制校验必须还原到原始状态，杜绝测试数据残留。
+
+### CI E2E 拓扑的坑（第一次 CI 跑挂后定位的四个）
+
+CI 的 E2E 不用 nginx/MySQL：后端 `h2` profile + 前端 vite dev（`/api` 同源代理），Playwright 打 `http://localhost:5174`。第一次上线时 E2E job 挂了（3m10s），排查出四个独立问题，都已修复并写死在 workflow 里：
+
+1. **后端必须用 `h2` profile**，不要用 `test` profile + `-Dspring-boot.run.useTestClasspath=true` —— 后者在 CI 下不生效，导致 H2 没有 schema/seed（空库），启动即 `Table "ORG_USERS" not found`，健康检查卡满 180s 超时（这正是 3m10s 的来源）。`application-h2.yml` 在主资源里，自动建表灌种子，源码/jar 启动都可用。
+2. **经 vite 代理后，后端看到的是跨域请求**：浏览器 `Origin: http://localhost:5174`、但代理把 Host 改成 `127.0.0.1:8080`，后端按跨域处理；若 CORS 不放行该 Origin，登录接口直接 403。`application-h2.yml` 已放行 `localhost:5174` 与 `127.0.0.1:5174`。因此 vite 不要绑 `127.0.0.1`（会制造 Origin 不匹配）。
+3. **vite 加 `--port 5174 --strictPort`**：端口被占时 vite 默认会静默换端口（日志里 "Port 5174 is in use, trying another one"），等待循环就会白等；strictPort 让它直接失败，日志立刻可见。
+4. **`login()` 必须直接 `goto('/login')`**：走 `/` 会经历 SPA 客户端重定向，瞬间 `isVisible()` 判定会误判为未登录而跳过填表，所有用例 31s 超时。
+
+另外两条断言层面的经验：dev 模式浏览器自动请求 `favicon.ico` 缺失会报控制台错误（prod/nginx 不报），`afterEach` 需过滤 `Failed to load resource` 且不含 `/api/` 的消息；种子里存在**没有在职成员的部门**，切换过去后 `el-select` 显示「无数据」是合法状态，断言必须兼容（优先选有成员的部门来验证过滤语义）。
 
 ## 目录结构
 

@@ -102,6 +102,74 @@ async function request(path, { method = 'GET', params, data, timeout = DEFAULT_T
   }
 }
 
+/**
+ * multipart 表单请求（文件上传）。
+ * 注意：不能手动设置 Content-Type，必须由浏览器自动补 multipart boundary，否则服务端无法解析。
+ */
+async function requestForm(path, formData, { timeout = 60000 } = {}) {
+  if (!BASE) throw new ApiError(ERROR_CODES.SERVER, '未配置 VITE_API_BASE_URL，无法调用后端接口')
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeout)
+  try {
+    const res = await fetch(`${BASE}${path}`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: formData,
+      signal: controller.signal
+    })
+    const text = await res.text()
+    let body = null
+    if (text) {
+      try {
+        body = JSON.parse(text)
+      } catch (e) {
+        throw new ApiError(ERROR_CODES.SERVER, '接口返回内容无法解析', res.status)
+      }
+    }
+    if (!res.ok) {
+      const code = Number(body?.code ?? res.status ?? ERROR_CODES.SERVER)
+      if (code === ERROR_CODES.UNAUTHORIZED) notifyUnauthorized()
+      throw new ApiError(code, body?.message || `接口请求失败：${res.status}`, res.status, body?.details)
+    }
+    if (body && typeof body === 'object' && !Array.isArray(body) && 'code' in body) {
+      if (Number(body.code) !== 0) {
+        if (Number(body.code) === ERROR_CODES.UNAUTHORIZED) notifyUnauthorized()
+        throw new ApiError(Number(body.code), body.message || '操作失败', res.status, body.details)
+      }
+      return body.data
+    }
+    return body
+  } catch (err) {
+    if (err instanceof ApiError) throw err
+    if (err?.name === 'AbortError') throw new ApiError(ERROR_CODES.SERVER, '接口请求超时')
+    throw new ApiError(ERROR_CODES.SERVER, err?.message || '网络异常')
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
+ * 带鉴权的文件下载：下载接口需要 Authorization 头，
+ * 因此不能直接用 <a href>（浏览器不会带自定义头），改为取 blob 后触发保存。
+ */
+async function downloadBlob(path, fallbackName) {
+  if (!BASE) throw new ApiError(ERROR_CODES.SERVER, '未配置 VITE_API_BASE_URL，无法调用后端接口')
+  const res = await fetch(`${BASE}${path}`, { headers: authHeaders() })
+  if (!res.ok) throw new ApiError(ERROR_CODES.SERVER, `下载失败：${res.status}`)
+  const blob = await res.blob()
+  const disposition = res.headers.get('Content-Disposition') || ''
+  const matched = /filename="?([^"]+)"?/.exec(disposition)
+  const name = matched ? matched[1] : fallbackName
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = name
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
 export const httpService = {
   async list(key, params) {
     const rows = await request(`/${key}`, { params })
@@ -167,6 +235,33 @@ export const httpService = {
    */
   async approvalAction(payload) {
     return request('/approvals/action', { method: 'POST', data: payload })
+  },
+
+  // ---------------------------------------------------------------- 数据导入
+
+  /** 可导入的资源列表（含字段元数据：类型/必填/唯一/枚举/引用） */
+  async importResources() {
+    const list = await request('/data-import/resources')
+    return Array.isArray(list) ? list : []
+  },
+
+  /** 下载导入模板 CSV */
+  async importTemplate(key) {
+    return downloadBlob(`/data-import/template?key=${encodeURIComponent(key)}`, `${key}-template.csv`)
+  },
+
+  /**
+   * 上传并导入（CSV / XLSX）。
+   * abortOnError=true：先整批校验，任一单元格非法则整批拒绝、不落库；
+   * abortOnError=false：逐行尝试，失败行记录在 failures 中，其余正常写入。
+   */
+  async importUpload(key, file, abortOnError = true) {
+    const form = new FormData()
+    form.append('file', file)
+    return requestForm(
+      `/data-import/upload?key=${encodeURIComponent(key)}&abortOnError=${abortOnError ? 'true' : 'false'}`,
+      form
+    )
   }
 }
 

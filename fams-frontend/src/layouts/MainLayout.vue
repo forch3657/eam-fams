@@ -35,7 +35,7 @@
           <el-menu-item v-if="can('org:role')" index="/system/role"><el-icon><Avatar /></el-icon><span>角色管理</span></el-menu-item>
         </el-sub-menu>
 
-        <el-sub-menu v-if="groupVisible(['sys:dict', 'sys:log', 'sys:workflow', 'sys:params', 'sys:message', 'sys:template', 'sys:terminal'])" index="system-group">
+        <el-sub-menu v-if="groupVisible(['sys:dict', 'sys:log', 'sys:workflow', 'sys:params', 'sys:message', 'sys:template', 'sys:terminal', 'sys:import'])" index="system-group">
           <template #title><el-icon><Setting /></el-icon><span>系统管理</span></template>
           <el-menu-item v-if="can('sys:dict')" index="/system/dict"><el-icon><Collection /></el-icon><span>数据字典</span></el-menu-item>
           <el-menu-item v-if="can('sys:log')" index="/system/log"><el-icon><Document /></el-icon><span>操作日志</span></el-menu-item>
@@ -44,6 +44,7 @@
           <el-menu-item v-if="can('sys:message')" index="/system/message-center"><el-icon><ChatDotRound /></el-icon><span>消息中心</span></el-menu-item>
           <el-menu-item v-if="can('sys:template')" index="/system/message-template"><el-icon><Tickets /></el-icon><span>消息模板</span></el-menu-item>
           <el-menu-item v-if="can('sys:terminal')" index="/system/terminal"><el-icon><Cellphone /></el-icon><span>盘点终端</span></el-menu-item>
+          <el-menu-item v-if="can('sys:import')" index="/system/data-import"><el-icon><Upload /></el-icon><span>数据导入</span></el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>
@@ -129,7 +130,7 @@ import { labelOf } from '../constants/enums'
 import { loadSysParams } from '../services/sysParams'
 import { Monitor, Setting, User, Box, Fold, Expand, OfficeBuilding, CaretBottom, HomeFilled, Bell, ChatDotRound,
   Notebook, DataAnalysis, SetUp, Goods, Histogram, Connection, UserFilled, Avatar,
-  Collection, Document, Share, Operation, Tickets, Cellphone } from '@element-plus/icons-vue'
+  Collection, Document, Share, Operation, Tickets, Cellphone, Upload } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()

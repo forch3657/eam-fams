@@ -9,7 +9,7 @@ on:
 # 分层门禁：
 #  1) backend-test  —— 单元测试/接口集成测试 + 覆盖率阈值（不过则整个 CI 红）
 #  2) frontend-test —— 前端自研单元测试 + 生产构建
-#  3) e2e           —— Playwright 端到端（在 H2 test profile 下起真实服务，无需 MySQL/nginx）
+#  3) e2e           —— Playwright 端到端（在 h2 profile 下起真实服务，无需 MySQL/nginx）
 jobs:
   backend-test:
     name: Backend tests + coverage gate
@@ -56,6 +56,7 @@ jobs:
   e2e:
     name: E2E (Playwright)
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     needs: [backend-test, frontend-test]
     steps:
       - uses: actions/checkout@v4
@@ -68,20 +69,20 @@ jobs:
         with:
           node-version: '22'
 
-      # 用 test profile 从源码启动：H2 内存库 + db/seed.sql 自动灌入演示数据，
-      # 种子明文口令会在启动时被迁移为 BCrypt（这一步本身也是被 P7 用例守卫的）。
-      - name: Start backend (H2 test profile)
+      # 用 h2 profile 从源码启动：H2 内存库 + db/seed.sql 自动建表并灌入演示数据，
+      # 且 CORS 放行前端开发地址。注意：不要用 test profile + useTestClasspath——
+      # 该参数在 CI 下不生效，会导致 H2 无 schema/seed（库为空），后端永远不健康。
+      - name: Start backend (h2 profile)
         working-directory: fams-backend
         run: |
-          mvn -B -DskipTests spring-boot:run \
-            -Dspring-boot.run.profiles=test \
-            -Dspring-boot.run.useTestClasspath=true &
+          mvn -B -DskipTests spring-boot:run -Dspring-boot.run.profiles=h2 > /tmp/backend.log 2>&1 &
           for i in $(seq 1 60); do
             if curl -sf http://127.0.0.1:8080/api/health > /dev/null; then
               echo "backend is up"; break
             fi
             sleep 3
           done
+          echo "--- backend.log tail ---"; tail -n 30 /tmp/backend.log
           curl -sf http://127.0.0.1:8080/api/health
 
       - name: Install frontend dependencies
@@ -95,13 +96,18 @@ jobs:
           VITE_API_BASE_URL: /api
           VITE_PROXY_TARGET: http://127.0.0.1:8080
         run: |
-          npm run dev &
+          # 严格占用 5174：端口被占时直接失败而非静默漂移（漂移会让等待循环白等）。
+          # 不指定 host，默认绑定 localhost —— 与 E2E_BASE_URL=http://localhost:5174 一致，
+          # 命中 h2 profile 的 CORS 放行（Origin http://localhost:5174）。
+          npm run dev -- --port 5174 --strictPort > /tmp/frontend.log 2>&1 &
           for i in $(seq 1 40); do
-            if curl -sf http://127.0.0.1:5174/ > /dev/null; then
+            if curl -sf http://localhost:5174/ > /dev/null; then
               echo "frontend is up"; break
             fi
             sleep 2
           done
+          echo "--- frontend.log tail ---"; tail -n 20 /tmp/frontend.log
+          curl -sf http://localhost:5174/
 
       - name: Install Playwright and browsers
         run: |

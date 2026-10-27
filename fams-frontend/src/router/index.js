@@ -136,6 +136,12 @@ const routes = [
         name: 'TerminalManage',
         component: () => import('../views/system/TerminalManage.vue'),
         meta: { title: '盘点终端', permission: 'sys:terminal' }
+      },
+      {
+        path: 'system/data-import',
+        name: 'SystemDataImport',
+        component: () => import('../views/system/SystemDataImport.vue'),
+        meta: { title: '数据导入', permission: 'sys:import' }
       }
     ]
   },
