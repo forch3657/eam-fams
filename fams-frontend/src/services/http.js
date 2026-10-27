@@ -262,6 +262,24 @@ export const httpService = {
       `/data-import/upload?key=${encodeURIComponent(key)}&abortOnError=${abortOnError ? 'true' : 'false'}`,
       form
     )
+  },
+
+  /** 下载「组织架构单表导入」模板：公司 / 部门 / 人员 一张表 */
+  async importOrgTemplate() {
+    return downloadBlob('/data-import/org-template', 'org-structure-template.csv')
+  },
+
+  /**
+   * 组织架构单表导入：后端按行的粒度自动拆分并写入公司 / 部门 / 用户三张资源表。
+   * abortOnError=true：任一行不合法则整批拒绝、不落库。
+   */
+  async importOrgUpload(file, abortOnError = true) {
+    const form = new FormData()
+    form.append('file', file)
+    return requestForm(
+      `/data-import/org-upload?abortOnError=${abortOnError ? 'true' : 'false'}`,
+      form
+    )
   }
 }
 

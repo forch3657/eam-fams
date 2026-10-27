@@ -9,14 +9,10 @@ import com.fams.engine.RowCodec;
 import com.fams.rule.RuleEngine;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -45,6 +41,7 @@ public class DataImportService {
     private final RowCodec codec;
     private final RuleEngine rules;
     private final EnumCatalog enumCatalog;
+    private final ImportFileParser fileParser;
 
     /** 列出可导入的资源及其字段（供前端构建模板与映射 UI） */
     public List<ResourceInfo> listResources() {
@@ -107,13 +104,13 @@ public class DataImportService {
      */
     public ImportResult doImport(String key, MultipartFile file, boolean abortOnError) throws IOException {
         ResourceMeta meta = registry.resolve(key);
-        List<ParsedRow> rows = parse(meta, file);
+        List<ImportFileParser.ParsedRow> rows = parse(meta, file);
         int total = rows.size();
         List<ImportResult.Failure> failures = new ArrayList<>();
         int success = 0;
 
         if (abortOnError) {
-            for (ParsedRow row : rows) {
+            for (ImportFileParser.ParsedRow row : rows) {
                 try {
                     validateRow(meta, row.values);
                 } catch (Exception e) {
@@ -125,7 +122,7 @@ public class DataImportService {
             }
         }
 
-        for (ParsedRow row : rows) {
+        for (ImportFileParser.ParsedRow row : rows) {
             try {
                 if (!abortOnError) {
                     validateRow(meta, row.values);
@@ -398,148 +395,29 @@ public class DataImportService {
 
     // ------------------------------------------------------------------ 解析
 
-    private List<ParsedRow> parse(ResourceMeta meta, MultipartFile file) throws IOException {
-        String name = file.getOriginalFilename();
-        List<String[]> matrix;
-        if (name != null && (name.toLowerCase().endsWith(".xlsx") || name.toLowerCase().endsWith(".xls"))) {
-            matrix = parseExcel(file.getInputStream());
-        } else {
-            String text = new String(file.getBytes(), StandardCharsets.UTF_8);
-            if (!text.isEmpty() && text.charAt(0) == '﻿') {
-                text = text.substring(1);
-            }
-            matrix = parseCsv(text);
-        }
-        if (matrix.isEmpty()) {
-            return Collections.emptyList();
-        }
-        String[] headers = matrix.get(0);
-        for (int i = 0; i < headers.length; i++) {
-            headers[i] = headers[i].trim();
-        }
-        List<ParsedRow> rows = new ArrayList<>();
-        for (int r = 1; r < matrix.size(); r++) {
-            String[] cells = matrix.get(r);
-            // 记录真实表格行号（表头是第 1 行，matrix 下标 r 对应第 r+1 行）
-            int line = r + 1;
-            boolean allBlank = true;
-            for (String c : cells) {
-                if (c != null && !c.trim().isEmpty()) {
-                    allBlank = false;
-                    break;
-                }
-            }
-            if (allBlank) {
-                continue;
-            }
-            // 以 # 开头的行是模板里的「说明 / 示例」，跳过
-            if (cells.length > 0 && cells[0] != null && cells[0].trim().startsWith(NOTE_PREFIX)) {
-                continue;
-            }
-            Map<String, String> row = new LinkedHashMap<>();
-            for (int c = 0; c < headers.length; c++) {
-                String h = headers[c];
-                if (h.isEmpty()) {
-                    continue;
-                }
-                String v = c < cells.length && cells[c] != null ? cells[c].trim() : "";
+    /**
+     * 解析文件并做「资源相关」的取值友好化。
+     *
+     * <p>通用的 CSV / XLSX 解析、说明行跳过与行号保留由 {@link ImportFileParser} 负责，
+     * 本方法只补充依赖资源元数据的归一化处理，保证按资源导入行为与抽取前完全一致。</p>
+     */
+    private List<ImportFileParser.ParsedRow> parse(ResourceMeta meta, MultipartFile file) throws IOException {
+        List<ImportFileParser.ParsedRow> rows = fileParser.parse(file);
+        for (ImportFileParser.ParsedRow row : rows) {
+            for (Map.Entry<String, String> entry : row.values.entrySet()) {
+                String h = entry.getKey();
+                String v = entry.getValue();
                 // 友好化：日期列允许 "yyyy-MM-dd HH:mm:ss"（空格），归一化为 ISO 的 'T'
                 if (meta.field(h).map(ResourceMeta.Field::isDate).orElse(false)
-                        && v.matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}")) {
-                    v = v.replace(' ', 'T');
+                        && v != null && v.matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}")) {
+                    entry.setValue(v.replace(' ', 'T'));
                 }
-                row.put(h, v);
-            }
-            rows.add(new ParsedRow(line, row));
-        }
-        return rows;
-    }
-
-    /** 手写 CSV 解析：支持引号、逗号/分号自动识别（Excel 中文区域常用分号） */
-    private List<String[]> parseCsv(String text) {
-        char delim = ',';
-        int commas = 0;
-        int semis = 0;
-        for (int i = 0; i < text.length() && text.charAt(i) != '\n'; i++) {
-            char c = text.charAt(i);
-            if (c == ',') {
-                commas++;
-            } else if (c == ';') {
-                semis++;
-            }
-        }
-        if (semis > commas) {
-            delim = ';';
-        }
-        List<String[]> rows = new ArrayList<>();
-        List<String> fields = new ArrayList<>();
-        StringBuilder sb = new StringBuilder();
-        boolean inQuotes = false;
-        for (int i = 0; i < text.length(); i++) {
-            char c = text.charAt(i);
-            if (inQuotes) {
-                if (c == '"') {
-                    if (i + 1 < text.length() && text.charAt(i + 1) == '"') {
-                        sb.append('"');
-                        i++;
-                    } else {
-                        inQuotes = false;
-                    }
-                } else {
-                    sb.append(c);
-                }
-            } else if (c == '"') {
-                inQuotes = true;
-            } else if (c == delim) {
-                fields.add(sb.toString());
-                sb.setLength(0);
-            } else if (c == '\n') {
-                fields.add(sb.toString());
-                rows.add(fields.toArray(new String[0]));
-                fields.clear();
-                sb.setLength(0);
-            } else if (c != '\r') {
-                sb.append(c);
-            }
-        }
-        if (sb.length() > 0 || !fields.isEmpty()) {
-            fields.add(sb.toString());
-            rows.add(fields.toArray(new String[0]));
-        }
-        return rows;
-    }
-
-    /** Excel 解析（.xlsx / .xls 自动识别） */
-    private List<String[]> parseExcel(InputStream in) throws IOException {
-        List<String[]> rows = new ArrayList<>();
-        try (Workbook wb = WorkbookFactory.create(in)) {
-            org.apache.poi.ss.usermodel.Sheet sheet = wb.getSheetAt(0);
-            if (sheet == null) {
-                return rows;
-            }
-            for (org.apache.poi.ss.usermodel.Row row : sheet) {
-                List<String> cells = new ArrayList<>();
-                for (org.apache.poi.ss.usermodel.Cell cell : row) {
-                    cells.add(cell == null ? "" : cell.toString().trim());
-                }
-                rows.add(cells.toArray(new String[0]));
             }
         }
         return rows;
     }
 
     // ------------------------------------------------------------------ DTO
-
-    /** 解析出的一行 + 其在原始表格中的真实行号（用于错误定位） */
-    private static class ParsedRow {
-        final int line;
-        final Map<String, String> values;
-
-        ParsedRow(int line, Map<String, String> values) {
-            this.line = line;
-            this.values = values;
-        }
-    }
 
     public static class ResourceInfo {
         public String key;
