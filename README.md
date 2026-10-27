@@ -287,7 +287,7 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 ### 构建与关键目录
 
 - 前端：`fams-frontend` 下 `.env.development`（dev 直连 8080）/ `.env.production`（`/api` 同源走 nginx）；`npm run build` 产物在 `dist/`。
-- 后端：`mvn package -DskipTests` → `fams-backend/target/fams-backend-1.0.0-SNAPSHOT.jar`；`prod` profile 在 `application-prod.yml`（外部化 `JWT_SECRET`、CORS 收紧到 `https://localhost`、关 `sql.init`）。**改了 `application-prod.yml` 后必须重新 `mvn package`**（jar 在构建时把配置打进去）。
+- 后端：统一用根目录 `build-prod.ps1` 构建（**先跑全量测试，通过后才产出 jar**），产物 `fams-backend/target/fams-backend-1.0.0-SNAPSHOT.jar`；`prod` profile 在 `application-prod.yml`（外部化 `JWT_SECRET`、CORS 收紧到 `https://localhost`、关 `sql.init`）。**禁止 `mvn package -DskipTests`**：历史上正是它把 9 个测试类的红灯藏了很久（详见第 9 节）。改了 `application-prod.yml` 后必须重新构建（jar 在构建时把配置打进去）。
 - nginx：`deploy/nginx/conf/nginx.conf`；证书 `deploy/certs/localhost.crt` + `localhost.key`（自签，SAN = `localhost` + `127.0.0.1`）。
 
 ### dev 联调 vs 生产形态
@@ -303,6 +303,60 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 > 本机生产形态已端到端冒烟通过（HTTPS 登录、中文无乱码、折旧方案启停持久化、领用默认本人+部门过滤代申请、前端资源加载）。后续未覆盖项（按落地顺序）：数据范围隔离已定为单公司不实现（见第 7 节）；审批闭环、折旧合规口径、审计日志为后续阶段。
 
 ---
+
+## 9. 测试体系与发布门禁
+
+### 分层现状
+
+| 层次 | 位置 | 数量 | 说明 |
+|---|---|---|---|
+| 接口/集成测试 | `fams-backend/src/test/java/com/fams/p0..p7` | 64 用例 | `@SpringBootTest + MockMvc + H2`，覆盖骨架、鉴权、通用引擎、审批、低值库存、折旧、系统管理与**口令安全回归** |
+| 前端单元测试 | `fams-frontend/*.test.mjs` | 4 组 | 自研 runner（`npm run test`），验证 auth / 审批 / 低值 / 工作台的 store 与数据层 |
+| E2E 端到端 | `tests/e2e/*.spec.ts` | 7 用例 | Playwright Test Runner，针对真实生产栈 `https://localhost` 验证关键点击流 |
+| 覆盖率度量 | jacoco | 整体行覆盖约 79% | `security` ≥ 70%、`engine` ≥ 78% 才允许构建通过 |
+
+> 关于快照测试：本系统**不引入** UI/响应快照。Element Plus 表格 + 中文数据 + 时间戳会让快照频繁抖动、维护成本高；
+> 真正需要防的是业务规则回归（口令加密、响应脱敏、权限码、库存/状态流转），这些用行为断言更可靠。
+
+### 怎么跑
+
+```bash
+# 1) 后端接口/集成测试（含覆盖率门禁）
+cd fams-backend && mvn test
+
+# 2) 前端单元测试
+cd fams-frontend && npm run test
+
+# 3) E2E（需生产栈在跑：start-prod.ps1）
+npm run test:e2e                 # 根目录下
+npm run test:e2e -- --headed     # 需要看界面时
+npm run test:e2e:report          # 查看 HTML 报告
+```
+
+E2E 可通过环境变量切换目标，便于在 CI 的非 nginx 环境下运行：
+
+```bash
+E2E_BASE_URL=http://localhost:5174 npm run test:e2e   # 走 vite dev（/api 由 vite 代理）
+E2E_CHANNEL=msedge npm run test:e2e                   # 本机未下载 chromium 时复用 Edge/Chrome
+```
+
+### 门禁规则
+
+- **`build-prod.ps1` 是唯一发布构建入口**：后端 `mvn clean package`（跑测试，不过不产 jar）→ 前端 `npm run test` → `npm run build`，任何一环失败即中止。
+- **禁止 `-DskipTests`**：第 1 阶段改掉种子弱口令后，9 个测试类（50 个用例）全部变红，因为长期用 `-DskipTests` 打包而无人发现。恢复跑测试后顺手揪出两个真实缺陷：
+  1. 通用引擎 `create` 对 `org-users` 的口令未走 `PasswordPolicy` + BCrypt → **新增用户口令明文落库**；
+  2. 对外响应剔除 `password` 后，`DataInitializer` 靠 `list()` 读口令迁移的逻辑被饿死 → **全新部署口令保持明文且无法登录**。
+  这两类问题如今由 `P7PasswordSecurityTest` 专门守卫。
+- **CI**：`.github/workflows/ci.yml`，三条 job 串行把关——后端测试+覆盖率、前端测试+构建、Playwright E2E。
+- **口令只允许一处定义**：后端测试用 `com.fams.TestAccounts`（对齐 `db/seed.sql`），E2E 用 `E2E_PASSWORD` 环境变量，避免再次出现"改了种子忘了改测试"。
+
+### 踩过的坑（写用例时注意）
+
+- token 存在 **`sessionStorage`**，`storageState` 无法跨 context 还原，所以 E2E 每个用例都在 `beforeEach` 里真实 UI 登录。
+- Element Plus 的 `el-select` 选中值渲染在 `span`，`inputValue()` 恒为空，必须读 `.el-select` 的 `innerText`。
+- 登录按钮文案是「登 录」（中间有空格），用正则 `/登\s*录/`。
+- E2E 不要开 `video`（依赖 ffmpeg 二进制），用 `trace` + 失败截图足够。
+- 折旧启停是写操作，`smoke.spec.ts` 的 `afterAll` 强制校验必须还原到原始状态，杜绝测试数据残留。
 
 ## 目录结构
 

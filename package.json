@@ -1,0 +1,14 @@
+{
+  "name": "fams-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "E2E 端到端测试（Playwright Test Runner），针对生产栈 https://localhost 验证关键点击流",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report playwright-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}

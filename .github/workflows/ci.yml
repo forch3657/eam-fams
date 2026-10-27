@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+# 分层门禁：
+#  1) backend-test  —— 单元测试/接口集成测试 + 覆盖率阈值（不过则整个 CI 红）
+#  2) frontend-test —— 前端自研单元测试 + 生产构建
+#  3) e2e           —— Playwright 端到端（在 H2 test profile 下起真实服务，无需 MySQL/nginx）
+jobs:
+  backend-test:
+    name: Backend tests + coverage gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '8'
+          distribution: temurin
+          cache: maven
+      - name: Run tests (fails the build if any red)
+        working-directory: fams-backend
+        run: mvn -B clean verify
+      - name: Upload test + coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-reports
+          path: |
+            fams-backend/target/surefire-reports
+            fams-backend/target/site/jacoco
+
+  frontend-test:
+    name: Frontend unit tests + build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: fams-frontend/package-lock.json
+      - name: Install dependencies
+        working-directory: fams-frontend
+        run: npm install --no-audit --no-fund
+      - name: Unit tests
+        working-directory: fams-frontend
+        run: npm run test
+      - name: Production build
+        working-directory: fams-frontend
+        run: npm run build
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '8'
+          distribution: temurin
+          cache: maven
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # 用 test profile 从源码启动：H2 内存库 + db/seed.sql 自动灌入演示数据，
+      # 种子明文口令会在启动时被迁移为 BCrypt（这一步本身也是被 P7 用例守卫的）。
+      - name: Start backend (H2 test profile)
+        working-directory: fams-backend
+        run: |
+          mvn -B -DskipTests spring-boot:run \
+            -Dspring-boot.run.profiles=test \
+            -Dspring-boot.run.useTestClasspath=true &
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8080/api/health > /dev/null; then
+              echo "backend is up"; break
+            fi
+            sleep 3
+          done
+          curl -sf http://127.0.0.1:8080/api/health
+
+      - name: Install frontend dependencies
+        working-directory: fams-frontend
+        run: npm install --no-audit --no-fund
+
+      - name: Start frontend dev server (single origin, /api proxied to backend)
+        working-directory: fams-frontend
+        env:
+          VITE_USE_MOCK: 'false'
+          VITE_API_BASE_URL: /api
+          VITE_PROXY_TARGET: http://127.0.0.1:8080
+        run: |
+          npm run dev &
+          for i in $(seq 1 40); do
+            if curl -sf http://127.0.0.1:5174/ > /dev/null; then
+              echo "frontend is up"; break
+            fi
+            sleep 2
+          done
+
+      - name: Install Playwright and browsers
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Run E2E suite
+        env:
+          E2E_BASE_URL: http://localhost:5174
+        run: npx playwright test
+
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results

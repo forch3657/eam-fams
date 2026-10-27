@@ -1,5 +1,7 @@
 package com.fams.p1;
 
+import com.fams.TestAccounts;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fams.engine.GenericService;
 import com.fams.security.LoginAttemptService;
@@ -25,7 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * P1 认证与鉴权验收：登录、统一失败提示、失败锁定、无 token / 坏 token 401。
  *
- * <p>演示数据自带的账号口令为 {@code admin / 123456}，
+ * <p>演示数据自带的账号口令为 {@code admin / Fzidt@123}（见 {@link com.fams.TestAccounts}），
  * 启动时由 DataInitializer 迁移为 BCrypt 后再参与校验。</p>
  */
 @SpringBootTest
@@ -33,9 +35,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class P1AuthTest {
 
-    private static final String ADMIN = "admin";
+    private static final String ADMIN = TestAccounts.ADMIN;
 
-    private static final String PASSWORD = "123456";
+    private static final String PASSWORD = TestAccounts.PASSWORD;
 
     @Autowired
     private MockMvc mockMvc;

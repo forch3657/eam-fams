@@ -77,6 +77,21 @@ public class GenericService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 内部运维用途：读取<b>未经脱敏</b>的原始行。
+     *
+     * <p>口令迁移（{@code DataInitializer}）等运维逻辑必须拿到 password 列才能把明文迁移为 BCrypt；
+     * 而 {@link #list} 出于安全已经把该字段剔除。严禁把本方法的返回值用于对外接口响应，
+     * 否则会把用户口令哈希泄漏给任意拥有读权限的人。</p>
+     */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> listInternal(String key, Map<String, String[]> raw) {
+        ResourceMeta meta = registry.resolve(key);
+        return mapper.selectList(assembler.buildList(meta, raw)).stream()
+                .map(row -> codec.toApiRow(meta, row))
+                .collect(Collectors.toList());
+    }
+
     @Transactional(readOnly = true)
     public PageResult page(String key, Map<String, String[]> raw) {
         ResourceMeta meta = registry.resolve(key);

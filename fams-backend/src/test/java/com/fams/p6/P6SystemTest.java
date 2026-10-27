@@ -1,5 +1,7 @@
 package com.fams.p6;
 
+import com.fams.TestAccounts;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fams.engine.GenericService;
@@ -34,9 +36,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class P6SystemTest {
 
-    private static final String ADMIN = "admin";
+    private static final String ADMIN = TestAccounts.ADMIN;
 
-    private static final String PASSWORD = "123456";
+    private static final String PASSWORD = TestAccounts.PASSWORD;
 
     private static final String DICT_TYPES = "system-dict-types";
 

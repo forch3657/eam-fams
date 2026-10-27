@@ -6,5 +6,12 @@ fams-backend/target/
 fams-frontend/node_modules/
 fams-frontend/dist/
 
-# 日志
+# E2E 测试产物
+node_modules/
+playwright-report/
+test-results/
+tests/e2e/.auth/
+
+# 日志与临时脚本
 *.log
+*.err

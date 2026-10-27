@@ -1,5 +1,7 @@
 package com.fams.p2;
 
+import com.fams.TestAccounts;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,16 +32,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * P2 通用引擎 + 组织架构验收：8 个端点的行为与契约一致。
  *
- * <p>演示账号为 {@code admin / 123456}，登录后携带 Bearer token 访问业务接口。</p>
+ * <p>演示账号为 {@code admin / Fzidt@123}（见 {@link com.fams.TestAccounts}），
+ * 登录后携带 Bearer token 访问业务接口。</p>
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class P2EngineTest {
 
-    private static final String ADMIN = "admin";
+    private static final String ADMIN = TestAccounts.ADMIN;
 
-    private static final String PASSWORD = "123456";
+    private static final String PASSWORD = TestAccounts.PASSWORD;
 
     @Autowired
     private MockMvc mockMvc;

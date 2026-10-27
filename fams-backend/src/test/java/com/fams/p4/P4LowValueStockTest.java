@@ -1,5 +1,7 @@
 package com.fams.p4;
 
+import com.fams.TestAccounts;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fams.engine.GenericService;
@@ -42,9 +44,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class P4LowValueStockTest {
 
-    private static final String ADMIN = "admin";
+    private static final String ADMIN = TestAccounts.ADMIN;
 
-    private static final String PASSWORD = "123456";
+    private static final String PASSWORD = TestAccounts.PASSWORD;
 
     private static final String ITEMS = "low-value-items";
 

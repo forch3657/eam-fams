@@ -1,5 +1,7 @@
 package com.fams.p3;
 
+import com.fams.TestAccounts;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fams.security.LoginAttemptService;
@@ -34,9 +36,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class P3FixedAssetTest {
 
-    private static final String ADMIN = "admin";
+    private static final String ADMIN = TestAccounts.ADMIN;
 
-    private static final String PASSWORD = "123456";
+    private static final String PASSWORD = TestAccounts.PASSWORD;
 
     @Autowired
     private MockMvc mockMvc;
