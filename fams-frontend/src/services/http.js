@@ -280,6 +280,52 @@ export const httpService = {
       `/data-import/org-upload?abortOnError=${abortOnError ? 'true' : 'false'}`,
       form
     )
+  },
+
+  /** 下载「低值资产单表导入」模板：一行 = 一个低值物品 */
+  async importLowValueTemplate() {
+    return downloadBlob('/data-import/low-value-template', 'low-value-items-template.csv')
+  },
+
+  /**
+   * 低值资产单表导入：期初库存直接写入台账（不生成入库单），存放位置不存在时自动建档。
+   * abortOnError=true：任一行不合法则整批拒绝、不落库。
+   */
+  async importLowValueUpload(file, abortOnError = true) {
+    const form = new FormData()
+    form.append('file', file)
+    return requestForm(
+      `/data-import/low-value-upload?abortOnError=${abortOnError ? 'true' : 'false'}`,
+      form
+    )
+  },
+
+  /** 下载「固定资产单表导入」模板：一行 = 一张资产卡片 */
+  async importFixedAssetTemplate() {
+    return downloadBlob('/data-import/fixed-asset-template', 'fixed-assets-template.csv')
+  },
+
+  /**
+   * 固定资产单表导入：公司/部门/使用人按名称匹配，存放地点不存在时自动建档。
+   * abortOnError=true：任一行不合法则整批拒绝、不落库。
+   */
+  async importFixedAssetUpload(file, abortOnError = true) {
+    const form = new FormData()
+    form.append('file', file)
+    return requestForm(
+      `/data-import/fixed-asset-upload?abortOnError=${abortOnError ? 'true' : 'false'}`,
+      form
+    )
+  },
+
+  /** 清空预览：返回逐资源条数、阻断项与提示（仅系统管理员） */
+  async dataResetPreview(scope) {
+    return request('/data-import/reset/preview', { params: { scope } })
+  },
+
+  /** 清空指定范围的业务数据（不可恢复，confirm 必须为「清空」） */
+  async dataReset(scope) {
+    return request('/data-import/reset', { method: 'POST', params: { scope, confirm: '清空' } })
   }
 }
 

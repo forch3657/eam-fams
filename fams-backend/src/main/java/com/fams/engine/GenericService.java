@@ -320,6 +320,21 @@ public class GenericService {
         return true;
     }
 
+    /**
+     * 按主键删除单行，<b>不触发</b>删除保护 / 钩子 / 库存回退。
+     *
+     * <p>仅供「数据重置」这类运维场景使用（例如清空组织架构时保留当前登录账号）。
+     * 业务删除必须走 {@link #remove}，否则会绕过保护规则。</p>
+     */
+    @Transactional
+    public boolean deleteByIdQuietly(String key, Object id) {
+        ResourceMeta meta = registry.resolve(key);
+        Map<String, Object> params = new QuerySpec(meta).toParams(meta.getAllColumns(), null, null);
+        params.put("id", id);
+        mapper.deleteById(params);
+        return true;
+    }
+
     // ------------------------------------------------------------------ 内部
 
     /** 按账号取用户行（登录与鉴权共用） */

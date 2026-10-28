@@ -31,6 +31,9 @@ public class DataImportController {
 
     private final DataImportService service;
     private final OrgStructureImportService orgService;
+    private final LowValueAssetImportService lowValueService;
+    private final FixedAssetImportService fixedAssetService;
+    private final DataResetService resetService;
     private final PermissionPolicy permissionPolicy;
 
     /** 可导入资源列表（含字段元数据，供前端构建模板与映射 UI） */
@@ -85,6 +88,96 @@ public class DataImportController {
             throw new ApiException(ErrorCode.VALIDATION, "请上传文件");
         }
         return R.ok(orgService.doImport(file, abortOnError));
+    }
+
+    // ---------------------------------------------------------------- 低值资产单表导入
+
+    /**
+     * 下载低值资产单表模板：一行 = 一个低值物品，中文业务列 + 说明行/示例行。
+     * 期初库存直接写入台账（不生成入库单），存放位置按名称自动建档。
+     */
+    @GetMapping("/low-value-template")
+    public void lowValueTemplate(HttpServletResponse response) throws IOException {
+        require(LowValueAssetImportService.ITEMS);
+        response.setContentType("text/csv;charset=utf-8");
+        response.setHeader("Content-Disposition", "attachment; filename=\"low-value-items-template.csv\"");
+        response.getOutputStream().write(("\uFEFF" + lowValueService.templateCsv()).getBytes(StandardCharsets.UTF_8));
+    }
+
+    /** 低值资产单表导入：一次上传，逐行落低值物品台账 */
+    @PostMapping(value = "/low-value-upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public R<LowValueAssetImportService.LowValueImportResult> lowValueUpload(
+            @RequestParam(defaultValue = "true") boolean abortOnError,
+            @RequestParam("file") MultipartFile file) throws IOException {
+        require(LowValueAssetImportService.ITEMS);
+        if (file == null || file.isEmpty()) {
+            throw new ApiException(ErrorCode.VALIDATION, "请上传文件");
+        }
+        return R.ok(lowValueService.doImport(file, abortOnError));
+    }
+
+    // ---------------------------------------------------------------- 固定资产单表导入
+
+    /**
+     * 下载固定资产单表模板：一行 = 一张资产卡片，中文业务列 + 说明行/示例行。
+     * 公司/部门/使用人按名称匹配，存放地点不存在时自动建档。
+     */
+    @GetMapping("/fixed-asset-template")
+    public void fixedAssetTemplate(HttpServletResponse response) throws IOException {
+        require(FixedAssetImportService.ASSETS);
+        response.setContentType("text/csv;charset=utf-8");
+        response.setHeader("Content-Disposition", "attachment; filename=\"fixed-assets-template.csv\"");
+        response.getOutputStream().write(("\uFEFF" + fixedAssetService.templateCsv()).getBytes(StandardCharsets.UTF_8));
+    }
+
+    /** 固定资产单表导入：一次上传，逐行落固定资产台账（一物一码，编号已存在只复用不覆盖） */
+    @PostMapping(value = "/fixed-asset-upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public R<FixedAssetImportService.FixedAssetImportResult> fixedAssetUpload(
+            @RequestParam(defaultValue = "true") boolean abortOnError,
+            @RequestParam("file") MultipartFile file) throws IOException {
+        require(FixedAssetImportService.ASSETS);
+        if (file == null || file.isEmpty()) {
+            throw new ApiException(ErrorCode.VALIDATION, "请上传文件");
+        }
+        return R.ok(fixedAssetService.doImport(file, abortOnError));
+    }
+
+    // ---------------------------------------------------------------- 数据重置（危险操作）
+
+    /** 清空预览：逐资源条数与阻断项；仅系统管理员可访问 */
+    @GetMapping("/reset/preview")
+    public R<DataResetService.ResetPreview> resetPreview(@RequestParam String scope) {
+        requireResetScope(scope);
+        return R.ok(resetService.preview(scope));
+    }
+
+    /**
+     * 清空指定范围的业务数据（不可恢复）。
+     *
+     * @param confirm 必须为「清空」，用于防止误触
+     */
+    @PostMapping("/reset")
+    public R<DataResetService.ResetResult> reset(@RequestParam String scope,
+                                                 @RequestParam String confirm) {
+        requireResetScope(scope);
+        if (!"清空".equals(confirm == null ? "" : confirm.trim())) {
+            throw new ApiException(ErrorCode.VALIDATION, "请输入「清空」两个字以确认本次操作");
+        }
+        return R.ok(resetService.reset(scope));
+    }
+
+    /** 清空涉及模块的写权限（管理员校验在 service 内统一做） */
+    private void requireResetScope(String scope) {
+        String value = scope == null ? "" : scope.trim();
+        if (DataResetService.SCOPE_FIXED_ASSET.equals(value) || DataResetService.SCOPE_ALL.equals(value)) {
+            require(FixedAssetImportService.ASSETS);
+        }
+        if (DataResetService.SCOPE_LOW_VALUE.equals(value) || DataResetService.SCOPE_ALL.equals(value)) {
+            require(LowValueAssetImportService.ITEMS);
+        }
+        if (DataResetService.SCOPE_ORG.equals(value) || DataResetService.SCOPE_ALL.equals(value)) {
+            requireOrgImport();
+        }
     }
 
     private void require(String key) {

@@ -979,6 +979,12 @@ function applyDeepLink() {
   }
 }
 onMounted(applyDeepLink)
+// 进入台账页时刷新主数据：导入、清空、审批都可能已在别的页面改过资产与单据，
+// 而 store 只在应用启动时加载一次，不刷新会看到旧数据。
+onMounted(() => {
+  fixedAssetStore.loadAll().catch(() => {})
+  if (!orgStore.loaded) orgStore.loadAll().catch(() => {})
+})
 // 同页面内通过 query 切换页签时也要响应（工作台"去处理"跳转）
 watch(() => route.query, applyDeepLink)
 

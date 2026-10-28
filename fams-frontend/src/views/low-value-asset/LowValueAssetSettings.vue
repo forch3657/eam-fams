@@ -141,7 +141,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, nextTick } from 'vue'
+import { ref, reactive, computed, nextTick, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Setting } from '@element-plus/icons-vue'
@@ -154,6 +154,8 @@ import { labelOf } from '../../constants/enums'
 const router = useRouter()
 const store = useLowValueAssetStore()
 const userStore = useUserStore()
+// 物品与存放位置会被导入/清空改动，进入页面时刷新一次
+onMounted(() => store.loadAll().catch(() => {}))
 /** 权限判定：按钮级鉴权 */
 const can = code => userStore.can(code)
 const activeTab = ref('location')

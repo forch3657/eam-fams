@@ -522,6 +522,12 @@ function applyDeepLink() {
   if (t) activeTab.value = String(t)
 }
 onMounted(applyDeepLink)
+// 进入台账页时刷新主数据：导入、清空、审批都可能已在别的页面改过库存与单据，
+// 而 store 只在应用启动时加载一次，不刷新会看到旧数据。
+onMounted(() => {
+  store.loadAll().catch(() => {})
+  if (!orgStore.loaded) orgStore.loadAll().catch(() => {})
+})
 // 同页面内通过 query 切换页签时也要响应
 watch(() => route.query, applyDeepLink)
 /** 类别选项取自数据字典（系统管理 > 数据字典 > 低值资产类别） */

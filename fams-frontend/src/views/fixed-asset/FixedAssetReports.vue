@@ -269,7 +269,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Download, Search } from '@element-plus/icons-vue'
 import { labelOf, optionsOf } from '../../constants/enums'
@@ -282,6 +282,8 @@ import { COLLECTION } from '../../services'
 const fixedAssetStore = useFixedAssetStore()
 const orgStore = useOrgStore()
 const userStore = useUserStore()
+// 资产台账变化会影响折旧/统计口径，进入页面时刷新一次
+onMounted(() => fixedAssetStore.loadAll().catch(() => {}))
 
 /** 折旧方式选项取自数据字典：下拉展示中文，筛选与落库存编码 */
 const depreciationMethodOptions = computed(() => optionsOf('DEPRECIATION_METHOD'))

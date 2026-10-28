@@ -150,8 +150,23 @@ const can = code => userStore.can(code)
 const groupVisible = perms => perms.some(p => can(p))
 const modeLabel = computed(() => (dataMode === 'mock' ? '演示数据' : '后端接口'))
 
-/** 当前数据范围（公司） */
-const scopeName = computed(() => userStore.user?.org || '固定资产管理中心')
+/**
+ * 当前数据范围（公司）
+ *
+ * 按用户的 companyId 从组织主数据现查，而不是直接用登录时的快照 user.org：
+ * 组织架构被清空/公司改名后，顶栏能立即反映，不必重新登录。
+ */
+const scopeName = computed(() => {
+  const u = userStore.user
+  if (!u) return '固定资产管理中心'
+  if (u.companyId) {
+    const live = orgStore.companyName(u.companyId)
+    if (live) return live
+    // 主数据已加载但查不到该公司（例如刚清空组织架构）：不要回落到过期快照
+    if (orgStore.loaded) return '固定资产管理中心'
+  }
+  return u.org || '固定资产管理中心'
+})
 /** 数据范围说明：口径来自角色的 dataScope，不是可随意切换的控件 */
 const scopeTip = computed(() => {
   const roleId = (userStore.user?.roleIds || [])[0]
