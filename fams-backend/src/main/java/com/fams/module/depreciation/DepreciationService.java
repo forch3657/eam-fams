@@ -58,6 +58,9 @@ public class DepreciationService {
 
     private static final int DEFAULT_YEARS = DepreciationCalculator.DEFAULT_USEFUL_LIFE_YEARS;
 
+    /** 购置方式编码：仅租赁资产按租赁期限计提 */
+    private static final String PURCHASE_MODE_LEASE = "LEASE";
+
     private final ResourceRegistry registry;
 
     private final GenericService genericService;
@@ -203,17 +206,21 @@ public class DepreciationService {
 
         BigDecimal residualRate = firstNumber(numberOf(plan, "residualRate"),
                 numberOf(rule, "residualRate"), DepreciationCalculator.DEFAULT_RESIDUAL_RATE);
-        // 年限口径：折旧规则 → 折旧计划（可选覆盖）→ 分类维护值 → 缺省 5 年
+        // 年限口径：折旧规则 → 分类维护值 → 缺省 5 年（折旧计划不设置年限）
         int years = firstInt(intOf(rule, "usefulLife"), intOf(plan, "usefulLife"),
                 intOf(categoryRow, "usefulLife"), DEFAULT_YEARS);
         String method = pick(textOf(plan, "method"), textOf(rule, "method"),
                 textOf(categoryRow, "depreciationMethod"));
+        // 只有租赁资产才按「租赁使用期限」计提，其余一律走折旧规则年限。
+        // 否则导入时默认写入的 leaseMonths=36 会把所有分类统一成 3 年，规则形同虚设。
+        BigDecimal leaseMonths = PURCHASE_MODE_LEASE.equalsIgnoreCase(textOf(asset, "purchaseMode"))
+                ? numberOf(asset, "leaseMonths") : null;
 
         Resolution resolution = new Resolution();
         resolution.setMethod(method);
         resolution.setResidualRate(residualRate);
         resolution.setUsefulLifeYears(years);
-        resolution.setTotalMonths(DepreciationCalculator.totalMonths(numberOf(asset, "leaseMonths"), years));
+        resolution.setTotalMonths(DepreciationCalculator.totalMonths(leaseMonths, years));
         // 计划缺失时回落到规则名称，台账不至于整列显示「未配置」
         resolution.setPlanName(pick(textOf(plan, "name"), textOf(rule, "name"), "默认折旧"));
         return resolution;

@@ -569,7 +569,7 @@
                 <el-option v-for="m in purchaseModeOptions" :key="m.value" :label="m.label" :value="m.value" />
               </el-select>
             </el-form-item>
-            <el-form-item label="租赁使用期限(月)">
+            <el-form-item v-if="assetForm.purchaseMode === 'LEASE'" label="租赁使用期限(月)">
               <el-input-number v-model="assetForm.leaseMonths" :min="1" :max="600" style="width:100%" />
             </el-form-item>
           </template>
@@ -1836,7 +1836,8 @@ async function submitAssetDialog() {
         name: assetForm.name, category: assetForm.type, code: assetForm.code, companyId: assetForm.company,
         brand: assetForm.brand, model: assetForm.model, location: assetForm.location, purchaseDate: assetForm.purchaseDate,
         amount: assetForm.amount, inboundDate: assetForm.inboundDate, depreciate: assetForm.depreciate, original,
-        purchaseMode: assetForm.purchaseMode, leaseMonths: assetForm.leaseMonths
+        purchaseMode: assetForm.purchaseMode,
+        leaseMonths: assetForm.purchaseMode === 'LEASE' ? assetForm.leaseMonths : null
       })
       ElMessage.success('资产已保存')
       return
@@ -1859,7 +1860,7 @@ async function submitAssetDialog() {
         depreciate: assetForm.depreciate,
         original: assetForm.depreciate && assetForm.original ? assetForm.original : assetForm.amount,
         purchaseMode: assetForm.purchaseMode,
-        leaseMonths: assetForm.leaseMonths
+        leaseMonths: assetForm.purchaseMode === 'LEASE' ? assetForm.leaseMonths : null
       })
     }
     assetPage.value = 1

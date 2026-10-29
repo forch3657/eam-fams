@@ -113,11 +113,6 @@
             <el-form-item label="折旧名称">
               <el-input v-model="depSearch.name" placeholder="请输入折旧名称" clearable style="width: 180px" />
             </el-form-item>
-            <el-form-item label="购置方式">
-              <el-select v-model="depSearch.purchaseMode" placeholder="请选择" clearable style="width: 120px">
-                <el-option v-for="m in purchaseModeOptions" :key="m.value" :label="m.label" :value="m.value" />
-              </el-select>
-            </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="depPage = 1">
                 <el-icon><Search /></el-icon>
@@ -131,7 +126,11 @@
             </el-form-item>
           </el-form>
 
-          <el-table :data="pagedDepreciationPlans" style="width: 100%">
+          <el-table
+            :data="pagedDepreciationPlans"
+            style="width: 100%"
+            empty-text="暂无折旧计划：未配置时统一按「折旧规则」计提，需要按公司覆盖时再新增"
+          >
             <el-table-column label="所属公司" min-width="200" show-overflow-tooltip>
               <template #default="{ row }">{{ row.companyId ? (orgStore.companyName(row.companyId) || row.companyId) : '-' }}</template>
             </el-table-column>
@@ -148,7 +147,7 @@
               <template #default="{ row }">{{ row.residualRate }}%</template>
             </el-table-column>
             <el-table-column label="计提周期" width="130">
-              <template #default="{ row }">每月 {{ row.monthlyDay || 25 }} 日</template>
+              <template #default="{ row }">{{ labelOf('CALC_TIME', row.calcTime) || '按月计提' }}</template>
             </el-table-column>
             <el-table-column prop="updateTime" label="更新时间" width="170" />
             <el-table-column label="操作" width="140" fixed="right">
@@ -176,7 +175,12 @@
           </el-button>
           <el-table :data="pagedDepreciationRules" style="width: 100%">
             <el-table-column prop="name" label="规则名称" min-width="150" />
-            <el-table-column prop="method" label="折旧方式" width="140" />
+            <el-table-column label="适用分类" width="120">
+              <template #default="{ row }">{{ categoryOfRule(row) }}</template>
+            </el-table-column>
+            <el-table-column prop="method" label="折旧方式" width="140">
+              <template #default="{ row }">{{ labelOf('DEPRECIATION_METHOD', row.method) || row.method }}</template>
+            </el-table-column>
             <el-table-column prop="usefulLife" label="使用年限" width="100" />
             <el-table-column prop="residualRate" label="残值率" width="100">
               <template #default="{ row }">{{ row.residualRate }}%</template>
@@ -316,8 +320,18 @@
     <!-- 折旧规则编辑对话框 -->
     <el-dialog v-model="depreciationDialogVisible" :title="isEditDepreciation ? '编辑折旧规则' : '新增折旧规则'" width="500px">
       <el-form :model="depreciationForm" label-width="100px">
+        <el-form-item label="适用分类" required>
+          <el-select v-model="depreciationForm.category" :disabled="isEditDepreciation" placeholder="请选择资产分类" style="width: 100%">
+            <el-option v-for="c in assetTypeOptions" :key="c.value" :label="c.label" :value="c.value" />
+          </el-select>
+          <div v-if="isEditDepreciation" class="plan-hint">
+            {{ depreciationForm.category
+              ? '分类决定规则匹配口径，如需变更请新建规则'
+              : '该规则名称中不含资产分类（历史数据），建议删除后按分类新建' }}
+          </div>
+        </el-form-item>
         <el-form-item label="规则名称">
-          <el-input v-model="depreciationForm.name" placeholder="请输入名称" />
+          <el-input :model-value="depreciationRuleName" disabled placeholder="按适用分类自动生成" />
         </el-form-item>
         <el-form-item label="折旧方式">
           <el-select v-model="depreciationForm.method" placeholder="请选择" style="width: 100%">
@@ -325,9 +339,10 @@
             <el-option v-for="m in depreciationMethodOptions" :key="m.value" :label="m.label" :value="m.value" />
           </el-select>
         </el-form-item>
-        <el-form-item label="使用年限">
+        <el-form-item label="使用年限" required>
           <el-input-number v-model="depreciationForm.usefulLife" :min="1" :max="50" style="width: 100%" />
           <span style="margin-left: 12px">年</span>
+          <div class="plan-hint">计提时以此年限为准（折旧计划不单独设置年限）</div>
         </el-form-item>
         <el-form-item label="残值率">
           <el-input-number v-model="depreciationForm.residualRate" :min="0" :max="100" style="width: 100%" />
@@ -367,10 +382,11 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="资产类型">
+            <el-form-item label="资产类型" required>
               <el-select v-model="planForm.assetTypes" multiple collapse-tags collapse-tags-tooltip placeholder="请选择资产类型" style="width: 100%">
                 <el-option v-for="t in assetTypeOptions" :key="t.value" :label="t.label" :value="t.value" />
               </el-select>
+              <div class="plan-hint">计划按「公司 + 资产类型」覆盖折旧规则，未配置时按规则计提</div>
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -381,20 +397,12 @@
           <el-col :span="12">
             <el-form-item label="计提周期">
               <el-tag type="info" effect="plain">按月计提</el-tag>
-              <span class="plan-hint" style="margin-left: 8px">折旧统一按月计提，不再区分季度/年度</span>
+              <span class="plan-hint inline" style="margin-left: 8px">折旧统一按月计提，不再区分季度/年度</span>
             </el-form-item>
           </el-col>
-          <el-col :span="12">
-            <el-form-item label="每月计提时间">
-              <el-input-number v-model="planForm.monthlyDay" :min="1" :max="31" style="width: calc(100% - 40px)" />
-              <span style="margin-left: 12px">日</span>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="购置方式">
-              <el-select v-model="planForm.purchaseMode" placeholder="请选择购置方式" style="width: 100%">
-                <el-option v-for="m in purchaseModeOptions" :key="m.value" :label="m.label" :value="m.value" />
-              </el-select>
+          <el-col :span="24">
+            <el-form-item label="折旧年限">
+              <span class="plan-hint">由「折旧规则」按资产分类决定（如电子设备 5 年），计划本身不单独设置年限</span>
             </el-form-item>
           </el-col>
           <el-col :span="24">
@@ -435,8 +443,6 @@ const companyOptions = computed(() => {
 })
 // 全部下拉统一取数据字典：下拉展示中文、落库存编码，改文案不必改代码
 const assetTypeOptions = computed(() => optionsOf('ASSET_CATEGORY'))
-const purchaseModeOptions = computed(() => optionsOf('PURCHASE_MODE'))
-const calcTimeOptions = computed(() => optionsOf('CALC_TIME'))
 const depreciationMethodOptions = computed(() => optionsOf('DEPRECIATION_METHOD'))
 
 // 位置设置
@@ -746,19 +752,52 @@ const depreciationRules = depreciationRuleCol.items
 const depreciationDialogVisible = ref(false)
 const isEditDepreciation = ref(false)
 const editingDepreciationIndex = ref(-1)
-const depreciationForm = reactive({ name: '', method: 'STRAIGHT_LINE', usefulLife: 5, residualRate: 5, description: '' })
+const depreciationForm = reactive({ category: '', method: 'STRAIGHT_LINE', usefulLife: 5, residualRate: 5, description: '' })
+
+/**
+ * 规则名称由适用分类自动生成，保证后端「规则名包含分类中文名」的匹配口径不会因手输错字而失配。
+ */
+const depreciationRuleName = computed(() => {
+  const label = labelOf('ASSET_CATEGORY', depreciationForm.category)
+  return label && label !== depreciationForm.category ? `${label}折旧规则` : ''
+})
+
+/**
+ * 规则 ↔ 资产分类的反查。
+ *
+ * 规则表没有独立分类列（name 就是主键），分类口径由名称承载：
+ * 「电子设备折旧规则」↔ ELECTRONIC。后端 DepreciationService#matchRule
+ * 同样按「规则名包含分类中文名」匹配，两端保持一致。
+ */
+function categoryCodeOfRule(rule) {
+  const name = typeof rule === 'string' ? rule : rule?.name
+  const hit = optionsOf('ASSET_CATEGORY').find(o => name && name.includes(o.label))
+  return hit ? hit.value : ''
+}
+
+/** 展示用：分类中文名 */
+function categoryOfRule(rule) {
+  const code = categoryCodeOfRule(rule)
+  return code ? (labelOf('ASSET_CATEGORY', code) || code) : '—'
+}
 
 const handleAddDepreciation = () => {
   isEditDepreciation.value = false
   editingDepreciationIndex.value = -1
-  Object.assign(depreciationForm, { name: '', method: 'STRAIGHT_LINE', usefulLife: 5, residualRate: 5, description: '' })
+  Object.assign(depreciationForm, { category: '', method: 'STRAIGHT_LINE', usefulLife: 5, residualRate: 5, description: '' })
   depreciationDialogVisible.value = true
 }
 
 const handleEditDepreciation = (row) => {
   isEditDepreciation.value = true
   editingDepreciationIndex.value = depreciationRules.value.findIndex(d => d.name === row.name)
-  Object.assign(depreciationForm, { name: row.name, method: row.method, usefulLife: row.usefulLife, residualRate: row.residualRate, description: row.description })
+  Object.assign(depreciationForm, {
+    category: categoryCodeOfRule(row),
+    method: row.method,
+    usefulLife: row.usefulLife,
+    residualRate: row.residualRate,
+    description: row.description
+  })
   depreciationDialogVisible.value = true
 }
 
@@ -774,17 +813,38 @@ const handleDeleteDepreciation = (row) => {
 }
 
 const handleDepreciationSubmit = () => {
-  if (!depreciationForm.name || !depreciationForm.method) {
-    ElMessage.warning('请填写完整信息')
+  if (!depreciationForm.category || !depreciationForm.method) {
+    ElMessage.warning('请选择适用分类与折旧方式')
     return
+  }
+  const name = depreciationRuleName.value
+  const categoryLabel = labelOf('ASSET_CATEGORY', depreciationForm.category)
+  if (!name) {
+    ElMessage.warning('适用分类无效')
+    return
+  }
+  // 一个分类只允许一条规则：按分类反查，避免历史规则名不完全一致时漏判
+  const duplicated = depreciationRules.value.some(r =>
+    categoryCodeOfRule(r) === depreciationForm.category || r.name === name)
+  if (!isEditDepreciation.value && duplicated) {
+    ElMessage.warning(`「${categoryLabel}」已有折旧规则，请直接编辑该规则`)
+    return
+  }
+  const payload = {
+    // 分类信息由名称承载：后端按「规则名包含分类中文名」匹配
+    name,
+    method: depreciationForm.method,
+    usefulLife: depreciationForm.usefulLife,
+    residualRate: depreciationForm.residualRate,
+    description: depreciationForm.description
   }
   if (isEditDepreciation.value && editingDepreciationIndex.value > -1) {
     const target = depreciationRules.value[editingDepreciationIndex.value]
-    Object.assign(target, { ...depreciationForm })
+    Object.assign(target, payload)
     depreciationRuleCol.update(target)
     ElMessage.success('编辑成功')
   } else {
-    depreciationRuleCol.add({ ...depreciationForm })
+    depreciationRuleCol.add(payload)
     ElMessage.success('新增成功')
   }
   depreciationDialogVisible.value = false
@@ -793,15 +853,14 @@ const handleDepreciationSubmit = () => {
 const depreciationPlanCol = useCollection(COLLECTION.settingsDepreciationPlans)
 const depreciationPlans = depreciationPlanCol.items
 
-const depSearch = reactive({ companyId: '', name: '', purchaseMode: '' })
+const depSearch = reactive({ companyId: '', name: '' })
 const depPage = ref(1)
 const depPageSize = ref(15)
 watch(depSearch, () => { depPage.value = 1 }, { deep: true })
 
 const filteredDepreciationPlans = computed(() => depreciationPlans.value.filter(p =>
   (!depSearch.companyId || p.companyId === depSearch.companyId) &&
-  (!depSearch.name || p.name.includes(depSearch.name)) &&
-  (!depSearch.purchaseMode || p.purchaseMode === depSearch.purchaseMode)
+  (!depSearch.name || p.name.includes(depSearch.name))
 ))
 
 const pagedDepreciationPlans = computed(() => {
@@ -812,19 +871,21 @@ const pagedDepreciationPlans = computed(() => {
 const depTotal = computed(() => filteredDepreciationPlans.value.length)
 
 function resetDepSearch() {
-  Object.assign(depSearch, { companyId: '', name: '', purchaseMode: '' })
+  Object.assign(depSearch, { companyId: '', name: '' })
   depPage.value = 1
 }
 
 const planDialogVisible = ref(false)
 const isEditPlan = ref(false)
 const editingPlanId = ref('')
-const planForm = reactive({ companyId: '', name: '', method: 'STRAIGHT_LINE', assetTypes: [], residualRate: 5, calcTime: 'MONTHLY', monthlyDay: 25, purchaseMode: 'PURCHASE', remark: '' })
+/** 折旧年限由「折旧规则」按资产分类决定；计划只维护公司 + 资产类型维度的覆盖项 */
+const emptyPlanForm = () => ({ companyId: '', name: '', method: 'STRAIGHT_LINE', assetTypes: [], residualRate: 5, remark: '' })
+const planForm = reactive(emptyPlanForm())
 
 const handleAddPlan = () => {
   isEditPlan.value = false
   editingPlanId.value = ''
-  Object.assign(planForm, { companyId: '', name: '', method: 'STRAIGHT_LINE', assetTypes: [], residualRate: 5, calcTime: 'MONTHLY', monthlyDay: 25, purchaseMode: 'PURCHASE', remark: '' })
+  Object.assign(planForm, emptyPlanForm())
   planDialogVisible.value = true
 }
 
@@ -835,11 +896,8 @@ const handleEditPlan = (row) => {
     companyId: row.companyId,
     name: row.name,
     method: row.method,
-    assetTypes: [...row.assetTypes],
+    assetTypes: [...(row.assetTypes || [])],
     residualRate: row.residualRate,
-    calcTime: row.calcTime,
-    monthlyDay: row.monthlyDay,
-    purchaseMode: row.purchaseMode,
     remark: row.remark
   })
   planDialogVisible.value = true
@@ -861,25 +919,31 @@ const handlePlanSubmit = () => {
     ElMessage.warning('请填写所属公司与折旧名称')
     return
   }
+  if (!planForm.assetTypes.length) {
+    ElMessage.warning('请选择资产类型：计划按「公司 + 资产类型」覆盖折旧规则')
+    return
+  }
+  // 折旧统一按月计提；年限由折旧规则决定，计划不落库 monthlyDay
+  const payload = {
+    companyId: planForm.companyId,
+    name: planForm.name,
+    method: planForm.method,
+    assetTypes: [...planForm.assetTypes],
+    residualRate: planForm.residualRate,
+    calcTime: 'MONTHLY',
+    remark: planForm.remark
+  }
   if (isEditPlan.value) {
     const target = depreciationPlans.value.find(p => p.id === editingPlanId.value)
     if (target) {
-      Object.assign(target, { ...planForm, assetTypes: [...planForm.assetTypes], updateTime: nowText() })
+      Object.assign(target, payload, { updateTime: nowText() })
       depreciationPlanCol.update(target)
     }
     ElMessage.success('修改成功')
   } else {
     depreciationPlanCol.add({
       id: `DP${Date.now()}`,
-      companyId: planForm.companyId,
-      name: planForm.name,
-      method: planForm.method,
-      assetTypes: [...planForm.assetTypes],
-      residualRate: planForm.residualRate,
-      calcTime: 'MONTHLY',
-      monthlyDay: planForm.monthlyDay,
-      purchaseMode: planForm.purchaseMode,
-      remark: planForm.remark,
+      ...payload,
       createTime: nowText(),
       updateTime: nowText()
     })
@@ -939,5 +1003,22 @@ const pagedApprovalFlows = computed(() => {
 
 .search-form {
   margin-bottom: 20px;
+}
+
+/* 表单项下方的规则说明：折旧规则/计划共用 */
+.plan-hint {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--el-text-color-secondary);
+}
+
+/* 与标签同行的说明 */
+.plan-hint.inline {
+  display: inline;
+  width: auto;
+  margin-top: 0;
 }
 </style>

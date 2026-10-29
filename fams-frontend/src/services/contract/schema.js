@@ -275,6 +275,8 @@ const SETTINGS_DEPRECIATION_RULES = {
   idField: 'name',
   audit: true,
   fields: {
+    // 主键即分类口径：名称由「适用分类」派生（如「电子设备折旧规则」），
+    // 后端 matchRule 也按「规则名包含分类中文名」匹配，两端保持一致。
     name: f.str({ required: true, unique: true }),
     method: f.enum('DEPRECIATION_METHOD', { required: true }),
     usefulLife: f.num(),

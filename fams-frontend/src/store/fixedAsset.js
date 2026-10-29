@@ -29,6 +29,7 @@ export const useFixedAssetStore = defineStore('fixedAsset', () => {
 
   async function addAsset(data) {
     const original = data.depreciate && data.original ? data.original : data.amount
+    const purchaseMode = codeOf('PURCHASE_MODE', data.purchaseMode, 'PURCHASE')
     const asset = {
       code: data.code || nextCode(),
       name: data.name,
@@ -46,8 +47,9 @@ export const useFixedAssetStore = defineStore('fixedAsset', () => {
       net: original,
       status: codeOf('ASSET_STATUS', data.status, 'IDLE'), // 状态存编码（文案会被自动转成编码）
       depreciate: data.depreciate ?? true,
-      purchaseMode: codeOf('PURCHASE_MODE', data.purchaseMode, 'PURCHASE'),
-      leaseMonths: data.leaseMonths || 36
+      purchaseMode,
+      // 只有租赁资产才记租赁期限：写死 36 会把所有分类的折旧年限压成 3 年
+      leaseMonths: purchaseMode === 'LEASE' ? (data.leaseMonths || 36) : null
     }
     const created = await dataService.create(COLLECTION.assets, asset)
     assets.value.unshift(created || asset)
