@@ -113,11 +113,6 @@
             <el-form-item label="折旧名称">
               <el-input v-model="depSearch.name" placeholder="请输入折旧名称" clearable style="width: 180px" />
             </el-form-item>
-            <el-form-item label="计算时间">
-              <el-select v-model="depSearch.calcTime" placeholder="请选择" clearable style="width: 120px">
-                <el-option v-for="c in calcTimeOptions" :key="c.value" :label="c.label" :value="c.value" />
-              </el-select>
-            </el-form-item>
             <el-form-item label="购置方式">
               <el-select v-model="depSearch.purchaseMode" placeholder="请选择" clearable style="width: 120px">
                 <el-option v-for="m in purchaseModeOptions" :key="m.value" :label="m.label" :value="m.value" />
@@ -141,7 +136,20 @@
               <template #default="{ row }">{{ row.companyId ? (orgStore.companyName(row.companyId) || row.companyId) : '-' }}</template>
             </el-table-column>
             <el-table-column prop="name" label="折旧名称" min-width="180" show-overflow-tooltip />
-            <el-table-column prop="createTime" label="创建时间" width="170" />
+            <el-table-column label="资产类型" min-width="160" show-overflow-tooltip>
+              <template #default="{ row }">
+                {{ (row.assetTypes || []).map(t => labelOf('ASSET_CATEGORY', t) || t).join('、') || '全部分类' }}
+              </template>
+            </el-table-column>
+            <el-table-column label="折旧方法" width="130">
+              <template #default="{ row }">{{ labelOf('DEPRECIATION_METHOD', row.method) || row.method }}</template>
+            </el-table-column>
+            <el-table-column label="残值率" width="90">
+              <template #default="{ row }">{{ row.residualRate }}%</template>
+            </el-table-column>
+            <el-table-column label="计提周期" width="130">
+              <template #default="{ row }">每月 {{ row.monthlyDay || 25 }} 日</template>
+            </el-table-column>
             <el-table-column prop="updateTime" label="更新时间" width="170" />
             <el-table-column label="操作" width="140" fixed="right">
               <template #default="{ row }">
@@ -371,10 +379,9 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="计算时间">
-              <el-select v-model="planForm.calcTime" placeholder="请选择计算时间" style="width: 100%">
-                <el-option v-for="c in calcTimeOptions" :key="c.value" :label="c.label" :value="c.value" />
-              </el-select>
+            <el-form-item label="计提周期">
+              <el-tag type="info" effect="plain">按月计提</el-tag>
+              <span class="plan-hint" style="margin-left: 8px">折旧统一按月计提，不再区分季度/年度</span>
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -786,7 +793,7 @@ const handleDepreciationSubmit = () => {
 const depreciationPlanCol = useCollection(COLLECTION.settingsDepreciationPlans)
 const depreciationPlans = depreciationPlanCol.items
 
-const depSearch = reactive({ companyId: '', name: '', calcTime: '', purchaseMode: '' })
+const depSearch = reactive({ companyId: '', name: '', purchaseMode: '' })
 const depPage = ref(1)
 const depPageSize = ref(15)
 watch(depSearch, () => { depPage.value = 1 }, { deep: true })
@@ -794,7 +801,6 @@ watch(depSearch, () => { depPage.value = 1 }, { deep: true })
 const filteredDepreciationPlans = computed(() => depreciationPlans.value.filter(p =>
   (!depSearch.companyId || p.companyId === depSearch.companyId) &&
   (!depSearch.name || p.name.includes(depSearch.name)) &&
-  (!depSearch.calcTime || p.calcTime === depSearch.calcTime) &&
   (!depSearch.purchaseMode || p.purchaseMode === depSearch.purchaseMode)
 ))
 
@@ -806,7 +812,7 @@ const pagedDepreciationPlans = computed(() => {
 const depTotal = computed(() => filteredDepreciationPlans.value.length)
 
 function resetDepSearch() {
-  Object.assign(depSearch, { companyId: '', name: '', calcTime: '', purchaseMode: '' })
+  Object.assign(depSearch, { companyId: '', name: '', purchaseMode: '' })
   depPage.value = 1
 }
 
@@ -870,7 +876,7 @@ const handlePlanSubmit = () => {
       method: planForm.method,
       assetTypes: [...planForm.assetTypes],
       residualRate: planForm.residualRate,
-      calcTime: planForm.calcTime,
+      calcTime: 'MONTHLY',
       monthlyDay: planForm.monthlyDay,
       purchaseMode: planForm.purchaseMode,
       remark: planForm.remark,

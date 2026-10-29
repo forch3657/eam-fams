@@ -345,6 +345,36 @@ class P2EngineTest {
         assertThat(permissionPolicy.matches("fixed-asset-depreciation-reports", "GET", assetAdmin)).isTrue();
     }
 
+    /**
+     * 基础配置使用独立权限码：只有台账查看/编辑权限的账号不能进基础设置；
+     * 但低值位置与折旧方案/规则的「读」必须保留给 lv:view / fa:view，
+     * 否则业务表单下拉与折旧台账计算会失效。
+     */
+    @Test
+    @DisplayName("基础配置：fa:settings / lv:settings 独立授权，读保留业务口径")
+    void baseSettingsRequireDedicatedPermission() {
+        Set<String> assetEditor = new HashSet<>(Arrays.asList("fa:view", "fa:edit", "lv:view", "lv:edit"));
+        assertThat(permissionPolicy.matches("fixed-asset-settings-locations", "GET", assetEditor)).isFalse();
+        assertThat(permissionPolicy.matches("fixed-asset-settings-locations", "POST", assetEditor)).isFalse();
+        assertThat(permissionPolicy.matches("fixed-asset-settings-categories", "GET", assetEditor)).isFalse();
+        assertThat(permissionPolicy.matches("low-value-settings-locations", "POST", assetEditor)).isFalse();
+
+        Set<String> configAdmin = new HashSet<>(Arrays.asList("fa:settings", "lv:settings", "fa:view"));
+        assertThat(permissionPolicy.matches("fixed-asset-settings-locations", "GET", configAdmin)).isTrue();
+        assertThat(permissionPolicy.matches("fixed-asset-settings-locations", "POST", configAdmin)).isTrue();
+        assertThat(permissionPolicy.matches("fixed-asset-settings-categories", "DELETE", configAdmin)).isTrue();
+        assertThat(permissionPolicy.matches("low-value-settings-locations", "POST", configAdmin)).isTrue();
+
+        // 低值存放位置：普通角色可读（物品表单/领用下拉），不可写
+        Set<String> viewer = new HashSet<>(Collections.singletonList("lv:view"));
+        assertThat(permissionPolicy.matches("low-value-settings-locations", "GET", viewer)).isTrue();
+        assertThat(permissionPolicy.matches("low-value-settings-locations", "POST", viewer)).isFalse();
+
+        // 折旧方案/规则：普通角色可读（折旧台账计算），维护仍需 fa:settings
+        assertThat(permissionPolicy.matches("fixed-asset-settings-depreciation-plans", "GET", assetEditor)).isTrue();
+        assertThat(permissionPolicy.matches("fixed-asset-settings-depreciation-plans", "POST", assetEditor)).isFalse();
+    }
+
     private String createCompany(String code, String name) throws Exception {
         String response = mockMvc.perform(auth(post("/api/org-companies")
                         .contentType(MediaType.APPLICATION_JSON)

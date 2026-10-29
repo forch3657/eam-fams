@@ -54,13 +54,13 @@ const SEED_ROLES = [
   {
     id: 'R1', code: 'ROLE_ADMIN', name: '系统管理员', orgScope: 'GROUP', dataScope: 'ALL', status: 'ENABLED', sort: 1,
     remark: '拥有全部模块权限，负责系统配置与组织架构维护',
-    permissions: ['fa:view', 'fa:add', 'fa:edit', 'fa:delete', 'fa:export', 'fa:inbound', 'fa:dispatch', 'fa:borrow', 'fa:change', 'fa:dispose', 'fa:inventory', 'fa:depreciation', 'fa:report', 'lv:view', 'lv:edit', 'lv:export', 'lv:inbound', 'lv:requisition', 'lv:return', 'lv:report', 'wm:view', 'wm:todo', 'wm:alert', 'wm:overview', 'wm:message', 'org:company', 'org:dept', 'org:user', 'org:role', 'sys:dict', 'sys:log', 'sys:workflow', 'sys:params', 'sys:message', 'sys:template', 'sys:terminal'],
+    permissions: ['fa:view', 'fa:add', 'fa:edit', 'fa:delete', 'fa:export', 'fa:inbound', 'fa:dispatch', 'fa:borrow', 'fa:change', 'fa:dispose', 'fa:inventory', 'fa:depreciation', 'fa:report', 'fa:settings', 'lv:view', 'lv:edit', 'lv:export', 'lv:inbound', 'lv:requisition', 'lv:return', 'lv:report', 'lv:settings', 'wm:view', 'wm:todo', 'wm:alert', 'wm:overview', 'wm:message', 'org:company', 'org:dept', 'org:user', 'org:role', 'sys:dict', 'sys:log', 'sys:workflow', 'sys:params', 'sys:message', 'sys:template', 'sys:terminal'],
     createTime: '2024-01-05T09:00:00', updateTime: '2026-09-18T10:22:31', version: 1
   },
   {
     id: 'R2', code: 'ROLE_ASSET', name: '资产管理员', orgScope: 'COMPANY', dataScope: 'COMPANY', status: 'ENABLED', sort: 2,
     remark: '负责资产台账、入库、派发、处置、盘点与低值资产出入库',
-    permissions: ['fa:view', 'fa:add', 'fa:edit', 'fa:export', 'fa:inbound', 'fa:dispatch', 'fa:borrow', 'fa:change', 'fa:dispose', 'fa:inventory', 'fa:depreciation', 'fa:report', 'lv:view', 'lv:edit', 'lv:export', 'lv:inbound', 'lv:requisition', 'lv:return', 'lv:report', 'wm:view', 'wm:todo', 'wm:alert', 'wm:overview', 'wm:message'],
+    permissions: ['fa:view', 'fa:add', 'fa:edit', 'fa:export', 'fa:inbound', 'fa:dispatch', 'fa:borrow', 'fa:change', 'fa:dispose', 'fa:inventory', 'fa:depreciation', 'fa:report', 'fa:settings', 'lv:view', 'lv:edit', 'lv:export', 'lv:inbound', 'lv:requisition', 'lv:return', 'lv:report', 'lv:settings', 'wm:view', 'wm:todo', 'wm:alert', 'wm:overview', 'wm:message'],
     createTime: '2024-01-05T09:05:00', updateTime: '2026-09-17T15:40:12', version: 1
   },
   {

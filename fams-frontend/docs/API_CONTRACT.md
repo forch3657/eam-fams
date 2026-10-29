@@ -1,7 +1,7 @@
 # 资产管理系统 接口契约（API Contract）
 
 > 本文件**完整覆盖**前后端协作所需的全部约定：31 个集合的字段定义、端点与响应信封、错误码、
-> 业务规则（删除保护 / 库存联动 / 退库限额）、乐观锁、认证方式、32 个枚举、36 个权限码、验收清单。
+> 业务规则（删除保护 / 库存联动 / 退库限额）、乐观锁、认证方式、32 个枚举、38 个权限码、验收清单。
 >
 > 前端 `src/services/contract/schema.js` 是本契约的**机器可读副本**（同一份定义，供 mock 引擎与
 > 契约校验运行时使用）。第 4 节的字段表由该文件直接导出生成，两者不会脱节。
@@ -785,8 +785,8 @@ VITE_API_BASE_URL=http://your-backend/api
 | 分组 | 权限码 | 含义 |
 | --- | --- | --- |
 | 工作台 | `wm:view` `wm:todo` `wm:alert` `wm:overview` `wm:message` | 工作台访问 / 我的待办 / 预警中心 / 概览看板 / 我的消息 |
-| 固定资产 | `fa:view` `fa:add` `fa:edit` `fa:delete` `fa:export` `fa:inbound` `fa:dispatch` `fa:borrow` `fa:change` `fa:dispose` `fa:inventory` `fa:depreciation` `fa:report` | 台账查看 / 新增 / 编辑 / 删除 / 导出 / 入库验收 / 派发退库 / 借出 / 变更 / 处置 / 盘点 / 折旧 / 报表 |
-| 低值资产 | `lv:view` `lv:edit` `lv:export` `lv:inbound` `lv:requisition` `lv:return` `lv:report` | 台账查看 / 物品维护 / 导出 / 入库 / 领用 / 退库 / 报表 |
+| 固定资产 | `fa:view` `fa:add` `fa:edit` `fa:delete` `fa:export` `fa:inbound` `fa:dispatch` `fa:borrow` `fa:change` `fa:dispose` `fa:inventory` `fa:depreciation` `fa:report` `fa:settings` | 台账查看 / 新增 / 编辑 / 删除 / 导出 / 入库验收 / 派发退库 / 借出 / 变更 / 处置 / 盘点 / 折旧 / 报表 / 基础设置 |
+| 低值资产 | `lv:view` `lv:edit` `lv:export` `lv:inbound` `lv:requisition` `lv:return` `lv:report` `lv:settings` | 台账查看 / 物品维护 / 导出 / 入库 / 领用 / 退库 / 报表 / 基础设置 |
 | 组织架构 | `org:company` `org:dept` `org:user` `org:role` | 公司 / 部门 / 用户 / 角色管理 |
 | 系统管理 | `sys:dict` `sys:log` `sys:workflow` `sys:params` `sys:message` `sys:template` `sys:terminal` | 数据字典 / 操作日志 / 流程配置 / 系统参数 / 消息中心 / 消息模板 / 盘点终端 |
 

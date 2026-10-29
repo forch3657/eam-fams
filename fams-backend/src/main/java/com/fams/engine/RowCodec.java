@@ -95,6 +95,11 @@ public class RowCodec {
     }
 
     public static BigDecimal toBigDecimal(Object value) {
+        // 必须先判 null：否则 String.valueOf(null) 得到字面量 "null"，
+        // 会被当成非法数值抛 422（可选数值字段留空时必现）。
+        if (value == null) {
+            return null;
+        }
         if (value instanceof BigDecimal) {
             return (BigDecimal) value;
         }
@@ -113,6 +118,9 @@ public class RowCodec {
     }
 
     public static Boolean toBoolean(Object value) {
+        if (value == null) {
+            return null;
+        }
         if (value instanceof Boolean) {
             return (Boolean) value;
         }

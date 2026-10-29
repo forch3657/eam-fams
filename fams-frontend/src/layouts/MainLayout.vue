@@ -13,18 +13,18 @@
           <span>工作台</span>
         </el-menu-item>
 
-        <el-sub-menu v-if="groupVisible(['fa:view', 'fa:report'])" index="fixed-asset-group">
+        <el-sub-menu v-if="groupVisible(['fa:view', 'fa:report', 'fa:settings'])" index="fixed-asset-group">
           <template #title><el-icon><Monitor /></el-icon><span>固定资产</span></template>
           <el-menu-item v-if="can('fa:view')" index="/fixed-assets"><el-icon><Notebook /></el-icon><span>资产管理</span></el-menu-item>
           <el-menu-item v-if="can('fa:report')" index="/fixed-asset-reports"><el-icon><DataAnalysis /></el-icon><span>资产报表</span></el-menu-item>
-          <el-menu-item v-if="can('fa:view')" index="/fixed-asset-settings"><el-icon><SetUp /></el-icon><span>基础设置</span></el-menu-item>
+          <el-menu-item v-if="can('fa:settings')" index="/fixed-asset-settings"><el-icon><SetUp /></el-icon><span>基础设置</span></el-menu-item>
         </el-sub-menu>
 
-        <el-sub-menu v-if="groupVisible(['lv:view', 'lv:report'])" index="low-value-asset-group">
+        <el-sub-menu v-if="groupVisible(['lv:view', 'lv:report', 'lv:settings'])" index="low-value-asset-group">
           <template #title><el-icon><Box /></el-icon><span>低值资产</span></template>
           <el-menu-item v-if="can('lv:view')" index="/low-value-assets"><el-icon><Goods /></el-icon><span>资产管理</span></el-menu-item>
           <el-menu-item v-if="can('lv:report')" index="/low-value-asset-reports"><el-icon><Histogram /></el-icon><span>资产报表</span></el-menu-item>
-          <el-menu-item v-if="can('lv:view')" index="/low-value-asset-settings"><el-icon><SetUp /></el-icon><span>基础设置</span></el-menu-item>
+          <el-menu-item v-if="can('lv:settings')" index="/low-value-asset-settings"><el-icon><SetUp /></el-icon><span>基础设置</span></el-menu-item>
         </el-sub-menu>
 
         <el-sub-menu v-if="groupVisible(['org:company', 'org:dept', 'org:user', 'org:role'])" index="org-group">

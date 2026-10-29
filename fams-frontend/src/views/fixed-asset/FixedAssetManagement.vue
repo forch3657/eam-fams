@@ -11,10 +11,7 @@
           <el-icon><Plus /></el-icon>
           生成盘点计划
         </el-button>
-        <el-button type="primary" @click="handleCreateScheme" v-if="activeTab === 'depreciation' && can('fa:depreciation')">
-          <el-icon><Plus /></el-icon>
-          新增折旧方案
-        </el-button>
+
       </div>
     </div>
     <el-card class="fill">
@@ -294,85 +291,61 @@
         <!-- 折旧管理 -->
         <el-tab-pane label="折旧管理" name="depreciation">
           <div class="grid-4 kpi-row">
-            <div class="kpi-card"><div class="kpi-label">资产原值合计</div><div class="kpi-value num">¥{{ money(depreciationSummary.original) }}</div></div>
-            <div class="kpi-card"><div class="kpi-label">累计折旧</div><div class="kpi-value num" style="color:#e6a23c">¥{{ money(depreciationSummary.accumulated) }}</div></div>
-            <div class="kpi-card"><div class="kpi-label">资产净值</div><div class="kpi-value num" style="color:#67c23a">¥{{ money(depreciationSummary.net) }}</div></div>
-            <div class="kpi-card"><div class="kpi-label">本月计提折旧</div><div class="kpi-value num" style="color:var(--c-primary)">¥{{ money(depreciationSummary.monthly) }}</div></div>
+            <div class="kpi-card"><div class="kpi-label">资产原值合计</div><div class="kpi-value num">¥{{ money(planSummary.original) }}</div></div>
+            <div class="kpi-card"><div class="kpi-label">累计折旧</div><div class="kpi-value num" style="color:#e6a23c">¥{{ money(planSummary.accumulated) }}</div></div>
+            <div class="kpi-card"><div class="kpi-label">资产净值</div><div class="kpi-value num" style="color:#67c23a">¥{{ money(planSummary.net) }}</div></div>
+            <div class="kpi-card"><div class="kpi-label">本期计提折旧</div><div class="kpi-value num" style="color:var(--c-primary)">¥{{ money(planSummary.monthly) }}</div></div>
           </div>
 
-          <div class="section-title">
-            <span>折旧方案配置 <em class="plan-hint">（设置页「折旧设置」中的方案同样参与计算）</em></span>
-            <el-button v-if="can('fa:depreciation')" type="success" plain size="small" @click="runDepreciation">计提本月折旧</el-button>
+          <div class="section-title" style="flex-wrap:wrap;gap:8px">
+            <span>折旧计提 <em class="plan-hint">（按「折旧规则 / 折旧计划」自动匹配，统一按月计提；台账为后端计提结果）</em></span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <el-date-picker v-model="depPeriod" type="month" value-format="YYYY-MM" size="small" style="width:130px" :clearable="false" @change="loadDepreciationPlan" />
+              <el-button v-if="can('fa:depreciation')" size="small" @click="previewDepreciation">试算</el-button>
+              <el-button v-if="can('fa:depreciation')" type="success" plain size="small" @click="runDepreciation">执行计提</el-button>
+              <el-button v-if="can('fa:export')" type="primary" plain size="small" @click="exportDepreciationLedger">导出台账</el-button>
+            </div>
           </div>
-          <el-table :data="depreciationSchemes" style="width: 100%">
-            <el-table-column prop="schemeNo" label="方案编号" width="120" />
-            <el-table-column prop="schemeName" label="方案名称" min-width="150" show-overflow-tooltip />
-            <el-table-column prop="method" label="折旧方式" width="140" />
-            <el-table-column prop="years" label="折旧年限" width="100">
-              <template #default="{ row }">{{ row.years }} 年</template>
-            </el-table-column>
-            <el-table-column prop="residualRate" label="残值率" width="90">
-              <template #default="{ row }">{{ row.residualRate }}%</template>
-            </el-table-column>
-            <el-table-column prop="monthlyRate" label="月折旧率" width="100">
-              <template #default="{ row }">{{ row.monthlyRate }}%</template>
-            </el-table-column>
-            <el-table-column label="适用分类" width="120">
-              <template #default="{ row }">{{ labelOf('ASSET_CATEGORY', row.applicableCategory) || row.applicableCategory }}</template>
-            </el-table-column>
-            <el-table-column label="启用" width="80">
-              <template #default="{ row }">
-                <el-switch v-model="row.enabled" @change="toggleScheme(row)" />
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="130" fixed="right">
-              <template #default="{ row }">
-                <el-button v-if="can('fa:depreciation')" link type="primary" size="small" @click="editScheme(row)">编辑</el-button>
-                <el-button v-if="can('fa:depreciation')" link type="danger" size="small" @click="deleteScheme(row)">删除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
 
-          <div class="section-title" style="margin-top:24px">
-            <span>资产折旧台账</span>
-            <el-button v-if="can('fa:export')" type="primary" plain size="small" @click="exportDepreciationLedger">导出台账</el-button>
-          </div>
-          <el-table :data="depreciationLedger" style="width: 100%">
+          <el-table v-loading="planLoading" :data="depreciationPlanRows" style="width: 100%" empty-text="当前期间暂无计提结果，请先执行计提">
             <el-table-column prop="assetNo" label="资产编号" width="120" />
-            <el-table-column prop="assetName" label="资产名称" min-width="160" show-overflow-tooltip />
-            <el-table-column prop="category" label="分类" width="100" />
-            <el-table-column prop="department" label="使用部门" width="110" />
+            <el-table-column prop="assetName" label="资产名称" min-width="150" show-overflow-tooltip />
+            <el-table-column label="分类" width="100">
+              <template #default="{ row }">{{ labelOf('ASSET_CATEGORY', row.assetType) || row.assetType }}</template>
+            </el-table-column>
+            <el-table-column prop="department" label="使用部门" width="130">
+              <template #default="{ row }">{{ orgStore.deptName(row.department) || row.department || '—' }}</template>
+            </el-table-column>
+            <el-table-column prop="location" label="存放位置" width="110" />
             <el-table-column prop="inboundDate" label="入库日期" width="110">
               <template #default="{ row }">{{ row.inboundDate || '—' }}</template>
             </el-table-column>
             <el-table-column prop="original" label="资产原值" width="130">
               <template #default="{ row }">¥{{ money(row.original) }}</template>
             </el-table-column>
-            <el-table-column prop="schemeName" label="折旧方案" min-width="150" show-overflow-tooltip>
-              <template #default="{ row }">
-                <el-tag v-if="row.schemeName === '未配置'" type="danger" size="small" effect="plain">未配置</el-tag>
-                <span v-else>{{ row.schemeName }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="months" label="已计提月数" width="100">
-              <template #default="{ row }">{{ row.months }}</template>
-            </el-table-column>
+            <el-table-column prop="planName" label="适用规则/计划" min-width="150" show-overflow-tooltip />
+            <el-table-column prop="usedLife" label="已提月数" width="90" />
             <el-table-column prop="monthly" label="月折旧额" width="120">
               <template #default="{ row }">¥{{ money(row.monthly) }}</template>
             </el-table-column>
             <el-table-column prop="accumulated" label="累计折旧" width="130">
               <template #default="{ row }">¥{{ money(row.accumulated) }}</template>
             </el-table-column>
-            <el-table-column prop="net" label="资产净值" min-width="130">
-              <template #default="{ row }">¥{{ money(row.net) }}</template>
+            <el-table-column prop="netValue" label="资产净值" min-width="130">
+              <template #default="{ row }">¥{{ money(row.netValue) }}</template>
+            </el-table-column>
+            <el-table-column label="状态" width="90">
+              <template #default="{ row }">
+                <el-tag :type="row.finished ? 'info' : 'success'" size="small" effect="plain">{{ row.finished ? '已提足' : '计提中' }}</el-tag>
+              </template>
             </el-table-column>
           </el-table>
 
-          <div class="section-title" style="margin-top:24px">
+          <div v-if="can('fa:depreciation')" class="section-title" style="margin-top:24px">
             <span>折旧计提报表</span>
             <el-button v-if="can('fa:export')" type="primary" plain size="small" @click="exportDepreciation">导出折旧报表</el-button>
           </div>
-          <el-table :data="depreciationReports" style="width: 100%" show-summary :summary-method="depreciationSummaries">
+          <el-table v-if="can('fa:depreciation')" :data="depreciationReports" style="width: 100%" show-summary :summary-method="depreciationSummaries">
             <el-table-column prop="period" label="折旧期间" width="120" />
             <el-table-column prop="openingValue" label="期初原值" width="140">
               <template #default="{ row }">¥{{ money(row.openingValue) }}</template>
@@ -508,40 +481,6 @@
         <el-button @click="inventoryDrawerVisible = false">关闭</el-button>
       </template>
     </el-drawer>
-
-    <!-- 折旧方案对话框 -->
-    <el-dialog v-model="schemeDialogVisible" :title="schemeForm.schemeNo ? '编辑折旧方案' : '新增折旧方案'" width="520px">
-      <el-form :model="schemeForm" label-width="100px">
-        <el-form-item label="方案名称" required>
-          <el-input v-model="schemeForm.schemeName" placeholder="如：电子设备年限平均法" />
-        </el-form-item>
-        <el-form-item label="折旧方式" required>
-          <el-select v-model="schemeForm.method" style="width:100%">
-            <!-- 存编码不存文案：契约声明为 DEPRECIATION_METHOD 枚举，写中文会校验失败 -->
-            <el-option v-for="m in depreciationMethodOptions" :key="m.value" :label="m.label" :value="m.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="折旧年限" required>
-          <el-input-number v-model="schemeForm.years" :min="1" :max="50" /> 年
-        </el-form-item>
-        <el-form-item label="残值率" required>
-          <el-input-number v-model="schemeForm.residualRate" :min="0" :max="30" :precision="1" :step="0.5" /> %
-        </el-form-item>
-        <el-form-item label="适用分类" required>
-          <el-select v-model="schemeForm.applicableCategory" style="width:100%">
-            <el-option label="全部分类" value="全部分类" />
-            <el-option v-for="c in categoryCodeOptions" :key="c.value" :label="c.label" :value="c.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="月折旧率">
-          <span class="plan-hint">{{ computedMonthlyRate }}%（按年限平均法自动测算）</span>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="schemeDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitScheme">保存方案</el-button>
-      </template>
-    </el-dialog>
 
     <el-dialog v-model="assetDialogVisible" :title="assetEditId ? '修改资产' : '新增资产'" width="960px" top="6vh">
       <el-form :model="assetForm" label-width="120px">
@@ -952,7 +891,7 @@ function statusText(status) {
   return status
 }
 import { useCollection } from '../../composables/useCollection'
-import { COLLECTION } from '../../services'
+import { dataService, COLLECTION } from '../../services'
 
 const fixedAssetStore = useFixedAssetStore()
 const userStore = useUserStore()
@@ -990,6 +929,16 @@ onMounted(applyDeepLink)
 onMounted(() => {
   fixedAssetStore.loadAll().catch(() => {})
   if (!orgStore.loaded) orgStore.loadAll().catch(() => {})
+})
+// 折旧台账是后端产物，进入页签时按当前期间拉取；报表仅折旧执行角色需要
+onMounted(() => {
+  loadDepreciationPlan()
+  if (can('fa:depreciation')) depreciationReportCol.load()
+})
+watch(activeTab, tab => {
+  if (tab !== 'depreciation') return
+  loadDepreciationPlan()
+  if (can('fa:depreciation')) depreciationReportCol.load()
 })
 // 同页面内通过 query 切换页签时也要响应（工作台"去处理"跳转）
 watch(() => route.query, applyDeepLink)
@@ -1351,72 +1300,9 @@ function deletePlan(row) {
 }
 
 // ==================== 折旧管理 ====================
-const depreciationSchemeCol = useCollection(COLLECTION.depreciationSchemes)
-const depreciationSchemes = depreciationSchemeCol.items
-// 设置页「折旧设置」中的方案同样参与台账计算；该表没有年限字段，按折旧规则/分类默认年限补
-const settingsDepreciationPlans = useCollection(COLLECTION.settingsDepreciationPlans).items
-const settingsDepreciationRules = useCollection(COLLECTION.settingsDepreciationRules).items
-
-/** ASSET_CATEGORY 的默认折旧年限，折旧规则未覆盖时兜底 */
-const DEFAULT_YEARS = { ELECTRONIC: 5, MACHINE: 10, VEHICLE: 8, FURNITURE: 8, BUILDING: 40, SUPPLIES: 5, MATERIAL: 2, OTHER: 10 }
-
-/** 设置页方案只配了资产类型，没有年限：优先按同名折旧规则取，其次按分类默认值 */
-function yearsForPlan(category) {
-  const label = labelOf('ASSET_CATEGORY', category)
-  const rule = settingsDepreciationRules.value.find(r => r.name && label && r.name.includes(label))
-  return Number(rule?.usefulLife) || DEFAULT_YEARS[category] || 5
-}
-
-/**
- * 取资产适用的折旧方案：先匹配台账自建方案（需启用），再回退到设置页方案。
- * 历史数据的 applicableCategory 可能存中文，这里同时按编码和中文比对。
- */
-function schemeFor(category, companyId) {
-  const label = labelOf('ASSET_CATEGORY', category)
-  const own = depreciationSchemes.value.find(s => s.enabled && (
-    s.applicableCategory === category ||
-    (label && s.applicableCategory === label) ||
-    s.applicableCategory === '全部分类'
-  ))
-  if (own) return own
-
-  const plan = settingsDepreciationPlans.value.find(p => {
-    const types = Array.isArray(p.assetTypes) ? p.assetTypes : []
-    const hitType = types.length === 0 || types.includes(category) || (label && types.includes(label))
-    const hitCompany = !p.companyId || !companyId || p.companyId === companyId
-    return hitType && hitCompany
-  })
-  if (!plan) return null
-  return {
-    schemeName: plan.name,
-    method: plan.method || 'STRAIGHT_LINE',
-    years: yearsForPlan(category),
-    residualRate: Number(plan.residualRate ?? 5),
-    fromSettings: true
-  }
-}
-
-const depreciationLedger = computed(() => assetLedger.value.map(a => {
-  const s = schemeFor(a.categoryCode, a.companyId)
-  const original = Number.isFinite(Number(a.original)) ? Number(a.original) : 0
-  const residualRate = s ? Number(s.residualRate) || 0 : 0
-  // 可折旧总额（扣除残值）；无方案时为 0，后续累计折旧自然为 0
-  const cap = s ? original * (1 - residualRate / 100) : 0
-  const monthly = round2(monthlyDepreciation(original, s))
-  const months = monthsSince(a.inboundDate, currentPeriod())
-  const accumulated = Math.min(round2(monthly * months), round2(cap))
-  return {
-    ...a,
-    original,
-    schemeName: s ? s.schemeName : '未配置',
-    residualRate,
-    years: s ? Number(s.years) || 0 : 0,
-    monthly,
-    months,
-    accumulated,
-    net: round2(original - accumulated)
-  }
-}))
+// 配置只认「设置页 → 折旧规则 / 折旧计划」，计提与台账全部由后端产出：
+// 试算 POST /depreciation/preview、计提 POST /depreciation/run、台账 GET /depreciation/plan。
+// 前端不再自算折旧，也不再维护「折旧方案」（已废弃）。
 
 function currentPeriod(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
@@ -1434,101 +1320,104 @@ function money(value) {
   return (Number.isFinite(n) ? n : 0).toLocaleString()
 }
 
-/**
- * 单资产月折旧额。方案缺失、年限为 0 或原值非法时返回 0，
- * 避免 cap / (years * 12) 出现除零与非有限数。
- */
-function monthlyDepreciation(original, scheme) {
-  if (!scheme) return 0
-  const value = Number(original)
-  const years = Number(scheme.years)
-  const rate = Number(scheme.residualRate) || 0
-  if (!Number.isFinite(value) || !Number.isFinite(years) || years <= 0) return 0
-  return (value * (1 - rate / 100)) / (years * 12)
-}
-
-/**
- * 入库日期到计提期间的整月数。
- * 入库日期缺失或非法时返回 0：否则 Invalid Date 会让月数变 NaN，
- * 进而把累计折旧与 KPI 汇总污染成 ¥NaN。
- */
-function monthsSince(inboundDate, period) {
-  if (!inboundDate) return 0
-  const start = new Date(inboundDate)
-  if (Number.isNaN(start.getTime())) return 0
-  const [y, m] = String(period || '').split('-').map(Number)
-  if (!Number.isFinite(y) || !Number.isFinite(m)) return 0
-  return Math.max(0, (y - start.getFullYear()) * 12 + (m - 1 - start.getMonth()))
-}
-
-function accumulatedThrough(period) {
-  return round2(depreciationLedger.value.reduce((sum, a) => {
-    const s = schemeFor(a.categoryCode, a.companyId)
-    if (!s) return sum
-    const cap = a.original * (1 - (Number(s.residualRate) || 0) / 100)
-    const monthly = monthlyDepreciation(a.original, s)
-    return sum + Math.min(monthly * monthsSince(a.inboundDate, period), cap)
-  }, 0))
-}
-
-const totalOriginal = computed(() => round2(depreciationLedger.value.reduce((s, a) => s + a.original, 0)))
-
-const depreciationSummary = computed(() => {
-  const original = totalOriginal.value
-  const accumulated = round2(depreciationLedger.value.reduce((s, a) => s + a.accumulated, 0))
-  return {
-    original,
-    accumulated,
-    net: round2(original - accumulated),
-    monthly: round2(depreciationLedger.value.reduce((s, a) => s + a.monthly, 0))
-  }
-})
-
-const depreciationReportCol = useCollection(COLLECTION.depreciationReports)
+// 计提报表属于折旧执行数据（fa:depreciation），普通角色不加载、不渲染
+const depreciationReportCol = useCollection(COLLECTION.depreciationReports, { immediate: false })
 const depreciationReports = depreciationReportCol.items
 
-function prevPeriod(period) {
-  const [y, m] = period.split('-').map(Number)
-  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`
-}
+/** 台账期间：默认当月，可切换到历史期间查看已计提结果 */
+const depPeriod = ref(currentPeriod())
+const depreciationPlanRows = ref([])
+const planLoading = ref(false)
 
-// 报表数值依赖资产台账，数据在挂载后异步载入，因此改为加载完成后再回填
-function enrichReports() {
-  if (!depreciationReports.value.length) return
-  depreciationReports.value.forEach(report => {
-    report.accumulated = accumulatedThrough(report.period)
-    report.periodDepreciation = Math.round((report.accumulated - accumulatedThrough(prevPeriod(report.period))) * 100) / 100
-    report.closingNet = Math.round((totalOriginal.value - report.accumulated) * 100) / 100
-    report.assetCount = depreciationLedger.value.filter(a => schemeFor(a.categoryCode, a.companyId)).length
-  })
-}
+/** 后端返回的期间汇总：原值 / 本期折旧 / 累计 / 期末净值 */
+const depPlanMeta = ref({ openingValue: 0, periodDepreciation: 0, accumulated: 0, closingNet: 0 })
 
-watch(depreciationReports, enrichReports, { immediate: true })
-
-function runDepreciation() {
-  const period = currentPeriod()
-  if (depreciationReports.value.some(r => r.period === period)) {
-    ElMessage.warning(`${period} 折旧已计提，请勿重复计提`)
-    return
+async function loadDepreciationPlan() {
+  planLoading.value = true
+  try {
+    const res = await dataService.depreciationPlan({ month: depPeriod.value })
+    depreciationPlanRows.value = res?.rows || []
+    depPlanMeta.value = {
+      openingValue: res?.openingValue || 0,
+      periodDepreciation: res?.periodDepreciation || 0,
+      accumulated: res?.accumulated || 0,
+      closingNet: res?.closingNet || 0
+    }
+  } catch (e) {
+    depreciationPlanRows.value = []
+    depPlanMeta.value = { openingValue: 0, periodDepreciation: 0, accumulated: 0, closingNet: 0 }
+    ElMessage.error(e?.message || '折旧台账加载失败')
+  } finally {
+    planLoading.value = false
   }
-  const accumulated = accumulatedThrough(period)
-  const periodAmount = round2(accumulated - accumulatedThrough(prevPeriod(period)))
-  depreciationReportCol.add({
-    period,
-    openingValue: totalOriginal.value,
-    periodDepreciation: periodAmount,
-    accumulated,
-    closingNet: round2(totalOriginal.value - accumulated),
-    assetCount: depreciationLedger.value.filter(a => schemeFor(a.categoryCode, a.companyId)).length,
-    operator: '管理员',
-    runDate: nowText()
+}
+
+const planSummary = computed(() => ({
+  original: round2(depPlanMeta.value.openingValue),
+  accumulated: round2(depPlanMeta.value.accumulated),
+  // 本期折旧取后端汇总，不能用「月折旧额」求和（提足资产月折旧额不为 0）
+  monthly: round2(depPlanMeta.value.periodDepreciation),
+  net: round2(depPlanMeta.value.closingNet)
+}))
+
+const categoryDepreciation = computed(() => {
+  const map = {}
+  depreciationPlanRows.value.forEach(r => {
+    const code = r.assetType || 'OTHER'
+    if (!map[code]) {
+      map[code] = { category: labelOf('ASSET_CATEGORY', code) || code, count: 0, original: 0, accumulated: 0 }
+    }
+    map[code].count += 1
+    map[code].original += Number(r.original) || 0
+    map[code].accumulated += Number(r.accumulated) || 0
   })
-  ElMessage.success(`${period} 折旧计提完成，本期计提 ¥${periodAmount.toLocaleString()}`)
+  return Object.values(map).map(c => ({
+    ...c,
+    original: round2(c.original),
+    accumulated: round2(c.accumulated),
+    net: round2(c.original - c.accumulated),
+    rate: c.original ? Math.round(c.accumulated / c.original * 100) : 0
+  }))
+})
+
+/** 试算：先给金额，再让用户决定是否落库 */
+async function previewDepreciation() {
+  try {
+    const res = await dataService.previewDepreciation(depPeriod.value)
+    const count = res?.assetCount ?? 0
+    await ElMessageBox.confirm(
+      `期间 ${depPeriod.value}：参与计提 ${count} 项资产，本期折旧合计 ¥${money(res?.periodDepreciation)}。是否执行计提？`,
+      '折旧试算', { confirmButtonText: '执行计提', cancelButtonText: '取消', type: 'info' }
+    )
+    await doRunDepreciation()
+  } catch (e) {
+    if (e === 'cancel' || e === 'close') return
+    ElMessage.error(e?.message || '折旧试算失败')
+  }
+}
+
+async function runDepreciation() {
+  try {
+    await ElMessageBox.confirm(
+      `确认对 ${depPeriod.value} 执行折旧计提？同一期间重复计提会覆盖该期间原有明细与报表。`,
+      '计提确认', { type: 'warning' }
+    )
+    await doRunDepreciation()
+  } catch (e) {
+    if (e === 'cancel' || e === 'close') return
+    ElMessage.error(e?.message || '折旧计提失败')
+  }
+}
+
+async function doRunDepreciation() {
+  const res = await dataService.runDepreciation(depPeriod.value)
+  await Promise.all([loadDepreciationPlan(), depreciationReportCol.load()])
+  ElMessage.success(`${depPeriod.value} 计提完成：${res?.assetCount ?? 0} 项资产，本期折旧 ¥${money(res?.periodDepreciation)}`)
 }
 
 function exportDepreciation() {
   downloadCsv(
-    `固定资产折旧报表_${currentPeriod()}.csv`,
+    `固定资产折旧报表_${depPeriod.value}.csv`,
     ['折旧期间', '期初原值', '本期折旧', '累计折旧', '期末净值', '计提资产数', '计提人', '计提日期'],
     depreciationReports.value.map(r => [r.period, r.openingValue, r.periodDepreciation, r.accumulated, r.closingNet, r.assetCount, r.operator, r.runDate])
   )
@@ -1537,9 +1426,13 @@ function exportDepreciation() {
 
 function exportDepreciationLedger() {
   downloadCsv(
-    `固定资产折旧台账_${currentPeriod()}.csv`,
-    ['资产编号', '资产名称', '分类', '使用部门', '存放位置', '入库日期', '资产原值', '折旧方案', '已计提月数', '月折旧额', '累计折旧', '资产净值'],
-    depreciationLedger.value.map(a => [a.assetNo, a.assetName, a.category, a.department, a.location, a.inboundDate, a.original, a.schemeName, a.months, a.monthly, a.accumulated, a.net])
+    `固定资产折旧台账_${depPeriod.value}.csv`,
+    ['资产编号', '资产名称', '分类', '使用部门', '存放位置', '入库日期', '资产原值', '适用规则/计划', '已提月数', '月折旧额', '累计折旧', '资产净值'],
+    depreciationPlanRows.value.map(r => [
+      r.assetNo, r.assetName, labelOf('ASSET_CATEGORY', r.assetType) || r.assetType,
+      orgStore.deptName(r.department) || r.department, r.location, r.inboundDate, r.original, r.planName,
+      r.usedLife, r.monthly, r.accumulated, r.netValue
+    ])
   )
   ElMessage.success('资产折旧台账已导出')
 }
@@ -1552,99 +1445,6 @@ function depreciationSummaries({ columns, data }) {
     }
     return ''
   })
-}
-
-const categoryDepreciation = computed(() => {
-  const map = {}
-  depreciationLedger.value.forEach(a => {
-    if (!map[a.category]) map[a.category] = { category: a.category, count: 0, original: 0, accumulated: 0 }
-    map[a.category].count += a.quantity
-    map[a.category].original += a.original
-    map[a.category].accumulated += a.accumulated
-  })
-  return Object.values(map).map(c => ({
-    ...c,
-    original: Math.round(c.original * 100) / 100,
-    accumulated: Math.round(c.accumulated * 100) / 100,
-    net: Math.round((c.original - c.accumulated) * 100) / 100,
-    rate: c.original ? Math.round(c.accumulated / c.original * 100) : 0
-  }))
-})
-
-const schemeDialogVisible = ref(false)
-const schemeForm = reactive({ schemeNo: '', schemeName: '', method: 'STRAIGHT_LINE', years: 5, residualRate: 5, applicableCategory: '全部分类' })
-
-const computedMonthlyRate = computed(() => {
-  if (!schemeForm.years) return '0.0000'
-  return ((1 - schemeForm.residualRate / 100) / (schemeForm.years * 12) * 100).toFixed(4)
-})
-
-function handleCreateScheme() {
-  Object.assign(schemeForm, { schemeNo: '', schemeName: '', method: 'STRAIGHT_LINE', years: 5, residualRate: 5, applicableCategory: '全部分类' })
-  schemeDialogVisible.value = true
-}
-
-function editScheme(row) {
-  Object.assign(schemeForm, {
-    schemeNo: row.schemeNo,
-    schemeName: row.schemeName,
-    method: row.method,
-    years: row.years,
-    residualRate: row.residualRate,
-    applicableCategory: row.applicableCategory
-  })
-  schemeDialogVisible.value = true
-}
-
-function submitScheme() {
-  if (!schemeForm.schemeName) {
-    ElMessage.warning('请填写方案名称')
-    return
-  }
-  const monthlyRate = parseFloat(computedMonthlyRate.value)
-  if (schemeForm.schemeNo) {
-    const target = depreciationSchemes.value.find(s => s.schemeNo === schemeForm.schemeNo)
-    Object.assign(target, {
-      schemeName: schemeForm.schemeName,
-      method: schemeForm.method,
-      years: schemeForm.years,
-      residualRate: schemeForm.residualRate,
-      monthlyRate,
-      applicableCategory: schemeForm.applicableCategory
-    })
-    depreciationSchemeCol.update(target)
-    ElMessage.success('折旧方案已更新，折旧台账已按新方案重算')
-  } else {
-    depreciationSchemeCol.add({
-      schemeNo: `ZJ-${String(depreciationSchemes.value.length + 1).padStart(3, '0')}`,
-      schemeName: schemeForm.schemeName,
-      method: schemeForm.method,
-      years: schemeForm.years,
-      residualRate: schemeForm.residualRate,
-      monthlyRate,
-      applicableCategory: schemeForm.applicableCategory,
-      enabled: true
-    })
-    ElMessage.success('折旧方案创建成功')
-  }
-  schemeDialogVisible.value = false
-}
-
-async function toggleScheme(row) {
-  // v-model 已把 row.enabled 翻到新值；这里负责持久化（失败由 useCollection 回滚本地值）
-  try {
-    await depreciationSchemeCol.update(row)
-    ElMessage.success(`折旧方案"${row.schemeName}"已${row.enabled ? '启用' : '停用'}`)
-  } catch (e) {
-    ElMessage.error(e?.message || '折旧方案状态保存失败')
-  }
-}
-
-function deleteScheme(row) {
-  ElMessageBox.confirm(`确认删除折旧方案"${row.schemeName}"？删除后对应分类资产将不再计提折旧。`, '删除确认', { type: 'warning' }).then(() => {
-    depreciationSchemeCol.remove(row)
-    ElMessage.success('折旧方案已删除')
-  }).catch(() => {})
 }
 
 const inventoryDocCol = useCollection(COLLECTION.inventoryDocs)

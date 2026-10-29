@@ -27,7 +27,8 @@ export const PERMISSION_TREE = [
       { id: 'fa:dispose', label: '资产处置' },
       { id: 'fa:inventory', label: '资产盘点' },
       { id: 'fa:depreciation', label: '折旧管理' },
-      { id: 'fa:report', label: '资产报表' }
+      { id: 'fa:report', label: '资产报表' },
+      { id: 'fa:settings', label: '基础设置' }
     ]
   },
   {
@@ -40,7 +41,8 @@ export const PERMISSION_TREE = [
       { id: 'lv:inbound', label: '入库办理' },
       { id: 'lv:requisition', label: '领用办理' },
       { id: 'lv:return', label: '退库办理' },
-      { id: 'lv:report', label: '资产报表' }
+      { id: 'lv:report', label: '资产报表' },
+      { id: 'lv:settings', label: '基础设置' }
     ]
   },
   {

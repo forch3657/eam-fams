@@ -43,14 +43,20 @@ public class DepreciationController {
         return R.ok(depreciationService.run(periodOf(body)));
     }
 
-    /** 折旧计划明细查询（派生自计划明细集合） */
+    /**
+     * 折旧计划明细查询（派生自计划明细集合）。
+     * 这是已落库的计提结果，属于台账只读数据，因此只需资产查看权限即可读取。
+     */
     @GetMapping("/plan")
     public R<Map<String, Object>> plan(@RequestParam(required = false) String month,
                                        @RequestParam(required = false) String keyword) {
-        require();
+        if (!AuthContext.hasPermission("fa:view")) {
+            throw new ApiException(ErrorCode.FORBIDDEN, "无资产查看权限：fa:view");
+        }
         return R.ok(depreciationService.plan(month, keyword));
     }
 
+    /** 试算与计提会重写当期明细，必须持有折旧执行权限 */
     private static void require() {
         if (!AuthContext.hasPermission(PERMISSION)) {
             throw new ApiException(ErrorCode.FORBIDDEN, "无折旧计提权限：" + PERMISSION);

@@ -76,13 +76,11 @@ public class DepreciationService {
         DepreciationResult result = calculate(period);
 
         genericService.clear(DETAILS);
-        genericService.clear(PLAN_DETAILS);
         for (Map<String, Object> row : result.getDetails()) {
             genericService.create(DETAILS, row);
         }
-        for (Map<String, Object> row : result.getPlanDetails()) {
-            genericService.create(PLAN_DETAILS, row);
-        }
+        // 折旧台账信息量较大且需要随资产变动实时反映，改为 /depreciation/plan 实时计算，
+        // 不再落 PLAN_DETAILS，避免为该表维护一套与资产表重复的冗余字段。
 
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("period", result.getPeriod());
@@ -103,24 +101,31 @@ public class DepreciationService {
         return result;
     }
 
-    /** 折旧计划明细：按月份与关键字过滤；month 形如 2026-09 */
+    /**
+     * 折旧台账：按期间实时计算，返回每项资产的规则/方法/月折旧/累计/净值。
+     * month 形如 2026-09，缺省取当前月。
+     */
     @Transactional(readOnly = true)
     public Map<String, Object> plan(String month, String keyword) {
-        String period = month == null ? "" : month.trim();
+        String period = month == null || month.trim().isEmpty() ? YearMonth.now().toString() : month.trim();
         String word = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
+        DepreciationResult calculated = calculate(period);
+
         List<Map<String, Object>> rows = new ArrayList<>();
-        for (Map<String, Object> row : genericService.list(PLAN_DETAILS, Collections.emptyMap())) {
-            if (!period.isEmpty() && !textOf(row, "depDate").startsWith(period)) {
-                continue;
-            }
+        for (Map<String, Object> row : calculated.getPlanDetails()) {
             if (!word.isEmpty() && !matches(row, word)) {
                 continue;
             }
             rows.add(row);
         }
         Map<String, Object> result = new LinkedHashMap<>();
+        result.put("period", calculated.getPeriod());
         result.put("rows", rows);
         result.put("total", rows.size());
+        result.put("openingValue", calculated.getOpeningValue());
+        result.put("periodDepreciation", calculated.getPeriodDepreciation());
+        result.put("accumulated", calculated.getAccumulated());
+        result.put("closingNet", calculated.getClosingNet());
         return result;
     }
 
@@ -193,12 +198,14 @@ public class DepreciationService {
         String categoryName = enumCatalog.label("ASSET_CATEGORY", categoryCode);
 
         Map<String, Object> plan = matchPlan(plans, asset, categoryCode);
-        Map<String, Object> rule = matchRule(rules, categoryName);
+        Map<String, Object> rule = matchRule(rules, categoryCode, categoryName);
         Map<String, Object> categoryRow = matchCategory(categories, categoryName);
 
         BigDecimal residualRate = firstNumber(numberOf(plan, "residualRate"),
                 numberOf(rule, "residualRate"), DepreciationCalculator.DEFAULT_RESIDUAL_RATE);
-        int years = firstInt(intOf(rule, "usefulLife"), intOf(categoryRow, "usefulLife"), DEFAULT_YEARS);
+        // 年限口径：折旧规则 → 折旧计划（可选覆盖）→ 分类维护值 → 缺省 5 年
+        int years = firstInt(intOf(rule, "usefulLife"), intOf(plan, "usefulLife"),
+                intOf(categoryRow, "usefulLife"), DEFAULT_YEARS);
         String method = pick(textOf(plan, "method"), textOf(rule, "method"),
                 textOf(categoryRow, "depreciationMethod"));
 
@@ -207,7 +214,8 @@ public class DepreciationService {
         resolution.setResidualRate(residualRate);
         resolution.setUsefulLifeYears(years);
         resolution.setTotalMonths(DepreciationCalculator.totalMonths(numberOf(asset, "leaseMonths"), years));
-        resolution.setPlanName(textOf(plan, "name"));
+        // 计划缺失时回落到规则名称，台账不至于整列显示「未配置」
+        resolution.setPlanName(pick(textOf(plan, "name"), textOf(rule, "name"), "默认折旧"));
         return resolution;
     }
 
@@ -229,7 +237,17 @@ public class DepreciationService {
         return fallback;
     }
 
-    private static Map<String, Object> matchRule(List<Map<String, Object>> rules, String categoryName) {
+    private static Map<String, Object> matchRule(List<Map<String, Object>> rules, String categoryCode,
+                                                String categoryName) {
+        // 首选口径：规则的 categoryCode 与资产分类编码精确对应
+        if (!categoryCode.isEmpty()) {
+            for (Map<String, Object> rule : rules) {
+                if (categoryCode.equalsIgnoreCase(textOf(rule, "categoryCode"))) {
+                    return rule;
+                }
+            }
+        }
+        // 兼容历史数据：规则名称包含分类中文名（如「电子设备折旧规则」↔「电子设备」）
         if (categoryName.isEmpty()) {
             return rules.isEmpty() ? null : rules.get(0);
         }
@@ -394,13 +412,28 @@ public class DepreciationService {
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("planName", resolution.getPlanName());
         row.put("assetId", asset.get("id"));
+        row.put("assetNo", asset.get("code"));
         row.put("assetName", asset.get("name"));
         row.put("assetType", asset.get("category"));
         row.put("companyId", asset.get("companyId"));
+        // 资产表存的是部门主键，前端按组织树翻译成名称
+        row.put("department", asset.get("dept_id"));
+        row.put("location", asset.get("location"));
+        // 入库日期可能为空串：契约按 date 校验，空串会直接 422，这里统一转成日期或 null
+        LocalDate inbound = DepreciationCalculator.toLocalDate(asset.get("inboundDate"));
+        row.put("inboundDate", inbound == null ? startDateOf(asset) : inbound);
+        row.put("method", line.getMethod());
         row.put("original", line.getOriginalValue());
         row.put("residualRate", line.getResidualRate());
+        // 台账口径的「月折旧额」= 应计提总额 / 总月数，不随是否提足归零
+        int totalMonths = line.getTotalMonths();
+        row.put("monthly", totalMonths > 0
+                ? line.getCap().divide(BigDecimal.valueOf(totalMonths), 2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO);
         row.put("totalLife", line.getTotalMonths());
         row.put("usedLife", line.getUsedMonths());
+        row.put("accumulated", line.getAccumulated());
+        row.put("netValue", line.getNetValue());
         row.put("depDate", periodEnd.withDayOfMonth(1));
         row.put("finished", line.isFinished());
         return row;

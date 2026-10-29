@@ -13,6 +13,7 @@ import { ApiError, ERROR_CODES, apiError } from '../errors'
 import { USER_STORAGE_KEY } from '../keys'
 import { getContract, idFieldOf, validateSeed, assertValid } from '../contract'
 import { applyQuery, paginate } from './query'
+import { labelOf } from '../../constants/enums'
 import { checkUnique, checkRefs, checkProtect, applyStock, applyStockOnStatusChange, releaseStock, checkReturnLimit, primaryOf } from './rules'
 
 const db = new Map()
@@ -166,8 +167,146 @@ async function simulate() {
   }
 }
 
+/** 期间与起始日之间的整月数（mock 演示口径，与后端 usedMonths 一致） */
+function monthsBetween(startText, period) {
+  if (!startText) return 0
+  const start = new Date(startText)
+  if (Number.isNaN(start.getTime())) return 0
+  const [y, m] = String(period || '').split('-').map(Number)
+  if (!Number.isFinite(y) || !Number.isFinite(m)) return 0
+  return Math.max(0, (y - start.getFullYear()) * 12 + (m - 1 - start.getMonth()))
+}
+
+/**
+ * mock 模式的折旧试算/计提：与后端 DepreciationService 同口径的直线法简化实现。
+ * 演示环境的规则/计划数据量很小，按「规则名称包含分类中文名」匹配即可。
+ */
+function mockDepreciation(period, persist) {
+  const assets = ensure('fixed-assets').filter(a => a && (a.depreciate === true || a.depreciate === 'true'))
+  const rules = ensure('fixed-asset-settings-depreciation-rules')
+  const details = []
+  const planRows = []
+  let opening = 0
+  let monthlyTotal = 0
+  let accumulatedTotal = 0
+  let netTotal = 0
+
+  assets.forEach(asset => {
+    const category = asset.category || asset.categoryCode || ''
+    const categoryName = labelOf('ASSET_CATEGORY', category)
+    const rule = rules.find(r => r.name && categoryName && r.name.includes(categoryName)) || rules[0]
+    const years = Number(rule?.usefulLife) || 5
+    const residualRate = Number(rule?.residualRate ?? 5)
+    const original = Number(asset.original ?? asset.amount ?? 0)
+    const totalMonths = Math.max(1, years * 12)
+    const cap = original * (1 - residualRate / 100)
+    const monthly = Math.round(cap / totalMonths * 100) / 100
+    const used = Math.min(monthsBetween(asset.inboundDate || asset.purchaseDate, period), totalMonths)
+    const accumulated = Math.min(Math.round(monthly * used * 100) / 100, Math.round(cap * 100) / 100)
+    const net = Math.round((original - accumulated) * 100) / 100
+
+    details.push({
+      id: nextId(),
+      assetId: asset.id,
+      name: asset.name,
+      originalValue: original,
+      depreciationMethod: rule?.method || 'STRAIGHT_LINE',
+      usefulLife: totalMonths,
+      accumulatedDepreciation: accumulated,
+      netValue: net,
+      rate: Math.round(monthly / (original || 1) * 10000) / 100,
+      purchaseDate: asset.purchaseDate || asset.inboundDate
+    })
+    planRows.push({
+      id: nextId(),
+      planName: rule?.name || '默认折旧',
+      assetId: asset.id,
+      assetNo: asset.assetNo,
+      assetName: asset.name,
+      assetType: category,
+      companyId: asset.companyId,
+      department: asset.department,
+      location: asset.location,
+      inboundDate: asset.inboundDate,
+      method: rule?.method || 'STRAIGHT_LINE',
+      original,
+      residualRate,
+      monthly,
+      totalLife: totalMonths,
+      usedLife: used,
+      accumulated,
+      netValue: net,
+      depDate: `${period}-01`,
+      finished: used >= totalMonths
+    })
+    opening += original
+    monthlyTotal += monthly
+    accumulatedTotal += accumulated
+    netTotal += net
+  })
+
+  const round2 = v => Math.round(v * 100) / 100
+  const result = {
+    period,
+    openingValue: round2(opening),
+    periodDepreciation: round2(monthlyTotal),
+    accumulated: round2(accumulatedTotal),
+    closingNet: round2(netTotal),
+    assetCount: details.length,
+    details,
+    planDetails: planRows
+  }
+
+  if (persist) {
+    const detailRows = ensure('fixed-asset-report-depreciation-details')
+    detailRows.length = 0
+    details.forEach(row => detailRows.push(row))
+    const planDetailRows = ensure('fixed-asset-report-depreciation-plan-details')
+    planDetailRows.length = 0
+    planRows.forEach(row => planDetailRows.push(row))
+
+    const reports = ensure('fixed-asset-depreciation-reports')
+    const report = {
+      period,
+      openingValue: result.openingValue,
+      periodDepreciation: result.periodDepreciation,
+      accumulated: result.accumulated,
+      closingNet: result.closingNet,
+      assetCount: result.assetCount,
+      operator: actorName(),
+      runDate: nowIso()
+    }
+    const existing = reports.find(r => r.period === period)
+    if (existing) Object.assign(existing, report)
+    else reports.push({ id: nextId(), ...report, createTime: nowIso(), updateTime: nowIso(), version: 1 })
+    ctx.persist()
+  }
+  return clone(result)
+}
+
 export const mockService = {
   registerSeed,
+
+  /** 折旧试算：只算不写 */
+  async previewDepreciation(period) {
+    await simulate()
+    return mockDepreciation(period, false)
+  },
+
+  /** 折旧计提：重写当期明细与报表 */
+  async runDepreciation(period) {
+    await simulate()
+    return mockDepreciation(period, true)
+  },
+
+  /** 折旧计划明细 */
+  async depreciationPlan(params = {}) {
+    await simulate()
+    const month = params.month || ''
+    const rows = ensure('fixed-asset-report-depreciation-plan-details')
+      .filter(r => !month || String(r.depDate || '').startsWith(month))
+    return { rows: clone(rows), total: rows.length }
+  },
 
   /** 列表查询：支持过滤/关键字/排序，返回全部命中行 */
   async list(key, params = {}) {

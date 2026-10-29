@@ -921,6 +921,70 @@
           "unique": false,
           "enumName": null,
           "refCollection": null
+        },
+        {
+          "name": "assetNo",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "department",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "location",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "inboundDate",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "method",
+          "type": "enum",
+          "required": false,
+          "unique": false,
+          "enumName": "DEPRECIATION_METHOD",
+          "refCollection": null
+        },
+        {
+          "name": "monthly",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "accumulated",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "netValue",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
         }
       ],
       "uniqueFields": [],

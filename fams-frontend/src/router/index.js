@@ -45,7 +45,7 @@ const routes = [
         path: 'fixed-asset-settings',
         name: 'FixedAssetSettings',
         component: () => import('../views/fixed-asset/FixedAssetSettings.vue'),
-        meta: { title: '基础设置', permission: 'fa:view' }
+        meta: { title: '基础设置', permission: 'fa:settings' }
       },
 
       // 低值资产
@@ -65,7 +65,7 @@ const routes = [
         path: 'low-value-asset-settings',
         name: 'LowValueAssetSettings',
         component: () => import('../views/low-value-asset/LowValueAssetSettings.vue'),
-        meta: { title: '低值资产基础设置', permission: 'lv:view' }
+        meta: { title: '低值资产基础设置', permission: 'lv:settings' }
       },
 
       // 组织架构

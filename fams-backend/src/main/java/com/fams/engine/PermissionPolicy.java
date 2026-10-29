@@ -34,9 +34,11 @@ public class PermissionPolicy {
         DELETE.put("fixed-assets", new String[]{"fa:delete"});
 
         READ.put("fixed-asset-reports", new String[]{"fa:report"});
-        READ.put("fixed-asset-settings", new String[]{"fa:edit"});
-        WRITE.put("fixed-asset-settings", new String[]{"fa:edit"});
-        DELETE.put("fixed-asset-settings", new String[]{"fa:edit"});
+        // 资产基础配置（位置 / 分类 / 折旧规则与方案）是独立职责，用 fa:settings 单列，
+        // 不再借用 fa:edit —— 否则所有能编辑资产的人都能改基础配置。
+        READ.put("fixed-asset-settings", new String[]{"fa:settings"});
+        WRITE.put("fixed-asset-settings", new String[]{"fa:settings"});
+        DELETE.put("fixed-asset-settings", new String[]{"fa:settings"});
 
         // 折旧「配置」是基础字典：能看到资产台账（fa:view）的账号就必须能读到方案/规则，
         // 否则折旧台账匹配不到方案，整页显示「未配置」（普通业务角色曾因此全部空白）。
@@ -61,6 +63,12 @@ public class PermissionPolicy {
         READ.put("low-value", new String[]{"lv:view"});
         WRITE.put("low-value", new String[]{"lv:edit"});
         DELETE.put("low-value", new String[]{"lv:edit"});
+
+        // 低值基础配置（存放位置）：维护需要 lv:settings，但「读」保持 lv:view ——
+        // 低值物品表单与领用/入库的存放位置下拉都依赖它，收紧会让普通业务表单变空。
+        READ.put("low-value-settings", new String[]{"lv:view"});
+        WRITE.put("low-value-settings", new String[]{"lv:settings"});
+        DELETE.put("low-value-settings", new String[]{"lv:settings"});
 
         // org-companies / org-departments / org-roles 的「读」故意不登记权限码：
         // 前端路由守卫与 can() 判定都要先加载组织主数据，如果普通业务角色读不到，
