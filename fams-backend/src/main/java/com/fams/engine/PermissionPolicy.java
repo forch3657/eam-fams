@@ -38,6 +38,14 @@ public class PermissionPolicy {
         WRITE.put("fixed-asset-settings", new String[]{"fa:edit"});
         DELETE.put("fixed-asset-settings", new String[]{"fa:edit"});
 
+        // 折旧「配置」是基础字典：能看到资产台账（fa:view）的账号就必须能读到方案/规则，
+        // 否则折旧台账匹配不到方案，整页显示「未配置」（普通业务角色曾因此全部空白）。
+        // 精确 key 优先于上面的 fixed-asset-depreciation / fixed-asset-settings 前缀规则；
+        // 增删改与计提动作仍分别要求 fa:depreciation / fa:edit。
+        READ.put("fixed-asset-depreciation-schemes", new String[]{"fa:view"});
+        READ.put("fixed-asset-settings-depreciation-plans", new String[]{"fa:view"});
+        READ.put("fixed-asset-settings-depreciation-rules", new String[]{"fa:view"});
+
         READ.put("fixed-asset-doc-lists", new String[]{"fa:view"});
         WRITE.put("fixed-asset-doc-lists", new String[]{"fa:add", "fa:edit"});
         DELETE.put("fixed-asset-doc-lists", new String[]{"fa:edit"});

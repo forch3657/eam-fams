@@ -12,6 +12,11 @@ export function useCollection(key, { immediate = true, params } = {}) {
   const items = ref([])
   const total = ref(0)
   const loading = ref(false)
+  /**
+   * 最近一次加载的失败原因（403 无权限 / 网络异常）。
+   * 没有它时，权限不足只会表现为「业务数据本来就是空的」，排查方向会被带偏。
+   */
+  const error = ref(null)
 
   /** 主键：按契约取（不同集合主键字段不同，如 code / key / recordNo） */
   function primaryOf(row) {
@@ -21,9 +26,17 @@ export function useCollection(key, { immediate = true, params } = {}) {
 
   async function load(queryParams = params) {
     loading.value = true
+    error.value = null
     try {
       items.value = (await dataService.list(key, queryParams)) || []
       total.value = items.value.length
+    } catch (e) {
+      // 不向上抛：immediate 加载发生在 onMounted，抛出会成为未处理的 Promise 异常；
+      // 但要留痕，否则 403 会被误读为「没有配置折旧方案」。
+      error.value = e
+      items.value = []
+      total.value = 0
+      console.warn(`[useCollection] 加载 ${key} 失败：${e?.message || e}`)
     } finally {
       loading.value = false
     }
@@ -33,10 +46,16 @@ export function useCollection(key, { immediate = true, params } = {}) {
   /** 服务端分页加载：items 为当前页，total 为总数 */
   async function loadPage(queryParams = {}) {
     loading.value = true
+    error.value = null
     try {
       const res = await dataService.page(key, queryParams)
       items.value = res?.rows || []
       total.value = Number(res?.total) || 0
+    } catch (e) {
+      error.value = e
+      items.value = []
+      total.value = 0
+      console.warn(`[useCollection] 分页加载 ${key} 失败：${e?.message || e}`)
     } finally {
       loading.value = false
     }
@@ -85,7 +104,7 @@ export function useCollection(key, { immediate = true, params } = {}) {
 
   if (immediate) onMounted(load)
 
-  return { items, total, loading, load, loadPage, add, update, remove, save }
+  return { items, total, loading, error, load, loadPage, add, update, remove, save }
 }
 
 export default useCollection

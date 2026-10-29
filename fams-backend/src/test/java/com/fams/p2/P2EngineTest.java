@@ -16,8 +16,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
@@ -309,6 +313,36 @@ class P2EngineTest {
 
         mockMvc.perform(auth(delete("/api/org-companies/" + first))).andExpect(status().isOk());
         mockMvc.perform(auth(delete("/api/org-companies/" + second))).andExpect(status().isOk());
+    }
+
+    @Autowired
+    private com.fams.engine.PermissionPolicy permissionPolicy;
+
+    /**
+     * 折旧配置的读权限必须低于写权限：只持有 fa:view 的普通角色（资产使用人/仓管员）
+     * 也要能读到折旧方案，否则前端折旧台账匹配不到方案、整页显示「未配置」。
+     */
+    @Test
+    @DisplayName("折旧配置：fa:view 可读，写删与计提仍要求 fa:depreciation")
+    void depreciationConfigReadableWithViewPermissionOnly() {
+        // 项目以 Java 8 编译，Set.of 不可用
+        Set<String> viewer = new HashSet<>(Collections.singletonList("fa:view"));
+        assertThat(permissionPolicy.matches("fixed-asset-depreciation-schemes", "GET", viewer)).isTrue();
+        assertThat(permissionPolicy.matches("fixed-asset-settings-depreciation-plans", "GET", viewer)).isTrue();
+        assertThat(permissionPolicy.matches("fixed-asset-settings-depreciation-rules", "GET", viewer)).isTrue();
+
+        // 增删改方案仍需 fa:depreciation（写表未登记精确 key，走 fixed-asset-depreciation 前缀）
+        assertThat(permissionPolicy.matches("fixed-asset-depreciation-schemes", "POST", viewer)).isFalse();
+        assertThat(permissionPolicy.matches("fixed-asset-depreciation-schemes", "PUT", viewer)).isFalse();
+        assertThat(permissionPolicy.matches("fixed-asset-depreciation-schemes", "DELETE", viewer)).isFalse();
+
+        // 计提/报表属于执行动作，不放宽
+        assertThat(permissionPolicy.matches("fixed-asset-depreciation-reports", "GET", viewer)).isFalse();
+
+        // 资产管理员（含 fa:depreciation）仍可写，管理员行为不变
+        Set<String> assetAdmin = new HashSet<>(Arrays.asList("fa:view", "fa:depreciation", "fa:edit"));
+        assertThat(permissionPolicy.matches("fixed-asset-depreciation-schemes", "POST", assetAdmin)).isTrue();
+        assertThat(permissionPolicy.matches("fixed-asset-depreciation-reports", "GET", assetAdmin)).isTrue();
     }
 
     private String createCompany(String code, String name) throws Exception {

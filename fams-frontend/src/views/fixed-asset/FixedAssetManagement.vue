@@ -294,15 +294,15 @@
         <!-- 折旧管理 -->
         <el-tab-pane label="折旧管理" name="depreciation">
           <div class="grid-4 kpi-row">
-            <div class="kpi-card"><div class="kpi-label">资产原值合计</div><div class="kpi-value num">¥{{ depreciationSummary.original.toLocaleString() }}</div></div>
-            <div class="kpi-card"><div class="kpi-label">累计折旧</div><div class="kpi-value num" style="color:#e6a23c">¥{{ depreciationSummary.accumulated.toLocaleString() }}</div></div>
-            <div class="kpi-card"><div class="kpi-label">资产净值</div><div class="kpi-value num" style="color:#67c23a">¥{{ depreciationSummary.net.toLocaleString() }}</div></div>
-            <div class="kpi-card"><div class="kpi-label">本月计提折旧</div><div class="kpi-value num" style="color:var(--c-primary)">¥{{ depreciationSummary.monthly.toLocaleString() }}</div></div>
+            <div class="kpi-card"><div class="kpi-label">资产原值合计</div><div class="kpi-value num">¥{{ money(depreciationSummary.original) }}</div></div>
+            <div class="kpi-card"><div class="kpi-label">累计折旧</div><div class="kpi-value num" style="color:#e6a23c">¥{{ money(depreciationSummary.accumulated) }}</div></div>
+            <div class="kpi-card"><div class="kpi-label">资产净值</div><div class="kpi-value num" style="color:#67c23a">¥{{ money(depreciationSummary.net) }}</div></div>
+            <div class="kpi-card"><div class="kpi-label">本月计提折旧</div><div class="kpi-value num" style="color:var(--c-primary)">¥{{ money(depreciationSummary.monthly) }}</div></div>
           </div>
 
           <div class="section-title">
             <span>折旧方案配置 <em class="plan-hint">（设置页「折旧设置」中的方案同样参与计算）</em></span>
-            <el-button type="success" plain size="small" @click="runDepreciation">计提本月折旧</el-button>
+            <el-button v-if="can('fa:depreciation')" type="success" plain size="small" @click="runDepreciation">计提本月折旧</el-button>
           </div>
           <el-table :data="depreciationSchemes" style="width: 100%">
             <el-table-column prop="schemeNo" label="方案编号" width="120" />
@@ -342,9 +342,11 @@
             <el-table-column prop="assetName" label="资产名称" min-width="160" show-overflow-tooltip />
             <el-table-column prop="category" label="分类" width="100" />
             <el-table-column prop="department" label="使用部门" width="110" />
-            <el-table-column prop="inboundDate" label="入库日期" width="110" />
+            <el-table-column prop="inboundDate" label="入库日期" width="110">
+              <template #default="{ row }">{{ row.inboundDate || '—' }}</template>
+            </el-table-column>
             <el-table-column prop="original" label="资产原值" width="130">
-              <template #default="{ row }">¥{{ row.original.toLocaleString() }}</template>
+              <template #default="{ row }">¥{{ money(row.original) }}</template>
             </el-table-column>
             <el-table-column prop="schemeName" label="折旧方案" min-width="150" show-overflow-tooltip>
               <template #default="{ row }">
@@ -352,15 +354,17 @@
                 <span v-else>{{ row.schemeName }}</span>
               </template>
             </el-table-column>
-            <el-table-column prop="months" label="已计提月数" width="100" />
+            <el-table-column prop="months" label="已计提月数" width="100">
+              <template #default="{ row }">{{ row.months }}</template>
+            </el-table-column>
             <el-table-column prop="monthly" label="月折旧额" width="120">
-              <template #default="{ row }">¥{{ row.monthly.toLocaleString() }}</template>
+              <template #default="{ row }">¥{{ money(row.monthly) }}</template>
             </el-table-column>
             <el-table-column prop="accumulated" label="累计折旧" width="130">
-              <template #default="{ row }">¥{{ row.accumulated.toLocaleString() }}</template>
+              <template #default="{ row }">¥{{ money(row.accumulated) }}</template>
             </el-table-column>
             <el-table-column prop="net" label="资产净值" min-width="130">
-              <template #default="{ row }">¥{{ row.net.toLocaleString() }}</template>
+              <template #default="{ row }">¥{{ money(row.net) }}</template>
             </el-table-column>
           </el-table>
 
@@ -371,16 +375,16 @@
           <el-table :data="depreciationReports" style="width: 100%" show-summary :summary-method="depreciationSummaries">
             <el-table-column prop="period" label="折旧期间" width="120" />
             <el-table-column prop="openingValue" label="期初原值" width="140">
-              <template #default="{ row }">¥{{ row.openingValue.toLocaleString() }}</template>
+              <template #default="{ row }">¥{{ money(row.openingValue) }}</template>
             </el-table-column>
             <el-table-column prop="periodDepreciation" label="本期折旧" width="140">
-              <template #default="{ row }">¥{{ row.periodDepreciation.toLocaleString() }}</template>
+              <template #default="{ row }">¥{{ money(row.periodDepreciation) }}</template>
             </el-table-column>
             <el-table-column prop="accumulated" label="累计折旧" width="140">
-              <template #default="{ row }">¥{{ row.accumulated.toLocaleString() }}</template>
+              <template #default="{ row }">¥{{ money(row.accumulated) }}</template>
             </el-table-column>
             <el-table-column prop="closingNet" label="期末净值" width="140">
-              <template #default="{ row }">¥{{ row.closingNet.toLocaleString() }}</template>
+              <template #default="{ row }">¥{{ money(row.closingNet) }}</template>
             </el-table-column>
             <el-table-column prop="assetCount" label="计提资产数" width="110" />
             <el-table-column prop="operator" label="计提人" width="100" />
@@ -392,13 +396,13 @@
             <el-table-column prop="category" label="资产分类" width="140" />
             <el-table-column prop="count" label="资产数量" width="110" />
             <el-table-column prop="original" label="原值合计" width="160">
-              <template #default="{ row }">¥{{ row.original.toLocaleString() }}</template>
+              <template #default="{ row }">¥{{ money(row.original) }}</template>
             </el-table-column>
             <el-table-column prop="accumulated" label="累计折旧" width="160">
-              <template #default="{ row }">¥{{ row.accumulated.toLocaleString() }}</template>
+              <template #default="{ row }">¥{{ money(row.accumulated) }}</template>
             </el-table-column>
             <el-table-column prop="net" label="净值" min-width="160">
-              <template #default="{ row }">¥{{ row.net.toLocaleString() }}</template>
+              <template #default="{ row }">¥{{ money(row.net) }}</template>
             </el-table-column>
             <el-table-column label="折旧进度" min-width="160">
               <template #default="{ row }">
@@ -1394,19 +1398,23 @@ function schemeFor(category, companyId) {
 
 const depreciationLedger = computed(() => assetLedger.value.map(a => {
   const s = schemeFor(a.categoryCode, a.companyId)
-  const cap = s ? a.original * (1 - s.residualRate / 100) : 0
-  const monthly = s ? cap / (s.years * 12) : 0
+  const original = Number.isFinite(Number(a.original)) ? Number(a.original) : 0
+  const residualRate = s ? Number(s.residualRate) || 0 : 0
+  // 可折旧总额（扣除残值）；无方案时为 0，后续累计折旧自然为 0
+  const cap = s ? original * (1 - residualRate / 100) : 0
+  const monthly = round2(monthlyDepreciation(original, s))
   const months = monthsSince(a.inboundDate, currentPeriod())
-  const accumulated = Math.min(Math.round(monthly * months * 100) / 100, Math.round(cap * 100) / 100)
+  const accumulated = Math.min(round2(monthly * months), round2(cap))
   return {
     ...a,
+    original,
     schemeName: s ? s.schemeName : '未配置',
-    residualRate: s ? s.residualRate : 0,
-    years: s ? s.years : 0,
-    monthly: Math.round(monthly * 100) / 100,
+    residualRate,
+    years: s ? Number(s.years) || 0 : 0,
+    monthly,
     months,
     accumulated,
-    net: Math.round((a.original - accumulated) * 100) / 100
+    net: round2(original - accumulated)
   }
 }))
 
@@ -1414,32 +1422,65 @@ function currentPeriod(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
 }
 
+/** 保留两位小数；非有限数归零，避免 NaN 在汇总里扩散 */
+function round2(value) {
+  const n = Number(value)
+  return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0
+}
+
+/** 金额展示：NaN / Infinity / undefined 一律按 0 输出，杜绝表格出现 ¥NaN */
+function money(value) {
+  const n = Number(value)
+  return (Number.isFinite(n) ? n : 0).toLocaleString()
+}
+
+/**
+ * 单资产月折旧额。方案缺失、年限为 0 或原值非法时返回 0，
+ * 避免 cap / (years * 12) 出现除零与非有限数。
+ */
+function monthlyDepreciation(original, scheme) {
+  if (!scheme) return 0
+  const value = Number(original)
+  const years = Number(scheme.years)
+  const rate = Number(scheme.residualRate) || 0
+  if (!Number.isFinite(value) || !Number.isFinite(years) || years <= 0) return 0
+  return (value * (1 - rate / 100)) / (years * 12)
+}
+
+/**
+ * 入库日期到计提期间的整月数。
+ * 入库日期缺失或非法时返回 0：否则 Invalid Date 会让月数变 NaN，
+ * 进而把累计折旧与 KPI 汇总污染成 ¥NaN。
+ */
 function monthsSince(inboundDate, period) {
+  if (!inboundDate) return 0
   const start = new Date(inboundDate)
-  const [y, m] = period.split('-').map(Number)
+  if (Number.isNaN(start.getTime())) return 0
+  const [y, m] = String(period || '').split('-').map(Number)
+  if (!Number.isFinite(y) || !Number.isFinite(m)) return 0
   return Math.max(0, (y - start.getFullYear()) * 12 + (m - 1 - start.getMonth()))
 }
 
 function accumulatedThrough(period) {
-  return Math.round(depreciationLedger.value.reduce((sum, a) => {
+  return round2(depreciationLedger.value.reduce((sum, a) => {
     const s = schemeFor(a.categoryCode, a.companyId)
     if (!s) return sum
-    const cap = a.original * (1 - s.residualRate / 100)
-    const monthly = cap / (s.years * 12)
+    const cap = a.original * (1 - (Number(s.residualRate) || 0) / 100)
+    const monthly = monthlyDepreciation(a.original, s)
     return sum + Math.min(monthly * monthsSince(a.inboundDate, period), cap)
-  }, 0) * 100) / 100
+  }, 0))
 }
 
-const totalOriginal = computed(() => Math.round(depreciationLedger.value.reduce((s, a) => s + a.original, 0) * 100) / 100)
+const totalOriginal = computed(() => round2(depreciationLedger.value.reduce((s, a) => s + a.original, 0)))
 
 const depreciationSummary = computed(() => {
   const original = totalOriginal.value
-  const accumulated = Math.round(depreciationLedger.value.reduce((s, a) => s + a.accumulated, 0) * 100) / 100
+  const accumulated = round2(depreciationLedger.value.reduce((s, a) => s + a.accumulated, 0))
   return {
     original,
     accumulated,
-    net: Math.round((original - accumulated) * 100) / 100,
-    monthly: Math.round(depreciationLedger.value.reduce((s, a) => s + a.monthly, 0) * 100) / 100
+    net: round2(original - accumulated),
+    monthly: round2(depreciationLedger.value.reduce((s, a) => s + a.monthly, 0))
   }
 })
 
@@ -1471,13 +1512,13 @@ function runDepreciation() {
     return
   }
   const accumulated = accumulatedThrough(period)
-  const periodAmount = Math.round((accumulated - accumulatedThrough(prevPeriod(period))) * 100) / 100
+  const periodAmount = round2(accumulated - accumulatedThrough(prevPeriod(period)))
   depreciationReportCol.add({
     period,
     openingValue: totalOriginal.value,
     periodDepreciation: periodAmount,
     accumulated,
-    closingNet: Math.round((totalOriginal.value - accumulated) * 100) / 100,
+    closingNet: round2(totalOriginal.value - accumulated),
     assetCount: depreciationLedger.value.filter(a => schemeFor(a.categoryCode, a.companyId)).length,
     operator: '管理员',
     runDate: nowText()
@@ -1507,7 +1548,7 @@ function depreciationSummaries({ columns, data }) {
   return columns.map((col, i) => {
     if (i === 0) return '合计'
     if (['openingValue', 'periodDepreciation', 'accumulated', 'closingNet'].includes(col.property)) {
-      return '¥' + data.reduce((s, r) => s + (r[col.property] || 0), 0).toLocaleString()
+      return '¥' + money(data.reduce((s, r) => s + (Number(r[col.property]) || 0), 0))
     }
     return ''
   })
