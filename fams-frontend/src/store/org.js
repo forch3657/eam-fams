@@ -35,16 +35,20 @@ export const useOrgStore = defineStore('org', () => {
   // 种子由 services/mock/seed/index.js 统一注册，这里不再重复登记
 
   async function loadAll() {
-    const [c, d, u, r] = await Promise.all([
+    // 用 allSettled：四张表里任何一张没权限（普通角色读不到 org-users）
+    // 都不能让整次加载失败，否则路由守卫拿不到 roles，权限恒为空，登录后无法跳转。
+    const [c, d, u, r] = await Promise.allSettled([
       dataService.list(COLLECTION.orgCompanies),
       dataService.list(COLLECTION.orgDepartments),
       dataService.list(COLLECTION.orgUsers),
       dataService.list(COLLECTION.orgRoles)
     ])
-    companies.value = c
-    departments.value = d
-    users.value = u
-    roles.value = r
+    if (c.status === 'fulfilled' && Array.isArray(c.value)) companies.value = c.value
+    if (d.status === 'fulfilled' && Array.isArray(d.value)) departments.value = d.value
+    if (u.status === 'fulfilled' && Array.isArray(u.value)) users.value = u.value
+    if (r.status === 'fulfilled' && Array.isArray(r.value)) roles.value = r.value
+    // 角色表是权限判定的唯一依据，只有它失败才算加载失败
+    if (r.status === 'rejected') throw r.reason
     loaded.value = true
   }
 
@@ -189,6 +193,31 @@ export const useOrgStore = defineStore('org', () => {
     await dataService.remove(COLLECTION.orgDepartments, id)
     departments.value = departments.value.filter(d => d.id !== id)
     return true
+  }
+
+  /**
+   * 批量设置角色人员：勾选的用户获得该角色，取消勾选的移除该角色。
+   * 只增删目标 roleId，用户已有的其他角色不受影响。
+   */
+  async function setRoleMembers(roleId, userIds) {
+    const role = roles.value.find(r => r.id === roleId)
+    if (!role) throw new Error('未找到角色')
+    const next = new Set(userIds)
+    const touched = []
+    for (const u of users.value) {
+      const current = u.roleIds || []
+      const has = current.includes(roleId)
+      const should = next.has(u.id)
+      if (has === should) continue
+      u.roleIds = should ? [...current, roleId] : current.filter(id => id !== roleId)
+      touched.push(u)
+    }
+    for (const u of touched) {
+      const saved = await dataService.update(COLLECTION.orgUsers, u.id, u)
+      // 写回服务端返回（含自增 version），避免本地版本落后导致下次更新被判乐观锁冲突
+      if (saved) Object.assign(u, saved)
+    }
+    return touched.length
   }
 
   /** 批量设置部门人员：进部门的用户写 deptId，移出的置空 */

@@ -51,10 +51,11 @@
             <el-tag :type="row.status === 'ENABLED' ? 'success' : 'info'" size="small" effect="light">{{ labelOf('ENABLE_STATUS', row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="230" fixed="right">
+        <el-table-column label="操作" width="300" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="openDialog(row)">编辑</el-button>
             <el-button link type="primary" size="small" @click="openPermDialog(row)">权限配置</el-button>
+            <el-button link type="primary" size="small" @click="openMembers(row)">分配人员</el-button>
             <el-button link :type="row.status === 'ENABLED' ? 'warning' : 'success'" size="small" @click="toggleStatus(row)">
               {{ row.status === 'ENABLED' ? '停用' : '启用' }}
             </el-button>
@@ -134,6 +135,31 @@
       <template #footer>
         <el-button @click="permDialog.visible = false">取消</el-button>
         <el-button type="primary" @click="savePerm">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="memberDialog.visible" :title="memberDialog.role ? `分配人员 — ${memberDialog.role.name}` : '分配人员'" width="560px" destroy-on-close>
+      <div class="member-head">
+        <span class="muted">勾选后该人员即获得此角色权限，取消勾选则移除</span>
+        <el-input v-model="memberDialog.keyword" placeholder="搜索姓名/手机号/岗位" clearable size="small" style="width: 200px" />
+      </div>
+      <div class="member-actions">
+        <el-button link type="primary" size="small" @click="selectAll">全选当前结果</el-button>
+        <el-button link type="primary" size="small" @click="clearAll">清空</el-button>
+        <span class="muted">已选 {{ memberDialog.ids.length }} 人</span>
+      </div>
+      <el-checkbox-group v-model="memberDialog.ids" class="member-list">
+        <div v-for="u in filteredMembers" :key="u.id" class="member-row">
+          <el-checkbox :value="u.id">
+            {{ u.name }}
+            <span class="member-meta">{{ u.position || '—' }} · {{ u.username }}</span>
+          </el-checkbox>
+        </div>
+        <el-empty v-if="!filteredMembers.length" description="没有匹配的人员" :image-size="50" />
+      </el-checkbox-group>
+      <template #footer>
+        <el-button @click="memberDialog.visible = false">取消</el-button>
+        <el-button type="primary" @click="saveMembers">确定</el-button>
       </template>
     </el-dialog>
   </div>
@@ -243,6 +269,48 @@ async function submit() {
   }
 }
 
+// ---------- 角色人员 ----------
+const memberDialog = reactive({ visible: false, role: null, ids: [], keyword: '' })
+
+/** 只列启用账号：停用的人即使挂角色也登不进来，放进来只会造成误解 */
+const filteredMembers = computed(() => {
+  const kw = memberDialog.keyword.trim()
+  const list = orgStore.users.filter(u => u.status === 'ENABLED')
+  const hit = kw
+    ? list.filter(u => `${u.name}${u.username}${u.position || ''}`.includes(kw))
+    : list
+  // 已选人员排在前面，避免在 100+ 人里翻找刚勾过的人
+  const chosen = new Set(memberDialog.ids)
+  return [...hit].sort((a, b) => Number(chosen.has(b.id)) - Number(chosen.has(a.id)))
+})
+
+function openMembers(row) {
+  memberDialog.role = row
+  memberDialog.keyword = ''
+  memberDialog.ids = orgStore.users.filter(u => (u.roleIds || []).includes(row.id)).map(u => u.id)
+  memberDialog.visible = true
+}
+
+function selectAll() {
+  const set = new Set(memberDialog.ids)
+  filteredMembers.value.forEach(u => set.add(u.id))
+  memberDialog.ids = [...set]
+}
+
+function clearAll() {
+  memberDialog.ids = []
+}
+
+async function saveMembers() {
+  try {
+    const count = await orgStore.setRoleMembers(memberDialog.role.id, memberDialog.ids)
+    memberDialog.visible = false
+    ElMessage.success(count ? `「${memberDialog.role.name}」人员已更新，调整 ${count} 人` : '人员未变化')
+  } catch (e) {
+    ElMessage.error(e.message || '保存失败')
+  }
+}
+
 // ---------- 权限配置 ----------
 const permTreeRef = ref()
 const permDialog = reactive({ visible: false, role: null, keys: [] })
@@ -288,5 +356,37 @@ async function savePerm() {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+}
+
+.member-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.member-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.member-list {
+  display: block;
+  max-height: 360px;
+  overflow: auto;
+}
+
+.member-row {
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--bd-split);
+}
+
+.member-meta {
+  margin-left: 6px;
+  font-size: 12px;
+  color: var(--t-weak);
 }
 </style>

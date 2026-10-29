@@ -1,6 +1,15 @@
 # 生产 profile：本机企业级部署形态（配合 nginx HTTPS 反代 + 前端静态化）。
 # 用法：SPRING_PROFILES_ACTIVE=prod java -jar fams-backend.jar
 #       （start-prod 脚本已封装）
+server:
+  # 生产只监听回环地址：外部一律经 nginx（80/443）访问，
+  # 避免局域网可直连 8080 明文 HTTP 绕过网关与 TLS。
+  address: ${SERVER_ADDRESS:127.0.0.1}
+  # 信任 nginx 传入的 X-Forwarded-Proto/For：
+  # 否则 HTTPS 入口进来的请求在后端看来是 http，浏览器带 Origin: https://<IP> 时
+  # 会被判成跨域并与 allowed-origins 比对失败，登录直接 403 Invalid CORS request。
+  forward-headers-strategy: native
+
 spring:
   datasource:
     url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/fams?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai}

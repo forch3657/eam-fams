@@ -159,6 +159,10 @@ public class GenericService {
         if (!(rawObj instanceof String)) {
             if (isCreate) {
                 passwordPolicy.validate(null, String.valueOf(row.get("username")));
+            } else {
+                // 编辑未传 password（null）：update 是全量替换，必须摘掉该列，
+                // 否则会把已有 BCrypt 哈希覆盖成 NULL，用户直接登录不上。
+                row.remove("password");
             }
             return;
         }

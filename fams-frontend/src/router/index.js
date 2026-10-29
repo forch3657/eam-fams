@@ -177,7 +177,11 @@ router.beforeEach(async (to) => {
   const perm = to.meta.permission
   if (perm) {
     const orgStore = useOrgStore()
-    if (!orgStore.loaded) await orgStore.loadAll()
+    if (!orgStore.loaded) {
+      // 组织主数据加载失败不能让导航悬空（否则登录成功后停在登录页），
+      // 交给下面的 can() 判定走 403 / 兜底页
+      try { await orgStore.loadAll() } catch (e) { console.error('[router] 组织主数据加载失败', e) }
+    }
     if (!userStore.can(perm)) {
       const fallback = FALLBACK_ROUTES.find(r => userStore.can(r.permission))
       return fallback ? fallback.path : '/403'

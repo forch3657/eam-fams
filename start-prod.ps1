@@ -32,4 +32,4 @@ Get-Process -Name nginx -ErrorAction SilentlyContinue | Stop-Process -Force
 Start-Sleep -Seconds 1
 Write-Host 'Starting nginx'
 Start-Process -FilePath $nginx -WorkingDirectory $nginxDir -WindowStyle Normal
-Write-Host 'Done. Open https://localhost'
+Write-Host 'Done. Open http://localhost/ (LAN peers: http://<this-machine-ip>/)'

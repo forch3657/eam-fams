@@ -54,11 +54,13 @@ public class PermissionPolicy {
         WRITE.put("low-value", new String[]{"lv:edit"});
         DELETE.put("low-value", new String[]{"lv:edit"});
 
-        READ.put("org-companies", new String[]{"org:company"});
+        // org-companies / org-departments / org-roles 的「读」故意不登记权限码：
+        // 前端路由守卫与 can() 判定都要先加载组织主数据，如果普通业务角色读不到，
+        // 任何非管理员账号登录后都会被守卫拦在登录页（表现为"登录成功但不跳转"）。
+        // 公司/部门/角色属于全局基础字典，写操作仍分别要求 org:company / org:dept / org:role。
         WRITE.put("org-companies", new String[]{"org:company"});
         DELETE.put("org-companies", new String[]{"org:company"});
 
-        READ.put("org-departments", new String[]{"org:dept"});
         WRITE.put("org-departments", new String[]{"org:dept"});
         DELETE.put("org-departments", new String[]{"org:dept"});
 
@@ -66,7 +68,6 @@ public class PermissionPolicy {
         WRITE.put("org-users", new String[]{"org:user"});
         DELETE.put("org-users", new String[]{"org:user"});
 
-        READ.put("org-roles", new String[]{"org:role"});
         WRITE.put("org-roles", new String[]{"org:role"});
         DELETE.put("org-roles", new String[]{"org:role"});
 
