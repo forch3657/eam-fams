@@ -143,7 +143,11 @@ public class ImportFileParser {
             }
             for (org.apache.poi.ss.usermodel.Row row : sheet) {
                 List<String> cells = new ArrayList<>();
-                for (org.apache.poi.ss.usermodel.Cell cell : row) {
+                // 按列索引逐列补齐：Excel 里未填写的选填列不会创建 Cell，
+                // 若按「已存在的单元格」顺序追加，会把后面的列整体左移（模板列错位）
+                int lastCell = Math.max(row.getLastCellNum(), 0);
+                for (int i = 0; i < lastCell; i++) {
+                    org.apache.poi.ss.usermodel.Cell cell = row.getCell(i);
                     cells.add(cell == null ? "" : cell.toString().trim());
                 }
                 rows.add(cells.toArray(new String[0]));

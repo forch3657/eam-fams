@@ -301,7 +301,7 @@
           </div>
 
           <div class="section-title">
-            <span>折旧方案配置</span>
+            <span>折旧方案配置 <em class="plan-hint">（设置页「折旧设置」中的方案同样参与计算）</em></span>
             <el-button type="success" plain size="small" @click="runDepreciation">计提本月折旧</el-button>
           </div>
           <el-table :data="depreciationSchemes" style="width: 100%">
@@ -317,7 +317,9 @@
             <el-table-column prop="monthlyRate" label="月折旧率" width="100">
               <template #default="{ row }">{{ row.monthlyRate }}%</template>
             </el-table-column>
-            <el-table-column prop="applicableCategory" label="适用分类" width="120" />
+            <el-table-column label="适用分类" width="120">
+              <template #default="{ row }">{{ labelOf('ASSET_CATEGORY', row.applicableCategory) || row.applicableCategory }}</template>
+            </el-table-column>
             <el-table-column label="启用" width="80">
               <template #default="{ row }">
                 <el-switch v-model="row.enabled" @change="toggleScheme(row)" />
@@ -524,7 +526,7 @@
         <el-form-item label="适用分类" required>
           <el-select v-model="schemeForm.applicableCategory" style="width:100%">
             <el-option label="全部分类" value="全部分类" />
-            <el-option v-for="c in categoryOptions" :key="c" :label="c" :value="c" />
+            <el-option v-for="c in categoryCodeOptions" :key="c.value" :label="c.label" :value="c.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="月折旧率">
@@ -1012,6 +1014,8 @@ const assetLedger = computed(() => fixedAssetStore.assetLedger.map(a => ({
   assetNo: a.code,
   assetName: a.name,
   category: a.type,
+  // 分类编码：折旧方案匹配用编码，展示仍用中文 category
+  categoryCode: a.category,
   department: a.dept || '未分配',
   location: a.location || '未指定',
   user: a.user || '未派发',
@@ -1022,6 +1026,8 @@ const assetLedger = computed(() => fixedAssetStore.assetLedger.map(a => ({
 })))
 
 const categoryOptions = computed(() => optionsOf('ASSET_CATEGORY').map(o => o.label))
+/** 需要落编码的场景（如折旧方案适用分类）：展示中文、存编码 */
+const categoryCodeOptions = computed(() => optionsOf('ASSET_CATEGORY'))
 /** 单据 / 盘点计划状态选项：下拉展示中文，落库存编码 */
 const docStatusOptions = computed(() => optionsOf('DOC_STATUS'))
 const depreciationMethodOptions = computed(() => optionsOf('DEPRECIATION_METHOD'))
@@ -1343,13 +1349,51 @@ function deletePlan(row) {
 // ==================== 折旧管理 ====================
 const depreciationSchemeCol = useCollection(COLLECTION.depreciationSchemes)
 const depreciationSchemes = depreciationSchemeCol.items
+// 设置页「折旧设置」中的方案同样参与台账计算；该表没有年限字段，按折旧规则/分类默认年限补
+const settingsDepreciationPlans = useCollection(COLLECTION.settingsDepreciationPlans).items
+const settingsDepreciationRules = useCollection(COLLECTION.settingsDepreciationRules).items
 
-function schemeFor(category) {
-  return depreciationSchemes.value.find(s => s.enabled && (s.applicableCategory === category || s.applicableCategory === '全部分类')) || null
+/** ASSET_CATEGORY 的默认折旧年限，折旧规则未覆盖时兜底 */
+const DEFAULT_YEARS = { ELECTRONIC: 5, MACHINE: 10, VEHICLE: 8, FURNITURE: 8, BUILDING: 40, SUPPLIES: 5, MATERIAL: 2, OTHER: 10 }
+
+/** 设置页方案只配了资产类型，没有年限：优先按同名折旧规则取，其次按分类默认值 */
+function yearsForPlan(category) {
+  const label = labelOf('ASSET_CATEGORY', category)
+  const rule = settingsDepreciationRules.value.find(r => r.name && label && r.name.includes(label))
+  return Number(rule?.usefulLife) || DEFAULT_YEARS[category] || 5
+}
+
+/**
+ * 取资产适用的折旧方案：先匹配台账自建方案（需启用），再回退到设置页方案。
+ * 历史数据的 applicableCategory 可能存中文，这里同时按编码和中文比对。
+ */
+function schemeFor(category, companyId) {
+  const label = labelOf('ASSET_CATEGORY', category)
+  const own = depreciationSchemes.value.find(s => s.enabled && (
+    s.applicableCategory === category ||
+    (label && s.applicableCategory === label) ||
+    s.applicableCategory === '全部分类'
+  ))
+  if (own) return own
+
+  const plan = settingsDepreciationPlans.value.find(p => {
+    const types = Array.isArray(p.assetTypes) ? p.assetTypes : []
+    const hitType = types.length === 0 || types.includes(category) || (label && types.includes(label))
+    const hitCompany = !p.companyId || !companyId || p.companyId === companyId
+    return hitType && hitCompany
+  })
+  if (!plan) return null
+  return {
+    schemeName: plan.name,
+    method: plan.method || 'STRAIGHT_LINE',
+    years: yearsForPlan(category),
+    residualRate: Number(plan.residualRate ?? 5),
+    fromSettings: true
+  }
 }
 
 const depreciationLedger = computed(() => assetLedger.value.map(a => {
-  const s = schemeFor(a.category)
+  const s = schemeFor(a.categoryCode, a.companyId)
   const cap = s ? a.original * (1 - s.residualRate / 100) : 0
   const monthly = s ? cap / (s.years * 12) : 0
   const months = monthsSince(a.inboundDate, currentPeriod())
@@ -1378,7 +1422,7 @@ function monthsSince(inboundDate, period) {
 
 function accumulatedThrough(period) {
   return Math.round(depreciationLedger.value.reduce((sum, a) => {
-    const s = schemeFor(a.category)
+    const s = schemeFor(a.categoryCode, a.companyId)
     if (!s) return sum
     const cap = a.original * (1 - s.residualRate / 100)
     const monthly = cap / (s.years * 12)
@@ -1414,7 +1458,7 @@ function enrichReports() {
     report.accumulated = accumulatedThrough(report.period)
     report.periodDepreciation = Math.round((report.accumulated - accumulatedThrough(prevPeriod(report.period))) * 100) / 100
     report.closingNet = Math.round((totalOriginal.value - report.accumulated) * 100) / 100
-    report.assetCount = depreciationLedger.value.filter(a => schemeFor(a.category)).length
+    report.assetCount = depreciationLedger.value.filter(a => schemeFor(a.categoryCode, a.companyId)).length
   })
 }
 
@@ -1434,7 +1478,7 @@ function runDepreciation() {
     periodDepreciation: periodAmount,
     accumulated,
     closingNet: Math.round((totalOriginal.value - accumulated) * 100) / 100,
-    assetCount: depreciationLedger.value.filter(a => schemeFor(a.category)).length,
+    assetCount: depreciationLedger.value.filter(a => schemeFor(a.categoryCode, a.companyId)).length,
     operator: '管理员',
     runDate: nowText()
   })
