@@ -1,7 +1,10 @@
 <template>
   <div class="wb-alert">
     <div v-if="!alerts.length" class="wb-none">
-      <el-empty description="暂无预警，库存与单据都在正常范围" :image-size="60" />
+      <el-empty description="暂无预警" :image-size="60">
+        <el-button size="small" link type="primary" @click="router.push('/low-value-assets')">查看低值库存</el-button>
+      </el-empty>
+      <p class="wb-none-tip">库存与单据都在正常范围；低库存、单据滞留或驳回未重提时会在这里提醒。</p>
     </div>
     <ul v-else class="wb-alert-list">
       <li v-for="a in alerts" :key="a.id" @click="go(a)">
@@ -56,5 +59,22 @@ function go(a) {
 }
 .wb-alert-desc { font-size: 12px; color: var(--t-weak); margin-top: 2px; line-height: 1.4; }
 .wb-arrow { color: var(--t-weak); margin-top: 4px; flex-shrink: 0; }
-.wb-none { padding: 8px 0; }
+/* 空态在卡片内容区垂直居中，并给出一个可继续的操作 */
+.wb-none {
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-2) 0;
+}
+.wb-none :deep(.el-empty) { padding: var(--sp-2) 0; }
+.wb-none-tip {
+  max-width: 320px;
+  margin: var(--sp-1) auto 0;
+  font-size: var(--fs-xs);
+  color: var(--t-weak);
+  text-align: center;
+  line-height: 1.6;
+}
 </style>

@@ -87,7 +87,7 @@
               <el-icon class="hdr-icon" :class="{ 'is-empty': !notifyStore.unreadCount }"><ChatDotRound /></el-icon>
             </el-badge>
           </el-tooltip>
-          <el-tag class="mode-tag" type="info" effect="plain" size="small">{{ modeLabel }}</el-tag>
+          <el-tag v-if="dataMode === 'mock'" class="mode-tag" type="info" effect="plain" size="small">{{ modeLabel }}</el-tag>
           <el-dropdown @command="handleCommand">
             <span class="user-info">
               <span class="avatar">{{ (userStore.user?.name || '管').charAt(0) }}</span>

@@ -8,33 +8,35 @@
       </div>
       <div class="wb-ops">
         <span class="wb-updated">数据更新于 {{ updatedAt }}</span>
-        <el-button :loading="workbench.loading" @click="refresh">
-          <el-icon><Refresh /></el-icon>刷新
-        </el-button>
+        <el-tooltip content="刷新数据" placement="bottom">
+          <el-button :loading="workbench.loading" :icon="Refresh" circle text @click="refresh" />
+        </el-tooltip>
       </div>
     </div>
 
-    <!-- 指标条：紧凑一行 -->
+    <!-- 概览带：领导视角的全局家底（资产 / 低值 / 审批时效）。
+         没有 wm:overview 权限的角色（纯审批人）不渲染，页面直接从行动条开始，
+         待办区因此整体上移，减少无关数字对审批动作的干扰。 -->
+    <OverviewPanel v-if="can('wm:overview')" />
+
+    <!-- 行动条：只保留"要我处理 / 要我关注"的三项。
+         资产总数、在途单据已由概览带承载，此处不再重复计数。 -->
     <div class="wb-stats">
-      <div class="wb-stat" @click="focusTab('pending')">
+      <div v-if="can('wm:todo')" class="wb-stat clickable" :class="{ primary: workbench.pendingCount > 0 }" @click="focusTab('pending')">
         <span class="v">{{ workbench.pendingCount }}</span>
         <span class="k">待我审批</span>
       </div>
-      <div class="wb-stat" :class="{ danger: workbench.dangerAlertCount > 0 }" @click="focusSide('alert')">
+      <div v-if="can('wm:alert')" class="wb-stat clickable" :class="{ danger: workbench.dangerAlertCount > 0 }" @click="focusSide('alert')">
         <span class="v">{{ workbench.alertCount }}</span>
-        <span class="k">预警<span v-if="workbench.dangerAlertCount">（严重 {{ workbench.dangerAlertCount }}）</span></span>
-      </div>
-      <div class="wb-stat">
-        <span class="v">{{ workbench.overview.approval.processing }}</span>
-        <span class="k">在途单据</span>
+        <span class="k">
+          预警
+          <span v-if="workbench.dangerAlertCount" class="k-risk">（严重 {{ workbench.dangerAlertCount }}）</span>
+          <span v-else-if="!workbench.alertCount" class="k-ok">正常</span>
+        </span>
       </div>
       <div class="wb-stat">
         <span class="v">{{ mineCount }}</span>
         <span class="k">我在途</span>
-      </div>
-      <div class="wb-stat">
-        <span class="v">{{ workbench.overview.asset.total }}</span>
-        <span class="k">资产总数</span>
       </div>
     </div>
 
@@ -44,7 +46,7 @@
         <el-card v-if="can('wm:todo')" shadow="never" class="wb-panel wb-panel-todo" id="wb-todo-panel">
           <template #header>
             <div class="panel-hd">
-              <span>我的待办</span>
+              <span>我的单据</span>
               <el-tag v-if="workbench.pendingCount" type="danger" size="small" effect="dark">
                 {{ workbench.pendingCount }} 项待我审批
               </el-tag>
@@ -53,12 +55,21 @@
           <TodoPanel ref="todoRef" />
         </el-card>
         <el-card v-else shadow="never" class="wb-panel wb-panel-todo">
+          <template #header>
+            <div class="panel-hd"><span>我的单据</span></div>
+          </template>
           <el-empty description="当前角色未开通「我的待办」权限，可在组织架构 → 角色管理中勾选" :image-size="70" />
         </el-card>
       </el-col>
 
       <el-col :span="9">
         <el-card id="wb-side-panel" shadow="never" class="wb-panel wb-panel-side">
+          <template #header>
+            <div class="panel-hd">
+              <span>预警与消息</span>
+              <span class="panel-sub">{{ workbench.alertCount }} 条预警</span>
+            </div>
+          </template>
           <el-tabs v-model="sideTab" class="wb-side-tabs">
             <el-tab-pane v-if="can('wm:alert')" name="alert">
               <template #label>
@@ -81,8 +92,6 @@
         </el-card>
       </el-col>
     </el-row>
-
-    <OverviewPanel v-if="can('wm:overview')" />
   </div>
 </template>
 <script setup>
@@ -95,7 +104,9 @@
  * - wm:overview 概览看板
  * - wm:message  我的消息
  *
- * 布局：指标条一行 → 左「我的待办」/ 右「预警·消息」左右等高 → 底部概览看板。
+ * 布局：概览带（领导视角，受 wm:overview 控制）→ 行动条（待我审批 / 预警 / 我在途）
+ *      → 左「我的待办」/ 右「预警·消息」左右等高。
+ * 阅读顺序为「家底 → 要我关注什么 → 我要做什么」，且概览与行动条不再重复计数。
  */
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
@@ -189,7 +200,7 @@ onMounted(async () => {
   flex-shrink: 0;
   background: transparent;
   border: none;
-  padding: 0 2px;
+  padding: 0;
 }
 .wb-head-left { display: flex; align-items: center; gap: 12px; }
 .wb-greet { font-size: 13px; color: var(--t-weak); }
@@ -197,17 +208,47 @@ onMounted(async () => {
 .wb-ops { display: flex; align-items: center; gap: 12px; }
 .wb-updated { font-size: 12px; color: var(--t-weak); }
 
-/* 指标条：一行紧凑卡片（压缩内边距与字号，为概览腾高度） */
-.wb-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; flex-shrink: 0; }
+/* 行动条：列数随可见项自动增减（角色缺 wm:todo / wm:alert 时不留空位） */
+.wb-stats {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 12px;
+  flex-shrink: 0;
+}
 .wb-stat {
   display: flex; flex-direction: column; justify-content: center;
-  padding: 7px 14px; background: var(--bg-card, #fff);
-  border: 1px solid var(--bd); border-radius: var(--r-md); cursor: pointer;
+  padding: 7px var(--content-px); background: var(--bg-card);
+  border: 1px solid var(--bd); border-radius: var(--r-md);
 }
+/* 待我审批：工作台第一优先项，用主色底把它从"统计"里挑出来 */
+.wb-stat.primary { background: var(--c-primary-light); border-color: var(--c-primary); }
+.wb-stat.clickable, .wb-stat.primary { cursor: pointer; }
 .wb-stat:hover { border-color: var(--c-primary); }
-.wb-stat .v { font-size: 20px; font-weight: 700; line-height: 1.25; color: var(--c-primary); }
-.wb-stat .k { font-size: 12px; color: var(--t-weak); line-height: 1.4; }
+.wb-stat .v {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--c-action);
+}
+.wb-stat .k { font-size: var(--fs-xs); color: var(--t-weak); line-height: 1.4; }
+.wb-stat.primary .k { color: var(--c-primary); }
 .wb-stat.danger .v { color: var(--c-danger); }
+.k-risk { color: var(--c-risk); }
+/* 无预警时给明确的健康态，而不是继续显示一个灰色的 0 */
+.k-ok { color: var(--c-health); }
+.k-ok::before {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 4px;
+  border-radius: 50%;
+  background: var(--c-health);
+  vertical-align: 1px;
+}
 
 /* 主体：吃掉剩余高度，卡片撑满，内容超高时卡片内部滚动 */
 .wb-main {
@@ -225,12 +266,38 @@ onMounted(async () => {
   overflow: hidden; /* 双保险：列高被父级约束后，超出部分不得溢出 */
 }
 .wb-panel { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-.wb-panel :deep(.el-card__body) { flex: 1; min-height: 0; }
+/* 卡片头统一高度与 16px 缩进，左右两侧页签因此从同一基线开始 */
+.wb-panel :deep(.el-card__header) {
+  height: var(--card-hd-h);
+  padding: 0 var(--content-px);
+  display: flex;
+  align-items: center;
+}
+.wb-panel :deep(.el-card__header) > * { width: 100%; }
+.wb-panel :deep(.el-card__body) {
+  flex: 1;
+  min-height: 0;
+  padding: var(--sp-1) var(--content-px) var(--sp-3);
+}
 /* 窗口偏矮时滚动卡片内部而非整页，保证概览看板始终在视野内 */
-.wb-panel-todo :deep(.el-card__body) { padding-top: 8px; overflow-y: auto; }
-.wb-panel-side :deep(.el-card__body) { padding-top: 4px; overflow-y: auto; }
+.wb-panel-todo :deep(.el-card__body) { overflow-y: auto; }
+.wb-panel-side :deep(.el-card__body) { overflow-y: auto; }
+/* 左右页签统一基线间距 */
+.wb-panel :deep(.el-tabs__header) { margin-bottom: 8px; flex-shrink: 0; }
 .wb-side-tabs { display: flex; flex-direction: column; height: 100%; min-height: 0; }
-.wb-side-tabs :deep(.el-tabs__header) { margin-bottom: 6px; flex-shrink: 0; }
 .wb-side-tabs :deep(.el-tabs__content) { flex: 1; min-height: 0; overflow-y: auto; }
 .panel-hd { display: flex; justify-content: space-between; align-items: center; }
+.panel-sub { font-size: var(--fs-xs); font-weight: 400; color: var(--t-weak); }
+
+/* 矮屏：优先保证概览与待办可见，隐藏插画、压紧纵向节奏，仍不产生整页滚动 */
+@media (max-height: 720px) {
+  .workbench-page { gap: var(--sp-2); }
+  .wb-header { height: 24px; }
+  .wb-stat { padding: 5px var(--content-px); }
+  .wb-stat .v { font-size: 16px; }
+  .wb-panel :deep(.el-card__header) { height: 36px; }
+  .wb-panel :deep(.el-card__body) { padding-top: 0; }
+  .wb-panel :deep(.el-empty__image) { display: none; }
+  .wb-panel :deep(.el-empty) { padding: var(--sp-1) 0; }
+}
 </style>

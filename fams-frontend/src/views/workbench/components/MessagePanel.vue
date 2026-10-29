@@ -6,6 +6,7 @@
     </div>
     <div v-if="!messages.length" class="wb-none">
       <el-empty description="暂无消息" :image-size="60" />
+      <p class="wb-none-tip">审批结果、库存提醒等信息会以站内信的形式出现在这里。</p>
     </div>
     <div v-else class="wb-msg-list">
       <div
@@ -63,7 +64,23 @@ async function markAll() {
 .wb-msg:hover { background: var(--bg-hover, #f5f7fa); }
 .wb-msg-title { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; line-height: 1.4; }
 .wb-msg-content { font-size: 12px; color: var(--t-weak); margin-top: 3px; line-height: 1.5; }
-.wb-msg-time { font-size: 11px; color: var(--t-weak); margin-top: 4px; }
+.wb-msg-time { font-size: var(--fs-xs); color: var(--t-weak); margin-top: 4px; }
 .wb-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c-danger); display: inline-block; flex-shrink: 0; }
-.wb-none { padding: 8px 0; }
+.wb-none {
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-2) 0;
+}
+.wb-none :deep(.el-empty) { padding: var(--sp-2) 0; }
+.wb-none-tip {
+  max-width: 320px;
+  margin: var(--sp-1) auto 0;
+  font-size: var(--fs-xs);
+  color: var(--t-weak);
+  text-align: center;
+  line-height: 1.6;
+}
 </style>

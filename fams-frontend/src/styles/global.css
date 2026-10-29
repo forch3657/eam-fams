@@ -449,6 +449,13 @@ body {
   --bg-page: #F0F2F5;
   --bg-card: #FFFFFF;
   --bg-th: #F5F7FA;
+  --bg-hover: #F5F7FA;
+
+  /* 语义色：数据只读用中性色，避免与可点击链接同色 */
+  --c-data: var(--t-main);
+  --c-action: var(--c-primary);
+  --c-risk: var(--c-danger);
+  --c-health: var(--c-success);
 
   /* 资产状态色 */
   --st-rented: #18A058;
@@ -462,10 +469,20 @@ body {
   --r-md: 8px;
   --r-lg: 12px;
 
-  /* 间距 */
+  /* 间距：4px 基准阶梯 */
   --sp: 4px;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
   --h-top: 56px;
   --w-side: 200px;
+
+  /* 结构栅格 */
+  --content-px: 16px;      /* 卡片内容统一左缩进 */
+  --card-hd-h: 44px;       /* 卡片头标准高度，左右卡片对齐基线用 */
 
   /* 阴影 */
   --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 12px rgba(15,23,42,.06);
@@ -474,6 +491,14 @@ body {
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans SC", "Noto Sans CJK SC", sans-serif;
   --font-num: "DIN Alternate", "Bahnschrift", "Segoe UI", system-ui, sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  /* 字号阶梯：中文正文最小 12px，11px 仅用于非关键英文/数字 */
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-base: 14px;
+  --fs-md: 16px;
+  --fs-lg: 20px;
+  --fs-xl: 24px;
 
   /* Element Plus 覆盖 */
   --el-color-primary: #1668DC;
@@ -494,6 +519,17 @@ body {
   --el-fill-color-blank: #FFFFFF;
 }
 
+/* 指标数字：等宽数字，真实数据刷新时列宽不跳动 */
+.metric-num {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: .2px;
+}
+
+/* 只读数据/金额：用中性深色，避免与可点击的主色链接混淆 */
+.metric-data { color: var(--c-data); }
+
 /* 深色模式 */
 [data-theme="dark"] {
   --c-primary: #4C8DFF;
@@ -512,6 +548,7 @@ body {
   --bg-page: #0F172A;
   --bg-card: #16213A;
   --bg-th: #1B2740;
+  --bg-hover: #1B2740;
   --st-rented: #35C07E;
   --st-idle: #8892A6;
   --st-self: #5A9BE0;

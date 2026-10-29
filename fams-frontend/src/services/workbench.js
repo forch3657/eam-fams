@@ -311,6 +311,13 @@ export function buildOverview(p = {}) {
   const itemKinds = items.length
   const stockAmount = items.reduce((s, i) => s + Number(i.stock || 0) * Number(i.price || 0), 0)
   const reservedTotal = items.reduce((s, i) => s + Number(i.reserved || 0), 0)
+  // 低值物品种类 Top5：category 存的是 LOW_VALUE_CATEGORY 编码，展示前转中文
+  const lowByCategory = {}
+  items.forEach(i => { lowByCategory[i.category] = (lowByCategory[i.category] || 0) + 1 })
+  const lowTopTypes = Object.entries(lowByCategory)
+    .map(([k, v]) => ({ name: labelOf('LOW_VALUE_CATEGORY', k), value: v }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5)
 
   // 审批时效（近 7 天）
   const since = now.getTime() - 7 * DAY
@@ -372,13 +379,15 @@ export function buildOverview(p = {}) {
     lowValue: {
       itemKinds,
       stockAmount: Math.round(stockAmount * 100) / 100,
-      reservedTotal
+      reservedTotal,
+      topTypes: lowTopTypes
     },
     approval: {
       submitCount,
       agreeCount,
       rejectCount,
       avgHours: Math.round(avgHours * 10) / 10,
+      sampleCount: durations.length,
       processing,
       pendingByStep
     }
