@@ -33,8 +33,12 @@
       <el-table :data="pagedList" border stripe style="width: 100%">
         <el-table-column prop="code" label="角色编码" width="140" />
         <el-table-column prop="name" label="角色名称" width="140" />
-        <el-table-column prop="orgScope" label="所属组织" width="110" />
-        <el-table-column prop="dataScope" label="数据范围" width="140" />
+        <el-table-column label="所属组织" width="110">
+          <template #default="{ row }">{{ labelOf('ORG_SCOPE', row.orgScope) || row.orgScope }}</template>
+        </el-table-column>
+        <el-table-column label="数据范围" width="140">
+          <template #default="{ row }">{{ labelOf('DATA_SCOPE', row.dataScope) || row.dataScope }}</template>
+        </el-table-column>
         <el-table-column label="关联用户" width="100" align="center">
           <template #default="{ row }">
             <el-link type="primary" :underline="false" @click="gotoUsers(row)">
@@ -171,7 +175,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { useOrgStore } from '../../store/org'
-import { labelOf, optionsOf } from '../../constants/enums'
+import { codeOf, labelOf, optionsOf } from '../../constants/enums'
 import { PERMISSION_TREE } from '../../config/permissions'
 
 const orgStore = useOrgStore()
@@ -241,7 +245,8 @@ const rules = {
 }
 
 function emptyForm() {
-  return { id: '', code: '', name: '', orgScope: '本公司', dataScope: '本公司及以下', sort: 0, status: 'ENABLED', remark: '' }
+  // 下拉 value 是枚举编码；这里给中文文案会导致选项匹配不上、提交后被契约校验判为非法值
+  return { id: '', code: '', name: '', orgScope: 'COMPANY', dataScope: 'COMPANY', sort: 0, status: 'ENABLED', remark: '' }
 }
 
 function openDialog(row) {
@@ -256,11 +261,17 @@ async function submit() {
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
   try {
+    // 兜底：无论表单里是编码还是文案，落库前统一转成契约要求的编码
+    const payload = {
+      ...dialog.form,
+      orgScope: codeOf('ORG_SCOPE', dialog.form.orgScope, 'COMPANY'),
+      dataScope: codeOf('DATA_SCOPE', dialog.form.dataScope, 'COMPANY')
+    }
     if (dialog.isEdit) {
-      await orgStore.updateRole(dialog.form.id, dialog.form)
+      await orgStore.updateRole(dialog.form.id, payload)
       ElMessage.success('角色已更新')
     } else {
-      await orgStore.addRole(dialog.form)
+      await orgStore.addRole(payload)
       ElMessage.success('角色已新增')
     }
     dialog.visible = false

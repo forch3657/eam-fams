@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useOrgStore } from './org'
+import { useAppStore } from './app'
 import { authService, issueToken, setToken } from '../services/auth'
 import { useMock } from '../services'
 import { USER_STORAGE_KEY as STORAGE_KEY } from '../services/keys'
@@ -17,6 +18,12 @@ export const useUserStore = defineStore('user', () => {
 
   const isLoggedIn = computed(() => !!user.value)
 
+  /** 只认启用状态的角色：停用角色既不授权，也不计入角色展示 */
+  function enabledRole(org, roleId) {
+    const role = org.roles.find(r => r.id === roleId)
+    return role && role.status === 'ENABLED' ? role : null
+  }
+
   /** 当前用户拥有的权限编码集合（来自组织架构中该用户所角色的权限） */
   const permissions = computed(() => {
     if (!user.value) return []
@@ -26,7 +33,7 @@ export const useUserStore = defineStore('user', () => {
     const roleIds = user.value.roleIds || []
     const set = new Set()
     roleIds.forEach(rid => {
-      const role = org.roles.find(r => r.id === rid)
+      const role = enabledRole(org, rid)
       ;(role?.permissions || []).forEach(p => set.add(p))
     })
     return [...set]
@@ -74,10 +81,12 @@ export const useUserStore = defineStore('user', () => {
       }
       user.value = {
         ...account,
-        role: (account.roleIds || []).map(rid => org.roles.find(r => r.id === rid)?.name).filter(Boolean).join('、'),
+        role: (account.roleIds || []).map(rid => enabledRole(org, rid)?.name).filter(Boolean).join('、'),
         org: org.companyName(account.companyId) || '固定资产管理中心'
       }
       persist()
+      // 登录成功即视为新会话：清掉上一位用户遗留的标签页
+      try { useAppStore().resetViews() } catch (e) { console.error(e) }
       return { ok: true }
     }
 
@@ -94,7 +103,7 @@ export const useUserStore = defineStore('user', () => {
       username: account.username,
       name: account.name,
       roleIds,
-      role: roleIds.map(rid => org.roles.find(r => r.id === rid)?.name).filter(Boolean).join('、'),
+      role: roleIds.map(rid => enabledRole(org, rid)?.name).filter(Boolean).join('、'),
       companyId: account.companyId,
       deptId: account.deptId,
       position: account.position,
@@ -103,6 +112,7 @@ export const useUserStore = defineStore('user', () => {
     // 签发并保存 token（mock 模式也签发，保证链路一致）
     issueToken(user.value)
     persist()
+    try { useAppStore().resetViews() } catch (e) { console.error(e) }
 
     // 记录最后登录时间
     try { await org.updateUser(account.id, { lastLoginAt: new Date().toISOString() }) } catch (e) { console.error(e) }
@@ -131,6 +141,8 @@ export const useUserStore = defineStore('user', () => {
     user.value = null
     setToken('')
     try { sessionStorage.removeItem(STORAGE_KEY) } catch (e) { console.error(e) }
+    // 标签栏属于「上一位用户的工作现场」，退出/失效时必须一起清掉
+    try { useAppStore().resetViews() } catch (e) { console.error(e) }
   }
 
   function restore() {

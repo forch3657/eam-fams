@@ -169,8 +169,11 @@ const scopeName = computed(() => {
 })
 /** 数据范围说明：口径来自角色的 dataScope，不是可随意切换的控件 */
 const scopeTip = computed(() => {
-  const roleId = (userStore.user?.roleIds || [])[0]
-  const role = orgStore.roles.find(r => r.id === roleId)
+  // 取第一个启用角色：停用角色不再代表当前数据范围
+  const ids = userStore.user?.roleIds || []
+  const role = ids
+    .map(id => orgStore.roles.find(r => r.id === id))
+    .find(r => r && r.status === 'ENABLED')
   const scope = role?.dataScope ? labelOf('DATA_SCOPE', role.dataScope) : ''
   return scope ? `数据范围：${scope}（由角色配置决定）` : '数据范围由角色配置决定'
 })

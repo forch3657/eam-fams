@@ -370,6 +370,10 @@ public class GenericService {
                 .collect(Collectors.toList());
         Set<String> permissions = new LinkedHashSet<>();
         for (Map<String, Object> role : roles) {
+            // 停用的角色立即失效：否则「禁用角色」只改一个标记，权限照旧生效
+            if (!"ENABLED".equalsIgnoreCase(text(role.get("status")))) {
+                continue;
+            }
             permissions.addAll(asStringList(role.get("permissions")));
         }
         return permissions;

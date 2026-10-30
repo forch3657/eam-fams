@@ -68,7 +68,11 @@ export const useOrgStore = defineStore('org', () => {
   }
 
   function roleNames(ids = []) {
-    return ids.map(id => roleMap.value.get(id)?.name).filter(Boolean).join('、')
+    // 停用的角色不参与展示，避免已撤销的岗位还挂在姓名后面
+    return ids.map(id => {
+      const role = roleMap.value.get(id)
+      return role && role.status === 'ENABLED' ? role.name : ''
+    }).filter(Boolean).join('、')
   }
 
   /** 公司层级树（集团 → 子公司） */
@@ -348,6 +352,7 @@ export const useOrgStore = defineStore('org', () => {
     addRole,
     updateRole,
     removeRole,
+    setRoleMembers,
     setRolePermissions
   }
 })

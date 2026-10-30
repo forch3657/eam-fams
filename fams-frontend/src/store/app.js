@@ -23,5 +23,10 @@ export const useAppStore = defineStore('app', () => {
     visitedViews.value = visitedViews.value.filter(v => v.path !== path)
   }
 
-  return { sidebarCollapsed, visitedViews, toggleSidebar, addView, removeView }
+  /** 清空标签栏：切换账号/退出登录时调用，避免看到上一位用户打开过的页面 */
+  function resetViews() {
+    visitedViews.value = []
+  }
+
+  return { sidebarCollapsed, visitedViews, toggleSidebar, addView, removeView, resetViews }
 })

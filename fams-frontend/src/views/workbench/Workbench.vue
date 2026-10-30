@@ -151,7 +151,8 @@ const greeting = computed(() => {
 })
 const roleNames = computed(() => {
   const ids = userStore.user?.roleIds || []
-  return ids.map(id => (orgStore.roles.find(r => r.id === id) || {}).name || '').filter(Boolean).join('、')
+  // 停用的角色不再展示：与权限判定保持同一口径
+  return ids.map(id => (orgStore.roles.find(r => r.id === id && r.status === 'ENABLED') || {}).name || '').filter(Boolean).join('、')
 })
 
 async function refresh() {
