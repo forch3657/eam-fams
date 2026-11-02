@@ -3405,6 +3405,14 @@
           "refCollection": null
         },
         {
+          "name": "targetUserId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-users"
+        },
+        {
           "name": "time",
           "type": "date",
           "required": false,
@@ -3417,6 +3425,10 @@
       "refs": [
         {
           "field": "approverId",
+          "collection": "org-users"
+        },
+        {
+          "field": "targetUserId",
           "collection": "org-users"
         },
         {
@@ -3439,7 +3451,8 @@
         "docKey",
         "bizType",
         "result",
-        "approverId"
+        "approverId",
+        "targetUserId"
       ],
       "sortFields": [
         "time"

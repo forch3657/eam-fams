@@ -525,6 +525,7 @@ CREATE TABLE `fixed_asset_doc_approvals` (
   `approver_id` VARCHAR(255) COMMENT '→org-users',
   `approver_name` VARCHAR(255),
   `approver_role_name` VARCHAR(255),
+  `target_user_id` VARCHAR(255) COMMENT '→org-users',
   `time` DATETIME(3),
   `create_by` VARCHAR(64) COMMENT '创建人',
   `create_time` DATETIME(3) COMMENT '创建时间',

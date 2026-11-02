@@ -2,11 +2,24 @@
   "name": "fams-e2e",
   "version": "1.0.0",
   "private": true,
-  "description": "E2E 端到端测试（Playwright Test Runner），针对生产栈 https://localhost 验证关键点击流",
+  "description": "E2E 端到端测试（Playwright Test Runner）：真实点击 + 逐步截图 + HTML 报告回放",
   "scripts": {
-    "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed",
-    "test:e2e:report": "playwright show-report playwright-report"
+    "e2e": "playwright test",
+    "e2e:headed": "playwright test --headed",
+    "e2e:smoke": "playwright test tests/e2e/smoke.spec.ts tests/e2e/00-auth-session.spec.ts tests/e2e/02-permission.spec.ts tests/e2e/03-resilience.spec.ts",
+    "e2e:crawl": "playwright test tests/e2e/01-route-crawl.spec.ts",
+    "e2e:p4": "playwright test tests/e2e/04-permission-matrix.spec.ts",
+    "e2e:p1": "playwright test tests/e2e/05-fixed-asset-flow.spec.ts tests/e2e/06-fixed-asset-advanced.spec.ts",
+    "e2e:p2": "playwright test tests/e2e/07-low-value-flow.spec.ts",
+    "e2e:p3": "playwright test tests/e2e/08-approval-center.spec.ts",
+    "e2e:p6": "playwright test tests/e2e/11-approval-collab.spec.ts",
+    "e2e:p5": "playwright test tests/e2e/09-workbench-reports.spec.ts tests/e2e/10-import-reset.spec.ts",
+    "e2e:report": "playwright show-report playwright-report --host 127.0.0.1 --port 9323",
+    "e2e:stack:start": "powershell -ExecutionPolicy Bypass -File scripts/e2e/start-e2e.ps1",
+    "e2e:stack:stop": "powershell -ExecutionPolicy Bypass -File scripts/e2e/stop-e2e.ps1",
+    "e2e:db:setup": "powershell -ExecutionPolicy Bypass -File scripts/e2e/setup-e2e-db.ps1",
+    "e2e:db:dump": "powershell -ExecutionPolicy Bypass -File scripts/e2e/dump-baseline.ps1",
+    "e2e:db:reset": "powershell -ExecutionPolicy Bypass -File scripts/e2e/reset-e2e-db.ps1"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0"

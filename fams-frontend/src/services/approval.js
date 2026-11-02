@@ -16,7 +16,15 @@ import { dataService, COLLECTION, dataMode } from './index'
 import { httpService } from './http'
 import { useOrgStore } from '../store/org'
 import { useUserStore } from '../store/user'
+import { useApprovalStore } from '../store/approval'
 import { APPROVE_RESULT } from '../constants/enums'
+
+/** 只写轨迹、不推进单据状态的协作动作 */
+export const COLLAB_ACTIONS = ['addSign', 'transfer', 'cc']
+
+export function isCollabAction(action) {
+  return COLLAB_ACTIONS.includes(action)
+}
 
 /** 单据类型 -> 审批业务类型 */
 export const DOC_BIZ_TYPE = {
@@ -95,9 +103,33 @@ export function stepApprovers(step, org) {
   return orgStore.users.filter(u => (u.roleIds || []).includes(roleId) && u.status === 'ENABLED')
 }
 
-/** 环节可审批的账号清单（用于界面提示"该环节由谁审"） */
-export function stepApproverAccounts(step, org) {
-  return stepApprovers(step, org).map(u => ({ id: u.id, name: u.name, username: u.username }))
+/** 环节可审批的账号清单（用于界面提示"该环节由谁审"，传入 records 时按加签/转办后的实际审批人） */
+export function stepApproverAccounts(step, org, records = []) {
+  return stepApproversWithRecords(step, org, records).map(u => ({ id: u.id, name: u.name, username: u.username }))
+}
+
+/**
+ * 环节的实际审批人（含协作改动）：
+ * - 基础 = 审批角色成员；
+ * - 存在转办时，最后一次转办的目标人替换基础集合；
+ * - 转办之后（或从未转办时）的加签目标追加进集合。
+ */
+export function stepApproversWithRecords(step, org, records = []) {
+  if (!step) return []
+  const orgStore = org || useOrgStore()
+  const stepRecords = (records || []).filter(r => r.stepKey === step.key)
+  const lastTransfer = [...stepRecords].reverse().find(r => r.result === 'TRANSFER' && r.targetUserId)
+  const base = lastTransfer
+    ? (orgStore.users || []).filter(u => u.id === lastTransfer.targetUserId)
+    : stepApprovers(step, orgStore)
+  const result = new Map(base.map(u => [u.id, u]))
+  const after = lastTransfer ? stepRecords.slice(stepRecords.indexOf(lastTransfer) + 1) : stepRecords
+  for (const r of after) {
+    if (r.result !== 'ADD_SIGN' || !r.targetUserId) continue
+    const user = (orgStore.users || []).find(u => u.id === r.targetUserId)
+    if (user) result.set(user.id, user)
+  }
+  return [...result.values()]
 }
 
 /** 环节是否在当前单据上生效（按触发条件过滤） */
@@ -142,9 +174,11 @@ export function currentStep(steps, approvals, org) {
     const agreed = stepRecords.filter(a => a.result === 'AGREE')
     if (!agreed.length) return { index: i, step, records: stepRecords }
     if (step.mode === 'ALL') {
-      const need = stepApprovers(step, org).length
-      const passed = new Set(agreed.map(a => a.approverId)).size
-      if (passed < need) return { index: i, step, records: stepRecords }
+      const approvers = stepApproversWithRecords(step, org, stepRecords)
+      const passed = new Set(agreed.map(a => a.approverId))
+      if (approvers.length && approvers.some(u => !passed.has(u.id))) {
+        return { index: i, step, records: stepRecords }
+      }
     }
   }
   return null
@@ -176,11 +210,11 @@ export function canSubmit(doc, flow, user, org) {
   return false
 }
 
-/** 当前登录用户是否可以审批该环节 */
-export function canApprove(step, user, org) {
+/** 当前登录用户是否可以审批该环节（records 传入后按加签/转办后的实际审批人判定） */
+export function canApprove(step, user, org, records = []) {
   const me = user || useUserStore().user
   if (!me || !step) return false
-  return stepApprovers(step, org).some(u => u.id === me.id)
+  return stepApproversWithRecords(step, org, records).some(u => u.id === me.id)
 }
 
 /** 环节的展示信息（角色名 / 方式 / 条件） */
@@ -202,8 +236,9 @@ export function stepInfo(step, org) {
  * @param {object} p.doc          单据（会被更新 status/finishTime）
  * @param {string} p.docKey       单据类型（inbound/dispose/…）
  * @param {string} p.bizType      审批业务类型
- * @param {string} p.action       submit | approve | reject | revoke
+ * @param {string} p.action       submit | approve | reject | revoke | addSign | transfer | cc
  * @param {string} [p.comment]    审批意见
+ * @param {string} [p.targetUserId] 加签 / 转办 / 抄送的目标人员 ID
  * @param {object} [p.ctx]        条件上下文：{ amount, hasDiff }
  * @param {Function} [p.saveDoc]  持久化单据的回调
  * @param {Function} [p.saveApproval] 持久化审批记录的回调（默认直接写集合）
@@ -220,8 +255,10 @@ export async function runApproval(p) {
   // 避免前端「先写轨迹再改状态」两次写入导致轨迹缺失或重复。
   if (dataMode === 'api') {
     const data = await httpService.approvalAction(
-      { docKey, docId: doc.id, bizType, action, comment, ctx })
+      { docKey, docId: doc.id, bizType, action, comment, ctx, targetUserId: p.targetUserId })
     doc.status = data.status
+    // 协作动作不关闭审批弹窗，需要把服务端新写入的轨迹拉回来，界面才能显示新的审批人
+    if (isCollabAction(action)) await useApprovalStore().load(true).catch(() => {})
     return { ok: true, status: data.status, message: data.message }
   }
 
@@ -276,12 +313,49 @@ export async function runApproval(p) {
     return { ok: true, status: 'REVOKED', message: '单据已撤销' }
   }
 
+  // 加签 / 转办 / 抄送：只写轨迹，不推进单据状态（与后端 ApprovalService#collaborate 保持一致）
+  if (isCollabAction(action)) {
+    if (doc.status !== 'PROCESSING') return { ok: false, message: '只有审批中的单据可以加签、转办或抄送' }
+    const target = p.targetUserId
+    if (!target) return { ok: false, message: '请选择目标人员' }
+    if (target === me.id) return { ok: false, message: '目标人员不能是自己' }
+    const targetUser = (org.users || []).find(u => u.id === target)
+    if (!targetUser) return { ok: false, message: '目标人员不存在' }
+    if (targetUser.status !== 'ENABLED') return { ok: false, message: '目标人员已停用，不能接收审批任务' }
+    const cc = action === 'cc'
+    if (!cur && !cc) return { ok: false, message: '该单据已无待审环节，不能加签或转办' }
+    const isApprover = cur ? canApprove(cur.step, me, org, docApprovals) : false
+    if (!isApprover && !(cc && doc.creatorId === me.id)) {
+      return { ok: false, message: '只有当前环节的审批人可以执行该动作（抄送还允许单据创建人）' }
+    }
+    if (!cc && canApprove(cur.step, targetUser, org, docApprovals)) {
+      return { ok: false, message: '该人员已是当前环节的审批人' }
+    }
+    const result = action === 'addSign' ? 'ADD_SIGN' : action === 'transfer' ? 'TRANSFER' : 'CC'
+    await pushRecord({
+      ...base,
+      stepKey: cur ? cur.step.key : '',
+      stepName: cur ? cur.step.name : '抄送',
+      result,
+      comment,
+      targetUserId: target
+    })
+    const targetName = targetUser.name || targetUser.username
+    return {
+      ok: true,
+      status: doc.status,
+      message: action === 'addSign' ? `已加签给「${targetName}」`
+        : action === 'transfer' ? `已转办给「${targetName}」`
+        : `已抄送给「${targetName}」`
+    }
+  }
+
   if (doc.status !== 'PROCESSING') return { ok: false, message: '只有审批中的单据可以审批' }
   if (!cur) {
     if (saveDoc) await saveDoc({ ...doc, status: 'DONE', finishTime: new Date().toISOString() })
     return { ok: true, status: 'DONE', message: '审批已全部通过' }
   }
-  if (!canApprove(cur.step, me, org)) {
+  if (!canApprove(cur.step, me, org, docApprovals)) {
     return { ok: false, message: '当前环节「' + cur.step.name + '」需要由「' + (roleNameOf(cur.step) || cur.step.approver) + '」审批' }
   }
 

@@ -182,6 +182,9 @@ router.beforeEach(async (to) => {
       // 交给下面的 can() 判定走 403 / 兜底页
       try { await orgStore.loadAll() } catch (e) { console.error('[router] 组织主数据加载失败', e) }
     }
+    // loadAll 期间若接口返回 401，会话已被清空：此时必须去登录页，
+    // 否则会继续走权限判定落到 403，用户看到「无访问权限」却不知道要重新登录。
+    if (!userStore.isLoggedIn) return '/login'
     if (!userStore.can(perm)) {
       const fallback = FALLBACK_ROUTES.find(r => userStore.can(r.permission))
       return fallback ? fallback.path : '/403'

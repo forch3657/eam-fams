@@ -28,6 +28,9 @@ public class ApprovalRequest {
     /** 审批意见；驳回时必填 */
     private String comment;
 
+    /** 加签 / 转办 / 抄送的目标人员 ID */
+    private String targetUserId;
+
     /** 触发条件上下文：{ amount, hasDiff } */
     private Map<String, Object> ctx;
 }

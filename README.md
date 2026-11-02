@@ -56,7 +56,7 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 | 数据库地址 | `jdbc:mysql://127.0.0.1:3306/fams` |
 | 数据库名 | `fams` |
 | 用户名 | `fams`（专用最小权限账号，仅授权 `fams.*`） |
-| 密码 | `FamsDb@2026!`（在 `application-dev.yml` 中为默认值；已收回调试期建的 `root@127.0.0.1` 全权限账户） |
+| 密码 | `FamsDb@2026!`（在 `application-dev.yml` 中为默认值；`fams` 仅有 DML，DDL 另用管理员账号，见 `docs/deployment.md` 第 1、3 节） |
 | 连接参数 | `useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai`（适配 MySQL 8 的 `caching_sha2_password`） |
 
 > ⚠️ **前置条件**：`start-dev-mysql.bat` **不会自动建库建表**。必须先按下面第 2 节把 `fams` 库建好、灌入 schema+数据，否则后端起不来（Hikari 连不上 / 表不存在）。
@@ -67,29 +67,24 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 
 ---
 
-## 2. 上 MySQL 前清单
+## 2. 建库 / 迁移 / 账号权限
 
-联调稳定、准备部署到真实 MySQL 时，按以下清单操作（**先上 SQL 再测**，因为部分功能依赖 schema；不要拿旧 SQL 建库测出假结果）：
+> 完整操作手册见 **[docs/deployment.md](docs/deployment.md)**：账号与最小权限、首次建库、DDL 迁移流程、故障排查、交接清单。本节只保留上线必读要点。
 
-1. **切换 profile（本地联调用脚本，部署改 yaml）**：
-   - **本地联调**：直接双击 `start-dev-mysql.bat`，脚本已用 `-Dspring-boot.run.profiles=dev` 启动后端（dev = MySQL 模式，`spring.sql.init.mode` 为 `never`，由你手动执行下面的 SQL），**无需改 `application.yml`**。
-   - **正式部署**：把后端 `application.yml` 的默认激活 profile 改成 `dev`。
-   - `application-dev.yml` 里连接串已带 `characterEncoding=utf8` 与 `allowPublicKeyRetrieval=true`（适配 MySQL 8 的 `caching_sha2_password`），默认账号 `fams`、密码 `FamsDb@2026!`（改密码直接改 yaml 默认值；不要用 `mvn -DDB_PASSWORD=xxx`，`spring-boot:run` 会 fork 新 JVM 导致 `-D` 不透传）。
-   - 若后端连不上 MySQL，多半是 `MySQL80` 服务未启动（脚本已尝试自动拉起）或账号口令与库不匹配；`fams`@`127.0.0.1` 专用最小权限账号已在初始化时建好，无需补建 root。
-2. **按顺序执行建库脚本**（在 `deploy/sql/mysql/` 下，MySQL 直接可执行）：
-   - `deploy/sql/mysql/schema.sql` —— 建表（`DROP TABLE IF EXISTS` + `CREATE TABLE`，可重复执行）
-   - `deploy/sql/mysql/baseline-data.sql` —— 最小基础数据：根公司 `C1` / 根部门 `D1`、系统管理员 `U1`、角色预设 `R1~R8`，以及**全部数据字典**（字典为枚举校验与下拉选项所必需，不可省略）
-   - 需要演示业务数据：再执行 `fams-backend/src/main/resources/db/seed.sql`
+1. **先上 SQL 再测**：`dev` / `prod` 的 `spring.sql.init.mode` 均为 `never`，后端**不会自动建表**。首次初始化按顺序执行：
+   - `deploy/sql/mysql/schema.sql` —— 建表（39 张，含 `DROP TABLE IF EXISTS`，**重复执行会清空业务数据**）
+   - `deploy/sql/mysql/baseline-data.sql` —— 根公司 `C1`、根部门 `D1`、管理员 `U1`、角色 `R1~R8` 与**全部数据字典**（不可省略）
+   - 演示数据（仅测试环境）：`fams-backend/src/main/resources/db/seed.sql`
 
-   > ⚠️ `prod` / `dev` profile 的 `spring.sql.init.mode` 均为 `never`，**不会自动建表**。
-   > 必须先执行上面两个脚本（或人工确认库已初始化），否则后端起不来（Hikari 连不上 / 表不存在）。
-   > 其中管理员口令 `Fzidt@123` 以明文写入，应用首次启动时会由 `DataInitializer` 自动迁移为 BCrypt。
+   管理员初始口令 `Fzidt@123` 为明文写入，应用首次启动时由 `DataInitializer` 自动迁移为 BCrypt。
 
-3. **脚本已同步的修复（务必确认已带入）**：
-   - 三张表的 `enabled` 列已为 **`BOOLEAN`**（折旧方案、流程配置、消息模板）。**不要改回 `TINYINT(1)`** —— 否则后端回读成 `0/1`，前端 `el-switch` 严格比较 `true` 失败，启停开关会「看似没启用」并反复弹回。`deploy/sql/mysql/schema.sql` 与 `fams-backend/src/main/resources/db/schema.sql`（H2 用）这两份都要保持 `BOOLEAN`。
-   - seed 中的 `1/0` 对 `BOOLEAN` 列兼容，无需改动。
+2. **改表结构三处 schema 必须同步**：`deploy/sql/mysql/schema.sql`、`fams-backend/src/main/resources/db/schema.sql`（H2）、`fams-backend/sql/01-schema/00-schema.sql`。
 
-> 关键点：本项目有两套同源 schema —— H2 联调用的 `fams-backend/src/main/resources/db/schema.sql`（源），与部署用的 `deploy/sql/mysql/schema.sql`（前者改动后需同步过去）。改表结构时**两处都要同步**。
+3. **DDL 不能用应用账号**：`fams` 只有 `fams.*` 的 DML + EXECUTE，`ALTER TABLE` 会报 `ERROR 1142`；管理员账号、口令存放与执行命令见 `docs/deployment.md` 第 1、3 节。
+
+4. **`enabled` 列必须保持 `BOOLEAN`**（折旧方案、流程配置、消息模板）：改回 `TINYINT(1)` 会让前端 `el-switch` 严格比较 `true` 失败，启停开关「看似没启用」并反复弹回。
+
+5. **profile**：本地联调双击 `start-dev-mysql.bat`（已带 `-Dspring-boot.run.profiles=dev`）；正式部署改 `application.yml` 的默认激活 profile。连接串与口令见 `docs/deployment.md` 第 2.5 节。
 
 ### 批量导入客户真实数据
 
@@ -289,7 +284,7 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 | R8 仓管员 | `fa:view`、`lv:inbound/requisition/return` | 本公司（COMPANY） |
 
 > **数据范围**说明：`ALL/GROUP`=全集团可见；`COMPANY`=仅本公司数据；`DEPT/DEPT_ONLY`=仅本人所在部门。
-> ⚠️ **当前状态**：权限码（菜单/按钮）已生效，但行级数据隔离**尚未在后端实现**——`data_scope` 字段暂未参与查询过滤，详见第 7 节。列表查询与导出目前不做公司/部门隔离。
+> ✅ **当前状态（2026-11-02）**：行级数据过滤已在后端生效——`GenericService.list/page` 按当前账号的 `dataScope` 强制注入条件，并覆盖调用方传入的同名字段；菜单/按钮权限与行级范围同时受控，细节见第 7 节。
 
 ---
 
@@ -314,19 +309,20 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 
 ---
 
-## 7. 数据范围过滤（跨公司 / 跨部门）—— 已知限制（单公司使用）
+## 7. 数据范围过滤（跨公司 / 跨部门）—— 已实现
 
-> **结论**：当前产品定位为**单公司使用**，行级数据隔离**不实现**。本节仅作已知限制存档，无需据此回归。如需支持多公司集团，再启动实现（见文末说明）。
+> **结论（2026-11-02）**：行级隔离已落地。`UserPrincipal` 携带 `dataScope`（多角色取最宽松：`ALL > COMPANY > DEPT > DEPT_ONLY > SELF`），`GenericService.list/page` 对业务集合强制注入过滤条件，并覆盖调用方传入的同名字段（无法用 query 参数绕过）。
 
-### 现状（已核实后端代码）
+### 实现口径
 
-- 角色 `org_roles.data_scope` 字段已定义（`ALL` / `COMPANY` / `DEPT` / `DEPT_ONLY`），但后端 `GenericService.list/page` 与 `QueryAssembler` **未读取当前登录用户的角色、也不按其数据范围追加 WHERE 条件**。
-- 结果：**任何已登录用户都能看到全部公司、全部部门的数据**（资产管理台账、低值库存、报表导出均不隔离）。第 6 节的权限码控制的是「能不能看到菜单/按钮」，不控制「能看到哪些行」。
-- 单公司场景下无影响：所有 seed 账号的业务数据默认归属同一家公司即可，无需隔离。
+- `SELF` → `create_by = 当前登录账号`；`DEPT` / `DEPT_ONLY` → `dept_id = 本人部门`；`COMPANY` → `company_id = 本人公司`；`ALL` / 未配置 → 不过滤。
+- 受约束集合：`fixed-assets`、`fixed-asset-doc-lists-*`、`low-value-items`、`low-value-inbound` / `low-value-requisition` / `low-value-return`。
+- **降级规则**：集合缺少对应列时（如单据没有 `deptId`）不做过滤，而不是退化为 `createBy`——否则审批人会把「本部门可见」误收紧成「只看自己创建」，工作台待办会变空（P3-14 回归时暴露）。
+- 已知边界：`DEPT` / `DEPT_ONLY` 目前按 `deptId` 精确匹配，不含子部门（当前部门树两层以内）；跨公司隔离需真实多公司数据再验证。
 
-### 预期行为（实现后应达到）
+### 预期行为
 
-| 数据范围 | 含义 | 应过滤字段 |
+| 数据范围 | 含义 | 过滤字段 |
 |---|---|---|
 | `ALL` / `GROUP` | 全集团可见 | 不过滤 |
 | `COMPANY` | 仅本公司 | `company_id` |
@@ -341,7 +337,7 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 | `admin`（R1 / ALL / C1） | 任意台账 + 导出 | 全公司全部门可见、可导出 |
 | `chenjing`（R6 / ALL / C3） | 资产报表导出 | 全量数据可导出 |
 
-> ⚠️ 以上用例反映「多公司隔离」的**目标行为**，当前单公司模式下不强制验收。若后续要支持多公司集团，再实现行级过滤并据此回归。
+> 以上用例即多公司隔离的目标行为；当前单公司数据下先以 P4-19（`SELF`）回归，接入多公司数据后按此表补充验收。
 
 ---
 
@@ -366,8 +362,9 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 | 项 | 默认值 | 说明 |
 |---|---|---|
 | 应用登录口令 | `Fzidt@123`（全员统一强口令） | 业务账号 `admin`/`zhangwei`/`wangqiang`/… 均用此登录 |
-| 数据库账号 | `fams` @ `127.0.0.1` | 仅授权 `fams.*`，最小权限（已收回调试期建的 `root@127.0.0.1` 全权限） |
+| 数据库账号 | `fams` @ `127.0.0.1` | 仅授权 `fams.*` 的 DML，最小权限（`root@127.0.0.1` 已收回） |
 | 数据库口令 | `FamsDb@2026!` | 在 `application-dev.yml` / `application-prod.yml` 默认值 |
+| MySQL 管理员（仅 DDL） | 不写入仓库 | 本机 `root@localhost`，口令由密码管理器 / `MYSQL_ADMIN_PWD` 提供；生产换专属 DBA 账号 |
 | JWT 密钥 | `FamsJwtProdKey@2026!kP9zQx7vB2mC8wE3rT5yU` | HS256 要求 ≥32 字符；用环境变量 `JWT_SECRET` 覆盖 |
 
 ### 一键启动 / 停止
@@ -393,7 +390,7 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 | 协议 | http | https（自签证书） |
 | 启动脚本 | `start-dev.bat` / `start-dev-mysql.bat` | `start-prod.bat` |
 
-> 本机生产形态已端到端冒烟通过（HTTPS 登录、中文无乱码、折旧方案启停持久化、领用默认本人+部门过滤代申请、前端资源加载）。后续未覆盖项（按落地顺序）：数据范围隔离已定为单公司不实现（见第 7 节）；审批闭环、折旧合规口径、审计日志为后续阶段。
+> 本机生产形态已端到端冒烟通过（HTTPS 登录、中文无乱码、折旧方案启停持久化、领用默认本人+部门过滤代申请、前端资源加载）。数据范围隔离已于 2026-11-02 落地（见第 7 节）。后续未覆盖项（按落地顺序）：审批协作（加签/转办/抄送，见 `docs/e2e/test-plan-p1-p5.md` 的 P3-D3）、折旧合规口径、审计日志。
 
 ---
 
@@ -468,6 +465,7 @@ CI 的 E2E 不用 nginx/MySQL：后端 `h2` profile + 前端 vite dev（`/api` �
 EAM-FAMS/
 ├── start-dev.bat / start-dev.ps1   # 一键启动（H2 联调）
 ├── stop-dev.bat                    # 停止服务
+├── docs/                           # 部署手册 deployment.md、e2e 测试文档
 ├── fams-backend/
 │   ├── src/main/resources/
 │   │   ├── db/                     # H2 联调用 schema.sql + seed.sql

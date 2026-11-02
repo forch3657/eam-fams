@@ -1,25 +1,25 @@
 import { expect, request, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import { loginViaApi, seedSession } from './fixtures/auth';
+import { cleanupTemp, createTempUser, type TempUser } from './fixtures/data';
+import { ADMIN, BASE_URL } from './fixtures/env';
 
 /**
- * 关键点击流冒烟：覆盖「登录 → 折旧启停持久化 → 低值资产代申请联动」三条主线。
+ * 关键点击流冒烟：覆盖「登录 → 折旧管理台账 → 低值资产领用默认值」三条主线。
  *
  * 与旧的自研脚本 e2e-smoke.cjs 的区别：
  * - 使用 Playwright Test Runner：有 HTML/JUnit 报告、失败截图与 trace、用例级重试；
  * - 断言改为 expect（失败即抛，不再靠汇总计数，CI 能自动判红）；
- * - 折旧启停属于写操作，afterAll 强制校验「已还原到原始状态」，避免残留测试数据。
+ * - 界面数据一律与接口交叉校验，避免「页面有壳没数据」也算通过。
  *
  * 注意：本应用 token 存在 sessionStorage，storageState 无法跨 context 还原，
  * 因此每个用例都在 beforeEach 里做一次真实 UI 登录（用例保持相互独立）。
  */
-const BASE = process.env.E2E_BASE_URL ?? 'https://localhost';
-const USERNAME = process.env.E2E_USERNAME ?? 'admin';
-const PASSWORD = process.env.E2E_PASSWORD ?? 'Fzidt@123';
-const SCHEME = '电子设备折旧方案';
-const EXPECTED_SCHEMES = ['电子设备折旧方案', '机械设备折旧方案', '运输设备折旧方案', '房屋建筑物折旧方案'];
+const BASE = BASE_URL;
+const USERNAME = ADMIN.username;
+const PASSWORD = ADMIN.password;
 
 let api: APIRequestContext;
 let token = '';
-let originalEnabled: boolean | null = null;
 
 let consoleErrors: string[] = [];
 let pageErrors: string[] = [];
@@ -36,22 +36,37 @@ async function apiGet(path: string) {
   return body.data;
 }
 
-async function currentScheme(): Promise<Record<string, any>> {
-  const data = await apiGet('/api/fixed-asset-depreciation-schemes');
-  const hit = (data ?? []).find((s: any) => s.schemeName === SCHEME);
-  expect(hit, `折旧方案「${SCHEME}」应存在`).toBeTruthy();
-  return hit as Record<string, any>;
+/** 折旧台账的默认期间：当前自然月（与页面默认一致） */
+function currentPeriod(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
-async function me(): Promise<any | undefined> {
-  const data = await apiGet('/api/org-users?pageSize=100');
-  return (data ?? []).find((u: any) => u.username === USERNAME);
+async function me(username: string = USERNAME): Promise<any | undefined> {
+  const data = await apiGet('/api/org-users?pageSize=500');
+  return (data ?? []).find((u: any) => u.username === username);
 }
 
+/**
+ * 按下拉标签（部门名（公司名））反查该部门的在职成员。
+ *
+ * 不同公司存在同名部门（如两个「综合管理部」），只按名字匹配会串到别的公司，
+ * 因此标签里的公司名必须一起参与匹配。
+ */
 async function membersOfDeptLabel(deptLabel: string): Promise<string[]> {
-  const depts = await apiGet('/api/org-departments?pageSize=100');
-  const users = await apiGet('/api/org-users?pageSize=100');
-  const dept = (depts ?? []).find((d: any) => deptLabel.includes(d.name));
+  const [depts, users, companies] = await Promise.all([
+    apiGet('/api/org-departments?pageSize=500'),
+    apiGet('/api/org-users?pageSize=500'),
+    apiGet('/api/org-companies?pageSize=200'),
+  ]);
+  const matched = /^(.*?)（(.*)）$/.exec(deptLabel);
+  const deptName = matched?.[1] ?? deptLabel;
+  const companyName = matched?.[2] ?? '';
+  const dept = (depts ?? []).find(
+    (d: any) =>
+      d.name === deptName &&
+      (!companyName || (companies ?? []).find((c: any) => c.id === d.companyId)?.name === companyName),
+  );
   if (!dept) {
     return [];
   }
@@ -105,18 +120,20 @@ async function pickOption(page: Page, text: string): Promise<void> {
 }
 
 /**
- * 真实 UI 登录（token 存在 sessionStorage，无法用 storageState 还原，只能每次走登录界面）。
- * 已登录时自动跳过填表，保证幂等。
+ * 真实 UI 登录（token 存在 sessionStorage，无法用 storageState 还原，只能走登录界面）。
+ * 默认用管理员账号；需要验证「本人部门」相关默认值时传入有部门的账号。
  */
-async function login(page: Page): Promise<void> {
+async function login(
+  page: Page,
+  credentials: { username: string; password: string } = { username: USERNAME, password: PASSWORD },
+): Promise<void> {
   // 直接进 /login：若用 '/' 会因 SPA 客户端重定向到 /login，瞬间 isVisible 判定会误判为未登录而跳过填表。
   await page.goto('/login');
-  const userInput = page
-    .locator('input[placeholder*="用户名"], input[placeholder*="账号"], input[placeholder*="user"]')
-    .first();
+  // 登录页占位文案是「请输入手机号（管理员用 admin）」，直接取表单内首个输入框最稳
+  const userInput = page.locator('.login-form input').first();
   await expect(userInput).toBeVisible({ timeout: 30_000 });
-  await userInput.fill(USERNAME);
-  await page.locator('input[type=password]').first().fill(PASSWORD);
+  await userInput.fill(credentials.username);
+  await page.locator('input[type=password]').first().fill(credentials.password);
   await page.locator('button').filter({ hasText: /登\s*录/ }).first().click();
   // 不能用 /固定资产/ 判定登录成功——登录页标题就是「固定资产管理系统」，会误判。
   // 正确做法是等待路由真正离开登录页，并确认主框架（侧边菜单）已渲染。
@@ -140,15 +157,9 @@ test.beforeAll(async () => {
   expect(body.code, '登录应返回 code=0').toBe(0);
   token = body.data.token as string;
   expect(token.length, '应取到有效 token').toBeGreaterThan(10);
-  originalEnabled = Boolean((await currentScheme()).enabled);
 });
 
 test.afterAll(async () => {
-  // 无论用例成败，都必须回到原始状态，杜绝测试数据残留
-  const current = await currentScheme().catch(() => null);
-  if (current && originalEnabled !== null) {
-    expect(Boolean(current.enabled), '折旧方案必须还原为原始启用状态').toBe(originalEnabled);
-  }
   await api?.dispose();
 });
 
@@ -178,105 +189,137 @@ test('登录后进入工作台，界面元素正常渲染', async ({ page }) => 
   await expect(page.locator('body')).toContainText('工作台');
 });
 
-test('折旧方案列表渲染出全部中文方案名', async ({ page }) => {
+/**
+ * 折旧管理：前端已废弃「折旧方案」配置，改为「后端统一计提 + 台账展示」。
+ * 断言口径随之调整为「页面台账 = 接口台账」，避免用例绑死在已删除的界面上。
+ */
+test('折旧管理展示当期计提台账，且与接口数据一致', async ({ page }) => {
   await page.goto('/fixed-assets?tab=depreciation');
-  // 不要断言通用 .el-table：页面里存在多个隐藏页签的表格，.first() 可能命中不可见的那个。
-  // 直接断言折旧页签里的目标行可见，语义也更明确。
-  await expect(page.locator('tr', { hasText: SCHEME }).first()).toBeVisible();
+  // 页面里有多组嵌套页签，不能用 .el-tabs__item.is-active 泛匹配（会命中隐藏子页签）
+  const tab = page.getByRole('tab', { name: '折旧管理', exact: true });
+  await expect(tab).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('body')).toContainText('本期计提折旧');
 
-  const remoteNames = ((await apiGet('/api/fixed-asset-depreciation-schemes')) ?? []).map(
-    (s: any) => s.schemeName as string,
-  );
-  expect(remoteNames).toEqual(expect.arrayContaining(EXPECTED_SCHEMES));
-  for (const name of EXPECTED_SCHEMES) {
-    await expect(page.locator('body')).toContainText(name);
-  }
+  const plan = await apiGet(`/api/depreciation/plan?period=${currentPeriod()}`);
+  expect(plan?.rows?.length, '当期应有计提台账').toBeGreaterThan(0);
+
+  const first = plan.rows[0];
+  // 首行资产编号必须真实出现在页面上，防止「接口有数据、页面空表」。
+  // 必须限定在可见页签内：资产台账等隐藏页签里也有同一资产编号，泛匹配会命中隐藏行。
+  await expect(page.locator('.el-tab-pane:visible tr', { hasText: first.assetNo }).first()).toBeVisible();
+  // 合计与接口同源：金额按页面同款格式化后比对
+  const monthly = Number(plan.periodDepreciation).toLocaleString();
+  await expect(page.locator('body')).toContainText(monthly);
 });
 
-test('折旧启停：UI 操作后深链刷新仍持久化，并还原到原始状态', async ({ page }) => {
+test('折旧管理：深链刷新后仍停留在该页签且数据不丢', async ({ page }) => {
+  const plan = await apiGet(`/api/depreciation/plan?period=${currentPeriod()}`);
+  expect(plan?.rows?.length, '当期应有计提台账').toBeGreaterThan(0);
+  const assetNo = plan.rows[0].assetNo as string;
+
   await page.goto('/fixed-assets?tab=depreciation');
-  const row = page.locator('tr', { hasText: SCHEME }).first();
+  const tab = page.getByRole('tab', { name: '折旧管理', exact: true });
+  await expect(tab).toHaveAttribute('aria-selected', 'true');
+  const row = page.locator('.el-tab-pane:visible tr', { hasText: assetNo }).first();
   await expect(row).toBeVisible();
 
-  const before = Boolean((await currentScheme()).enabled);
-  await row.locator('.el-switch').first().click();
-  await expect
-    .poll(async () => Boolean((await currentScheme()).enabled), { timeout: 20_000 })
-    .toBe(!before);
-
-  // 深链刷新后接口应保持变更
-  await page.goto('/fixed-assets?tab=depreciation');
-  expect(Boolean((await currentScheme()).enabled), '开关变更应持久化').toBe(!before);
-  await expect(page.locator('tr', { hasText: SCHEME }).first()).toBeVisible();
-
-  // 还原
-  await page.locator('tr', { hasText: SCHEME }).first().locator('.el-switch').first().click();
-  await expect
-    .poll(async () => Boolean((await currentScheme()).enabled), { timeout: 20_000 })
-    .toBe(before);
+  await page.reload();
+  await expect(tab).toHaveAttribute('aria-selected', 'true');
+  await expect(row).toBeVisible();
 });
 
-test('领用对话框默认预填「本人 + 本部门」', async ({ page }) => {
-  const dialog = await openRequisitionDialog(page);
-  const deptItem = dialog.locator('.el-form-item', { hasText: '领用部门' }).first();
-  const userItem = dialog.locator('.el-form-item', { hasText: '领用人' }).first();
+/**
+ * 领用默认值必须用「有部门」的账号验证。
+ *
+ * 系统管理员这类账号可能没有部门（组织数据调整后 deptId 会被清空），
+ * 此时没有「本部门」可预填，用它断言只会暴露数据漂移而不是功能缺陷。
+ * 这里临时建一个 E2E_ 前缀的部门账号，跑完即删，不依赖既有账号的归属。
+ */
+test.describe('领用默认值（部门账号）', () => {
+  let adminSession: Awaited<ReturnType<typeof loginViaApi>>;
+  let deptUser: TempUser;
 
-  const userText = await selectText(userItem);
-  const deptText = await selectText(deptItem);
-  expect(isPlaceholder(userText), '领用人应默认预填本人').toBe(false);
-  expect(isPlaceholder(deptText), '领用部门应默认预填本部门').toBe(false);
-
-  const user = await me();
-  if (user?.name) {
-    expect(userText).toBe(user.name as string);
-  }
-  const members = await membersOfDeptLabel(deptText);
-  expect(members.length, '本部门应有在职成员').toBeGreaterThan(0);
-});
-
-test('领用人下拉默认列出本部门成员且包含本人', async ({ page }) => {
-  const dialog = await openRequisitionDialog(page);
-  const userItem = dialog.locator('.el-form-item', { hasText: '领用人' }).first();
-
-  const names = await readOptions(page, userItem);
-  expect(names.length, '下拉应有可选成员').toBeGreaterThan(0);
-  const user = await me();
-  if (user?.name) {
-    expect(names).toContain(user.name as string);
-  }
-});
-
-test('切换部门后领用人清空，下拉按新部门成员过滤', async ({ page }) => {
-  const dialog = await openRequisitionDialog(page);
-  const deptItem = dialog.locator('.el-form-item', { hasText: '领用部门' }).first();
-  const userItem = dialog.locator('.el-form-item', { hasText: '领用人' }).first();
-
-  const defaultDept = await selectText(deptItem);
-  const defaultUser = await selectText(userItem);
-
-  const deptNames = await readOptions(page, deptItem);
-  // 优先选「有在职成员」的其他部门，才能验证过滤语义；若其他部门都没有成员，则退化为验证「无数据」空列表
-  const candidates = await Promise.all(
-    deptNames.filter(n => n !== defaultDept).map(async label => ({ label, members: await membersOfDeptLabel(label) })),
-  );
-  const preferred = candidates.find(c => c.members.length > 0);
-  const target = (preferred ?? candidates[0])?.label;
-  expect(target, '应至少存在另一个可选部门').toBeTruthy();
-  await pickOption(page, target as string);
-
-  expect(await selectText(deptItem)).toBe(target as string);
-  expect(isPlaceholder(await selectText(userItem)), '切换部门后领用人应被清空').toBe(true);
-
-  const names = await readOptions(page, userItem);
-  const members = await membersOfDeptLabel(target as string);
-  if (members.length === 0) {
-    expect(names, '无成员部门的下拉应为空（无数据）').toEqual([]);
-  } else {
-    expect(names.length, '新部门应有可选成员').toBeGreaterThan(0);
-    expect(names, '不应再包含原部门人员').not.toContain(defaultUser);
-    // 与接口交叉：下拉成员必须是新部门的在职成员
-    for (const name of names) {
-      expect(members).toContain(name);
+  test.beforeAll(async () => {
+    adminSession = await loginViaApi();
+    const roleId = (adminSession.user.roleIds ?? [])[0];
+    if (!roleId) {
+      throw new Error('管理员账号未绑定角色，无法创建临时用户');
     }
-  }
+    deptUser = await createTempUser(adminSession, roleId);
+  });
+
+  // 外层 beforeEach 已用管理员登录，这里把会话换成临时账号；addInitScript 在下一次导航生效
+  test.beforeEach(async ({ context }) => {
+    const session = await loginViaApi({ username: deptUser.username, password: deptUser.password });
+    await seedSession(context, session);
+  });
+
+  test.afterAll(async () => {
+    if (adminSession) {
+      await cleanupTemp(adminSession, { userId: deptUser?.id });
+    }
+  });
+
+  test('领用对话框默认预填「本人 + 本部门」', async ({ page }) => {
+    const dialog = await openRequisitionDialog(page);
+    const deptItem = dialog.locator('.el-form-item', { hasText: '领用部门' }).first();
+    const userItem = dialog.locator('.el-form-item', { hasText: '领用人' }).first();
+
+    const userText = await selectText(userItem);
+    const deptText = await selectText(deptItem);
+    expect(isPlaceholder(userText), '领用人应默认预填本人').toBe(false);
+    expect(isPlaceholder(deptText), '领用部门应默认预填本部门').toBe(false);
+
+    const user = await me(deptUser.username);
+    expect(user?.name, '临时账号应能在组织用户接口中查到').toBeTruthy();
+    expect(userText).toBe(user?.name as string);
+
+    const members = await membersOfDeptLabel(deptText);
+    expect(members.length, '本部门应有在职成员').toBeGreaterThan(0);
+  });
+
+  test('领用人下拉默认列出本部门成员且包含本人', async ({ page }) => {
+    const dialog = await openRequisitionDialog(page);
+    const userItem = dialog.locator('.el-form-item', { hasText: '领用人' }).first();
+
+    const names = await readOptions(page, userItem);
+    expect(names.length, '下拉应有可选成员').toBeGreaterThan(0);
+    expect(names).toContain(deptUser.name);
+  });
+
+  test('切换部门后领用人清空，下拉按新部门成员过滤', async ({ page }) => {
+    const dialog = await openRequisitionDialog(page);
+    const deptItem = dialog.locator('.el-form-item', { hasText: '领用部门' }).first();
+    const userItem = dialog.locator('.el-form-item', { hasText: '领用人' }).first();
+
+    const defaultDept = await selectText(deptItem);
+    const defaultUser = await selectText(userItem);
+    expect(defaultUser).toBe(deptUser.name);
+
+    const deptNames = await readOptions(page, deptItem);
+    // 优先选「有在职成员」的其他部门，才能验证过滤语义；若其他部门都没有成员，则退化为验证「无数据」空列表
+    const candidates = await Promise.all(
+      deptNames.filter(n => n !== defaultDept).map(async label => ({ label, members: await membersOfDeptLabel(label) })),
+    );
+    const preferred = candidates.find(c => c.members.length > 0);
+    const target = (preferred ?? candidates[0])?.label;
+    expect(target, '应至少存在另一个可选部门').toBeTruthy();
+    await pickOption(page, target as string);
+
+    expect(await selectText(deptItem)).toBe(target as string);
+    expect(isPlaceholder(await selectText(userItem)), '切换部门后领用人应被清空').toBe(true);
+
+    const names = await readOptions(page, userItem);
+    const members = await membersOfDeptLabel(target as string);
+    if (members.length === 0) {
+      expect(names, '无成员部门的下拉应为空（无数据）').toEqual([]);
+    } else {
+      expect(names.length, '新部门应有可选成员').toBeGreaterThan(0);
+      expect(names, '不应再包含原部门人员').not.toContain(defaultUser);
+      // 与接口交叉：下拉成员必须是新部门的在职成员
+      for (const name of names) {
+        expect(members).toContain(name);
+      }
+    }
+  });
 });

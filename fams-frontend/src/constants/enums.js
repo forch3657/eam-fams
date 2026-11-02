@@ -195,7 +195,10 @@ export const APPROVE_RESULT = {
   SUBMIT: '提交',
   AGREE: '通过',
   REJECT: '驳回',
-  REVOKE: '撤销'
+  REVOKE: '撤销',
+  ADD_SIGN: '加签',
+  TRANSFER: '转办',
+  CC: '抄送'
 }
 
 /** 盘点终端状态 */

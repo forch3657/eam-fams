@@ -1,0 +1,41 @@
+# E2E profile：端到端测试专用实例。
+#
+# 与 prod 的差异只有三处：端口、数据源、CORS 放行源。
+# 其余（JWT、日志、SQL 初始化策略）与 prod 一致，保证测的就是生产形态。
+#
+# 用法：java -jar fams-backend.jar --spring.profiles.active=e2e
+#       （scripts/e2e/start-e2e.ps1 已封装）
+server:
+  # 只监听回环地址，测试实例不对局域网暴露
+  address: ${SERVER_ADDRESS:127.0.0.1}
+  port: ${SERVER_PORT:18080}
+  forward-headers-strategy: native
+
+spring:
+  datasource:
+    # 默认指向独立测试库 fams_e2e；库不存在时启动即失败，避免误连生产库
+    url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/fams_e2e?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai}
+    username: ${DB_USER:fams}
+    password: ${DB_PASSWORD:FamsDb@2026!}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  sql:
+    init:
+      # 测试库用基线 dump 重置，绝不让 Spring 自己建表/灌种子
+      mode: never
+
+fams:
+  security:
+    # 必须由 start-e2e.ps1 注入 JWT_SECRET，未注入时启动失败（防止用默认弱密钥）
+    jwt-secret: ${JWT_SECRET}
+    jwt-expire-minutes: ${JWT_EXPIRE_MINUTES:480}
+    permit-all:
+      - /health
+      - /auth/login
+  cors:
+    # vite preview 默认 4173；同时放行 127.0.0.1 与 localhost 两种写法
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://127.0.0.1:4173,http://localhost:4173}
+
+logging:
+  level:
+    root: info
+    com.fams: info

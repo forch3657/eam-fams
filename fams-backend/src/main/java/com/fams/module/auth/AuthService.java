@@ -62,6 +62,10 @@ public class AuthService {
             loginAttemptService.loginFailed(username);
             throw new ApiException(ErrorCode.UNAUTHORIZED, "用户名或密码错误");
         }
+        // 密码正确后再校验账号状态：停用账号不允许登录，也不刷新最后登录时间
+        if (!"ENABLED".equalsIgnoreCase(String.valueOf(user.getOrDefault("status", "")))) {
+            throw new ApiException(ErrorCode.FORBIDDEN, "账号已停用，请联系管理员");
+        }
         loginAttemptService.loginSucceeded(username);
         genericService.touchLastLogin(username);
         return new LoginResponse(jwtProvider.generate(username), sanitize(user));

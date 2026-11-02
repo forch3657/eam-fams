@@ -34,6 +34,9 @@ public class ApprovalService {
 
     public static final String FLOWS = "system-workflow-flows";
 
+    /** 台账集合：固资单据完结后回写使用人/状态 */
+    private static final String ASSETS = "fixed-assets";
+
     private final GenericService genericService;
 
     private final ApprovalTrailWriter trailWriter;
@@ -65,8 +68,15 @@ public class ApprovalService {
                 : text(request.getBizType());
         Map<String, Object> flow = ApprovalSupport.flowOf(genericService, FLOWS, bizType);
         List<Map<String, Object>> steps = ApprovalSupport.effectiveSteps(flow, request.getCtx());
-        Map<String, Object> current = ApprovalSupport.currentStep(
-                steps, ApprovalSupport.approvalsOf(genericService, APPROVALS, docKey, docId), genericService);
+        List<Map<String, Object>> approvals =
+                ApprovalSupport.approvalsOf(genericService, APPROVALS, docKey, docId);
+        Map<String, Object> current = ApprovalSupport.currentStep(steps, approvals, genericService);
+
+        // 加签 / 转办 / 抄送：只写轨迹，不推进单据状态
+        if ("addSign".equals(action) || "transfer".equals(action) || "cc".equals(action)) {
+            return collaborate(request, docKey, docId, action, comment, previous, oldStatus,
+                    flow, current, bizType, approvals);
+        }
 
         String result;
         Map<String, Object> step;
@@ -101,7 +111,7 @@ public class ApprovalService {
             if (current == null) {
                 throw new ApiException(ErrorCode.CONFLICT, "该单据已无待审环节");
             }
-            requireApprover(current);
+            requireApprover(current, approvals);
             if (comment.isEmpty()) {
                 throw new ApiException(ErrorCode.VALIDATION, "驳回必须填写意见");
             }
@@ -120,7 +130,7 @@ public class ApprovalService {
                 stepName = "审批完成";
                 nextStatus = "DONE";
             } else {
-                requireApprover(current);
+                requireApprover(current, approvals);
                 result = "AGREE";
                 step = current;
                 stepName = text(current.get("name"));
@@ -132,8 +142,18 @@ public class ApprovalService {
 
         Map<String, Object> next = new LinkedHashMap<>(previous);
         next.put("status", nextStatus);
-        next.put("finishTime", "PROCESSING".equals(nextStatus) ? null : LocalDateTime.now());
+        LocalDateTime finishedAt = "PROCESSING".equals(nextStatus) ? null : LocalDateTime.now();
+        next.put("finishTime", finishedAt);
+        // 低值单据契约用 settleTime（表中无 finishTime 列），审批完结时同步写入
+        if (collection.startsWith("low-value-")) {
+            next.put("settleTime", finishedAt);
+        }
         genericService.updateQuietly(collection, docId, next);
+
+        // 固资单据完结后联动台账（派发/退库/借出）
+        if ("DONE".equals(nextStatus)) {
+            syncAssetLedger(bizType, previous);
+        }
 
         ApprovalTrailWriter writer = trailWriter;
         Map<String, Object> trail = writer.write(docKey, docId, ApprovalSupport.docCodeOf(previous), bizType,
@@ -177,18 +197,73 @@ public class ApprovalService {
         throw new ApiException(ErrorCode.FORBIDDEN, "只有单据创建人或流程发起人角色可以提交或撤销");
     }
 
-    private void requireApprover(Map<String, Object> step) {
+    private void requireApprover(Map<String, Object> step, List<Map<String, Object>> approvals) {
         String me = AuthContext.currentUserId();
         if (me == null || me.isEmpty()) {
             throw new ApiException(ErrorCode.UNAUTHORIZED, "未登录，无法审批");
         }
-        String roleId = text(step.get("approverRoleId"));
-        boolean byRole = !roleId.isEmpty() && genericService.userHasRole(me, roleId);
-        if (byRole || me.equals(text(step.get("approverId")))) {
+        if (ApprovalSupport.approverIdsOf(step, approvals, genericService).contains(me)) {
             return;
         }
+        String roleId = text(step.get("approverRoleId"));
         throw new ApiException(ErrorCode.FORBIDDEN, "当前环节「" + text(step.get("name"))
                 + "」需要由「" + trailWriter.roleNameOf(roleId) + "」审批");
+    }
+
+    /**
+     * 审批协作动作：加签 / 转办 / 抄送。
+     *
+     * <p>三者都只落一条轨迹、不推进单据状态：
+     * 加签把目标人追加进当前环节的审批人集合；转办用目标人替换当前环节审批人；
+     * 抄送只留痕（不参与 ANY / ALL 判定），单据创建人也可发起。</p>
+     */
+    private Map<String, Object> collaborate(ApprovalRequest request, String docKey, String docId, String action,
+                                            String comment, Map<String, Object> previous, String oldStatus,
+                                            Map<String, Object> flow, Map<String, Object> current,
+                                            String bizType, List<Map<String, Object>> approvals) {
+        String me = AuthContext.currentUserId();
+        if (me == null || me.isEmpty()) {
+            throw new ApiException(ErrorCode.UNAUTHORIZED, "未登录，无法执行审批协作动作");
+        }
+        String target = text(request.getTargetUserId());
+        if (target.isEmpty()) {
+            throw new ApiException(ErrorCode.VALIDATION, "请选择目标人员");
+        }
+        if (target.equals(me)) {
+            throw new ApiException(ErrorCode.VALIDATION, "目标人员不能是自己");
+        }
+        Map<String, Object> targetUser = genericService.get("org-users", target);
+        if (targetUser == null) {
+            throw new ApiException(ErrorCode.VALIDATION, "目标人员不存在");
+        }
+        if (!"ENABLED".equals(text(targetUser.get("status")))) {
+            throw new ApiException(ErrorCode.VALIDATION, "目标人员已停用，不能接收审批任务");
+        }
+        boolean cc = "cc".equals(action);
+        if (!"PROCESSING".equals(oldStatus)) {
+            throw new ApiException(ErrorCode.CONFLICT, "只有审批中的单据可以加签、转办或抄送");
+        }
+        if (current == null && !cc) {
+            throw new ApiException(ErrorCode.CONFLICT, "该单据已无待审环节，不能加签或转办");
+        }
+        boolean isApprover = current != null
+                && ApprovalSupport.approverIdsOf(current, approvals, genericService).contains(me);
+        if (!isApprover && !(cc && me.equals(text(previous.get("creatorId"))))) {
+            throw new ApiException(ErrorCode.FORBIDDEN,
+                    "只有当前环节的审批人可以执行该动作（抄送还允许单据创建人）");
+        }
+        if (!cc && ApprovalSupport.approverIdsOf(current, approvals, genericService).contains(target)) {
+            throw new ApiException(ErrorCode.CONFLICT, "该人员已是当前环节的审批人");
+        }
+        String result = "addSign".equals(action) ? "ADD_SIGN"
+                : "transfer".equals(action) ? "TRANSFER" : "CC";
+        String targetName = text(targetUser.get("name"));
+        String message = "addSign".equals(action) ? "已加签给「" + targetName + "」"
+                : "transfer".equals(action) ? "已转办给「" + targetName + "」"
+                : "已抄送给「" + targetName + "」";
+        Map<String, Object> trail = trailWriter.write(docKey, docId, ApprovalSupport.docCodeOf(previous), bizType,
+                flow, current, result, comment, target);
+        return result(oldStatus, message, trail);
     }
 
     private static boolean isLastStep(List<Map<String, Object>> steps, Map<String, Object> current) {
@@ -197,6 +272,35 @@ public class ApprovalService {
         }
         String lastKey = text(steps.get(steps.size() - 1).get("key"));
         return lastKey.equals(text(current.get("key")));
+    }
+
+    /**
+     * 固资单据完结后联动资产台账（P1-D2）。
+     *
+     * <p>派发：使用人取单据创建人（alloc 契约暂无独立使用人字段），资产置为使用中；
+     * 退库：清空使用人并回到空闲；借出：置为借出中。
+     * 其余单据（入库/调拨/维修/变更/处置）只留痕，不动台账字段。</p>
+     */
+    private void syncAssetLedger(String bizType, Map<String, Object> doc) {
+        String assetId = text(doc.get("assetId"));
+        if (assetId.isEmpty()) {
+            return;
+        }
+        switch (bizType) {
+            case "DISPATCH":
+                genericService.patchField(ASSETS, assetId, "userId", text(doc.get("creatorId")), null);
+                genericService.patchField(ASSETS, assetId, "status", "IN_USE", null);
+                break;
+            case "RETURN":
+                genericService.patchField(ASSETS, assetId, "userId", null, null);
+                genericService.patchField(ASSETS, assetId, "status", "IDLE", null);
+                break;
+            case "BORROW":
+                genericService.patchField(ASSETS, assetId, "status", "BORROWED", null);
+                break;
+            default:
+                break;
+        }
     }
 
     private static String text(Object value) {

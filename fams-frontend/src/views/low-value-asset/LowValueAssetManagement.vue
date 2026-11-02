@@ -503,7 +503,7 @@ import DocApprovalDialog from '../fixed-asset/DocApprovalDialog.vue'
 import { labelOf, optionsOf } from '../../constants/enums'
 import {
   getFlow, effectiveSteps, approvalsOf, currentStep,
-  canSubmit, canApprove, runApproval
+  canSubmit, canApprove, runApproval, isCollabAction
 } from '../../services/approval'
 
 const store = useLowValueAssetStore()
@@ -724,7 +724,7 @@ function canApproveDoc(doc, kind) {
   if (doc.status !== 'PROCESSING') return false
   const cur = currentOf(kind, doc)
   if (!cur) return false
-  return canApprove(cur.step, userStore.user, orgStore)
+  return canApprove(cur.step, userStore.user, orgStore, cur.records)
 }
 function canRevokeDoc(doc, kind) {
   const flow = flowOf(kind)
@@ -736,7 +736,7 @@ function canRevokeDoc(doc, kind) {
  * 执行审批动作
  * 状态迁移由引擎完成库存结算：审批中预占可用量、已完结扣减/回补、驳回撤销释放预占。
  */
-async function runDocApproval(doc, kind, action, comment = '') {
+async function runDocApproval(doc, kind, action, comment = '', targetUserId = '') {
   if (!approvalStore.loaded) await approvalStore.load()
   const res = await runApproval({
     doc,
@@ -744,6 +744,7 @@ async function runDocApproval(doc, kind, action, comment = '') {
     bizType: LV_BIZ[kind],
     action,
     comment,
+    targetUserId,
     ctx: ctxOf(doc),
     flows: approvalStore.flows,
     approvals: approvalStore.approvals,
@@ -803,10 +804,16 @@ function openApproval(row, kind) {
   approvalVisible.value = true
 }
 
-async function onApprovalAct({ action, comment }) {
-  const res = await runDocApproval(approvalDoc.value, approvalKind.value, action, comment)
-  if (res.ok) approvalVisible.value = false
-  else ElMessage.error(res.message)
+async function onApprovalAct({ action, comment, targetUserId }) {
+  const res = await runDocApproval(approvalDoc.value, approvalKind.value, action, comment, targetUserId)
+  if (!res.ok) {
+    ElMessage.error(res.message)
+    return
+  }
+  // 加签/转办/抄送不推进单据，保持弹窗打开以便看到新的审批人与轨迹
+  const collab = isCollabAction(action)
+  if (collab) ElMessage.success(res.message)
+  else approvalVisible.value = false
 }
 
 // ---------- 导出 ----------
@@ -964,13 +971,23 @@ function openInboundDialog() {
   nextTick(() => inboundFormRef.value?.clearValidate())
 }
 
-/** 当前登录人在组织架构中的档案：用于领用/退库默认「本人 + 本部门」，需要时可改选他人代申请 */
+/**
+ * 当前登录人在组织架构中的档案：用于领用/退库默认「本人 + 本部门」，需要时可改选他人代申请。
+ *
+ * 两个兜底：
+ * - 组织主数据可能尚未加载完（页面首次进入就点新增），此时退回登录接口返回的用户快照；
+ * - 账号本身没有部门（如系统管理员）时，只清空部门、不再预填领用人，
+ *   否则会出现「领用人有值但下拉里没有该选项」的错位。
+ */
 function myProfile() {
   const u = userStore.user || {}
   const me = orgStore.users.find(x => x.id === u.id) ||
-             orgStore.users.find(x => u.username && x.username === u.username)
-  if (!me || me.status !== 'ENABLED') return { deptId: '', receiver: '' }
-  return { deptId: me.deptId || '', receiver: me.name || '' }
+             orgStore.users.find(x => u.username && x.username === u.username) ||
+             null
+  if (me && me.status !== 'ENABLED') return { deptId: '', receiver: '' }
+  const deptId = me?.deptId || u.deptId || ''
+  const receiver = deptId ? (me?.name || u.name || '') : ''
+  return { deptId, receiver }
 }
 
 function openRequisitionDialog() {

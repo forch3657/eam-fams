@@ -10,6 +10,7 @@ import com.fams.hook.ResourceHook;
 import com.fams.rule.RuleEngine;
 import com.fams.security.AuthContext;
 import com.fams.security.PasswordPolicy;
+import com.fams.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -72,7 +74,7 @@ public class GenericService {
     @Transactional(readOnly = true)
     public List<Map<String, Object>> list(String key, Map<String, String[]> raw) {
         ResourceMeta meta = registry.resolve(key);
-        return mapper.selectList(assembler.buildList(meta, raw)).stream()
+        return mapper.selectList(assembler.buildList(meta, scopedRaw(key, meta, raw))).stream()
                 .map(row -> sanitized(meta, codec.toApiRow(meta, row)))
                 .collect(Collectors.toList());
     }
@@ -95,7 +97,7 @@ public class GenericService {
     @Transactional(readOnly = true)
     public PageResult page(String key, Map<String, String[]> raw) {
         ResourceMeta meta = registry.resolve(key);
-        Map<String, Object> params = assembler.buildPage(meta, raw);
+        Map<String, Object> params = assembler.buildPage(meta, scopedRaw(key, meta, raw));
         long total = mapper.count(params);
         List<Map<String, Object>> rows = mapper.selectList(params).stream()
                 .map(row -> sanitized(meta, codec.toApiRow(meta, row)))
@@ -207,6 +209,8 @@ public class GenericService {
         }
         // 乐观锁比对必须最先执行
         assertVersionMatch(meta, previous, body);
+        // 审批中的固资单据禁止通过通用 CRUD 改写（审批动作走 updateQuietly）
+        assertDocMutable(key, previous);
 
         Map<String, Object> next = codec.toDbRow(meta, body == null ? Collections.emptyMap() : body, true);
         next.put(meta.getPkField(), id);
@@ -241,6 +245,19 @@ public class GenericService {
         return sanitized(meta, codec.toApiRow(meta, writeUpdate(meta, id, next, previous)));
     }
 
+    /**
+     * 固资单据状态守卫：审批中（PROCESSING）只能通过审批端点流转，
+     * 通用 CRUD 的改写/删除一律 409，避免绕过状态机篡改单据或抹掉审批上下文。
+     */
+    private static void assertDocMutable(String key, Map<String, Object> row) {
+        if (key == null || !key.startsWith("fixed-asset-doc-lists-")) {
+            return;
+        }
+        if ("PROCESSING".equalsIgnoreCase(text(row.get("status")))) {
+            throw new ApiException(ErrorCode.CONFLICT, "审批中的单据不能修改或删除，请先撤销审批");
+        }
+    }
+
     /** 校验 → 库存状态流转 → 审计 → 落库 */
     private Map<String, Object> writeUpdate(ResourceMeta meta, String id, Map<String, Object> next,
                                             Map<String, Object> previous) {
@@ -258,6 +275,8 @@ public class GenericService {
         if (row == null) {
             throw new ApiException(ErrorCode.NOT_FOUND, "数据不存在");
         }
+        // 0) 审批中的固资单据禁止删除
+        assertDocMutable(key, row);
         // 1) 删除保护：必须先于库存回退，否则会出现「报了 1003 但库存已回退」
         rules.checkProtect(meta, row);
         for (ResourceHook hook : hooks.forCollection(key)) {
@@ -379,14 +398,128 @@ public class GenericService {
         return permissions;
     }
 
+    /** 数据范围 = 启用角色 dataScope 的最宽松值（ALL > COMPANY > DEPT > DEPT_ONLY > SELF） */
+    @Transactional(readOnly = true)
+    public String dataScopeOf(Map<String, Object> user) {
+        List<String> roleIds = asStringList(user.get("roleIds"));
+        if (roleIds.isEmpty()) {
+            return "ALL";
+        }
+        ResourceMeta roleMeta = registry.resolve(ORG_ROLES);
+        QuerySpec spec = new QuerySpec(roleMeta).in(roleMeta.getPkField(), roleIds);
+        List<Map<String, Object>> roles = mapper.selectList(spec.toParams(roleMeta.getAllColumns(), null, null)).stream()
+                .map(row -> codec.toApiRow(roleMeta, row))
+                .collect(Collectors.toList());
+        int widest = -1;
+        String result = "ALL";
+        for (Map<String, Object> role : roles) {
+            // 与权限并集同口径：停用角色不参与数据范围判定
+            if (!"ENABLED".equalsIgnoreCase(text(role.get("status")))) {
+                continue;
+            }
+            String scope = text(role.get("dataScope"));
+            int rank = scopeRank(scope);
+            if (rank > widest) {
+                widest = rank;
+                result = scope;
+            }
+        }
+        return widest < 0 ? "ALL" : result;
+    }
+
+    private static int scopeRank(String scope) {
+        if ("ALL".equalsIgnoreCase(scope)) {
+            return 4;
+        }
+        if ("COMPANY".equalsIgnoreCase(scope)) {
+            return 3;
+        }
+        if ("DEPT".equalsIgnoreCase(scope)) {
+            return 2;
+        }
+        if ("DEPT_ONLY".equalsIgnoreCase(scope)) {
+            return 1;
+        }
+        if ("SELF".equalsIgnoreCase(scope)) {
+            return 0;
+        }
+        return -1;
+    }
+
+    /** 受数据范围约束的业务集合（组织/系统/字典等全局数据不在此列） */
+    private static final List<String> DATA_SCOPED_PREFIXES = Arrays.asList(
+            "fixed-assets",
+            "fixed-asset-doc-lists",
+            "low-value-items",
+            "low-value-inbound",
+            "low-value-requisition",
+            "low-value-return");
+
+    /**
+     * 按当前登录人的 dataScope 强制追加过滤条件。
+     *
+     * <p>同名字段由服务端覆盖，调用方无法通过 query 参数绕过。
+     * 审计字段不在契约 fields 中，必须用 {@code getAllColumns()} 判断列是否存在。
+     * DEPT / DEPT_ONLY 当前按 deptId 精确匹配（系统为单公司、部门树两层以内）。</p>
+     */
+    private Map<String, String[]> scopedRaw(String key, ResourceMeta meta, Map<String, String[]> raw) {
+        UserPrincipal principal = AuthContext.current();
+        if (principal == null || isAllScope(principal.getDataScope()) || !isDataScoped(key)) {
+            return raw;
+        }
+        Map<String, String[]> out = raw == null ? new LinkedHashMap<>() : new LinkedHashMap<>(raw);
+        String scope = principal.getDataScope();
+        if ("SELF".equalsIgnoreCase(scope)) {
+            putScopeFilter(out, meta, "createBy", principal.getUsername());
+        } else if ("DEPT".equalsIgnoreCase(scope) || "DEPT_ONLY".equalsIgnoreCase(scope)) {
+            putScopeFilter(out, meta, "deptId", principal.getDeptId());
+        } else if ("COMPANY".equalsIgnoreCase(scope)) {
+            putScopeFilter(out, meta, "companyId", principal.getCompanyId());
+        }
+        return out;
+    }
+
+    private static boolean isDataScoped(String key) {
+        if (key == null) {
+            return false;
+        }
+        for (String prefix : DATA_SCOPED_PREFIXES) {
+            if (key.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isAllScope(String scope) {
+        return scope == null || scope.isEmpty() || "ALL".equalsIgnoreCase(scope);
+    }
+
+    private static void putScopeFilter(Map<String, String[]> out, ResourceMeta meta, String field, String value) {
+        if (value == null || value.isEmpty()) {
+            return;
+        }
+        // 集合没有对应列时不做过滤：退化为 createBy 会把「部门可见」误收紧为「只看自己创建」，
+        // 审批人因此看不到待办单据（P3-14 回归暴露）。
+        if (meta.getAllColumns().contains(field)) {
+            out.put(field, new String[]{value});
+        }
+    }
+
     /** 统计持有指定角色的启用用户数（审批环节「会签」判定用） */
     @Transactional(readOnly = true)
     public long countUsersOfRole(String roleId) {
+        return userIdsOfRole(roleId).size();
+    }
+
+    /** 持有指定角色的启用用户 ID 列表（加签/转办后的环节审批人集合判定用） */
+    @Transactional(readOnly = true)
+    public List<String> userIdsOfRole(String roleId) {
+        List<String> ids = new ArrayList<>();
         if (roleId == null || roleId.trim().isEmpty()) {
-            return 0;
+            return ids;
         }
         ResourceMeta meta = registry.resolve(ORG_USERS);
-        long count = 0;
         for (Map<String, Object> row : mapper.selectList(
                 assembler.buildList(meta, Collections.emptyMap()))) {
             Map<String, Object> api = codec.toApiRow(meta, row);
@@ -394,10 +527,10 @@ public class GenericService {
                 continue;
             }
             if (asStringList(api.get("roleIds")).contains(roleId)) {
-                count++;
+                ids.add(text(api.get("id")));
             }
         }
-        return count;
+        return ids;
     }
 
     /** 指定用户是否持有某角色（审批权限判定用） */
@@ -561,13 +694,13 @@ public class GenericService {
         }
         String oldStatus = text(previous.get("status"));
         String newStatus = text(next.get("status"));
-        if (oldStatus.equals(newStatus)) {
-            return;
-        }
-        // 已完结单据不允许再改数量
+        // 已生效单据不允许改数量：状态未变时同样要守，否则同状态 PUT 可绕过
         if (stock.getSettleOn() != null && stock.getSettleOn().equals(oldStatus)
                 && !sameQuantity(next, previous, stock.getQtyField())) {
             throw new ApiException(ErrorCode.CONFLICT, "单据已生效，不能修改数量");
+        }
+        if (oldStatus.equals(newStatus)) {
+            return;
         }
         if (stock.getSettleOn() != null && stock.getSettleOn().equals(newStatus)) {
             // 先结算再释放预占，避免半途失败丢占用

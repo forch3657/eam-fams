@@ -55,7 +55,8 @@
           <div class="tl-title">
             {{ r.stepName || '提交申请' }} · {{ r.approverName || '-' }}
             <el-tag size="small" :type="timelineType(r.result)">{{ resultText(r.result) }}</el-tag>
-            <span v-if="r.approverRoleName" class="tl-role">{{ r.approverRoleName }}</span>
+            <span v-if="r.targetUserId" class="tl-role">→ {{ userName(r.targetUserId) }}</span>
+            <span v-else-if="r.approverRoleName" class="tl-role">{{ r.approverRoleName }}</span>
           </div>
           <div v-if="r.comment" class="tl-comment">审批意见：{{ r.comment }}</div>
         </el-timeline-item>
@@ -73,10 +74,46 @@
 
     <template #footer>
       <el-button @click="emit('update:modelValue', false)">关闭</el-button>
+      <el-button v-if="showApprove" @click="openCollab('addSign')">加签</el-button>
+      <el-button v-if="showApprove" @click="openCollab('transfer')">转办</el-button>
+      <el-button v-if="showCc" @click="openCollab('cc')">抄送</el-button>
       <el-button v-if="showSubmit" type="primary" @click="act('submit')">提交审批</el-button>
       <el-button v-if="showApprove" type="primary" @click="act('approve')">通过</el-button>
       <el-button v-if="showReject" type="danger" @click="act('reject')">驳回</el-button>
       <el-button v-if="showRevoke" type="warning" @click="act('revoke')">撤销</el-button>
+    </template>
+  </el-dialog>
+
+  <!-- 加签 / 转办 / 抄送：选择目标人员后通过 act 事件交给父组件落库 -->
+  <el-dialog
+    v-model="collabVisible"
+    :title="collabTitle"
+    width="460px"
+    append-to-body
+    :close-on-click-modal="false"
+  >
+    <el-form label-width="90px">
+      <el-form-item label="目标人员" required>
+        <el-select v-model="collabTarget" filterable clearable placeholder="请选择人员" style="width: 100%">
+          <el-option
+            v-for="u in collabCandidates"
+            :key="u.id"
+            :label="`${u.name}（${u.username}）`"
+            :value="u.id"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="说明">
+        <el-input v-model="collabComment" type="textarea" :rows="2" maxlength="200" show-word-limit
+          placeholder="可填写说明（选填）" />
+      </el-form-item>
+      <el-alert v-if="!collabCandidates.length" type="warning" :closable="false" show-icon
+        title="暂无可选人员：当前环节的审批人不能作为目标人员" />
+    </el-form>
+
+    <template #footer>
+      <el-button @click="collabVisible = false">取消</el-button>
+      <el-button type="primary" :disabled="!collabTarget" @click="confirmCollab">确定</el-button>
     </template>
   </el-dialog>
 </template>
@@ -120,8 +157,6 @@ const comment = ref('')
 
 onMounted(() => approvalStore.load())
 
-watch(() => props.modelValue, v => { if (v) comment.value = '' })
-
 const bizType = computed(() => props.bizType || DOC_BIZ_TYPE[props.docKey] || props.docKey.toUpperCase())
 const flow = computed(() => getFlow(bizType.value, approvalStore.flows))
 const steps = computed(() => effectiveSteps(flow.value, props.ctx))
@@ -144,12 +179,16 @@ const stepDesc = step => {
   const info = stepInfo(step)
   return `${info.roleName} · ${info.modeText}${info.conditionText ? ' · ' + info.conditionText : ''}`
 }
-const stepAccounts = step => stepApproverAccounts(step, orgStore)
+const stepAccounts = step => stepApproverAccounts(step, orgStore, records.value)
 /** 环节状态：已通过 / 已驳回 / 待审批 / 未开始 */
 const stateOf = step => stepState(step, records.value, orgStore, current.value)
 const stateText = state => ({ DONE: '已通过', PENDING: '待审批', REJECTED: '已驳回', WAITING: '未开始' }[state] || '未开始')
 const stateType = state => ({ DONE: 'success', PENDING: 'warning', REJECTED: 'danger', WAITING: 'info' }[state] || 'info')
 const resultText = result => labelOf('APPROVE_RESULT', result) || result
+const userName = id => {
+  const u = orgStore.users.find(x => x.id === id)
+  return u ? `${u.name}（${u.username}）` : id
+}
 const timelineType = result => ({ AGREE: 'success', REJECT: 'danger', REVOKE: 'info', SUBMIT: 'primary' }[result] || 'info')
 const statusType = status => ({ DONE: 'success', PROCESSING: 'primary', DRAFT: 'warning', REJECTED: 'danger', REVOKED: 'info' }[status] || 'info')
 
@@ -162,7 +201,7 @@ const showSubmit = computed(() => {
 const showApprove = computed(() => {
   const d = props.doc
   if (!d || d.status !== 'PROCESSING' || !current.value) return false
-  return canApprove(current.value.step, userStore.user, orgStore)
+  return canApprove(current.value.step, userStore.user, orgStore, records.value)
 })
 const showReject = computed(() => showApprove.value)
 const showRevoke = computed(() => {
@@ -173,6 +212,60 @@ const showRevoke = computed(() => {
 
 const rejectMode = ref(false)
 const needComment = computed(() => showApprove.value || showReject.value || showSubmit.value || showRevoke.value)
+
+// ---------------------------------------------------------------- 加签 / 转办 / 抄送
+const COLLAB_TITLES = { addSign: '加签', transfer: '转办', cc: '抄送' }
+const collabVisible = ref(false)
+const collabAction = ref('addSign')
+const collabTarget = ref('')
+const collabComment = ref('')
+const collabTitle = computed(() => COLLAB_TITLES[collabAction.value] || '协作')
+
+const isCreator = computed(() => {
+  const d = props.doc
+  return !!d && !!d.creatorId && d.creatorId === userStore.user?.id
+})
+/** 抄送：审批中的单据，当前审批人或单据创建人都可以发起 */
+const showCc = computed(() => {
+  const d = props.doc
+  if (!d || d.status !== 'PROCESSING') return false
+  return showApprove.value || isCreator.value
+})
+/** 候选人：启用账号，排除自己；加签/转办还要排除已在该环节的审批人 */
+const collabCandidates = computed(() => {
+  const me = userStore.user
+  if (!me) return []
+  const step = current.value?.step
+  return (orgStore.users || [])
+    .filter(u => u.status === 'ENABLED' && u.id !== me.id)
+    .filter(u => collabAction.value === 'cc' || !canApprove(step, u, orgStore, records.value))
+    .map(u => ({ id: u.id, name: u.name || u.username, username: u.username }))
+})
+
+function openCollab(action) {
+  collabAction.value = action
+  collabTarget.value = ''
+  collabComment.value = ''
+  collabVisible.value = true
+}
+function confirmCollab() {
+  if (!collabTarget.value) return
+  const action = collabAction.value
+  collabVisible.value = false
+  emit('act', {
+    action,
+    comment: collabComment.value,
+    targetUserId: collabTarget.value,
+    doc: props.doc,
+    bizType: bizType.value
+  })
+}
+
+// 弹窗关闭时收起协作子弹窗；重新打开时清空审批意见
+watch(() => props.modelValue, v => {
+  if (v) comment.value = ''
+  else collabVisible.value = false
+})
 
 /** 提示：当前登录人为什么不能审（便于换账号测试） */
 const hint = computed(() => {

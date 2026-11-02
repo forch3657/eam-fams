@@ -148,7 +148,7 @@ import { useFixedAssetStore } from '../../store/fixedAsset'
 import DocApprovalDialog from './DocApprovalDialog.vue'
 import {
   DOC_BIZ_TYPE, getFlow, effectiveSteps, approvalsOf, currentStep,
-  canSubmit, canApprove, runApproval
+  canSubmit, canApprove, runApproval, isCollabAction
 } from '../../services/approval'
 
 const props = defineProps({
@@ -297,7 +297,7 @@ function canApproveRow(doc) {
   if (doc.status !== 'PROCESSING') return false
   const cur = currentOf(doc)
   if (!cur) return false
-  return canApprove(cur.step, userStore.user, orgStore)
+  return canApprove(cur.step, userStore.user, orgStore, cur.records)
 }
 function canRevokeRow(doc) {
   const flow = flowOf(doc)
@@ -306,15 +306,15 @@ function canRevokeRow(doc) {
 }
 
 /** 执行审批动作 */
-async function doApproval(doc, action, comment = '') {
+async function doApproval(doc, action, comment = '', targetUserId = '') {
   if (!approvalStore.loaded) await approvalStore.load()
-  const flow = flowOf(doc)
   const res = await runApproval({
     doc,
     docKey: props.docKey,
     bizType: bizType.value,
     action,
     comment,
+    targetUserId,
     ctx: ctxOf(doc),
     flows: approvalStore.flows,
     approvals: approvalStore.approvals,
@@ -367,9 +367,10 @@ function openApproval(row) {
   approvalVisible.value = true
 }
 
-async function onApprovalAct({ action, comment }) {
-  const res = await doApproval(approvalDoc.value, action, comment)
-  if (res.ok) approvalVisible.value = false
+async function onApprovalAct({ action, comment, targetUserId }) {
+  const res = await doApproval(approvalDoc.value, action, comment, targetUserId)
+  // 加签/转办/抄送不推进单据，保持弹窗打开以便看到新的审批人与轨迹
+  if (res.ok && !isCollabAction(action)) approvalVisible.value = false
 }
 
 // 其他入口（如盘点审批转处置）新增单据后，通知本面板刷新

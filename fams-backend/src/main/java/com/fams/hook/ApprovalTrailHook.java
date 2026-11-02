@@ -83,6 +83,31 @@ public class ApprovalTrailHook implements ResourceHook {
         }
     }
 
+    /**
+     * 单据删除后清理其审批轨迹。
+     *
+     * <p>轨迹集合已对通用 CRUD 关闭写入（P3-D2），调用方无法逐条删除；
+     * 单据本身被删除时轨迹失去归属，由这里级联清理，保证不留孤儿记录。</p>
+     */
+    @Override
+    public void afterDelete(ResourceMeta meta, Map<String, Object> row) {
+        String docKey = ApprovalSupport.docKeyOf(meta.getKey());
+        String docId = text(row.get(meta.getPkField()));
+        if (docKey == null || docId.isEmpty()) {
+            return;
+        }
+        ResourceMeta approvals = registry.resolve(APPROVALS);
+        Map<String, Object> where = new QuerySpec(approvals)
+                .eq("docKey", docKey)
+                .eq("docId", docId)
+                .toParams(approvals.getAllColumns(), null, null);
+        for (Map<String, Object> trail : mapper.selectList(where)) {
+            Map<String, Object> del = new QuerySpec(approvals).toParams(approvals.getAllColumns(), null, null);
+            del.put("id", trail.get(approvals.getPkField()));
+            mapper.deleteById(del);
+        }
+    }
+
     private void writeTrail(String docKey, Map<String, Object> doc, ResourceMeta meta,
                             Map<String, Object> step, String result, String stepName, String comment) {
         String bizType = ApprovalSupport.bizTypeOf(docKey);

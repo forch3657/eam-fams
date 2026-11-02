@@ -207,7 +207,7 @@ function openAdd() {
 }
 function insertVar(v) { form.content += `{${v}}` }
 
-function saveTemplate() {
+async function saveTemplate() {
   const key = form.key.trim()
   const scene = form.scene.trim()
   const title = form.title.trim()
@@ -217,12 +217,13 @@ function saveTemplate() {
     return
   }
   if (editing.value) {
-    store.updateTemplate(editing.value.key, {
+    await store.updateTemplate(editing.value.key, {
       scene, channel: form.channel, title, content, enabled: form.enabled
     })
     ElMessage.success('模板已保存')
   } else {
-    const ok = store.addTemplate({
+    // addTemplate 是异步的：必须 await，否则重复键会被当成成功提示并关闭弹窗
+    const ok = await store.addTemplate({
       key, scene, channel: form.channel, title, content, enabled: form.enabled
     })
     if (!ok) { ElMessage.error(`模板键「${key}」已存在`); return }

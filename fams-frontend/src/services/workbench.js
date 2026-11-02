@@ -110,7 +110,7 @@ export function myTodos(p = {}) {
       }
 
       // 待我审批：单据在审批中，且当前环节的审批角色包含我的角色
-      if (doc.status === 'PROCESSING' && cur && canApprove(cur.step, user, org)) {
+      if (doc.status === 'PROCESSING' && cur && canApprove(cur.step, user, org, cur.records)) {
         pending.push({
           ...base,
           stepKey: cur.step.key,

@@ -35,9 +35,12 @@ public class UserPrincipal implements UserDetails {
 
     private final List<String> roleIds;
 
+    /** 数据范围（多角色取最宽松）：ALL / COMPANY / DEPT / DEPT_ONLY / SELF */
+    private final String dataScope;
+
     private final Set<GrantedAuthority> authorities;
 
-    public UserPrincipal(Map<String, Object> user, Set<String> permissions) {
+    public UserPrincipal(Map<String, Object> user, Set<String> permissions, String dataScope) {
         this.id = text(user.get("id"));
         this.username = text(user.get("username"));
         this.name = text(user.get("name"));
@@ -45,6 +48,7 @@ public class UserPrincipal implements UserDetails {
         this.companyId = text(user.get("companyId"));
         this.deptId = text(user.get("deptId"));
         this.roleIds = asStringList(user.get("roleIds"));
+        this.dataScope = dataScope == null || dataScope.isEmpty() ? "ALL" : dataScope;
         Set<GrantedAuthority> granted = new LinkedHashSet<>();
         if (permissions != null) {
             for (String code : permissions) {

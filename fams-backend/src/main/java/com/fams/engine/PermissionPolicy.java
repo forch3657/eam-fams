@@ -80,7 +80,9 @@ public class PermissionPolicy {
         WRITE.put("org-departments", new String[]{"org:dept"});
         DELETE.put("org-departments", new String[]{"org:dept"});
 
-        READ.put("org-users", new String[]{"org:user"});
+        // 工作台待办需要用用户列表解析审批人，具备 wm:todo 的角色必须能读，
+        // 否则非管理员的审批人待办恒为空（P3-D1）。
+        READ.put("org-users", new String[]{"org:user", "wm:todo"});
         WRITE.put("org-users", new String[]{"org:user"});
         DELETE.put("org-users", new String[]{"org:user"});
 
@@ -95,7 +97,8 @@ public class PermissionPolicy {
         WRITE.put("system-params", new String[]{"sys:params"});
         DELETE.put("system-params", new String[]{"sys:params"});
 
-        READ.put("system-workflow", new String[]{"sys:workflow"});
+        // 读流程配置是算待办的前置条件；写配置仍只允许 sys:workflow（P3-D1）。
+        READ.put("system-workflow", new String[]{"sys:workflow", "wm:todo"});
         WRITE.put("system-workflow", new String[]{"sys:workflow"});
         DELETE.put("system-workflow", new String[]{"sys:workflow"});
 
@@ -130,8 +133,15 @@ public class PermissionPolicy {
         return codes == null || codes.length == 0 ? null : codes[0];
     }
 
+    /** 只读集合：任何账号都不能通过通用 CRUD 改写（审批留痕防篡改，P3-D2） */
+    private static final java.util.Set<String> IMMUTABLE = new java.util.HashSet<>(
+            Collections.singletonList("fixed-asset-doc-approvals"));
+
     /** 权限码判定：任一命中即通过 */
     public boolean matches(String key, String method, java.util.Set<String> granted) {
+        if (IMMUTABLE.contains(key) && !"GET".equalsIgnoreCase(method)) {
+            return false;
+        }
         String required = requiredPermission(key, method);
         if (required == null) {
             return true;

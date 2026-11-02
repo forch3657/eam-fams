@@ -32,7 +32,7 @@ public class QuerySpec {
 
     /** 字段相等；字段未登记或值为空则忽略 */
     public QuerySpec eq(String field, Object value) {
-        if (!meta.isKnownField(field) || isBlank(value)) {
+        if (!queryable(field) || isBlank(value)) {
             return this;
         }
         String ph = next();
@@ -43,7 +43,7 @@ public class QuerySpec {
 
     /** 字段不等；用于唯一性校验时排除自身 */
     public QuerySpec ne(String field, Object value) {
-        if (!meta.isKnownField(field) || isBlank(value)) {
+        if (!queryable(field) || isBlank(value)) {
             return this;
         }
         String ph = next();
@@ -59,7 +59,7 @@ public class QuerySpec {
 
     /** 多值 IN 查询（同名参数多次出现） */
     public QuerySpec in(String field, Iterable<?> values) {
-        if (!meta.isKnownField(field)) {
+        if (!queryable(field)) {
             return this;
         }
         StringBuilder sb = new StringBuilder("`").append(Names.camelToSnake(field)).append("` IN (");
@@ -130,6 +130,15 @@ public class QuerySpec {
             p.put("offset", offset);
         }
         return p;
+    }
+
+    /**
+     * 可参与过滤的列 = 契约字段 + 审计列。
+     * 审计列（createBy/updateBy 等）是真实列但不在契约 fields 中，
+     * 数据范围过滤需要按 createBy 限定；列名仍经元数据白名单校验，不影响 SQL 安全。
+     */
+    private boolean queryable(String field) {
+        return meta.isKnownField(field) || meta.getAllColumns().contains(field);
     }
 
     private static boolean isBlank(Object value) {

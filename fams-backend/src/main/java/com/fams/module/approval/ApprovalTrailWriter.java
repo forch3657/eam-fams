@@ -34,6 +34,12 @@ public class ApprovalTrailWriter {
     public Map<String, Object> write(String docKey, String docId, String docCode, String bizType,
                                      Map<String, Object> flow, Map<String, Object> step,
                                      String result, String comment) {
+        return write(docKey, docId, docCode, bizType, flow, step, result, comment, null);
+    }
+
+    public Map<String, Object> write(String docKey, String docId, String docCode, String bizType,
+                                     Map<String, Object> flow, Map<String, Object> step,
+                                     String result, String comment, String targetUserId) {
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("docKey", docKey);
         row.put("docId", docId);
@@ -54,6 +60,7 @@ public class ApprovalTrailWriter {
         }
         row.put("result", result);
         row.put("comment", comment);
+        row.put("targetUserId", targetUserId == null ? "" : targetUserId);
         row.put("approverId", AuthContext.currentUserId());
         UserPrincipal principal = AuthContext.current();
         row.put("approverName", principal == null ? "" : principal.getName());

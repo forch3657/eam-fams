@@ -101,7 +101,7 @@ class P3ApprovalTrailTest {
     }
 
     @Test
-    @DisplayName("审批中 → 已驳回：钩子自动补一条「驳回」轨迹")
+    @DisplayName("审批中单据绕过审批端点改状态被拒绝且不新增轨迹")
     void hookGeneratesRejectTrail() throws Exception {
         Map<String, Object> doc = inboundDoc("REJECT-TRAIL", "PROCESSING");
         String id = createDoc(doc);
@@ -109,15 +109,13 @@ class P3ApprovalTrailTest {
 
         doc.put("status", "REJECTED");
         doc.put("remark", "不符合入库条件");
+        // P1-D1：审批中的固资单据只能走 /api/approvals/action，通用 CRUD 返回 409
         mockMvc.perform(auth(put("/api/" + DOC_LISTS + "/" + id)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(doc))))
-                .andExpect(status().isOk());
+                .andExpect(status().isConflict());
 
-        JsonNode trails = trailsOf(id);
-        assertThat(trails).hasSize(2);
-        assertThat(trails.get(1).path("result").asText()).isEqualTo("REJECT");
-        assertThat(trails.get(1).path("comment").asText()).isEqualTo("不符合入库条件");
+        assertThat(trailsOf(id)).hasSize(1);
     }
 
     @Test

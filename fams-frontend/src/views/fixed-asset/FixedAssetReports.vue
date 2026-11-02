@@ -171,7 +171,7 @@
             </el-form-item>
           </el-form>
 
-          <el-table :data="pagedDepreciationDetails" style="width: 100%">
+          <el-table v-loading="planDetailLoading" :data="pagedDepreciationDetails" style="width: 100%">
             <el-table-column prop="planName" label="折旧名称" min-width="180" show-overflow-tooltip fixed />
             <el-table-column prop="assetCode" label="资产编码" width="120" />
             <el-table-column prop="assetName" label="资产名称" min-width="170" show-overflow-tooltip />
@@ -277,7 +277,7 @@ import { useFixedAssetStore } from '../../store/fixedAsset'
 import { useOrgStore } from '../../store/org'
 import { useUserStore } from '../../store/user'
 import { useCollection } from '../../composables/useCollection'
-import { COLLECTION } from '../../services'
+import { dataService, COLLECTION } from '../../services'
 
 const fixedAssetStore = useFixedAssetStore()
 const orgStore = useOrgStore()
@@ -487,32 +487,54 @@ const pagedDepartmentStats = computed(() => {
   return departmentStats.value.slice(start, start + deptPageSize.value)
 })
 
-const depreciationPlanDetailCol = useCollection(COLLECTION.reportDepreciationPlanDetails)
-const depreciationDetailSource = depreciationPlanDetailCol.items
+/**
+ * 资产折旧明细：直接取「折旧台账」的实时计算结果。
+ *
+ * 原实现读 fixed-asset-report-depreciation-plan-details 集合，但后端执行计提时已不再落该表
+ * （见 DepreciationService#run 注释），且该表缺 asset_no / method / monthly / accumulated 等列，
+ * 列表查询必然 500。改为按月份调 /api/depreciation/plan，与折旧管理页口径完全一致。
+ */
+const depreciationDetails = ref([])
+const planDetailLoading = ref(false)
 
-const depreciationDetails = computed(() => depreciationDetailSource.value.map(r => {
-  const monthly = r.original * (1 - r.residualRate / 100) / r.totalLife
-  const cap = r.original * (1 - r.residualRate / 100)
-  const accumulated = Math.min(monthly * r.usedLife, cap)
-  const asset = fixedAssetStore.assets.find(a => a.id === r.assetId)
-  return {
-    ...r,
-    // 展示用：资产编码、所属公司名称、资产类型文案（库里只存 id / 编码）
-    assetCode: asset ? asset.code : (r.assetCode || ''),
-    assetNo: asset ? asset.code : (r.assetNo || ''),
-    company: r.companyId ? (orgStore.companyName(r.companyId) || r.companyId) : '',
-    assetType: labelOf('ASSET_CATEGORY', r.assetType),
-    periodAmount: r.finished ? 0 : Math.round(monthly * 100) / 100,
-    accumulatedDepreciation: Math.round(accumulated * 100) / 100,
-    netValue: Math.round((r.original - accumulated) * 100) / 100,
-    remainLife: Math.max(r.totalLife - r.usedLife, 0)
+function currentMonth() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+async function loadPlanDetails() {
+  planDetailLoading.value = true
+  try {
+    const res = await dataService.depreciationPlan({ month: detailSearch.month })
+    depreciationDetails.value = (res?.rows || []).map(r => {
+      const totalLife = Number(r.totalLife) || 0
+      const usedLife = Number(r.usedLife) || 0
+      return {
+        ...r,
+        assetCode: r.assetNo || '',
+        assetName: r.assetName || '',
+        company: r.companyId ? (orgStore.companyName(r.companyId) || r.companyId) : '',
+        assetType: labelOf('ASSET_CATEGORY', r.assetType) || r.assetType || '',
+        periodAmount: r.finished ? 0 : Math.round((Number(r.monthly) || 0) * 100) / 100,
+        accumulatedDepreciation: Math.round((Number(r.accumulated) || 0) * 100) / 100,
+        netValue: Math.round((Number(r.netValue) || 0) * 100) / 100,
+        remainLife: Math.max(totalLife - usedLife, 0),
+        usedLife
+      }
+    })
+  } catch (e) {
+    depreciationDetails.value = []
+    ElMessage.error(e?.message || '折旧明细加载失败')
+  } finally {
+    planDetailLoading.value = false
   }
-}))
+}
 
-const detailSearch = reactive({ month: '2026-09', keyword: '' })
+const detailSearch = reactive({ month: currentMonth(), keyword: '' })
 const detPage = ref(1)
 const detPageSize = ref(15)
-watch(detailSearch, () => { detPage.value = 1 }, { deep: true })
+watch(() => detailSearch.month, () => { detPage.value = 1; loadPlanDetails() })
+onMounted(loadPlanDetails)
 
 const filteredDepreciationDetails = computed(() => {
   const kw = detailSearch.keyword.trim()
@@ -532,7 +554,7 @@ const detTotal = computed(() => filteredDepreciationDetails.value.length)
 const handleDetailSearch = () => { detPage.value = 1 }
 
 const handleDetailReset = () => {
-  detailSearch.month = '2026-09'
+  detailSearch.month = currentMonth()
   detailSearch.keyword = ''
   detPage.value = 1
 }

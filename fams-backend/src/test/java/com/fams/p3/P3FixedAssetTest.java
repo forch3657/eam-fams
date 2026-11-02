@@ -49,6 +49,9 @@ class P3FixedAssetTest {
     @Autowired
     private LoginAttemptService loginAttemptService;
 
+    @Autowired
+    private com.fams.engine.GenericService genericService;
+
     private String token;
 
     @BeforeEach
@@ -196,11 +199,9 @@ class P3FixedAssetTest {
         approval.put("approverId", "U1");
         approval.put("approverName", "系统管理员");
 
-        mockMvc.perform(auth(post("/api/fixed-asset-doc-approvals")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(approval))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.id").isNotEmpty());
+        // 轨迹只能由服务端写入：通用 CRUD 已对轨迹集合关闭 POST/PUT/DELETE（P3-D2），
+        // 这里直接调用服务层模拟 ApprovalTrailWriter，再验证查询接口。
+        assertThat(genericService.create("fixed-asset-doc-approvals", approval)).isNotNull();
 
         String body = mockMvc.perform(auth(get("/api/fixed-asset-doc-approvals/page")
                         .param("docKey", "inbound")

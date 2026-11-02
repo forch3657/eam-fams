@@ -162,13 +162,62 @@ public final class ApprovalSupport {
                 return step;
             }
             if ("ALL".equals(text(step.get("mode")))) {
-                long need = service.countUsersOfRole(text(step.get("approverRoleId")));
-                if (agreedBy.size() < need) {
+                Set<String> approvers = approverIdsOf(step, approvals, service);
+                if (!approvers.isEmpty() && !agreedBy.containsAll(approvers)) {
                     return step;
                 }
             }
         }
         return null;
+    }
+
+    /**
+     * 环节的实际审批人集合。
+     *
+     * <p>角色成员为基础；存在转办时由最后一次转办目标替换基础集合；
+     * 转办之后（或从未转办时）的加签目标追加进集合，参与 ANY / ALL 判定。</p>
+     */
+    public static Set<String> approverIdsOf(Map<String, Object> step, List<Map<String, Object>> approvals,
+                                            GenericService service) {
+        Set<String> ids = new LinkedHashSet<>();
+        String key = text(step.get("key"));
+        Map<String, Object> lastTransfer = null;
+        List<Map<String, Object>> stepRecords = new ArrayList<>();
+        for (Map<String, Object> record : approvals) {
+            if (!key.equals(text(record.get("stepKey")))) {
+                continue;
+            }
+            stepRecords.add(record);
+            if ("TRANSFER".equals(text(record.get("result")))) {
+                lastTransfer = record;
+            }
+        }
+        if (lastTransfer != null) {
+            String target = text(lastTransfer.get("targetUserId"));
+            if (!target.isEmpty()) {
+                ids.add(target);
+            }
+        } else {
+            ids.addAll(service.userIdsOfRole(text(step.get("approverRoleId"))));
+        }
+        boolean afterTransfer = lastTransfer == null;
+        for (Map<String, Object> record : stepRecords) {
+            if (record == lastTransfer) {
+                afterTransfer = true;
+                continue;
+            }
+            if (afterTransfer && "ADD_SIGN".equals(text(record.get("result")))) {
+                String target = text(record.get("targetUserId"));
+                if (!target.isEmpty()) {
+                    ids.add(target);
+                }
+            }
+        }
+        String fixedApprover = text(step.get("approverId"));
+        if (!fixedApprover.isEmpty()) {
+            ids.add(fixedApprover);
+        }
+        return ids;
     }
 
     /** 该单据已有的审批记录 */

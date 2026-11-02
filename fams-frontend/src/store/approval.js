@@ -37,9 +37,13 @@ export const useApprovalStore = defineStore('approval', () => {
   /** 保存流程配置变更 */
   async function saveFlow(flow) {
     const saved = await dataService.update(COLLECTION.systemFlows, flow.id, flow)
+    // 把服务端返回（含自增 version）写回调用方持有的对象：
+    // 设计器的 selected 与 store 数组是同一引用，只替换数组元素会让调用方
+    // 继续用旧 version 提交，第二次保存被乐观锁拒绝（P3-D4）。
+    if (saved) Object.assign(flow, saved)
     const idx = flows.value.findIndex(f => f.id === flow.id)
-    if (idx > -1) flows.value[idx] = saved || flow
-    return saved || flow
+    if (idx > -1) flows.value[idx] = flow
+    return flow
   }
 
   /** 新建流程 */

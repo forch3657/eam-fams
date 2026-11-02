@@ -864,7 +864,7 @@ import { optionsOf, labelOf } from '../../constants/enums'
 import { formatDateTime } from '../../utils/format'
 import {
   getFlow, effectiveSteps, approvalsOf, currentStep,
-  canSubmit, canApprove, runApproval
+  canSubmit, canApprove, runApproval, isCollabAction
 } from '../../services/approval'
 
 /**
@@ -1700,10 +1700,10 @@ function canApproveInvDoc(doc) {
   if (doc.status !== 'PROCESSING') return false
   const cur = invCurrent(doc)
   if (!cur) return false
-  return canApprove(cur.step, userStore.user, orgStore)
+  return canApprove(cur.step, userStore.user, orgStore, cur.records)
 }
 
-async function runInvApproval(doc, action, comment = '') {
+async function runInvApproval(doc, action, comment = '', targetUserId = '') {
   if (!approvalStore.loaded) await approvalStore.load()
   const res = await runApproval({
     doc,
@@ -1711,6 +1711,7 @@ async function runInvApproval(doc, action, comment = '') {
     bizType: INV_BIZ,
     action,
     comment,
+    targetUserId,
     ctx: invCtx(doc),
     flows: approvalStore.flows,
     approvals: approvalStore.approvals,
@@ -1745,9 +1746,9 @@ async function rejectInvDoc(doc) {
   }
 }
 
-async function onApprovalAct({ action, comment }) {
-  const res = await runInvApproval(approvalDoc.value, action, comment)
-  if (res.ok) approvalVisible.value = false
+async function onApprovalAct({ action, comment, targetUserId }) {
+  const res = await runInvApproval(approvalDoc.value, action, comment, targetUserId)
+  if (res.ok && !isCollabAction(action)) approvalVisible.value = false
 }
 
 const locationOptions = ref(['总部办公楼1层', '总部办公楼2层', '总部办公楼3层', '仓库A区', '仓库B区', '车库', '数据中心机房'])

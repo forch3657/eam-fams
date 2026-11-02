@@ -131,7 +131,7 @@ import { useLowValueAssetStore } from '../../../store/lowValueAsset'
 import { useOrgStore } from '../../../store/org'
 import { useNotifyStore } from '../../../store/notify'
 import { dataService } from '../../../services'
-import { BIZ_DOC_REGISTRY, runApproval } from '../../../services/approval'
+import { BIZ_DOC_REGISTRY, runApproval, isCollabAction } from '../../../services/approval'
 import { docCtx } from '../../../services/workbench'
 import { labelOf } from '../../../constants/enums'
 import { formatDateTime } from '../../../utils/format'
@@ -191,13 +191,14 @@ async function persistDoc(item, next) {
 }
 
 /** 执行审批动作 */
-async function runAction(item, action, comment = '') {
+async function runAction(item, action, comment = '', targetUserId = '') {
   const res = await runApproval({
     doc: item.doc,
     docKey: item.docKey,
     bizType: item.bizType,
     action,
     comment,
+    targetUserId,
     ctx: docCtx(item.doc, workbench.assets),
     flows: approvalStore.flows,
     approvals: approvalStore.approvals,
@@ -210,7 +211,8 @@ async function runAction(item, action, comment = '') {
   }
   ElMessage.success(res.message)
   await workbench.load(true)
-  await notifyResult(item, action, comment)
+  // 加签/转办/抄送不改变审批结果，不向发起人发结果通知
+  if (!isCollabAction(action)) await notifyResult(item, action, comment)
   return res
 }
 
@@ -248,9 +250,10 @@ async function submitDoc(item) {
   await runAction(item, 'submit', '提交审批申请')
 }
 
-async function onAct({ action, comment }) {
-  const res = await runAction(current.value, action, comment)
-  if (res.ok) dlgVisible.value = false
+async function onAct({ action, comment, targetUserId }) {
+  const res = await runAction(current.value, action, comment, targetUserId)
+  // 协作动作保持弹窗打开，便于继续查看审批人变化与轨迹
+  if (res.ok && !isCollabAction(action)) dlgVisible.value = false
 }
 
 /** 去处理：跳到对应业务页面并定位 tab（支持子标签页） */
