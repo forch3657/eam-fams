@@ -190,17 +190,21 @@ watch(
 )
 
 onMounted(() => {
-  if (!fixedAssetStore.loaded) fixedAssetStore.loadAll()
-  if (!lowValueAssetStore.loaded) lowValueAssetStore.loadAll()
-  if (!orgStore.loaded) orgStore.loadAll()
-  if (!notifyStore.loaded) notifyStore.loadAll()
-  if (!auditStore.loaded) auditStore.loadAll()
+  // 预取一律按权限判定：业务角色没有对应权限时不发请求，
+  // 否则登录首屏就会冒出「无权限访问该数据」的 403（2026-11-02 收紧）。
+  if (can('fa:view') && !fixedAssetStore.loaded) fixedAssetStore.loadAll()
+  if (can('lv:view') && !lowValueAssetStore.loaded) lowValueAssetStore.loadAll()
+  // 守卫只加载了基础三张表；这里按权限补用户表（无权角色直接跳过，不产生 403）
+  if (can('org:user') || can('wm:todo')) orgStore.loadAll({ withUsers: true })
+  if (can('wm:message') && !notifyStore.loaded) notifyStore.loadAll()
+  if (can('sys:log') && !auditStore.loaded) auditStore.loadAll()
   // 工作台聚合数据（顶栏待办徽标依赖它）
-  if (!workbench.loaded) workbench.load()
-  // 数据字典是业务枚举的统一维护入口：启动时装载一次，字典改动后字典页会再次装载
-  loadDictEnums()
+  // 不在这里判断 loaded：load 内部按权限快照判定，换账号后权限变化会自动重新装载
+  if (can('wm:todo')) workbench.load()
+  // 数据字典是业务枚举的统一维护入口：无 sys:dict 时退回内置枚举
+  if (can('sys:dict')) loadDictEnums()
   // 系统参数需被业务真正消费（编号前缀/预警阈值/盘点提醒等）
-  loadSysParams()
+  if (can('sys:params') || can('wm:view')) loadSysParams()
 })
 
 async function handleCommand(cmd) {

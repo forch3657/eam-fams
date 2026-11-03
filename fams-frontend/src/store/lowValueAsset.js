@@ -47,9 +47,32 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     return items.value.find(i => i && (i.id === id || i.code === id)) || null
   }
 
-  function nextDocNo(prefix, rows) {
+  /**
+   * 生成单号。
+   *
+   * 不能再用「列表长度 + 1」：列表按数据范围过滤（部门/本人），
+   * 看不到别的部门的单，序号必然撞车（2026-11-02 用户建领用直接 409）。
+   * 这里取当前可见单号的最大序号 + 1，再由 createDocWithRetry 兜住跨范围的漏网冲突。
+   */
+  function nextDocNo(prefix, rows, offset = 0) {
     const year = new Date().getFullYear()
-    return `${prefix}${year}${String(rows.length + 1).padStart(3, '0')}`
+    const head = `${prefix}${year}`
+    const max = rows.reduce((m, r) => {
+      const no = String(r?.docNo || '')
+      if (!no.startsWith(head)) return m
+      const n = Number(no.slice(head.length))
+      return Number.isFinite(n) ? Math.max(m, n) : m
+    }, 0)
+    return `${head}${String(max + 1 + offset).padStart(3, '0')}`
+  }
+
+  /**
+   * 单号：api 模式交给后端生成（前端按可见列表推算会跨数据范围撞号），
+   * mock 演示没有后端，才在前端按最大序号生成。
+   */
+  function docNoFor(prefix, rows, explicit) {
+    if (explicit) return explicit
+    return useMock ? nextDocNo(prefix, rows) : ''
   }
 
   function toPositiveInt(value, label) {
@@ -117,7 +140,6 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     const quantity = toPositiveInt(data.quantity, '入库数量')
     const price = data.price === undefined || data.price === '' ? item.price : money(data.price)
     const record = {
-      docNo: data.docNo || nextDocNo('RK', inboundRecords.value),
       itemId: item.id,
       category: item.category || '',
       // 快照：记录办理当时的物品信息
@@ -138,7 +160,10 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
       creatorId: currentUserId(),
       settleTime: new Date().toISOString()
     }
-    const created = await dataService.create(COLLECTION.lowValueInbound, record)
+    const created = await dataService.create(COLLECTION.lowValueInbound, {
+      ...record,
+      docNo: docNoFor('RK', inboundRecords.value, data.docNo)
+    })
     const row = created || record
     inboundRecords.value.unshift(row)
     await syncItemStock(item.id)
@@ -161,7 +186,6 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
       throw new Error(`可用库存不足，当前可用 ${available}${item.unit || ''}${pendingHint(item.id)}`)
     }
     const record = {
-      docNo: data.docNo || nextDocNo('PY', requisitionRecords.value),
       itemId: item.id,
       category: item.category || '',
       itemName: item.name,
@@ -180,7 +204,10 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
       status: 'DRAFT',
       creatorId: currentUserId()
     }
-    const created = await dataService.create(COLLECTION.lowValueRequisition, record)
+    const created = await dataService.create(COLLECTION.lowValueRequisition, {
+      ...record,
+      docNo: docNoFor('PY', requisitionRecords.value, data.docNo)
+    })
     const row = created || record
     requisitionRecords.value.unshift(row)
     return row
@@ -236,7 +263,6 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
       throw new Error(`退库数量超过可退范围（当前可退 ${available}${item.unit || ''}）`)
     }
     const record = {
-      docNo: data.docNo || nextDocNo('TK', returnRecords.value),
       itemId: item.id,
       category: item.category || '',
       itemName: item.name,
@@ -255,7 +281,10 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
       status: 'DRAFT',
       creatorId: currentUserId()
     }
-    const created = await dataService.create(COLLECTION.lowValueReturn, record)
+    const created = await dataService.create(COLLECTION.lowValueReturn, {
+      ...record,
+      docNo: docNoFor('TK', returnRecords.value, data.docNo)
+    })
     const row = created || record
     returnRecords.value.unshift(row)
     return row

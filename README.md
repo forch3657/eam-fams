@@ -430,6 +430,24 @@ E2E_BASE_URL=http://localhost:5174 npm run test:e2e   # 走 vite dev（/api 由 
 E2E_CHANNEL=msedge npm run test:e2e                   # 本机未下载 chromium 时复用 Edge/Chrome
 ```
 
+### 夜间数据形态回归（生产库只读副本）
+
+```powershell
+# 前置：build-prod.ps1 已产出 jar 与 dist；mysql/mysqldump 可用
+$env:MYSQL_ADMIN_PWD='******'   # 不设则用本机默认管理员口令；应用账号只有 DML，建副本库必须管理员
+npm run e2e:nightly             # 克隆 fams -> fams_nightly，起 18080/4173，跑 L4，自动停栈
+```
+
+- **不碰生产库**：`mysqldump --single-transaction` 只读快照，回归产生的数据全部落在 `fams_nightly`；生产栈（80/8080）保持在线。
+- **覆盖**：12 权限矩阵、13 主操作巡检、14 人设旅程、16 期初台账闭环，共 22 条。
+- **产出**：`e2e-artifacts/nightly/<runId>/report.md`（失败数、flaky、未预期 4xx、权限矩阵覆盖率、角色旅程覆盖率、逃逸缺陷回灌率），同目录留有 `playwright.json` 原始结果与快照。
+- **无人值守**：用 Windows 计划任务每天触发，失败时脚本退出码非 0，可在任务历史里直接看到。
+
+```powershell
+schtasks /Create /TN "FAMS-Nightly-E2E" /SC DAILY /ST 02:30 ^
+  /TR "powershell -ExecutionPolicy Bypass -File F:\work\EAM-FAMS\scripts\e2e\nightly-clone.ps1"
+```
+
 ### 门禁规则
 
 - **`build-prod.ps1` 是唯一发布构建入口**：后端 `mvn clean package`（跑测试，不过不产 jar）→ 前端 `npm run test` → `npm run build`，任何一环失败即中止。
@@ -439,6 +457,8 @@ E2E_CHANNEL=msedge npm run test:e2e                   # 本机未下载 chromium
   这两类问题如今由 `P7PasswordSecurityTest` 专门守卫。
 - **CI**：`.github/workflows/ci.yml`，三条 job 串行把关——后端测试+覆盖率、前端测试+构建、Playwright E2E。
 - **口令只允许一处定义**：后端测试用 `com.fams.TestAccounts`（对齐 `db/seed.sql`），E2E 用 `E2E_PASSWORD` 环境变量，避免再次出现"改了种子忘了改测试"。
+- **缺陷必须回灌**：手工发现的缺陷当天登记到 `docs/qa/escaped-defects.md`，并补一条 `[BUG-xxx]` 用例（真实角色 + 完整 UI 路径 + 负向断言）。只修代码不写用例视为未完成。
+- **默认拒绝**：E2E 的 `installGuards` 不再接受整页 403 放行；确有预期的 4xx 必须精确到「方法 + URL」并写明原因。
 
 ### 踩过的坑（写用例时注意）
 

@@ -51,6 +51,20 @@ public class GenericService {
 
     private static final String ORG_ROLES = "org-roles";
 
+    /**
+     * 低值三类单据的单号前缀。
+     *
+     * <p>单号必须由服务端生成：前端按自己可见的列表推算序号，而列表受数据范围过滤
+     * （部门/本人），看不到其他部门的单号，必然撞 unique 约束（2026-11-02 用户建领用直接 409）。</p>
+     */
+    private static final Map<String, String> DOC_NO_PREFIX = new java.util.LinkedHashMap<>();
+
+    static {
+        DOC_NO_PREFIX.put("low-value-inbound", "RK");
+        DOC_NO_PREFIX.put("low-value-requisition", "PY");
+        DOC_NO_PREFIX.put("low-value-return", "TK");
+    }
+
     private final ResourceRegistry registry;
 
     private final GenericMapper mapper;
@@ -122,6 +136,12 @@ public class GenericService {
         ResourceMeta meta = registry.resolve(key);
         Map<String, Object> row = codec.toDbRow(meta, body == null ? Collections.emptyMap() : body, false);
         encodeOrgUserPasswordIfNeeded(key, row, true);
+
+        // 低值单据：单号留空时由服务端生成，保证跨部门唯一
+        String docNoPrefix = DOC_NO_PREFIX.get(key);
+        if (docNoPrefix != null && isBlank(row.get("docNo"))) {
+            row.put("docNo", nextDocNo(meta, docNoPrefix));
+        }
 
         Object pk = row.get(meta.getPkField());
         if (isBlank(pk)) {
@@ -671,6 +691,30 @@ public class GenericService {
                 && stock.getReserveOn().equals(status)) {
             reserveStock(meta, row);
         }
+    }
+
+    /**
+     * 生成「{前缀}{年份}{三位序号}」：取表内同前缀的最大序号 + 1。
+     *
+     * <p>排序/前缀判断都基于全表，不受数据范围过滤影响，因此不会与别的部门的单号重复。</p>
+     */
+    private String nextDocNo(ResourceMeta meta, String prefix) {
+        Map<String, Object> params = new QuerySpec(meta).toParams(meta.getAllColumns(), 50L, null);
+        params.put("orderBy", "`doc_no` DESC");
+        String head = prefix + java.time.Year.now().getValue();
+        long max = 0;
+        for (Map<String, Object> row : mapper.selectList(params)) {
+            String no = text(row.get("doc_no"));
+            if (no == null || !no.startsWith(head)) {
+                continue;
+            }
+            String tail = no.substring(head.length());
+            if (!tail.matches("\\d+")) {
+                continue;
+            }
+            max = Math.max(max, Long.parseLong(tail));
+        }
+        return head + String.format("%03d", max + 1);
     }
 
     private void applyStockOnDelete(ResourceMeta meta, Map<String, Object> row) {

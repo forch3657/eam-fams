@@ -525,8 +525,9 @@ onMounted(applyDeepLink)
 // 进入台账页时刷新主数据：导入、清空、审批都可能已在别的页面改过库存与单据，
 // 而 store 只在应用启动时加载一次，不刷新会看到旧数据。
 onMounted(() => {
-  store.loadAll().catch(() => {})
-  if (!orgStore.loaded) orgStore.loadAll().catch(() => {})
+  if (can('lv:view')) store.loadAll().catch(() => {})
+  // 守卫只加载基础三张表；用户表按权限补，无权角色不请求（否则首屏 403）
+  if (can('org:user') || can('wm:todo')) orgStore.loadAll({ withUsers: true }).catch(() => {})
 })
 // 同页面内通过 query 切换页签时也要响应
 watch(() => route.query, applyDeepLink)
@@ -1047,7 +1048,8 @@ async function submitReturn() {
 }
 
 onMounted(() => {
-  approvalStore.load()
+  // 流程配置的读权限含 wm:todo；只读账号打开页面时不要发这个请求
+  if (can('wm:todo')) approvalStore.load()
 })
 </script>
 

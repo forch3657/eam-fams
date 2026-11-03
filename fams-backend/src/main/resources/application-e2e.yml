@@ -30,6 +30,7 @@ fams:
     jwt-expire-minutes: ${JWT_EXPIRE_MINUTES:480}
     permit-all:
       - /health
+      - /version
       - /auth/login
   cors:
     # vite preview 默认 4173；同时放行 127.0.0.1 与 localhost 两种写法

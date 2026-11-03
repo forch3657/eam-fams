@@ -28,6 +28,7 @@ fams:
     jwt-expire-minutes: ${JWT_EXPIRE_MINUTES:480}
     permit-all:
       - /health
+      - /version
       - /auth/login
   cors:
     # 前端由 nginx 在 https://localhost 托管，/api 反代到本服务，同源即可；

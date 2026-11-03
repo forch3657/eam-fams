@@ -38,7 +38,8 @@ test.describe('已登录会话', () => {
   })
 
   test('[SMK-03] 令牌失效后自动跳转登录页', async ({ page, context }, testInfo) => {
-    guards.allowApi(/\/api\//)
+    // 本用例故意让所有受保护接口 401，其余状态码仍判红
+    guards.allowRequest({ url: /\/api\//, status: [401], reason: '令牌失效场景，全部受保护接口预期 401' })
     await page.goto('/workbench')
     await expect(page.locator('.el-menu').first()).toBeVisible()
 
@@ -99,8 +100,34 @@ test.describe('已登录会话', () => {
     const localVersion = fs.readFileSync(localFile, 'utf8').trim()
 
     expect(remoteVersion, '线上运行的不是本地最新构建').toBe(localVersion)
-    await expect(page.locator('meta[name=app-version]')).toHaveAttribute('content', localVersion)
+    // app-build 是构建号（git hash），与 version.txt 同源；app-version 是语义版本，与后端 /api/version 对齐
+    await expect(page.locator('meta[name=app-build]')).toHaveAttribute('content', localVersion)
+    await expect(page.locator('meta[name=app-version]')).not.toHaveAttribute('content', '')
     await shot(page, testInfo, 1, '版本标记一致')
+  })
+
+  test('[SMK-07] 前后端版本不一致时提示刷新', async ({ page }, testInfo) => {
+    // 模拟后端已升级而页面仍是旧版本：横幅必须出现，否则用户会一直跑旧包
+    await page.route('**/api/version', route =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 0,
+          message: 'ok',
+          data: { version: '9.9.9', startedAt: new Date().toISOString() }
+        })
+      })
+    )
+
+    await page.goto('/workbench')
+    await waitSettled(page)
+
+    const banner = page.locator('.app-version-banner')
+    await expect(banner).toBeVisible()
+    await expect(banner).toContainText('系统已更新，请刷新页面')
+    await expect(banner).toContainText('9.9.9')
+    await shot(page, testInfo, 1, '版本不一致提示')
   })
 
   test('[SMK-06] 深链刷新后登录态与页签保持', async ({ page }, testInfo) => {
@@ -123,7 +150,9 @@ test.describe('已登录会话', () => {
 })
 
 test('[SMK-02] 错误密码登录被拒绝', async ({ page }, testInfo) => {
-  const guards = installGuards(page, { allowApi: [/\/api\/auth\/login$/] })
+  const guards = installGuards(page, {
+    allowRequests: [{ method: 'POST', url: /\/api\/auth\/login$/, status: [401], reason: '错误密码用例' }]
+  })
   await page.goto('/login')
   await page.locator('.login-form input').first().fill(ADMIN.username)
   await page.locator('input[type=password]').first().fill('WrongPass@2026')

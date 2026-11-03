@@ -22,25 +22,42 @@ export const useWorkbenchStore = defineStore('workbench', () => {
   const plans = ref([])
   const loaded = ref(false)
   const loading = ref(false)
+  // 上次加载时的权限快照：切换账号后权限集合变化，必须重新按新权限装载，
+  // 否则会残留上一位用户可读的数据（越权展示）或缺数据（新角色本可读）。
+  let loadedPermKey = null
+
+  /** 每类单据的读权限码：没有对应权限就不发请求，避免业务角色首屏 403 */
+  function readCodeOf(bt) {
+    if (bt === 'INVENTORY') return 'fa:inventory'
+    return BIZ_DOC_REGISTRY[bt].scope === 'low-value' ? 'lv:view' : 'fa:view'
+  }
+
+  function permKey() {
+    return useUserStore().permissions.slice().sort().join(',')
+  }
 
   async function load(force = false) {
-    if (loaded.value && !force) return
+    const key = permKey()
+    if (loaded.value && !force && key === loadedPermKey) return
     loading.value = true
+    const can = code => useUserStore().can(code)
     try {
+      const readableTypes = ALL_BIZ_TYPES.filter(bt => can(readCodeOf(bt)))
       const [docResults, assetRows, itemRows, planRows] = await Promise.all([
-        Promise.all(ALL_BIZ_TYPES.map(async bt => {
+        Promise.all(readableTypes.map(async bt => {
           const rows = await dataService.list(BIZ_DOC_REGISTRY[bt].collection)
           return [bt, rows]
         })),
-        dataService.list(COLLECTION.assets),
-        dataService.list(COLLECTION.lowValueItems),
-        dataService.list(COLLECTION.inventoryPlans)
+        can('fa:view') ? dataService.list(COLLECTION.assets) : [],
+        can('lv:view') ? dataService.list(COLLECTION.lowValueItems) : [],
+        can('fa:inventory') ? dataService.list(COLLECTION.inventoryPlans) : []
       ])
       docs.value = Object.fromEntries(docResults)
       assets.value = assetRows || []
       items.value = itemRows || []
       plans.value = planRows || []
       loaded.value = true
+      loadedPermKey = key
     } finally {
       loading.value = false
     }

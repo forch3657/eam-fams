@@ -178,9 +178,11 @@ router.beforeEach(async (to) => {
   if (perm) {
     const orgStore = useOrgStore()
     if (!orgStore.loaded) {
+      // 守卫只需要公司/部门/角色做权限判定，用户表按 org:user / wm:todo 由布局或页面补齐；
+      // 这里带上 withUsers 会请求无权资源，业务角色首屏直接 403。
       // 组织主数据加载失败不能让导航悬空（否则登录成功后停在登录页），
       // 交给下面的 can() 判定走 403 / 兜底页
-      try { await orgStore.loadAll() } catch (e) { console.error('[router] 组织主数据加载失败', e) }
+      try { await orgStore.loadAll({ withUsers: false }) } catch (e) { console.error('[router] 组织主数据加载失败', e) }
     }
     // loadAll 期间若接口返回 401，会话已被清空：此时必须去登录页，
     // 否则会继续走权限判定落到 403，用户看到「无访问权限」却不知道要重新登录。
@@ -199,6 +201,9 @@ router.afterEach((to) => {
   if (!to.meta?.title || to.path === '/login') return
   const userStore = useUserStore()
   if (!userStore.isLoggedIn) return
+  // 页面访问日志需要 sys:log 写权限；业务角色无此码，发出去只会 403。
+  // 业务写操作的审计由后端 OperationLogAspect 统一落库，不依赖这里。
+  if (!userStore.can('sys:log')) return
   const auditStore = useAuditStore()
   auditStore.logOp({
     module: '页面访问',

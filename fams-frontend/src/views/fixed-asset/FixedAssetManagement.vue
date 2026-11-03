@@ -623,7 +623,10 @@
           <div class="cell"><div class="label">资产状态</div><div class="value">{{ currentAsset.status }}</div></div>
         </div>
         <div class="section-title"><span>操作记录</span></div>
-        <el-tabs v-model="assetRecordTab">
+        <div v-if="!assetRecordLoading && recordCount === 0" class="record-empty">
+          期初导入，暂无关联单据
+        </div>
+        <el-tabs v-model="assetRecordTab" v-loading="assetRecordLoading">
           <el-tab-pane label="盘点记录" name="check">
             <el-table :data="assetRecordData.check" size="small" style="width:100%">
               <el-table-column prop="docNo" label="盘点单号" width="140" />
@@ -927,8 +930,9 @@ onMounted(applyDeepLink)
 // 进入台账页时刷新主数据：导入、清空、审批都可能已在别的页面改过资产与单据，
 // 而 store 只在应用启动时加载一次，不刷新会看到旧数据。
 onMounted(() => {
-  fixedAssetStore.loadAll().catch(() => {})
-  if (!orgStore.loaded) orgStore.loadAll().catch(() => {})
+  if (can('fa:view')) fixedAssetStore.loadAll().catch(() => {})
+  // 守卫只加载基础三张表；用户表按权限补，无权角色不请求（否则首屏 403）
+  if (can('org:user') || can('wm:todo')) orgStore.loadAll({ withUsers: true }).catch(() => {})
 })
 // 折旧台账是后端产物，进入页签时按当前期间拉取；报表仅折旧执行角色需要
 onMounted(() => {
@@ -1030,7 +1034,8 @@ function scopeLabel(scopeType, scopeValue) {
   return `${scopeType}：${scopeValue}`
 }
 
-const inventoryPlanCol = useCollection(COLLECTION.inventoryPlans)
+// 盘点数据只对 fa:inventory 开放，没有权限就不发请求（否则无权角色首屏 403）
+const inventoryPlanCol = useCollection(COLLECTION.inventoryPlans, { enabled: () => can('fa:inventory') })
 const inventoryPlans = inventoryPlanCol.items
 
 /**
@@ -1447,9 +1452,9 @@ function depreciationSummaries({ columns, data }) {
   })
 }
 
-const inventoryDocCol = useCollection(COLLECTION.inventoryDocs)
-/** 处置单集合：盘点盘亏核销时补建处置单 */
-const disposeDocCol = useCollection(`${COLLECTION.docListPrefix}-dispose`)
+const inventoryDocCol = useCollection(COLLECTION.inventoryDocs, { enabled: () => can('fa:inventory') })
+/** 处置单集合：盘点盘亏核销时补建处置单；读权限随台账 fa:view */
+const disposeDocCol = useCollection(`${COLLECTION.docListPrefix}-dispose`, { enabled: () => can('fa:view') })
 const inventoryDocs = inventoryDocCol.items
 
 const invSearch = reactive({ docNo: '', company: '', status: '', createRange: null, finishRange: null })
@@ -1880,6 +1885,8 @@ function openAssetDrawer(row) {
   currentAsset.value = row
   assetRecordTab.value = 'check'
   assetDrawerVisible.value = true
+  assetRecordData.value = EMPTY_RECORDS()
+  loadAssetRecords(row)
   nextTick(() => {
     if (qrCanvas.value) {
       const qrData = `资产编号:${row.code}\n资产名称:${row.name}\n品牌型号:${row.brand || ''} ${row.model || ''}\n所属公司:${row.company}\n存放位置:${row.location}`
@@ -1899,35 +1906,126 @@ function downloadAssetQr(row) {
   })
 }
 
-const assetRecordData = {
-  check: [
-    { docNo: 'PD202607003', result: '已盘', person: '张志刚', time: '2026-07-15 10:24:00' },
-    { docNo: 'PD202604002', result: '已盘', person: '刘洋', time: '2026-04-12 09:40:00' }
-  ],
-  dispatch: [
-    { docNo: 'FP2026880', kind: '派发', person: '张伟', dept: '技术部', time: '2026-03-18 14:10:00' },
-    { docNo: 'TK2026860', kind: '退库', person: '张伟', dept: '技术部', time: '2026-08-02 16:30:00' }
-  ],
-  borrow: [
-    { docNo: 'JC2026841', borrower: '李娜', borrowTime: '2026-06-11', returnTime: '2026-06-20', status: '已归还' },
-    { docNo: 'JC2026812', borrower: '王强', borrowTime: '2026-09-05', returnTime: '-', status: '借用中' }
-  ],
-  repair: [
-    { docNo: 'WX2026877', fault: '屏幕显示异常，更换排线', vendor: '联想售后', cost: 480, status: '已完成' },
-    { docNo: 'WX2026823', fault: '电池续航衰减，需更换电池', vendor: '第三方维修商', cost: 620, status: '维修中' }
-  ],
-  transfer: [
-    { docNo: 'DB2026869', from: '华信科技集团有限公司', to: '云鼎资产管理有限公司', time: '2026-07-28 11:00:00', status: '已完结' },
-    { docNo: 'DB2026835', from: '恒信融资租赁有限公司', to: '华信科技集团有限公司', time: '2026-03-16 09:20:00', status: '已完结' }
-  ],
-  change: [
-    { docNo: 'BG2026858', content: '使用部门由行政部变更为技术部', person: '张志刚', time: '2026-05-09 15:44:00' },
-    { docNo: 'BG2026820', content: '存放地点调整为总部办公楼2层', person: '刘洋', time: '2026-03-16 09:25:00' }
-  ],
-  dispose: [
-    { docNo: 'CZ2026812', mode: '报废', amount: 0, time: '2026-08-20 10:10:00', status: '审批中' },
-    { docNo: 'CZ2026798', mode: '变卖', amount: 1200, time: '2026-02-14 15:02:00', status: '已驳回' }
-  ]
+/**
+ * 资产操作记录：按 assetId 从真实单据聚合（BUG-004）。
+ *
+ * 之前这里是硬编码演示数据，任何资产点开都显示同一批单号。
+ * 现在打开详情时拉取 8 类单据，按 assetId 过滤；盘点记录从盘点计划的 items 里取。
+ * 无记录时展示「期初导入，暂无关联单据」，不再伪造单据。
+ */
+const EMPTY_RECORDS = () => ({
+  check: [], dispatch: [], borrow: [], repair: [], transfer: [], change: [], dispose: []
+})
+const assetRecordData = ref(EMPTY_RECORDS())
+const assetRecordLoading = ref(false)
+const recordCount = computed(() =>
+  Object.values(assetRecordData.value).reduce((sum, rows) => sum + rows.length, 0)
+)
+
+const RECORD_SOURCES = [
+  { tab: 'dispatch', biz: 'alloc' },
+  { tab: 'dispatch', biz: 'back' },
+  { tab: 'borrow', biz: 'borrow' },
+  { tab: 'repair', biz: 'repair' },
+  { tab: 'transfer', biz: 'transfer' },
+  { tab: 'change', biz: 'change' },
+  { tab: 'dispose', biz: 'dispose' }
+]
+
+const INVENTORY_RESULT_TEXT = { MATCHED: '已盘', SURPLUS: '盘盈', LOSS: '盘亏', UNCHECKED: '未盘' }
+
+function userNameOf(id) {
+  if (!id) return ''
+  return orgStore.users.find(u => u.id === id)?.name || ''
+}
+
+/** 盘点明细可能以 JSON 字符串落库，统一解析成数组 */
+function planItemsOf(plan) {
+  if (Array.isArray(plan?.items)) return plan.items
+  if (typeof plan?.items === 'string' && plan.items.trim()) {
+    try {
+      return JSON.parse(plan.items)
+    } catch {
+      return []
+    }
+  }
+  return []
+}
+
+async function loadAssetRecords(asset) {
+  assetRecordLoading.value = true
+  const next = EMPTY_RECORDS()
+  try {
+    const results = await Promise.all(
+      RECORD_SOURCES.map(async source => {
+        try {
+          const rows = await dataService.list(`${COLLECTION.docListPrefix}-${source.biz}`)
+          return { ...source, rows }
+        } catch {
+          // 无权限或集合为空时按「无记录」处理，不能因为一个集合失败就整页空白
+          return { ...source, rows: [] }
+        }
+      })
+    )
+
+    for (const { tab, biz, rows } of results) {
+      for (const row of rows.filter(r => r.assetId === asset.id)) {
+        const base = {
+          docNo: row.code || row.docNo || '',
+          person: userNameOf(row.creatorId) || row.operator || '',
+          time: formatDateTime(row.createTime || row.finishTime || ''),
+          status: row.status
+        }
+        if (tab === 'dispatch') {
+          next.dispatch.push({ ...base, kind: biz === 'alloc' ? '派发' : '退库', dept: row.deptName || '' })
+        } else if (tab === 'borrow') {
+          next.borrow.push({
+            ...base,
+            borrower: row.borrower || userNameOf(row.userId),
+            borrowTime: row.borrowDate || '',
+            returnTime: row.returnDate || ''
+          })
+        } else if (tab === 'repair') {
+          next.repair.push({
+            ...base,
+            fault: row.fault || row.faultDesc || row.remark || '',
+            vendor: row.vendor || row.repairVendor || '',
+            cost: row.cost ?? row.amount ?? ''
+          })
+        } else if (tab === 'transfer') {
+          next.transfer.push({
+            ...base,
+            from: row.fromCompany || row.fromCompanyName || '',
+            to: row.toCompany || row.toCompanyName || ''
+          })
+        } else if (tab === 'change') {
+          next.change.push({ ...base, content: row.content || row.changeContent || row.remark || '' })
+        } else if (tab === 'dispose') {
+          next.dispose.push({ ...base, mode: row.mode || row.disposeMode || '', amount: row.amount ?? '' })
+        }
+      }
+    }
+
+    // 盘点记录：盘点计划是唯一来源，明细里按 assetId 命中
+    if (can('fa:inventory')) {
+      for (const plan of inventoryPlans.value) {
+        for (const item of planItemsOf(plan)) {
+          if (item.assetId !== asset.id) continue
+          next.check.push({
+            docNo: plan.planNo || '',
+            result: INVENTORY_RESULT_TEXT[item.result] || item.result || '未盘',
+            person: plan.counter || '',
+            time: plan.planDate || plan.createTime || ''
+          })
+        }
+      }
+    }
+
+    // 用户可能已经切换到另一条资产，避免旧请求覆盖新详情
+    if (currentAsset.value?.id === asset.id) assetRecordData.value = next
+  } finally {
+    assetRecordLoading.value = false
+  }
 }
 </script>
 
@@ -1942,6 +2040,16 @@ const assetRecordData = {
 
 .search-form {
   margin-bottom: 20px;
+}
+
+.record-empty {
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #909399;
+  background: #f7f9fc;
+  border: 1px dashed #dcdfe6;
+  border-radius: var(--r-md);
 }
 
 .kpi-row {

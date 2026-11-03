@@ -28,13 +28,7 @@ test.afterAll(async () => {
 })
 
 test('[SMK-07] 受限角色看不到无权菜单，直链兜底回工作台', async ({ context, page }, testInfo) => {
-  // 受限用户访问工作台时，后端会对无权资源返回 403（预期行为）；
-  // 部分 store 直接 Promise.all 未做降级，会冒未捕获的 ApiError，这里按预期放行并记录为待修问题
-  const guards = installGuards(page, {
-    allowStatus: [403],
-    allowPageError: [/无权限访问该数据/],
-    allowConsole: [/无权限访问该数据/]
-  })
+  const guards = installGuards(page)
   const session = await loginViaApi({ username: user.username, password: user.password })
   await seedSession(context, session)
 
@@ -61,11 +55,7 @@ test('[SMK-07] 受限角色看不到无权菜单，直链兜底回工作台', as
 })
 
 test('[SMK-08] 角色停用后权限立即失效', async ({ context, page }, testInfo) => {
-  const guards = installGuards(page, {
-    allowStatus: [403],
-    allowPageError: [/无权限访问该数据/],
-    allowConsole: [/无权限访问该数据/]
-  })
+  const guards = installGuards(page)
 
   // 停用前：能进工作台
   const before = await loginViaApi({ username: user.username, password: user.password })

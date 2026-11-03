@@ -155,7 +155,7 @@ const router = useRouter()
 const store = useLowValueAssetStore()
 const userStore = useUserStore()
 // 物品与存放位置会被导入/清空改动，进入页面时刷新一次
-onMounted(() => store.loadAll().catch(() => {}))
+onMounted(() => { if (userStore.can('lv:view')) store.loadAll().catch(() => {}) })
 /** 权限判定：按钮级鉴权 */
 const can = code => userStore.can(code)
 const activeTab = ref('location')

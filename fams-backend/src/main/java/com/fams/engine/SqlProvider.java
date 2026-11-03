@@ -203,6 +203,8 @@ public class SqlProvider {
     }
 
     private String pk(Map<String, Object> params) {
-        return String.valueOf(params.get("pk"));
+        // 契约里主键是 camelCase（如 system-terminal-abnormal 的 recordNo），
+        // 物理列是 snake_case；不转换会拼出 `WHERE recordNo = ?` 直接 SQL 报错（500）。
+        return Names.camelToSnake(String.valueOf(params.get("pk")));
     }
 }

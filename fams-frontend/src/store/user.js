@@ -77,7 +77,9 @@ export const useUserStore = defineStore('user', () => {
       // 此时已持有 token，可以安全加载组织主数据（用于角色/公司名称展示与权限判定）。
       // 加载失败不阻断登录：路由守卫与各页面挂载时都会兜底重试。
       if (!org.loaded) {
-        try { await org.loadAll() } catch (e) { console.error('[login] 组织主数据加载失败（不阻断登录）', e) }
+        // 登录阶段还不知道角色权限，不能顺手拉用户表（无权角色会 403）；
+        // 用户表由布局/页面按 org:user / wm:todo 补齐。
+        try { await org.loadAll({ withUsers: false }) } catch (e) { console.error('[login] 组织主数据加载失败（不阻断登录）', e) }
       }
       user.value = {
         ...account,

@@ -283,7 +283,7 @@ const fixedAssetStore = useFixedAssetStore()
 const orgStore = useOrgStore()
 const userStore = useUserStore()
 // 资产台账变化会影响折旧/统计口径，进入页面时刷新一次
-onMounted(() => fixedAssetStore.loadAll().catch(() => {}))
+onMounted(() => { if (userStore.can('fa:view')) fixedAssetStore.loadAll().catch(() => {}) })
 
 /** 折旧方式选项取自数据字典：下拉展示中文，筛选与落库存编码 */
 const depreciationMethodOptions = computed(() => optionsOf('DEPRECIATION_METHOD'))

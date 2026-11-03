@@ -1,4 +1,4 @@
-# Start the isolated E2E stack: backend on 18080 + vite preview on 4173.
+﻿# Start the isolated E2E stack: backend on 18080 + vite preview on 4173.
 # ASCII-only: PowerShell 5.1 reads .ps1 without BOM as ANSI.
 #
 # Usage:  powershell -ExecutionPolicy Bypass -File scripts/e2e/start-e2e.ps1
@@ -6,15 +6,25 @@
 $ErrorActionPreference = 'Continue'
 $root = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Definition))
 
-# npm/node may be absent from PATH (this machine ships node via workbuddy)
+# npm/node may be absent from PATH (this machine ships node via workbuddy).
+# Resolve npm.cmd to a full path: Start-Process does not always honour PATH
+# lookups here (a broken shim earlier in PATH makes it fail with exit 1 and no log).
+$nodeBin = $null
 if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
     $nodeRoot = Join-Path $env:USERPROFILE '.workbuddy\binaries\node\versions'
     if (Test-Path $nodeRoot) {
         $latest = Get-ChildItem -Path $nodeRoot -Directory -ErrorAction SilentlyContinue |
             Sort-Object Name -Descending | Select-Object -First 1
-        if ($latest) { $env:Path = $latest.FullName + ';' + $env:Path }
+        if ($latest) { $nodeBin = $latest.FullName; $env:Path = $nodeBin + ';' + $env:Path }
     }
 }
+$npmCmd = (Get-Command npm.cmd -ErrorAction SilentlyContinue).Source
+if (-not $npmCmd -and $nodeBin) {
+    $candidate = Join-Path $nodeBin 'npm.cmd'
+    if (Test-Path $candidate) { $npmCmd = $candidate }
+}
+if (-not $npmCmd) { Write-Host 'X npm.cmd not found (install Node or set PATH)'; exit 1 }
+Write-Host ('Using npm: ' + $npmCmd)
 
 # --- 1. fams_e2e must exist (never fall back to the production database) ---
 $mysql = (Get-Command mysql -ErrorAction SilentlyContinue)
@@ -83,7 +93,7 @@ Start-Process -FilePath $java `
 $backendOk = $false
 for ($i = 0; $i -lt 90; $i++) {
     try {
-        $r = Invoke-WebRequest -Uri 'http://127.0.0.1:18080/health' -UseBasicParsing -TimeoutSec 2
+        $r = Invoke-WebRequest -Uri 'http://127.0.0.1:18080/api/health' -UseBasicParsing -TimeoutSec 2
         if ($r.StatusCode -eq 200) { $backendOk = $true; break }
     } catch { }
     Start-Sleep -Seconds 1
@@ -103,7 +113,7 @@ Write-Host 'Starting vite preview on 127.0.0.1:4173'
 # --host 127.0.0.1 is required: without it vite preview binds to "localhost",
 # which resolves to ::1 on this machine and makes http://127.0.0.1:4173 refuse
 # connections -- the stack would look broken even though preview is running.
-Start-Process -FilePath 'npm.cmd' -ArgumentList 'run', 'preview', '--', '--port', '4173', '--strictPort', '--host', '127.0.0.1' `
+Start-Process -FilePath $npmCmd -ArgumentList 'run', 'preview', '--', '--port', '4173', '--strictPort', '--host', '127.0.0.1' `
     -WorkingDirectory $fe -WindowStyle Hidden `
     -RedirectStandardOutput $feLog -RedirectStandardError (Join-Path $logDir 'preview.err.log')
 
@@ -115,7 +125,13 @@ for ($i = 0; $i -lt 30; $i++) {
     } catch { }
     Start-Sleep -Seconds 1
 }
-if (-not $frontOk) { Write-Host 'X vite preview did not start on 4173'; exit 1 }
+if (-not $frontOk) {
+    Write-Host 'X vite preview did not start on 4173. Last preview log lines:'
+    if (Test-Path $feLog) { Get-Content $feLog -Tail 20 | ForEach-Object { Write-Host ('  ' + $_) } }
+    $feErr = Join-Path $logDir 'preview.err.log'
+    if (Test-Path $feErr) { Get-Content $feErr -Tail 20 | ForEach-Object { Write-Host ('  ' + $_) } }
+    exit 1
+}
 
 # version.txt proves the served dist is a build produced by vite.config.js's
 # buildVersionPlugin; SMK-05 asserts it equals the meta tag in index.html.
@@ -130,4 +146,4 @@ Write-Host ''
 Write-Host 'E2E stack ready:'
 Write-Host '  app      http://127.0.0.1:4173'
 Write-Host '  api      http://127.0.0.1:18080/api'
-Write-Host '  database fams_e2e'
+Write-Host ('  database ' + $dbName)

@@ -377,8 +377,8 @@ test('[P5-05] 无 wm:overview / wm:alert / wm:message 时工作台裁剪', async
   users.push(user)
   const session = await loginViaApi({ username: user.username, password: user.password })
 
-  // 已知缺陷 P3-D1：普通角色读 org-users / 流程 403，本用例只验证界面裁剪
-  const guards = installGuards(page, { allowStatus: [403] })
+  // 2026-11-02 起预取按权限懒加载，工作台不再产生 403
+  const guards = installGuards(page)
   await seedSession(context, session)
   await openWorkbench(page)
 
@@ -588,12 +588,7 @@ test('[P5-11] 低值导出与 lv:export 权限裁剪', async ({ context, page },
   const user = await createTempUser(admin, role.id)
   users.push(user)
   const viewer = await loginViaApi({ username: user.username, password: user.password })
-  // 非管理员启动时，MainLayout 会预取日志/资产/消息等其无权的读接口，
-  // 已知会抛「无权限访问该数据」的未捕获异常（与 P3-D1 同源），本用例只验证导出按钮裁剪
-  const viewerGuards = installGuards(page, {
-    allowStatus: [403],
-    allowPageError: [/无权限访问该数据/]
-  })
+  const viewerGuards = installGuards(page)
   await seedSession(context, viewer)
   await page.goto('/low-value-asset-reports')
   await waitSettled(page)
@@ -630,8 +625,11 @@ test('[P5-18] 审批结果站内信、未读数与已读跳转', async ({ contex
 
   await page.goto('/system/message-center')
   await waitSettled(page)
+  // 收件箱由 notify store 异步加载，历史消息多时首帧可能还是 0，必须等到真实值
+  await expect
+    .poll(async () => Number(await page.locator('.kpi-value').first().innerText()), { timeout: 15_000 })
+    .toBeGreaterThanOrEqual(1)
   const unreadBefore = Number(await page.locator('.kpi-value').first().innerText())
-  expect(unreadBefore).toBeGreaterThanOrEqual(1)
 
   const msgRow = page.locator('.el-table__row').filter({ hasText: doc.code }).first()
   await expect(msgRow).toContainText('未读')
@@ -645,8 +643,9 @@ test('[P5-18] 审批结果站内信、未读数与已读跳转', async ({ contex
 
   await page.goto('/system/message-center')
   await waitSettled(page)
-  const unreadAfter = Number(await page.locator('.kpi-value').first().innerText())
-  expect(unreadAfter).toBe(unreadBefore - 1)
+  await expect
+    .poll(async () => Number(await page.locator('.kpi-value').first().innerText()), { timeout: 15_000 })
+    .toBe(unreadBefore - 1)
   await shot(page, testInfo, 1, '审批结果消息已读')
   guards.assertClean()
 })

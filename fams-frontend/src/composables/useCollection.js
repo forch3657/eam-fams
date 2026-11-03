@@ -8,7 +8,7 @@ import { dataService, idFieldOf } from '../services'
  * 不再接收 seed —— 演示数据统一由 services/mock/seed 注册，
  * 视图层因此不含任何 mock 代码，切到真实后端时无需清理。
  */
-export function useCollection(key, { immediate = true, params } = {}) {
+export function useCollection(key, { immediate = true, params, enabled = () => true } = {}) {
   const items = ref([])
   const total = ref(0)
   const loading = ref(false)
@@ -102,7 +102,12 @@ export function useCollection(key, { immediate = true, params } = {}) {
     return items.value
   }
 
-  if (immediate) onMounted(load)
+  // enabled 用于按权限懒加载：无权限时不发请求，避免首屏 403
+  // （页面里往往同时挂载多个页签的集合，不做判断会一次性请求所有无权资源）
+  if (immediate) onMounted(() => {
+    const allowed = typeof enabled === 'function' ? enabled() : enabled
+    if (allowed) load()
+  })
 
   return { items, total, loading, error, load, loadPage, add, update, remove, save }
 }

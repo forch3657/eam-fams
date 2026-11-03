@@ -1,13 +1,20 @@
 package com.fams.engine;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.PostConstruct;
+import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 集合 → 权限码策略（契约 7.3）。
@@ -52,6 +59,26 @@ public class PermissionPolicy {
         WRITE.put("fixed-asset-doc-lists", new String[]{"fa:add", "fa:edit"});
         DELETE.put("fixed-asset-doc-lists", new String[]{"fa:edit"});
 
+        // 固资单据按页签维度补充权限码：前端「新增单据」按 fa:inbound / fa:dispatch / fa:borrow /
+        // fa:change / fa:dispose 显示（见 FixedAssetManagement 的 :perm），后端若只认 fa:add/fa:edit，
+        // 会出现「按钮可见但保存 403」。这里用「模块码 或 旧码」任一命中，兼容既有角色。
+        WRITE.put("fixed-asset-doc-lists-inbound", new String[]{"fa:inbound", "fa:add", "fa:edit"});
+        DELETE.put("fixed-asset-doc-lists-inbound", new String[]{"fa:inbound", "fa:edit"});
+        WRITE.put("fixed-asset-doc-lists-alloc", new String[]{"fa:dispatch", "fa:add", "fa:edit"});
+        DELETE.put("fixed-asset-doc-lists-alloc", new String[]{"fa:dispatch", "fa:edit"});
+        WRITE.put("fixed-asset-doc-lists-back", new String[]{"fa:dispatch", "fa:add", "fa:edit"});
+        DELETE.put("fixed-asset-doc-lists-back", new String[]{"fa:dispatch", "fa:edit"});
+        WRITE.put("fixed-asset-doc-lists-borrow", new String[]{"fa:borrow", "fa:add", "fa:edit"});
+        DELETE.put("fixed-asset-doc-lists-borrow", new String[]{"fa:borrow", "fa:edit"});
+        WRITE.put("fixed-asset-doc-lists-change", new String[]{"fa:change", "fa:add", "fa:edit"});
+        DELETE.put("fixed-asset-doc-lists-change", new String[]{"fa:change", "fa:edit"});
+        WRITE.put("fixed-asset-doc-lists-transfer", new String[]{"fa:dispose", "fa:add", "fa:edit"});
+        DELETE.put("fixed-asset-doc-lists-transfer", new String[]{"fa:dispose", "fa:edit"});
+        WRITE.put("fixed-asset-doc-lists-repair", new String[]{"fa:dispose", "fa:add", "fa:edit"});
+        DELETE.put("fixed-asset-doc-lists-repair", new String[]{"fa:dispose", "fa:edit"});
+        WRITE.put("fixed-asset-doc-lists-dispose", new String[]{"fa:dispose", "fa:add", "fa:edit"});
+        DELETE.put("fixed-asset-doc-lists-dispose", new String[]{"fa:dispose", "fa:edit"});
+
         READ.put("fixed-asset-inventory", new String[]{"fa:inventory"});
         WRITE.put("fixed-asset-inventory", new String[]{"fa:inventory"});
         DELETE.put("fixed-asset-inventory", new String[]{"fa:inventory"});
@@ -63,6 +90,16 @@ public class PermissionPolicy {
         READ.put("low-value", new String[]{"lv:view"});
         WRITE.put("low-value", new String[]{"lv:edit"});
         DELETE.put("low-value", new String[]{"lv:edit"});
+
+        // 低值三类单据同样按模块码放行：前端「新增入库/领用/退库」分别看 lv:inbound /
+        // lv:requisition / lv:return（见 LowValueAssetManagement），部门主管只有 lv:requisition，
+        // 若后端统一要求 lv:edit，就会重演「新增领用 → 无权限访问该数据：low-value-requisition」。
+        WRITE.put("low-value-inbound", new String[]{"lv:inbound", "lv:edit"});
+        DELETE.put("low-value-inbound", new String[]{"lv:inbound", "lv:edit"});
+        WRITE.put("low-value-requisition", new String[]{"lv:requisition", "lv:edit"});
+        DELETE.put("low-value-requisition", new String[]{"lv:requisition", "lv:edit"});
+        WRITE.put("low-value-return", new String[]{"lv:return", "lv:edit"});
+        DELETE.put("low-value-return", new String[]{"lv:return", "lv:edit"});
 
         // 低值基础配置（存放位置）：维护需要 lv:settings，但「读」保持 lv:view ——
         // 低值物品表单与领用/入库的存放位置下拉都依赖它，收紧会让普通业务表单变空。
@@ -93,7 +130,9 @@ public class PermissionPolicy {
         WRITE.put("system-dict", new String[]{"sys:dict"});
         DELETE.put("system-dict", new String[]{"sys:dict"});
 
-        READ.put("system-params", new String[]{"sys:params"});
+        // 编号前缀/预警阈值/盘点提醒被业务页面消费，凡是能看工作台的账号都需要读；
+        // 写仍然只允许 sys:params。
+        READ.put("system-params", new String[]{"sys:params", "wm:view"});
         WRITE.put("system-params", new String[]{"sys:params"});
         DELETE.put("system-params", new String[]{"sys:params"});
 
@@ -106,17 +145,99 @@ public class PermissionPolicy {
         WRITE.put("system-terminal", new String[]{"sys:terminal"});
         DELETE.put("system-terminal", new String[]{"sys:terminal"});
 
-        READ.put("notify-messages", new String[]{"sys:message"});
-        WRITE.put("notify-messages", new String[]{"sys:message"});
+        // 「我的消息」按 wm:message 开放读；审批人（wm:todo）需要推送审批结果通知，
+        // 写接口对 wm:todo 开放，避免业务角色审批后 403（消息内容仍由服务端可审计）。
+        READ.put("notify-messages", new String[]{"sys:message", "wm:message"});
+        WRITE.put("notify-messages", new String[]{"sys:message", "wm:todo"});
         DELETE.put("notify-messages", new String[]{"sys:message"});
 
-        READ.put("notify-templates", new String[]{"sys:template"});
+        READ.put("notify-templates", new String[]{"sys:template", "wm:message"});
         WRITE.put("notify-templates", new String[]{"sys:template"});
         DELETE.put("notify-templates", new String[]{"sys:template"});
 
         READ.put("operation-logs", new String[]{"sys:log"});
         WRITE.put("operation-logs", new String[]{"sys:log"});
         DELETE.put("operation-logs", new String[]{"sys:log"});
+    }
+
+    /** 契约文件是否加载成功（false 时使用 static 内置默认映射） */
+    private volatile boolean contractLoaded = false;
+
+    /** 未知集合只告警一次，避免通用 CRUD 高频请求刷爆日志 */
+    private final Set<String> warnedUnknown = ConcurrentHashMap.newKeySet();
+
+    /**
+     * 启动时加载权限契约。
+     *
+     * <p>契约是前后端共用的单一事实来源：前端 `permissionMatrix` 与 `check:perm`
+     * 读同一份文件，后端也读它，避免「前端按钮可见、后端 403」再次发生。
+     * 加载失败不阻断启动，退回 static 内置映射并告警（保留可用性）。</p>
+     */
+    @PostConstruct
+    public void loadContract() {
+        try (InputStream in = new ClassPathResource("contract/permission-resources.json").getInputStream()) {
+            JsonNode root = new ObjectMapper().readTree(in);
+            Map<String, String[]> read = new HashMap<>();
+            Map<String, String[]> write = new HashMap<>();
+            Map<String, String[]> delete = new HashMap<>();
+            for (JsonNode rule : root.path("rules")) {
+                String resource = rule.path("resource").asText("");
+                if (resource.isEmpty()) {
+                    continue;
+                }
+                putIfPresent(read, resource, rule.get("read"));
+                putIfPresent(write, resource, rule.get("write"));
+                putIfPresent(delete, resource, rule.get("delete"));
+            }
+            if (read.isEmpty() && write.isEmpty() && delete.isEmpty()) {
+                throw new IllegalStateException("契约未解析出任何规则");
+            }
+            READ.clear();
+            READ.putAll(read);
+            WRITE.clear();
+            WRITE.putAll(write);
+            DELETE.clear();
+            DELETE.putAll(delete);
+            IMMUTABLE.clear();
+            for (JsonNode item : root.path("immutable")) {
+                IMMUTABLE.add(item.asText());
+            }
+            contractLoaded = true;
+            log.info("[permission] 权限契约已加载：read={} write={} delete={} immutable={}",
+                    READ.size(), WRITE.size(), DELETE.size(), IMMUTABLE.size());
+        } catch (Exception e) {
+            log.warn("[permission] 权限契约加载失败，退回内置默认映射：{}", e.getMessage());
+        }
+    }
+
+    private void putIfPresent(Map<String, String[]> table, String resource, JsonNode codes) {
+        if (codes == null || !codes.isArray() || codes.size() == 0) {
+            return;
+        }
+        String[] values = new String[codes.size()];
+        for (int i = 0; i < codes.size(); i++) {
+            values[i] = codes.get(i).asText();
+        }
+        table.put(resource, values);
+    }
+
+    public boolean isContractLoaded() {
+        return contractLoaded;
+    }
+
+    /**
+     * 集合完全未登记时告警：新增业务集合后忘配权限码，会静默变成「仅需登录」。
+     */
+    private void warnIfUnknown(String key) {
+        if (key == null || key.isEmpty() || IMMUTABLE.contains(key)) {
+            return;
+        }
+        if (lookup(READ, key) != null || lookup(WRITE, key) != null || lookup(DELETE, key) != null) {
+            return;
+        }
+        if (warnedUnknown.add(key)) {
+            log.warn("[permission] 集合 {} 未在权限契约中登记，按「仅需登录」处理", key);
+        }
     }
 
     /**
@@ -139,6 +260,7 @@ public class PermissionPolicy {
 
     /** 权限码判定：任一命中即通过 */
     public boolean matches(String key, String method, java.util.Set<String> granted) {
+        warnIfUnknown(key);
         if (IMMUTABLE.contains(key) && !"GET".equalsIgnoreCase(method)) {
             return false;
         }

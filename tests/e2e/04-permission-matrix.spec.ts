@@ -55,13 +55,14 @@ async function newPrincipal(permissions: string[], options: TempRoleOptions = {}
   return { role, user, session, token: session.token }
 }
 
-/** 受限账号导航时，组织用户表会 403（普通角色读不到），属于预期噪声 */
+/**
+ * 受限账号导航守卫。
+ *
+ * 2026-11-02 起预取已按权限懒加载，业务角色首屏不应再有 403；
+ * 因此这里不再提供整页 403 豁免，确需豁免必须逐请求写明 reason。
+ */
 function restrictedGuards(page: Parameters<typeof installGuards>[0]) {
-  return installGuards(page, {
-    allowStatus: [403],
-    allowConsole: [/无权限访问该数据/],
-    allowPageError: [/无权限访问该数据/]
-  })
+  return installGuards(page)
 }
 
 async function withApi<T>(token: string, fn: (api: APIRequestContext) => Promise<T>): Promise<T> {
@@ -206,6 +207,45 @@ test('[P4-09] 未登录访问受保护接口返回 401', async () => {
   const res = await anonymous.get('/api/fixed-assets')
   expect(res.status()).toBe(401)
   expect((await res.json()).code).toBe(401)
+})
+
+/**
+ * 回归：后端曾把所有 low-value-* 写入统一要求 lv:edit，
+ * 而前端「新增领用/入库/退库」分别按 lv:requisition / lv:inbound / lv:return 显示，
+ * 导致只有模块码的业务角色点保存就 403。这里直接按接口口径断言。
+ */
+test('[P4-22] 低值单据按模块权限码放行', async () => {
+  const requisitionOnly = await newPrincipal(['wm:view', 'lv:view', 'lv:requisition'])
+  await withApi(requisitionOnly.token, async api => {
+    // 鉴权通过后才进入参数校验，因此不应是 403
+    const req = await api.post('/api/low-value-requisition', { data: {} })
+    const reqBody = await req.json()
+    expect(req.status(), JSON.stringify(reqBody)).toBe(422)
+
+    const inbound = await api.post('/api/low-value-inbound', { data: {} })
+    expect(inbound.status()).toBe(403)
+    expect((await inbound.json()).code).toBe(403)
+  })
+
+  const readOnly = await newPrincipal(['wm:view', 'lv:view'])
+  await withApi(readOnly.token, async api => {
+    const req = await api.post('/api/low-value-requisition', { data: {} })
+    expect(req.status()).toBe(403)
+    expect((await req.json()).code).toBe(403)
+  })
+})
+
+/** 同一类问题：固资派发页签按 fa:dispatch 显示新增按钮，后端也要认这个码 */
+test('[P4-23] 固资派发按 fa:dispatch 放行', async () => {
+  const dispatchOnly = await newPrincipal(['wm:view', 'fa:view', 'fa:dispatch'])
+  await withApi(dispatchOnly.token, async api => {
+    const alloc = await api.post('/api/fixed-asset-doc-lists-alloc', { data: {} })
+    const allocBody = await alloc.json()
+    expect(alloc.status(), JSON.stringify(allocBody)).toBe(422)
+
+    const borrow = await api.post('/api/fixed-asset-doc-lists-borrow', { data: {} })
+    expect(borrow.status()).toBe(403)
+  })
 })
 
 // ---------------------------------------------------------------- 角色状态与权限变更

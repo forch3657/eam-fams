@@ -222,12 +222,7 @@ test('[P6-02] 转办：审批人变更且目标人可完成审批', async ({ pag
   // 目标人登录后可见待办并通过
   const ctx = await browser.newContext()
   const targetPage = await ctx.newPage()
-  // 审批角色没有日志/消息/模板的读权限，工作台这些面板 403 与待办无关
-  const targetGuards = installGuards(targetPage, {
-    allowStatus: [403],
-    allowConsole: [/无权限访问该数据：(operation-logs|notify-messages|notify-templates)/],
-    allowPageError: [/无权限访问该数据：(operation-logs|notify-messages|notify-templates)/]
-  })
+  const targetGuards = installGuards(targetPage)
   try {
     await openWorkbench(targetPage, leader.session)
     await expect(todoRow(targetPage, doc.code)).toBeVisible()

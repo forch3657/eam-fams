@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { shot, waitSettled } from './fixtures/artifacts'
 import { loginViaApi, seedSession, type Session } from './fixtures/auth'
-import { cleanupTemp, createTempUser, findRoleIdByCode, type TempUser } from './fixtures/data'
+import { cleanupTemp, createTempUser, findRoleIdByCode, pickOrgUnit, type TempUser } from './fixtures/data'
 import { installGuards } from './fixtures/net'
 import { act, json, suffix, withApi } from './fixtures/fixedAsset'
 
@@ -157,12 +157,12 @@ async function trailsOf(docNo: string) {
   )
 }
 
-async function createLeader(): Promise<{ user: TempUser; token: string }> {
+async function createLeader(): Promise<{ user: TempUser; token: string; session: Session }> {
   const roleId = await findRoleIdByCode(admin, 'ROLE_LEADER')
   const user = await createTempUser(admin, roleId)
   users.push(user)
   const session = await loginViaApi({ username: user.username, password: user.password })
-  return { user, token: session.token }
+  return { user, token: session.token, session }
 }
 
 async function createWarehouse(): Promise<{ user: TempUser; token: string }> {
@@ -502,4 +502,106 @@ test('[P2-21] 入库-领用-退库后库存数量一致', async () => {
   await createLvDoc('low-value-requisition', item, { quantity: 4, status: 'DONE' })
   await createLvDoc('low-value-return', item, { quantity: 1, status: 'DONE' })
   expect((await getItem(item.id)).stock).toBe(7)
+})
+
+/**
+ * 回归：前端「新增领用」按 lv:requisition 显示，后端曾统一要求 lv:edit。
+ * 部门主管（ROLE_LEADER）只有 lv:requisition，点确定会收到「无权限访问该数据：low-value-requisition」。
+ * 这条用例必须用真实业务角色从界面建单，不能用 admin（admin 有 lv:edit，会把问题盖住）。
+ */
+test('[P2-24] 已有草稿可从审批弹窗提交', async ({ context, page }, testInfo) => {
+  const item = await createItem({ stock: 0 })
+  await createLvDoc('low-value-inbound', item, { quantity: 10, status: 'DONE' })
+  const leader = await createLeader()
+  const org = await pickOrgUnit(admin)
+
+  // 先落一张草稿（模拟「之前建了单但没提交」），再由界面的审批弹窗提交
+  const docNo = `E2E_PY_${suffix()}`
+  const draft = await withApi(leader.token, async api => {
+    const res = await api.post('/api/low-value-requisition', {
+      data: {
+        docNo, itemId: item.id, itemName: item.name, quantity: 2, price: 10.5, amount: 21,
+        receiver: leader.user.name, deptId: org.deptId, requisitionDate: '2026-11-02',
+        operator: 'E2E', remark: 'E2E 草稿', status: 'DRAFT', creatorId: leader.user.id,
+        submitTime: '', settleTime: ''
+      }
+    })
+    expect(res.status()).toBe(200)
+    return json<{ id: string }>(res, '创建草稿')
+  })
+  docs.push({ collection: 'low-value-requisition', id: draft.id, docNo })
+
+  const guards = installGuards(page)
+  await seedSession(context, leader.session)
+  await page.goto('/low-value-assets?tab=requisition')
+  await waitSettled(page)
+
+  const row = page.locator('.el-table__row').filter({ hasText: docNo }).first()
+  await expect(row).toBeVisible()
+  await row.getByRole('button', { name: '审批信息' }).click()
+  const dialog = page.locator('.el-dialog:visible').filter({ hasText: '审批信息' }).last()
+  await expect(dialog).toBeVisible()
+  await dialog.locator('textarea').fill('E2E 提交说明')
+
+  const responsePromise = page.waitForResponse(
+    r => r.url().includes('/api/approvals/action') && r.request().method() === 'POST'
+  )
+  await dialog.getByRole('button', { name: '提交审批' }).click()
+  const response = await responsePromise
+  const body = await response.json()
+  expect(response.status(), JSON.stringify(body)).toBe(200)
+  expect(body.data.status).toBe('PROCESSING')
+  await expect(dialog).toBeHidden()
+  await shot(page, testInfo, 1, '草稿已提交审批')
+
+  const detail = await docRow('low-value-requisition', draft.id)
+  expect(detail.status).toBe('PROCESSING')
+  const trails = await trailsOf(docNo)
+  expect(trails.some(t => t.result === 'SUBMIT' && String(t.comment).includes('E2E 提交说明'))).toBeTruthy()
+  guards.assertClean()
+})
+
+test('[P2-23] 部门主管从界面新增领用不被权限拦截', async ({ context, page }, testInfo) => {
+  const item = await createItem({ stock: 0 })
+  await createLvDoc('low-value-inbound', item, { quantity: 10, status: 'DONE' })
+  const leader = await createLeader()
+
+  const guards = installGuards(page)
+  await seedSession(context, leader.session)
+  await page.goto('/low-value-assets?tab=requisition')
+  await waitSettled(page)
+
+  await page.getByRole('button', { name: '新增领用' }).click()
+  const dialog = page.locator('.el-dialog:visible').filter({ hasText: '新增领用' }).last()
+  await expect(dialog).toBeVisible()
+
+  await dialog.locator('.el-form-item').filter({ hasText: '领用物品' }).locator('.el-select').click()
+  const option = page.locator('.el-select-dropdown:visible .el-select-dropdown__item').filter({ hasText: item.name }).first()
+  await expect(option).toBeVisible()
+  await option.click()
+
+  const qty = dialog.locator('.el-input-number input').first()
+  await qty.fill('2')
+  await qty.blur()
+  await shot(page, testInfo, 1, '部门主管填写领用单')
+
+  const responsePromise = page.waitForResponse(
+    r => r.url().includes('/api/low-value-requisition') && r.request().method() === 'POST'
+  )
+  await dialog.getByRole('button', { name: '确定' }).click()
+  const response = await responsePromise
+  const body = await response.json()
+  expect(response.status(), `新增领用应放行，实际 ${response.status()} ${body.message || ''}`).toBe(200)
+  expect(body.code).toBe(0)
+  docs.push({ collection: 'low-value-requisition', id: body.data.id, docNo: body.data.docNo })
+
+  await expect(page.locator('.el-message').last()).toContainText('领用单已提交审批')
+  // 不再出现用户截图里的那条权限错误
+  await expect(page.locator('.el-message--error').filter({ hasText: 'low-value-requisition' })).toHaveCount(0)
+  await shot(page, testInfo, 2, '领用单创建并提交审批')
+
+  const trails = await trailsOf(body.data.docNo)
+  expect(trails.some(t => t.result === 'SUBMIT')).toBeTruthy()
+  expect((await getItem(item.id)).stock).toBe(10)
+  guards.assertClean()
 })

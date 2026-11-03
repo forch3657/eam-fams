@@ -189,7 +189,7 @@ import { useUserStore } from '../../store/user'
 const store = useLowValueAssetStore()
 const userStore = useUserStore()
 // 报表由 store 现算，进入页面时重新拉取，避免统计口径落后于导入/审批结果
-onMounted(() => store.loadAll().catch(() => {}))
+onMounted(() => { if (userStore.can('lv:view')) store.loadAll().catch(() => {}) })
 const activeTab = ref('category')
 /** 类别选项取自数据字典（系统管理 > 数据字典 > 低值资产类别） */
 const categoryOptions = computed(() => store.categoryOptions)

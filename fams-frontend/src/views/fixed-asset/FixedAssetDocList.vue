@@ -379,7 +379,8 @@ function onDocsChanged(e) {
 }
 onMounted(() => {
   window.addEventListener('fams:doc-lists-changed', onDocsChanged)
-  approvalStore.load()
+  // 流程配置的读权限含 wm:todo；只读账号不需要也不应发这个请求
+  if (userStore.can('wm:todo')) approvalStore.load()
 })
 onUnmounted(() => window.removeEventListener('fams:doc-lists-changed', onDocsChanged))
 </script>

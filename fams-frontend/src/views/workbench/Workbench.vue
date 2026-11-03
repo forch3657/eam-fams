@@ -176,7 +176,10 @@ function scrollTo(id) {
 }
 
 onMounted(async () => {
-  await Promise.all([workbench.load(), approvalStore.load(), orgStore.loadAll()])
+  // 待办聚合与流程读取都要求 wm:todo；无该权限时只渲染静态骨架，避免 403
+  const jobs = [orgStore.loadAll({ withUsers: can('org:user') || can('wm:todo') })]
+  if (can('wm:todo')) jobs.push(workbench.load(), approvalStore.load())
+  await Promise.all(jobs)
   stampUpdated()
   if (!can('wm:alert') && can('wm:message')) sideTab.value = 'message'
 })

@@ -1,0 +1,200 @@
+{
+  "version": 1,
+  "description": "集合 → 权限码契约。缺省字段表示该操作未登记权限码（仅需登录）。匹配规则：精确 key 优先，其次最长前缀。",
+  "immutable": ["fixed-asset-doc-approvals"],
+  "rules": [
+    {
+      "resource": "fixed-assets",
+      "read": ["fa:view"],
+      "write": ["fa:add", "fa:edit"],
+      "delete": ["fa:delete"]
+    },
+    {
+      "resource": "fixed-asset-reports",
+      "read": ["fa:report"]
+    },
+    {
+      "resource": "fixed-asset-report-depreciation-details",
+      "note": "历史折旧明细落表，前端已改为实时计算；读权限随报表/折旧",
+      "read": ["fa:report", "fa:depreciation"]
+    },
+    {
+      "resource": "fixed-asset-report-depreciation-plan-details",
+      "note": "历史折旧计划明细落表，前端已改为实时计算；读权限随报表/折旧",
+      "read": ["fa:report", "fa:depreciation"]
+    },
+    {
+      "resource": "fixed-asset-doc-approvals",
+      "note": "审批留痕：读仅需登录，写/删由 immutable 强制拒绝"
+    },
+    {
+      "resource": "fixed-asset-settings",
+      "read": ["fa:settings"],
+      "write": ["fa:settings"],
+      "delete": ["fa:settings"]
+    },
+    {
+      "resource": "fixed-asset-depreciation-schemes",
+      "read": ["fa:view"],
+      "write": ["fa:depreciation"],
+      "delete": ["fa:depreciation"]
+    },
+    {
+      "resource": "fixed-asset-settings-depreciation-plans",
+      "read": ["fa:view"]
+    },
+    {
+      "resource": "fixed-asset-settings-depreciation-rules",
+      "read": ["fa:view"]
+    },
+    {
+      "resource": "fixed-asset-doc-lists",
+      "read": ["fa:view"],
+      "write": ["fa:add", "fa:edit"],
+      "delete": ["fa:edit"]
+    },
+    {
+      "resource": "fixed-asset-doc-lists-inbound",
+      "write": ["fa:inbound", "fa:add", "fa:edit"],
+      "delete": ["fa:inbound", "fa:edit"]
+    },
+    {
+      "resource": "fixed-asset-doc-lists-alloc",
+      "write": ["fa:dispatch", "fa:add", "fa:edit"],
+      "delete": ["fa:dispatch", "fa:edit"]
+    },
+    {
+      "resource": "fixed-asset-doc-lists-back",
+      "write": ["fa:dispatch", "fa:add", "fa:edit"],
+      "delete": ["fa:dispatch", "fa:edit"]
+    },
+    {
+      "resource": "fixed-asset-doc-lists-borrow",
+      "write": ["fa:borrow", "fa:add", "fa:edit"],
+      "delete": ["fa:borrow", "fa:edit"]
+    },
+    {
+      "resource": "fixed-asset-doc-lists-change",
+      "write": ["fa:change", "fa:add", "fa:edit"],
+      "delete": ["fa:change", "fa:edit"]
+    },
+    {
+      "resource": "fixed-asset-doc-lists-transfer",
+      "write": ["fa:dispose", "fa:add", "fa:edit"],
+      "delete": ["fa:dispose", "fa:edit"]
+    },
+    {
+      "resource": "fixed-asset-doc-lists-repair",
+      "write": ["fa:dispose", "fa:add", "fa:edit"],
+      "delete": ["fa:dispose", "fa:edit"]
+    },
+    {
+      "resource": "fixed-asset-doc-lists-dispose",
+      "write": ["fa:dispose", "fa:add", "fa:edit"],
+      "delete": ["fa:dispose", "fa:edit"]
+    },
+    {
+      "resource": "fixed-asset-inventory",
+      "read": ["fa:inventory"],
+      "write": ["fa:inventory"],
+      "delete": ["fa:inventory"]
+    },
+    {
+      "resource": "fixed-asset-depreciation",
+      "read": ["fa:depreciation"],
+      "write": ["fa:depreciation"],
+      "delete": ["fa:depreciation"]
+    },
+    {
+      "resource": "low-value",
+      "read": ["lv:view"],
+      "write": ["lv:edit"],
+      "delete": ["lv:edit"]
+    },
+    {
+      "resource": "low-value-inbound",
+      "write": ["lv:inbound", "lv:edit"],
+      "delete": ["lv:inbound", "lv:edit"]
+    },
+    {
+      "resource": "low-value-requisition",
+      "write": ["lv:requisition", "lv:edit"],
+      "delete": ["lv:requisition", "lv:edit"]
+    },
+    {
+      "resource": "low-value-return",
+      "write": ["lv:return", "lv:edit"],
+      "delete": ["lv:return", "lv:edit"]
+    },
+    {
+      "resource": "low-value-settings",
+      "read": ["lv:view"],
+      "write": ["lv:settings"],
+      "delete": ["lv:settings"]
+    },
+    {
+      "resource": "org-companies",
+      "note": "读不设码：路由守卫与权限判定需要先加载组织主数据",
+      "write": ["org:company"],
+      "delete": ["org:company"]
+    },
+    {
+      "resource": "org-departments",
+      "write": ["org:dept"],
+      "delete": ["org:dept"]
+    },
+    {
+      "resource": "org-users",
+      "read": ["org:user", "wm:todo"],
+      "write": ["org:user"],
+      "delete": ["org:user"]
+    },
+    {
+      "resource": "org-roles",
+      "write": ["org:role"],
+      "delete": ["org:role"]
+    },
+    {
+      "resource": "system-dict",
+      "read": ["sys:dict"],
+      "write": ["sys:dict"],
+      "delete": ["sys:dict"]
+    },
+    {
+      "resource": "system-params",
+      "read": ["sys:params", "wm:view"],
+      "write": ["sys:params"],
+      "delete": ["sys:params"]
+    },
+    {
+      "resource": "system-workflow",
+      "read": ["sys:workflow", "wm:todo"],
+      "write": ["sys:workflow"],
+      "delete": ["sys:workflow"]
+    },
+    {
+      "resource": "system-terminal",
+      "read": ["sys:terminal"],
+      "write": ["sys:terminal"],
+      "delete": ["sys:terminal"]
+    },
+    {
+      "resource": "notify-messages",
+      "read": ["sys:message", "wm:message"],
+      "write": ["sys:message", "wm:todo"],
+      "delete": ["sys:message"]
+    },
+    {
+      "resource": "notify-templates",
+      "read": ["sys:template", "wm:message"],
+      "write": ["sys:template"],
+      "delete": ["sys:template"]
+    },
+    {
+      "resource": "operation-logs",
+      "read": ["sys:log"],
+      "write": ["sys:log"],
+      "delete": ["sys:log"]
+    }
+  ]
+}

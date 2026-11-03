@@ -21,7 +21,7 @@ if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
     }
 }
 
-Write-Host '=== [1/3] Backend: full test suite + package (no jar unless tests pass) ==='
+Write-Host '=== [1/4] Backend: full test suite + package (no jar unless tests pass) ==='
 Set-Location (Join-Path $root 'fams-backend')
 mvn clean package
 if ($LASTEXITCODE -ne 0) {
@@ -30,7 +30,7 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-Write-Host '=== [2/3] Frontend: unit tests ==='
+Write-Host '=== [2/4] Frontend: unit tests ==='
 Set-Location (Join-Path $root 'fams-frontend')
 npm run test
 if ($LASTEXITCODE -ne 0) {
@@ -38,7 +38,15 @@ if ($LASTEXITCODE -ne 0) {
     $failed = $true
 }
 
-Write-Host '=== [3/3] Frontend: production bundle ==='
+Write-Host '=== [3/4] Frontend: permission contract check ==='
+npm run check:perm
+if ($LASTEXITCODE -ne 0) {
+    Write-Host 'X Permission contract drift. Build aborted (run npm run check:perm for details).'
+    Set-Location $root
+    exit 1
+}
+
+Write-Host '=== [4/4] Frontend: production bundle ==='
 npm run build
 if ($LASTEXITCODE -ne 0) {
     Write-Host 'X Frontend build failed.'

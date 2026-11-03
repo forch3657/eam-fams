@@ -155,7 +155,8 @@ const userStore = useUserStore()
 const approvalStore = useApprovalStore()
 const comment = ref('')
 
-onMounted(() => approvalStore.load())
+// 看流程需要 wm:todo；只读账号打开「审批信息」时跳过，避免 403
+onMounted(() => { if (userStore.can('wm:todo')) approvalStore.load() })
 
 const bizType = computed(() => props.bizType || DOC_BIZ_TYPE[props.docKey] || props.docKey.toUpperCase())
 const flow = computed(() => getFlow(bizType.value, approvalStore.flows))

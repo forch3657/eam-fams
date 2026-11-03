@@ -19,6 +19,7 @@
     "fa:inventory",
     "fa:depreciation",
     "fa:report",
+    "fa:settings",
     "lv:view",
     "lv:edit",
     "lv:export",
@@ -26,6 +27,7 @@
     "lv:requisition",
     "lv:return",
     "lv:report",
+    "lv:settings",
     "org:company",
     "org:dept",
     "org:user",
@@ -36,6 +38,7 @@
     "sys:params",
     "sys:message",
     "sys:template",
-    "sys:terminal"
+    "sys:terminal",
+    "sys:import"
   ]
 }

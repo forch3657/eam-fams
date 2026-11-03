@@ -69,6 +69,8 @@ for (const bt of ALL_BIZ_TYPES) {
 }
 // ---------------------------------------------------------------- 2. 待我审批的判定
 await login('chengang') // 部门主管 R5，多数流程的第一审批环节
+// 工作台数据按当前用户权限装载，必须先登录再加载（登录前权限为空，装载结果为空）
+await wb.load()
 const chengang = user.user
 const t1 = myTodos({
   docs: wb.docs, flows: approval.flows, approvals: approval.approvals,
@@ -88,6 +90,7 @@ const processingDocs = ALL_BIZ_TYPES.flatMap(bt =>
 ok(processingDocs.length > 0, '种子应有审批中的单据用于验证')
 
 await login('wangqiang') // 资产使用人 R3，不承担任何审批环节
+await wb.load() // 切换账号后按新权限重新装载
 const wangqiang = user.user
 const t2 = myTodos({
   docs: wb.docs, flows: approval.flows, approvals: approval.approvals,
@@ -187,6 +190,9 @@ eq(daysUntil(new Date(Date.now() - 2 * 86400000).toISOString()), -2, 'daysUntil 
 const DOC_STATUS_CODES = Object.keys(ENUMS.DOC_STATUS)
 const DEPRECIATION_CODES = Object.keys(ENUMS.DEPRECIATION_METHOD)
 
+// 盘点计划需要 fa:inventory 才能装载，改用具备该权限的部门主管视角校验种子形态
+await login('chengang')
+await wb.load()
 ok(wb.plans.length > 0, '应有盘点计划种子数据')
 ok(
   wb.plans.every(p => DOC_STATUS_CODES.includes(p.status)),

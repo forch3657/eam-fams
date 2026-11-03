@@ -453,8 +453,10 @@ test('[P3-06] 流程配置页新建流程并持久化', async ({ context, page }
 
 test('[P3-07] 流程编号重复被拒绝且提示明确', async ({ context, page }, testInfo) => {
   const flow = await createFlowApi({ code: `E2E_FLOW_DUP_${suffix()}` })
-  // 本用例故意触发 409，放行该状态码后其余接口错误仍会判红
-  const guards = installGuards(page, { allowStatus: [409] })
+  // 本用例故意触发 409，只放行「新建流程」这一个请求，其余接口错误仍判红
+  const guards = installGuards(page, {
+    allowRequests: [{ method: 'POST', url: /\/api\/system-workflow-flows$/, status: [409], reason: '流程编号重复是预期结果' }]
+  })
   await seedSession(context, admin)
   await page.goto('/system/workflow')
   await waitSettled(page)
@@ -687,12 +689,8 @@ test('[P3-14] 仅有审批权限的角色打开工作台应能看到本人待办
     expect((await api.get('/api/org-users?pageSize=10')).status()).toBe(200)
   })
 
-  // 工作台的日志/消息/模板面板需要 sys:log / sys:message / sys:template，
-  // 与「审批待办」无关，放行这些数据源的 403（待办本身仍要求可见且无其它异常）
-  const guards = installGuards(page, {
-    allowStatus: [403],
-    allowPageError: [/无权限访问该数据：(operation-logs|notify-messages|notify-templates)/]
-  })
+  // 2026-11-02 起：工作台按权限懒加载，审批角色不再预取无权面板，无需豁免 403
+  const guards = installGuards(page)
   await seedSession(context, leader.session)
   await openWorkbench(page)
 

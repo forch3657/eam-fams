@@ -31,24 +31,39 @@ export const useOrgStore = defineStore('org', () => {
   const users = ref(seedOf('users'))
   const roles = ref(seedOf('roles'))
   const loaded = ref(false)
+  /** 用户表单独标记：路由守卫只读基础三张表，有权限的页面再补齐用户 */
+  const usersLoaded = ref(false)
 
   // 种子由 services/mock/seed/index.js 统一注册，这里不再重复登记
 
-  async function loadAll() {
+  /**
+   * 装载组织主数据。
+   *
+   * users 与其它三张表分开加载：只有 org:user / wm:todo 才能读用户表，
+   * 无权限时跳过请求，避免登录首屏就出现 403（2026-11-02 收紧）。
+   *
+   * 已加载过主数据时再次调用只补用户表，不会重复拉公司/部门/角色。
+   */
+  async function loadAll({ withUsers = true } = {}) {
+    if (loaded.value && (!withUsers || usersLoaded.value)) return
+    const needBase = !loaded.value
     // 用 allSettled：四张表里任何一张没权限（普通角色读不到 org-users）
     // 都不能让整次加载失败，否则路由守卫拿不到 roles，权限恒为空，登录后无法跳转。
     const [c, d, u, r] = await Promise.allSettled([
-      dataService.list(COLLECTION.orgCompanies),
-      dataService.list(COLLECTION.orgDepartments),
-      dataService.list(COLLECTION.orgUsers),
-      dataService.list(COLLECTION.orgRoles)
+      needBase ? dataService.list(COLLECTION.orgCompanies) : Promise.resolve(null),
+      needBase ? dataService.list(COLLECTION.orgDepartments) : Promise.resolve(null),
+      withUsers ? dataService.list(COLLECTION.orgUsers) : Promise.resolve(null),
+      needBase ? dataService.list(COLLECTION.orgRoles) : Promise.resolve(null)
     ])
     if (c.status === 'fulfilled' && Array.isArray(c.value)) companies.value = c.value
     if (d.status === 'fulfilled' && Array.isArray(d.value)) departments.value = d.value
-    if (u.status === 'fulfilled' && Array.isArray(u.value)) users.value = u.value
+    if (u.status === 'fulfilled' && Array.isArray(u.value)) {
+      users.value = u.value
+      usersLoaded.value = true
+    } else if (!withUsers && !usersLoaded.value) users.value = []
     if (r.status === 'fulfilled' && Array.isArray(r.value)) roles.value = r.value
-    // 角色表是权限判定的唯一依据，只有它失败才算加载失败
-    if (r.status === 'rejected') throw r.reason
+    // 角色表是权限判定的唯一依据，只有它失败才算加载失败（补用户阶段不再判）
+    if (needBase && r.status === 'rejected') throw r.reason
     loaded.value = true
   }
 
@@ -327,6 +342,7 @@ export const useOrgStore = defineStore('org', () => {
     users,
     roles,
     loaded,
+    usersLoaded,
     loadAll,
     companyTree,
     deptTree,
