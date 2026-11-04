@@ -18,7 +18,7 @@
 执行顺序：**P4 → P1 → P2 → P3 → P5**。每期完成后更新本文件的「状态」与验收记录。
 
 **当前进度（2026-11-02）**：P4 / P1 / P2 / P3 / P5 均已完成并执行通过（P5 20 条全绿）。
-系统层面仍有 **10 项待修缺陷**（P4-D1~D3、P1-D1/D2、P2-D1/D2、P3-D1~D3，见第 8 节）与
+系统层面仍有 **10 项待修缺陷**（P4-D1~D3、P1-D1/D2、P2-D1/D2、P3-D1~D3，见第 9 节）与
 **3 处未覆盖业务**（借出归还串联、审批联动资产台账、盘点逐项执行，见 4.3 节），
 P3-D4、P5-D1、P5-D2 已修复并复跑通过。
 
@@ -277,7 +277,32 @@ spec：`tests/e2e/09-workbench-reports.spec.ts`（工作台 + 报表 + 消息，
 - 模板下载是前端 Blob，偶发首次点击不产生 download 事件，用例内置一次重试。
 - 导入用例产生的公司/部门/用户/物品/资产全部 `E2E_` 前缀，`afterAll` 逆序清理。
 
-## 8. 已知缺陷登记（本轮发现）
+## 8. P10 盘点专项（已实现，P10-01 ~ P10-08）
+
+盘点是「计划 → 盘点单 → 正式审批 → 结论落地」的长链路，历史上只做过界面点测，
+链路上的问题（假明细、空单送审、审批对象可改、审批被跳过、盘亏落不了地）一个都没被用例覆盖。
+本轮按接口级断言把盘点闭环补齐，文件为 `tests/e2e/18-inventory-flow.spec.ts`。
+
+| 编号 | 场景 | 断言要点 |
+| --- | --- | --- |
+| P10-01 | 盘点明细引用真实资产 | 明细 `assetId/assetNo/assetName` 与台账逐项一致，不再出现 `A01` 这类假编号 |
+| P10-02 | 未盘完不允许送审 | 明细仍有 `UNCHECKED` 时送审返回 400，文案含「未登记盘点结果」，单据停在 `DRAFT` |
+| P10-03 | 盘完送审 → 审批到底 → 盘亏落地 | 结果确认、差异复核（资产管理员 R2）→ 审计抽查（审计员 R6）三环走完为 `DONE`；盘亏明细生成 `DRAFT` 处置单且带真实 `assetId` |
+| P10-04 | 伪造 `hasDiff` 不能跳过审批环 | 明细有盘亏却传 `hasDiff=false` 时，服务端仍按明细事实判定有差异，审批一次后仍是 `PROCESSING` |
+| P10-05 | 审批中的盘点单不可改不可删 | 审批中 `PUT` / `DELETE` 盘点单均 409，审批对象不能被绕过审批链篡改 |
+| P10-06 | 明细超过 64KB 仍能落库 | 全量明细（>64KB）创建成功并原样读回，防止 `TEXT` 列再次溢出成 500 |
+| P10-07 | 连续完结两张盘亏盘点单 | 两笔盘亏同秒完结时处置单号不冲突，两次审批都返回 200，不出现 500 |
+| P10-08 | 盘点单号由服务端生成 | 不传单号也能建单，单号形如 `PD20261104001`，连续创建不撞号 |
+
+### 8.1 前置条件与注意
+
+- 盘点明细取台账真实资产（`fixed-assets`），按公司分组取资产最多的一家，保证能覆盖 64KB 场景。
+- 审批人临时创建：资产管理员 `ROLE_ASSET`、审计员 `ROLE_AUDITOR`，用完随单据一起清理。
+- 清理顺序必须是「先删单据（审批中的先撤销）→ 再删临时账号」：单据删除会级联清审批轨迹，
+  轨迹还在时账号会被「该用户已有审批记录，不能删除」拦下。
+- 用例跑在生产形态地址上（`http://localhost`），只留 `E2E_` 前缀数据，不自动清库。
+
+## 9. 已知缺陷登记（本轮发现）
 
 缺陷状态（2026-11-02）：**已修复 12 项**（P3-D4、P5-D1、P5-D2、P4-D1~D3、P1-D1/D2、P2-D1/D2、P3-D1/D2）；
 **待需求确认 1 项**：P3-D3（加签/转办/抄送）；**监控 1 项**：ENV-01。
@@ -299,8 +324,15 @@ P3-14/P3-15、P4-19/20/21、P1-16/P1-20、P2-22 的 `fixme` 已全部移除并�
 | P3-D4 | 流程配置页连续保存静默失败 | `approvalStore.saveFlow` 用服务端返回**替换** `flows` 数组元素，`WorkflowConfig.selected` 仍指向旧对象；第二次保存带旧 `version` 被 409 拒绝，`saveStep/removeStep/moveStep` 未提示（2026-10-30 首次执行 P3-09：改名后删除环节无「已删除」、steps 未清空） | 连续调整环节必须重新点选流程，否则修改看似成功实则丢失 | **已修复（2026-10-30）**：`saveFlow` 先 `Object.assign(flow, saved)` 回写 version 再回写数组（与 `persistDoc` 同口径）；前端单测 405 项全绿、P3 复跑 13 passed / 2 skipped |
 | P5-D1 | 折旧方案明细表缺列，接口与清空预览 500 | `fixed_asset_report_depreciation_plan_details` 建表缺 `asset_no / department / location / inbound_date / method / monthly / accumulated / net_value`，但 `resources.json` 契约与 `DepreciationService.planRow` 都在用；实测 `GET /api/fixed-asset-report-depreciation-plan-details` 与 `GET /api/data-import/reset/preview?scope=fixed-asset` 均 500 | 折旧方案报表不可用；固定资产清空预览打不开 | **已修复（2026-11-02）**：root@localhost 执行 `fams-backend/sql/04-maintenance/2026-10-30-fix-plan-details-columns.sql`，表由 17 → 25 列；两个接口恢复 code=0；`sql/01-schema/00-schema.sql`、`deploy/sql/mysql/schema.sql` 已同步；P5-17 恢复固定资产范围并转绿（P5-17B 已并入） |
 | P5-D2 | 消息模板重复键提示「新增成功」 | `MessageTemplate.saveTemplate` 未 `await store.addTemplate`，返回的 Promise 恒真，重复键既不创建也不报错，还提示「模板已新增」并关闭弹窗 | 运营误以为模板已建，消息发送时才暴露 | **已修复（2026-10-30）**：`saveTemplate` 改 async 并 `await addTemplate`，重复键保留弹窗报「模板键已存在」；前端单测全绿、P5-19 复跑通过 |
+| P10-D1 | 盘点明细是假编号，无法与台账对账 | `buildCheckItems`（`utils/demoBuilders`）按演示数据生成明细，资产编号形如 `A01`，与台账无关；盘盈盘亏统计因此失真 | 盘点结论对不上账，核销对象错 | **已修复（2026-11-04）**：盘点明细改为按「所属公司 + 资产类型」从 `fixedAssetStore.assetLedger` 取真实资产，携带 `assetId/assetNo/assetName/assetStatus` 快照；P10-01 转绿 |
+| P10-D2 | 未盘完的盘点单可以送审 | 盘点流程 `WF9` 的送审前置校验缺失，明细仍为 `UNCHECKED` 也能提交审批，空盘点单会被一路批到 `DONE` | 盘点结论无人核对 | **已修复（2026-11-04）**：`ApprovalService` 送审前统计未登记结果的明细，大于 0 返回 400「还有 N 项资产未登记盘点结果」；前端送审前同样拦截；P10-02 转绿 |
+| P10-D3 | 审批中的盘点单可被改明细 / 删除 | 状态守卫 `assertDocMutable` 只覆盖 `fixed-asset-doc-lists-*`，`fixed-asset-inventory-docs` 不在其中；盘点明细即审批对象，审批期间仍可被通用 CRUD 改写甚至删除 | 审批留痕不可信，结论可事后篡改 | **已修复（2026-11-04）**：守卫覆盖 `fixed-asset-inventory-docs`，审批中改 / 删一律 409；前端盘点清单在非草稿状态置灰并给出提示；P10-05 转绿 |
+| P10-D4 | 伪造 `hasDiff` 可跳过差异复核与审计抽查 | `ApprovalService.act` 直接用客户端传的 `ctx` 过滤生效环节，`hasDiff=false` 时 `WF9` 只剩「盘点结果确认」一个环节，一个人点一下直接完结 | 盘点差异没人复核、审计抽查形同虚设 | **已修复（2026-11-04）**：盘点差异由服务端按明细登记结果重算（`result` 为准，为空回退 `itemStatus`），不再采信客户端 `hasDiff`；P10-04 转绿，后端 `P5InventoryDepreciationTest` 补 2 条用例 |
+| P10-D5 | 同秒完结两张盘亏盘点单 → 审批 500 | 盘亏处置单号 `CZ+yyyyMMddHHmmss+序号` 只精确到秒，两张盘点单同秒完结即撞唯一键；`ApiException` 又把主事务标记为 rollback-only，提交阶段抛 `UnexpectedRollbackException`，整个审批动作返回 500「服务异常」 | 盘点单卡在审批中，报错与真实原因完全对不上 | **已修复（2026-11-04）**：处置单号精确到毫秒并带随机后缀；派生单据改用独立事务（`GenericService.createIndependent`），失败只回滚自己；名称 / 备注按列宽截断；P10-07 与后端 `twoLossDisposalsDoNotConflictOnUniqueCode` 转绿 |
+| P10-D6 | 明细超 64KB 时创建盘点单 500 | `fixed_asset_inventory_docs.items` 等三列是 `TEXT`（上限 65535 字节），全量盘点 235 条明细序列化后约 81KB，落库报 `Data too long for column`，接口返回 500「服务异常」 | 全量盘点根本建不了单 | **已修复（2026-11-04）**：三列改 `LONGTEXT`（`db/schema.sql`、`sql/01-schema/00-schema.sql`、新增 `sql/04-maintenance/04-inventory-items-longtext.sql`，生产库已执行）；P10-06 转绿 |
+| P10-D7 | 盘点单号由前端推算，同日并发建单撞号 | `nextInvDocNo()` 按「当前可见列表里含当天的单数 + 1」推算单号，而列表受数据范围过滤；两个管理员同一天各建一张盘点单必然撞 `doc_no` 唯一约束（与 BUG-005 低值领用同一类问题） | 建单报 409「已存在，不能重复」，用户以为系统坏了 | **已修复（2026-11-04）**：盘点单号改由服务端按全表当日最大序号生成（`PD+yyyyMMdd+序号`），前端 api 模式不再传单号与主键（mock 模式保留本地生成）；P10-08 转绿 |
 
-## 9. 运行与验收
+## 10. 运行与验收
 
 ```powershell
 # P4 单跑（生产形态，默认地址）
@@ -328,7 +360,7 @@ P5 已落地 `09-workbench-reports.spec.ts`（14 条）与 `10-import-reset.spec
 `package.json` 的 `e2e:p5` 指向这两个文件；用例标题与第 7 节编号一一对应，无 `fixme`。
 每期跑完由人工清空业务数据并重导（`/system/data-import` →「清空全部业务数据」→ 重导 CSV）。
 
-## 10. 验收记录
+## 11. 验收记录
 
 | 日期 | 期 | 环境 | 结果 |
 | --- | --- | --- | --- |
@@ -344,11 +376,11 @@ P5 已落地 `09-workbench-reports.spec.ts`（14 条）与 `10-import-reset.spec
 
 P4 执行清单：`tests/e2e/04-permission-matrix.spec.ts`（21 条），
 覆盖菜单可见性、路由兜底、按钮级、接口 401/403、角色停用/启用/加权限的即时性、
-多角色并集、角色删除保护、`dataScope` 回读；3 条 `fixme` 对应第 8 节 P4-D1~D3。
+多角色并集、角色删除保护、`dataScope` 回读；3 条 `fixme` 对应第 9 节 P4-D1~D3。
 
 P3 执行清单：`tests/e2e/08-approval-center.spec.ts`（15 条 = 13 执行 + 2 fixme），
 覆盖待办归属与环节推进、工作台通过/驳回、流程配置新建/重复编号/环节增删改/启停、
-停用流程后不可提交、轨迹完整与越权拦截；2 条 `fixme` 对应第 8 节 P3-D1/D2。
+停用流程后不可提交、轨迹完整与越权拦截；2 条 `fixme` 对应第 9 节 P3-D1/D2。
 执行前请确认 `FLOW_DISPATCH` 处于启用状态；用例会临时停用并在 `finally`/`afterAll` 双重恢复。
 P3-D4 修复后，P3-09 已覆盖「同一会话改名 → 删除」的连续保存，不再需要重新点选流程。
 

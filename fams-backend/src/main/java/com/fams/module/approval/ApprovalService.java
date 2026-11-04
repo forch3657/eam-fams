@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +39,9 @@ public class ApprovalService {
 
     /** 台账集合：固资单据完结后回写使用人/状态 */
     private static final String ASSETS = "fixed-assets";
+
+    /** 处置单集合：盘点盘亏核销生成待审处置单 */
+    private static final String DISPOSE_DOCS = "fixed-asset-doc-lists-dispose";
 
     private final GenericService genericService;
 
@@ -69,7 +73,9 @@ public class ApprovalService {
                 ? ApprovalSupport.bizTypeOf(docKey)
                 : text(request.getBizType());
         Map<String, Object> flow = ApprovalSupport.flowOf(genericService, FLOWS, bizType);
-        List<Map<String, Object>> steps = ApprovalSupport.effectiveSteps(flow, request.getCtx());
+        // 环节生效条件以服务端判定为准：客户端可以伪造 ctx 把条件环节跳过
+        Map<String, Object> ctx = effectiveCtx(bizType, previous, request.getCtx());
+        List<Map<String, Object>> steps = ApprovalSupport.effectiveSteps(flow, ctx);
         List<Map<String, Object>> approvals =
                 ApprovalSupport.approvalsOf(genericService, APPROVALS, docKey, docId);
         // 单据归属部门：部门负责人 / 分管领导按这个部门解析
@@ -92,6 +98,14 @@ public class ApprovalService {
                 throw new ApiException(ErrorCode.CONFLICT, "只有草稿或已驳回的单据可以提交审批");
             }
             requireInitiator(previous, flow);
+            if ("INVENTORY".equals(bizType)) {
+                // 盘点单必须盘完才能送审，否则会出现「空盘点单被审批通过」
+                long pending = pendingCheckCount(previous);
+                if (pending > 0) {
+                    throw new ApiException(ErrorCode.BAD_REQUEST,
+                            "还有 " + pending + " 项资产未登记盘点结果，请先在「盘点清单」完成盘点");
+                }
+            }
             if (steps.isEmpty()) {
                 throw new ApiException(ErrorCode.BAD_REQUEST, "该流程没有可用环节，请检查流程配置");
             }
@@ -163,6 +177,10 @@ public class ApprovalService {
         // 固资单据完结后联动台账（派发/退库/借出）
         if ("DONE".equals(nextStatus)) {
             syncAssetLedger(bizType, previous);
+            if ("INVENTORY".equals(bizType)) {
+                // 盘点结论落地：盘亏明细生成处置单草案，等管理员走处置审批
+                syncInventoryLoss(previous);
+            }
         }
 
         ApprovalTrailWriter writer = trailWriter;
@@ -333,6 +351,147 @@ public class ApprovalService {
             default:
                 break;
         }
+    }
+
+    /**
+     * 环节条件上下文：**盘点差异由服务端按单据事实判定**。
+     *
+     * <p>{@code hasDiff} 决定「差异复核」「审计抽查」两个环节是否生效，
+     * 若完全采信客户端传值，调用方只要把 hasDiff 传成 false，
+     * 盘点单一个人点一下就能直接完结，差异复核与审计抽查形同虚设。
+     * 因此这里按盘点明细实际登记的结果重算，客户端传值只作参考。</p>
+     *
+     * <p>其余业务类型原样透传客户端 ctx：金额门槛（AMOUNT_GT）沿用既有口径，
+     * 避免把「客户端没传 ctx 时条件环节不生效」的历史行为悄悄改掉。</p>
+     */
+    private static Map<String, Object> effectiveCtx(String bizType, Map<String, Object> doc, Map<String, Object> clientCtx) {
+        if (!"INVENTORY".equals(bizType)) {
+            return clientCtx;
+        }
+        Map<String, Object> ctx = new LinkedHashMap<>();
+        if (clientCtx != null) {
+            ctx.putAll(clientCtx);
+        }
+        ctx.put("hasDiff", hasInventoryDiff(doc));
+        return ctx;
+    }
+
+    /**
+     * 盘点单是否存在差异：任一明细登记为盘盈 / 盘亏 / 异常即算有差异。
+     */
+    private static boolean hasInventoryDiff(Map<String, Object> doc) {
+        Object itemsObj = doc.get("items");
+        if (!(itemsObj instanceof List)) {
+            return false;
+        }
+        for (Object itemObj : (List<?>) itemsObj) {
+            if (!(itemObj instanceof Map)) {
+                continue;
+            }
+            String result = resultOf((Map<?, ?>) itemObj);
+            if ("SURPLUS".equals(result) || "LOSS".equals(result) || "ABNORMAL".equals(result)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 明细的盘点结果：{@code result} 为准，为空或未盘时回退 {@code itemStatus}。
+     *
+     * <p>两个字段语义重叠（一个是结果、一个是由结果派生的明细状态），
+     * 判定口径必须统一，否则会出现「有差异但没生成处置单」这类前后不一致。</p>
+     */
+    private static String resultOf(Map<?, ?> item) {
+        String result = text(item.get("result"));
+        if (!result.isEmpty() && !"UNCHECKED".equals(result)) {
+            return result;
+        }
+        String itemStatus = text(item.get("itemStatus"));
+        return itemStatus.isEmpty() ? result : itemStatus;
+    }
+
+    /**
+     * 盘点单里还没登记结果的明细数（result 为空或 UNCHECKED）。
+     *
+     * <p>明细里同时存 itemStatus（单据状态）与 result（盘点结果）两个语义字段，
+     * 判定以 result 为准：盘点员在清单里登记的是结果，itemStatus 由结果派生。</p>
+     */
+    private static long pendingCheckCount(Map<String, Object> doc) {
+        Object itemsObj = doc.get("items");
+        if (!(itemsObj instanceof List)) {
+            return 0L;
+        }
+        long pending = 0L;
+        for (Object itemObj : (List<?>) itemsObj) {
+            if (!(itemObj instanceof Map)) {
+                continue;
+            }
+            String result = resultOf((Map<?, ?>) itemObj);
+            if (result.isEmpty() || "UNCHECKED".equals(result)) {
+                pending++;
+            }
+        }
+        return pending;
+    }
+
+    /**
+     * 盘点结论落地：盘亏明细生成处置单草案。
+     *
+     * <p>盘亏意味着账上有、现场没有，需要走资产处置核销；这里只生成待审草案，
+     * 由管理员在「资产处置」里继续走处置审批链。盘盈（账外资产）不在这里处理，
+     * 它要先补录入库单建账，才能成为正式资产。</p>
+     */
+    private void syncInventoryLoss(Map<String, Object> doc) {
+        Object itemsObj = doc.get("items");
+        if (!(itemsObj instanceof List)) {
+            return;
+        }
+        String companyId = text(doc.get("companyId"));
+        String creatorId = text(doc.get("creatorId"));
+        // 单号精确到毫秒并带随机后缀：同一秒内完结两张盘点单也不会撞唯一键
+        // （撞键会抛 ApiException，把主事务标记成 rollback-only，整个审批动作直接 500）
+        String stamp = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS").format(LocalDateTime.now());
+        String salt = java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 4);
+        int seq = 0;
+        for (Object itemObj : (List<?>) itemsObj) {
+            if (!(itemObj instanceof Map)) {
+                continue;
+            }
+            Map<?, ?> item = (Map<?, ?>) itemObj;
+            if (!"LOSS".equals(resultOf(item))) {
+                continue;
+            }
+            String assetId = text(item.get("assetId"));
+            if (assetId.isEmpty()) {
+                // 没有资产主键的账外条目无法核销（账外资产只能盘盈，不能盘亏）
+                continue;
+            }
+            seq++;
+            Map<String, Object> dispose = new LinkedHashMap<>();
+            dispose.put("code", "CZ" + stamp + String.format("%02d", seq) + salt);
+            dispose.put("name", cut(text(item.get("assetName")), 240) + " 盘亏核销处置");
+            dispose.put("companyId", companyId);
+            dispose.put("assetId", assetId);
+            dispose.put("creatorId", creatorId);
+            dispose.put("createTime", LocalDateTime.now());
+            dispose.put("finishTime", null);
+            dispose.put("remark", cut("盘点盘亏核销：" + text(item.get("remark")), 250));
+            dispose.put("status", "DRAFT");
+            try {
+                // 独立事务：处置单生成失败只回滚自己，不牵连审批状态推进
+                genericService.createIndependent(DISPOSE_DOCS, dispose);
+            } catch (RuntimeException e) {
+                // 处置单生成失败不推翻盘点结论，只记录待人工处理
+                log.warn("盘点盘亏生成处置单失败 assetId={} code={}", assetId, dispose.get("code"), e);
+            }
+        }
+    }
+
+    /** 按列宽截断：超长会触发数据库报错，把整个审批动作拖成 500 */
+    private static String cut(String value, int max) {
+        String v = value == null ? "" : value.trim();
+        return v.length() <= max ? v : v.substring(0, max);
     }
 
     private static String text(Object value) {

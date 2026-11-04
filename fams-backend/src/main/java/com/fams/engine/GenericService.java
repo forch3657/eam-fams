@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -59,10 +60,19 @@ public class GenericService {
      */
     private static final Map<String, String> DOC_NO_PREFIX = new java.util.LinkedHashMap<>();
 
+    /**
+     * 单号按「前缀 + 日期 + 当日序号」生成的集合（盘点单：PD20261104001）。
+     *
+     * <p>盘点单同样不能由前端推算单号：可见列表受数据范围过滤，
+     * 两个管理员同一天各建一张盘点单就会撞 unique 约束。</p>
+     */
+    private static final Map<String, String> DOC_NO_DATE_PREFIX = new java.util.LinkedHashMap<>();
+
     static {
         DOC_NO_PREFIX.put("low-value-inbound", "RK");
         DOC_NO_PREFIX.put("low-value-requisition", "PY");
         DOC_NO_PREFIX.put("low-value-return", "TK");
+        DOC_NO_DATE_PREFIX.put("fixed-asset-inventory-docs", "PD");
     }
 
     private final ResourceRegistry registry;
@@ -137,10 +147,14 @@ public class GenericService {
         Map<String, Object> row = codec.toDbRow(meta, body == null ? Collections.emptyMap() : body, false);
         encodeOrgUserPasswordIfNeeded(key, row, true);
 
-        // 低值单据：单号留空时由服务端生成，保证跨部门唯一
+        // 低值单据 / 盘点单：单号留空时由服务端生成，保证跨部门唯一
         String docNoPrefix = DOC_NO_PREFIX.get(key);
         if (docNoPrefix != null && isBlank(row.get("docNo"))) {
             row.put("docNo", nextDocNo(meta, docNoPrefix));
+        }
+        String docNoDatePrefix = DOC_NO_DATE_PREFIX.get(key);
+        if (docNoDatePrefix != null && isBlank(row.get("docNo"))) {
+            row.put("docNo", nextDocNoByDate(meta, docNoDatePrefix));
         }
 
         Object pk = row.get(meta.getPkField());
@@ -165,6 +179,18 @@ public class GenericService {
             hook.afterCreate(meta, row);
         }
         return sanitized(meta, codec.toApiRow(meta, row));
+    }
+
+    /**
+     * 独立事务创建：供「审批完结后派生单据」这类场景使用。
+     *
+     * <p>派生单据失败时只回滚它自己；留在主事务里的话，一次编号冲突就会把主事务
+     * 标记成 rollback-only，审批动作在提交阶段抛 UnexpectedRollbackException，
+     * 整个请求变成 500「服务异常」——盘点单卡在审批中，错误信息还完全对不上号。</p>
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public Map<String, Object> createIndependent(String key, Map<String, Object> body) {
+        return create(key, body);
     }
 
     private static final String BCRYPT_PREFIX = "$2";
@@ -266,11 +292,18 @@ public class GenericService {
     }
 
     /**
-     * 固资单据状态守卫：审批中（PROCESSING）只能通过审批端点流转，
+     * 单据状态守卫：审批中（PROCESSING）只能通过审批端点流转，
      * 通用 CRUD 的改写/删除一律 409，避免绕过状态机篡改单据或抹掉审批上下文。
+     *
+     * <p>盘点单同样受守卫约束：盘点明细就是审批对象，审批期间还能改明细、
+     * 甚至把单据删掉，审批结论就失去意义了。</p>
      */
     private static void assertDocMutable(String key, Map<String, Object> row) {
-        if (key == null || !key.startsWith("fixed-asset-doc-lists-")) {
+        if (key == null) {
+            return;
+        }
+        boolean guarded = key.startsWith("fixed-asset-doc-lists-") || "fixed-asset-inventory-docs".equals(key);
+        if (!guarded) {
             return;
         }
         if ("PROCESSING".equalsIgnoreCase(text(row.get("status")))) {
@@ -699,9 +732,24 @@ public class GenericService {
      * <p>排序/前缀判断都基于全表，不受数据范围过滤影响，因此不会与别的部门的单号重复。</p>
      */
     private String nextDocNo(ResourceMeta meta, String prefix) {
+        return nextDocNoWithHead(meta, prefix + java.time.Year.now().getValue());
+    }
+
+    /** 单号按「前缀 + 当日日期 + 序号」生成（盘点单：PD20261104001） */
+    private String nextDocNoByDate(ResourceMeta meta, String prefix) {
+        String ymd = java.time.LocalDate.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
+        return nextDocNoWithHead(meta, prefix + ymd);
+    }
+
+    /**
+     * 生成「{head}{三位序号}」：取表内同前缀的最大序号 + 1。
+     *
+     * <p>排序/前缀判断都基于全表，不受数据范围过滤影响，因此不会与别的部门的单号重复。</p>
+     */
+    private String nextDocNoWithHead(ResourceMeta meta, String head) {
         Map<String, Object> params = new QuerySpec(meta).toParams(meta.getAllColumns(), 50L, null);
         params.put("orderBy", "`doc_no` DESC");
-        String head = prefix + java.time.Year.now().getValue();
         long max = 0;
         for (Map<String, Object> row : mapper.selectList(params)) {
             String no = text(row.get("doc_no"));

@@ -172,3 +172,13 @@ npm run e2e:report   # http://127.0.0.1:9323，可直接在内置浏览器打开
 - 说明：`db-baseline/e2e-baseline.sql` 是隔离栈用的基线 dump，生产模式不使用；
   生产重导以第 1 步新导出的备份 / 业务 CSV 为准。
 - 巡检与折旧台账用例只读；只有权限与会话用例（SMK-04~08）会短暂写数据。
+- **只清 E2E 残留、不动真实数据**：`fams-backend/sql/04-maintenance/05-cleanup-e2e-data.sql`
+  按依赖顺序删掉 E2E 前缀的临时账号、单据、台账资产、审批轨迹、站内信与操作日志，
+  可重复执行（删干净后再跑为 0 影响）。用于「只想清测试垃圾、不想整体清空重导」的场景：
+  ```powershell
+  & "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -uroot -pFzidt@123 -D fams `
+    -e "source F:/work/EAM-FAMS/fams-backend/sql/04-maintenance/05-cleanup-e2e-data.sql"
+  ```
+  注意：删账号必须在删审批轨迹之后，否则会被「该用户已有审批记录，不能删除」拦下。
+  2026-11-04 首次清理结果：删 19 账号 / 189 单据 / 189 资产 / 340 轨迹 / 38 站内信 / 4975 操作日志，
+  真实数据（138 账号 / 71 资产 / 4 轨迹 / 18081 操作日志）保留。

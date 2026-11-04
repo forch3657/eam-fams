@@ -400,9 +400,9 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 
 | 层次 | 位置 | 数量 | 说明 |
 |---|---|---|---|
-| 接口/集成测试 | `fams-backend/src/test/java/com/fams/p0..p7` | 64 用例 | `@SpringBootTest + MockMvc + H2`，覆盖骨架、鉴权、通用引擎、审批、低值库存、折旧、系统管理与**口令安全回归** |
+| 接口/集成测试 | `fams-backend/src/test/java/com/fams/p0..p12` | 130 用例 | `@SpringBootTest + MockMvc + H2`，覆盖骨架、鉴权、通用引擎、审批、低值库存、折旧、系统管理、口令安全、**盘点闭环**与数据导入 |
 | 前端单元测试 | `fams-frontend/*.test.mjs` | 4 组 | 自研 runner（`npm run test`），验证 auth / 审批 / 低值 / 工作台的 store 与数据层 |
-| E2E 端到端 | `tests/e2e/*.spec.ts` | 7 用例 | Playwright Test Runner，针对真实生产栈 `https://localhost` 验证关键点击流 |
+| E2E 端到端 | `tests/e2e/*.spec.ts` | 18 个 spec | Playwright Test Runner，针对真实生产栈 `https://localhost` 验证关键点击流；盘点专项见 `docs/e2e/test-plan-p1-p5.md` 第 8 节 |
 | 覆盖率度量 | jacoco | 整体行覆盖约 79% | `security` ≥ 70%、`engine` ≥ 78% 才允许构建通过 |
 
 > 关于快照测试：本系统**不引入** UI/响应快照。Element Plus 表格 + 中文数据 + 时间戳会让快照频繁抖动、维护成本高；
@@ -418,9 +418,10 @@ cd fams-backend && mvn test
 cd fams-frontend && npm run test
 
 # 3) E2E（需生产栈在跑：start-prod.ps1）
-npm run test:e2e                 # 根目录下
-npm run test:e2e -- --headed     # 需要看界面时
-npm run test:e2e:report          # 查看 HTML 报告
+npm run e2e                      # 根目录下
+npm run e2e -- --headed          # 需要看界面时
+npm run e2e:report               # 查看 HTML 报告
+npm run e2e:p10                  # 只跑盘点专项（tests/e2e/18-inventory-flow.spec.ts）
 ```
 
 E2E 可通过环境变量切换目标，便于在 CI 的非 nginx 环境下运行：

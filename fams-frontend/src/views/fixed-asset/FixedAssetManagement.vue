@@ -204,6 +204,14 @@
                   <span class="frac-chip">{{ invEmpDone(row) }}/{{ row.counters.length }}</span>
                 </template>
               </el-table-column>
+              <el-table-column label="盘点差异" width="160" align="center">
+                <template #default="{ row }">
+                  <el-tag v-if="invDiffOf(row).surplus" type="primary" size="small" effect="plain">盈 {{ invDiffOf(row).surplus }}</el-tag>
+                  <el-tag v-if="invDiffOf(row).loss" type="danger" size="small" effect="plain" style="margin-left:4px">亏 {{ invDiffOf(row).loss }}</el-tag>
+                  <el-tag v-if="invDiffOf(row).abnormal" type="warning" size="small" effect="plain" style="margin-left:4px">异 {{ invDiffOf(row).abnormal }}</el-tag>
+                  <span v-if="!invDiffOf(row).total" style="color:#909399">-</span>
+                </template>
+              </el-table-column>
               <el-table-column label="备注" min-width="140" show-overflow-tooltip>
                 <template #default="{ row }">{{ row.remark || '-' }}</template>
               </el-table-column>
@@ -220,8 +228,8 @@
                   <el-button v-if="canSubmitInvDoc(row)" link type="primary" size="small" @click="submitInvDoc(row)">提交</el-button>
                   <el-button v-if="canApproveInvDoc(row)" link type="success" size="small" @click="approveInvDoc(row)">通过</el-button>
                   <el-button v-if="canApproveInvDoc(row)" link type="danger" size="small" @click="rejectInvDoc(row)">驳回</el-button>
-                  <el-button link type="primary" size="small" @click="openDocDialog(row)">修改</el-button>
-                  <el-button v-if="can('fa:inventory')" link type="danger" size="small" @click="deleteInvDoc(row)">删除</el-button>
+                  <el-button link type="primary" size="small" :disabled="row.status === 'PROCESSING'" @click="openDocDialog(row)">修改</el-button>
+                  <el-button v-if="can('fa:inventory')" link type="danger" size="small" :disabled="row.status === 'PROCESSING'" @click="deleteInvDoc(row)">删除</el-button>
                 </template>
               </el-table-column>
             </el-table>
@@ -277,10 +285,8 @@
             </el-table-column>
             <el-table-column label="操作" width="230" fixed="right">
               <template #default="{ row }">
-                <el-button link type="primary" size="small" :disabled="row.status === 'DONE'" @click="openInventory(row)">执行盘点</el-button>
+                <el-button link type="primary" size="small" :disabled="row.status === 'PROCESSING' || row.status === 'DONE'" @click="createDocFromPlan(row)">生成盘点单</el-button>
                 <el-button v-if="can('fa:export')" link type="primary" size="small" @click="exportInventory(row)">报表下载</el-button>
-                <el-button v-if="canSubmitPlan(row)" link type="success" size="small" @click="submitInventoryApproval(row)">提交审批</el-button>
-                <el-button v-else-if="row.status === 'PROCESSING'" link type="warning" size="small" @click="approveInventory(row)">盘点审批</el-button>
                 <el-button v-if="can('fa:inventory')" link type="danger" size="small" @click="deletePlan(row)">删除</el-button>
               </template>
             </el-table-column>
@@ -433,54 +439,6 @@
         <el-button type="primary" @click="submitPlan">生成计划并推送工单</el-button>
       </template>
     </el-dialog>
-
-    <!-- 执行盘点抽屉 -->
-    <el-drawer v-model="inventoryDrawerVisible" title="执行盘点" size="60%">
-      <template v-if="currentPlan">
-        <el-descriptions :column="3" border size="small" style="margin-bottom:16px">
-          <el-descriptions-item label="计划编号">{{ currentPlan.planNo }}</el-descriptions-item>
-          <el-descriptions-item label="盘点人">{{ currentPlan.counter }}</el-descriptions-item>
-          <el-descriptions-item label="盘点日期">{{ currentPlan.planDate }}</el-descriptions-item>
-          <el-descriptions-item label="盘点范围" :span="2">{{ currentPlan.scope }}</el-descriptions-item>
-          <el-descriptions-item label="当前进度">{{ progressOf(currentPlan) }}%</el-descriptions-item>
-        </el-descriptions>
-
-        <div class="inventory-toolbar">
-          <el-button type="primary" size="small" @click="batchScanCount">一键扫码盘点（未盘）</el-button>
-          <el-button type="warning" size="small" @click="addProfitItem">登记盘盈资产</el-button>
-          <el-tag type="info" effect="plain">已盘 {{ countedOf(currentPlan) }} / {{ currentPlan.items.length }}</el-tag>
-        </div>
-
-        <el-table :data="currentPlan.items" style="width:100%" max-height="460">
-          <el-table-column prop="assetNo" label="资产编号" width="120" />
-          <el-table-column prop="assetName" label="资产名称" min-width="150" show-overflow-tooltip />
-          <el-table-column prop="department" label="使用部门" width="110" />
-          <el-table-column prop="location" label="存放位置" min-width="130" show-overflow-tooltip />
-          <el-table-column prop="user" label="使用人" width="90" />
-          <el-table-column label="盘点结果" width="100">
-            <template #default="{ row }">
-              <el-tag :type="resultType(row.result)" size="small">{{ labelOf('INVENTORY_RESULT', row.result) }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="countMethod" label="盘点方式" width="110">
-            <template #default="{ row }">{{ row.countMethod || '-' }}</template>
-          </el-table-column>
-          <el-table-column prop="countTime" label="盘点时间" width="150">
-            <template #default="{ row }">{{ row.countTime || '-' }}</template>
-          </el-table-column>
-          <el-table-column label="操作" width="200" fixed="right">
-            <template #default="{ row }">
-              <el-button link type="primary" size="small" @click="scanCount(row)">扫码盘点</el-button>
-              <el-button link type="primary" size="small" @click="pcCount(row)">PC盘点</el-button>
-              <el-button link type="danger" size="small" @click="markLoss(row)">盘亏</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </template>
-      <template #footer>
-        <el-button @click="inventoryDrawerVisible = false">关闭</el-button>
-      </template>
-    </el-drawer>
 
     <el-dialog v-model="assetDialogVisible" :title="assetEditId ? '修改资产' : '新增资产'" width="960px" top="6vh">
       <el-form :model="assetForm" label-width="120px">
@@ -761,9 +719,17 @@
       </el-form>
       <div v-show="wizardStep === 1">
         <div class="section-title"><span>任务分配 - 选择盘点员</span></div>
-        <el-checkbox-group v-model="wizardForm.counterIds" class="counter-group">
-          <el-checkbox v-for="e in empPool" :key="e.name" :value="e.name" border>{{ e.name }}（{{ e.dept }}）</el-checkbox>
-        </el-checkbox-group>
+        <el-select
+          v-model="wizardForm.counterIds"
+          multiple
+          filterable
+          collapse-tags
+          collapse-tags-tooltip
+          placeholder="搜索姓名或部门选择盘点员"
+          style="width:100%"
+        >
+          <el-option v-for="e in empPool" :key="e.userId" :label="`${e.name}（${e.dept}）`" :value="e.name" />
+        </el-select>
         <div class="plan-hint">已选 {{ wizardForm.counterIds.length }} 名盘点员，提交后盘点任务将推送到员工端</div>
       </div>
       <div v-show="wizardStep === 2">
@@ -789,11 +755,11 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="checkListVisible" :title="checkListDoc ? `盘点清单 - ${checkListDoc.docNo}` : '盘点清单'" width="1100px" top="5vh">
+    <el-dialog v-model="checkListVisible" :title="checkListDoc ? `盘点清单 - ${checkListDoc.docNo}` : '盘点清单'" width="1180px" top="5vh">
       <div class="checklist-bar">
         <el-button @click="checkListVisible = false">
           <el-icon><ArrowLeft /></el-icon>
-          返回计划列表
+          返回盘点单列表
         </el-button>
         <div class="chip-row" style="margin-bottom:0">
           <span class="chip-label">盘点状态</span>
@@ -805,32 +771,57 @@
             @click="checkFilter = k.value"
           >{{ k.label }}({{ checkCounts[k.value] }})</span>
         </div>
+        <div class="checklist-actions">
+          <el-button size="small" :disabled="!checkListEditable" @click="addProfitItem">登记账外资产</el-button>
+          <el-button type="primary" :disabled="!checkItems.length || !checkListEditable" @click="saveCheckResults">保存盘点结果</el-button>
+          <el-button :disabled="!checkItems.length || !checkListEditable" @click="finishCounting">结束盘点</el-button>
+        </div>
       </div>
-      <el-table :data="filteredCheckItems" max-height="480" style="width:100%">
+      <div class="plan-hint">
+        应盘 {{ checkCounts.ALL }} 项，已盘 {{ checkCounts.ALL - checkCounts.UNCHECKED }} 项，
+        差异 {{ checkCounts.SURPLUS + checkCounts.LOSS + checkCounts.ABNORMAL }} 项
+        （盘盈 {{ checkCounts.SURPLUS }} / 盘亏 {{ checkCounts.LOSS }} / 异常 {{ checkCounts.ABNORMAL }}）；
+        盘盈、盘亏、异常必须填写原因。
+      </div>
+      <el-alert
+        v-if="checkListDoc && !checkListEditable"
+        type="info"
+        show-icon
+        :closable="false"
+        title="该盘点单已进入审批，明细只读；如需修改请先在盘点单列表撤销审批。"
+        style="margin-bottom:10px"
+      />
+      <el-table :data="filteredCheckItems" max-height="440" style="width:100%">
         <el-table-column label="资产信息" align="center">
           <el-table-column prop="assetNo" label="资产编号" width="120" />
-          <el-table-column prop="assetName" label="资产名称" min-width="150" show-overflow-tooltip />
+          <el-table-column prop="assetName" label="资产名称" min-width="140" show-overflow-tooltip />
           <el-table-column label="资产状态" width="90" ><template #default="{ row }">{{ statusText(row.assetStatus) }}</template></el-table-column>
-          <el-table-column prop="location" label="设备所在位置" width="130" show-overflow-tooltip />
+          <el-table-column prop="dept" label="使用部门" width="110" show-overflow-tooltip />
+          <el-table-column prop="userName" label="使用人" width="90" />
+          <el-table-column prop="location" label="存放位置" width="120" show-overflow-tooltip />
         </el-table-column>
-        <el-table-column label="盘点单状态" width="100">
+        <el-table-column label="盘点结果" width="130">
           <template #default="{ row }">
-            <el-tag :type="itemStatusType(row.itemStatus)" size="small">{{ labelOf('INVENTORY_ITEM_STATUS', row.itemStatus) }}</el-tag>
+            <el-select v-model="row.result" size="small" placeholder="选择结果" style="width:100%" :disabled="!checkListEditable">
+              <el-option v-for="r in CHECK_RESULT_OPTIONS" :key="r.value" :label="r.label" :value="r.value" />
+            </el-select>
           </template>
         </el-table-column>
-        <el-table-column label="盘点备注" min-width="140" show-overflow-tooltip>
-          <template #default="{ row }">{{ row.remark || '-' }}</template>
+        <el-table-column label="盘点备注" min-width="170">
+          <template #default="{ row }">
+            <el-input v-model="row.remark" size="small" placeholder="盘盈 / 盘亏 / 异常需填写原因" :disabled="!checkListEditable" />
+          </template>
         </el-table-column>
         <el-table-column label="盘点人员" width="90">
-          <template #default="{ row }">{{ row.checker || '-' }}</template>
+          <template #default="{ row }">{{ row.checkerName || row.checker || '-' }}</template>
         </el-table-column>
-        <el-table-column label="创建时间" width="160" ><template #default="{ row }">{{ formatDateTime(row.createTime) }}</template></el-table-column>
-        <el-table-column label="盘点时间" width="160">
-          <template #default="{ row }">{{ row.checkTime || '-' }}</template>
+        <el-table-column label="盘点时间" width="150">
+          <template #default="{ row }">{{ row.checkTime ? formatDateTime(row.checkTime) : '-' }}</template>
         </el-table-column>
       </el-table>
       <template #footer>
         <el-button @click="checkListVisible = false">关闭</el-button>
+        <el-button type="primary" :disabled="!checkItems.length" @click="saveCheckResults">保存盘点结果</el-button>
       </template>
     </el-dialog>
 
@@ -871,6 +862,7 @@ import { useFixedAssetStore } from '../../store/fixedAsset'
 import { useOrgStore } from '../../store/org'
 import { useUserStore } from '../../store/user'
 import { useApprovalStore } from '../../store/approval'
+import { useMock } from '../../services'
 import { optionsOf, labelOf } from '../../constants/enums'
 import { formatDateTime } from '../../utils/format'
 import {
@@ -1035,22 +1027,97 @@ function downloadCsv(filename, header, rows) {
 }
 
 // ==================== 资产盘点 ====================
+/**
+ * 盘点计划的资产明细：取自真实台账（带 assetId，生成盘点单时才能对得上账）。
+ * 计划只是事前安排，真正的盘点执行与结论在「盘点单」里做。
+ */
 function buildPlanItems(scopeType, scopeValue) {
-  return assetLedger.value
-    .filter(a => scopeType === '全部' || (scopeType === '分类' ? a.category === scopeValue : a.department === scopeValue))
+  return fixedAssetStore.assetLedger
+    .filter(a => scopeType === '全部' || (scopeType === '分类' ? a.type === scopeValue : a.dept === scopeValue))
     .map(a => ({
-      assetNo: a.assetNo,
-      assetName: a.assetName,
-      category: a.category,
-      department: a.department,
+      assetId: a.id,
+      assetNo: a.code,
+      assetName: a.name,
+      category: a.type,
+      department: a.dept,
       location: a.location,
       user: a.user,
-      bookQty: a.quantity,
+      bookQty: 1,
       result: 'UNCHECKED',
       countMethod: '',
       countTime: '',
       remark: ''
     }))
+}
+
+/**
+ * 由盘点计划生成盘点单。
+ * 计划是事前安排（谁在什么时候盘哪些资产），盘点单才是执行载体：
+ * 明细取计划里的真实资产，盘点员沿用计划指定的盘点人，之后走正式审批链。
+ */
+async function createDocFromPlan(plan) {
+  const items = (plan.items || []).map(i => ({
+    assetId: i.assetId || '',
+    assetNo: i.assetNo,
+    assetName: i.assetName,
+    assetType: i.category,
+    assetStatus: i.assetStatus || '',
+    dept: i.department,
+    userName: i.user,
+    location: i.location,
+    itemStatus: 'UNCHECKED',
+    result: 'UNCHECKED',
+    remark: '',
+    checker: '',
+    checkerName: '',
+    countMethod: '',
+    createTime: new Date().toISOString(),
+    checkTime: ''
+  }))
+  if (!items.length) {
+    ElMessage.warning('该盘点计划没有资产明细，无法生成盘点单')
+    return
+  }
+  const me = userStore.user || {}
+  const counterUser = orgStore.users.find(u => u.name === plan.counter)
+  const counters = counterUser
+    ? [{
+        userId: counterUser.id,
+        name: counterUser.name,
+        dept: orgStore.deptName(counterUser.deptId) || '-',
+        phone: counterUser.phone || '-',
+        assigned: items.length,
+        done: 0,
+        status: 'COUNTING'
+      }]
+    : []
+  try {
+    await inventoryDocCol.add({
+      docNo: nextInvDocNo(),
+      name: plan.planName,
+      companyId: me.companyId || companyOptionList.value[0]?.id || '',
+      applicant: me.name || '',
+      creatorId: me.id || '',
+      scope: plan.scope,
+      assetTypes: [],
+      createTime: new Date().toISOString(),
+      finishTime: '',
+      remark: `由盘点计划 ${plan.planNo} 生成`,
+      status: 'DRAFT',
+      items,
+      counters
+    })
+    const target = inventoryPlans.value.find(p => p.id === plan.id)
+    if (target) {
+      target.status = 'PROCESSING'
+      await inventoryPlanCol.update(target)
+    }
+    activeTab.value = 'inventory'
+    inventorySub.value = 'docs'
+    ElMessage.success('已生成盘点单，请到「盘点单」分配盘点员并执行盘点')
+  } catch (e) {
+    ElMessage.error(e?.message || '生成盘点单失败')
+  }
 }
 
 function scopeLabel(scopeType, scopeValue) {
@@ -1173,75 +1240,6 @@ function submitPlan() {
   ElMessage.success(`盘点计划已生成，${items.length} 项资产工单已推送给 ${planForm.counter}`)
 }
 
-const inventoryDrawerVisible = ref(false)
-const currentPlan = ref(null)
-
-function openInventory(row) {
-  currentPlan.value = row
-  inventoryDrawerVisible.value = true
-}
-
-function applyCount(row, method, result) {
-  row.result = result
-  row.countMethod = method
-  row.countTime = nowText()
-  if (currentPlan.value) inventoryPlanCol.update(currentPlan.value)
-}
-
-function scanCount(row) {
-  applyCount(row, '小程序扫码', 'MATCHED')
-  ElMessage.success(`${row.assetName} 扫码盘点成功`)
-}
-
-function pcCount(row) {
-  applyCount(row, 'PC手动', 'MATCHED')
-  ElMessage.success(`${row.assetName} 已登记盘点`)
-}
-
-function markLoss(row) {
-  ElMessageBox.prompt('请说明盘亏原因（现场未找到、遗失、报废未销账等）', `标记盘亏 - ${row.assetName}`, {
-    inputPlaceholder: '如：现场未找到实物',
-    inputValidator: v => (v && v.trim() ? true : '盘亏原因不能为空')
-  }).then(({ value }) => {
-    row.remark = value
-    applyCount(row, '现场核查', 'LOSS')
-    ElMessage.warning(`${row.assetName} 已标记盘亏，审批通过后将转入资产处置`)
-  }).catch(() => {})
-}
-
-function batchScanCount() {
-  const pending = currentPlan.value.items.filter(i => i.result === 'UNCHECKED')
-  if (!pending.length) {
-    ElMessage.info('没有待盘点的资产')
-    return
-  }
-  pending.forEach(i => applyCount(i, '小程序扫码', 'MATCHED'))
-  ElMessage.success(`批量扫码盘点完成，本次盘到 ${pending.length} 项资产`)
-}
-
-function addProfitItem() {
-  ElMessageBox.prompt('请填写账外资产名称（盘盈登记）', '登记盘盈资产', {
-    inputPlaceholder: '如：闲置会议桌',
-    inputValidator: v => (v && v.trim() ? true : '资产名称不能为空')
-  }).then(({ value }) => {
-    currentPlan.value.items.unshift({
-      assetNo: `PY-${Date.now().toString().slice(-6)}`,
-      assetName: value,
-      category: '其他',
-      department: currentPlan.value.counter + '（现场发现）',
-      location: '待确认',
-      user: '待确认',
-      bookQty: 0,
-      result: 'SURPLUS',
-      countMethod: '小程序扫码',
-      countTime: nowText(),
-      remark: '账外资产，需补办入库'
-    })
-    inventoryPlanCol.update(currentPlan.value)
-    ElMessage.success('盘盈资产已登记，审批通过后需补办入库手续')
-  }).catch(() => {})
-}
-
 function exportInventory(row) {
   downloadCsv(
     `${row.planNo}_盘点报表.csv`,
@@ -1251,76 +1249,11 @@ function exportInventory(row) {
   ElMessage.success(`盘点报表 ${row.planNo} 已导出`)
 }
 
-function submitInventoryApproval(row) {
-  const unfinished = row.items.length - countedOf(row)
-  if (unfinished > 0) {
-    ElMessage.warning(`还有 ${unfinished} 项资产未盘点，无法提交审批`)
-    return
-  }
-  const loss = countResult(row.items, 'LOSS')
-  const profit = countResult(row.items, 'SURPLUS')
-  ElMessageBox.confirm(
-    `盘点已完成，共 ${row.items.length} 项：盘亏 ${loss} 项、盘盈 ${profit} 项。确认提交盘点结果审批？`,
-    '提交审批',
-    { type: 'info' }
-  ).then(async () => {
-    row.status = 'PROCESSING'
-    // 落库：原先只改内存对象，刷新后状态回退
-    await inventoryPlanCol.update(row)
-    ElMessage.success('盘点结果已提交审批')
-  }).catch(() => {})
-}
-
-/** 草稿 / 被驳回的盘点计划可再次提交审批 */
-function canSubmitPlan(row) {
-  return row.status === 'DRAFT' || row.status === 'REJECTED'
-}
-
-function approveInventory(row) {
-  ElMessageBox.confirm(`确认通过盘点计划"${row.planName}"的盘点结果？盘亏资产将转入资产处置。`, '盘点审批', {
-    distinguishCancelAndClose: true,
-    confirmButtonText: '审批通过',
-    cancelButtonText: '驳回',
-    type: 'warning'
-  }).then(async () => {
-    row.status = 'DONE'
-    await inventoryPlanCol.update(row)
-    const losses = row.items.filter(i => i.result === 'LOSS')
-    for (const item of losses) {
-      await disposeDocCol.add({
-        name: `${item.assetName} 盘亏核销处置`,
-        code: genDocNo('CZ', disposeDocCol.items.value.map(d => d.code)),
-        companyId: '',
-        assetId: '',
-        createTime: new Date().toISOString(),
-        finishTime: '',
-        remark: `盘点盘亏核销：${item.remark || '现场未找到实物'}`,
-        status: 'DRAFT'
-      })
-    }
-    // 通知处置单面板刷新
-    window.dispatchEvent(new CustomEvent('fams:doc-lists-changed', { detail: 'dispose' }))
-    ElMessage.success(losses.length ? `盘点已完成，${losses.length} 项盘亏资产已转入资产处置` : '盘点已完成')
-  }).catch(action => {
-    if (action !== 'cancel') return
-    ElMessageBox.prompt('请填写驳回意见', '盘点审批驳回', {
-      inputValidator: v => (v && v.trim() ? true : '驳回意见不能为空')
-    }).then(async ({ value }) => {
-      row.status = 'REJECTED'
-      row.items.forEach(i => {
-        if (i.result === 'LOSS' || i.result === 'SURPLUS') {
-          i.result = 'UNCHECKED'
-          i.countMethod = ''
-          i.countTime = ''
-          i.remark = `审批驳回：${value}`
-        }
-      })
-      await inventoryPlanCol.update(row)
-      ElMessage.warning('审批已驳回，盘盈盘亏项已重置为未盘，请重新核查')
-    }).catch(() => {})
-  })
-}
-
+/**
+ * 盘点计划不再自带审批：
+ * 计划只是事前安排，盘点结论必须由「盘点单」走系统里的盘点审批链
+ * （盘点结果确认 → 差异复核 → 审计抽查），否则会出现绕过审批的盘点结论。
+ */
 function deletePlan(row) {
   ElMessageBox.confirm(`确认删除盘点计划"${row.planName}"？`, '删除确认', { type: 'warning' }).then(() => {
     inventoryPlanCol.remove(row)
@@ -1526,6 +1459,17 @@ function invEmpDone(d) {
   return d.counters.filter(c => c.status === 'DONE').length
 }
 
+/** 盘点差异统计：盘盈 / 盘亏 / 异常（按明细登记结果口径） */
+function invDiffOf(doc) {
+  const d = { surplus: 0, loss: 0, abnormal: 0, total: 0 }
+  ;(doc?.items || []).forEach(i => {
+    if (i.result === 'SURPLUS') { d.surplus++; d.total++ }
+    else if (i.result === 'LOSS') { d.loss++; d.total++ }
+    else if (i.result === 'ABNORMAL' || i.itemStatus === 'ABNORMAL') { d.abnormal++; d.total++ }
+  })
+  return d
+}
+
 /**
  * 删除资产。
  * 存在任意一类业务单据时服务端会返回 1003 拒绝，这里直接把错误透传给用户即可。
@@ -1557,6 +1501,20 @@ function deleteInvDoc(row) {
 
 const checkListVisible = ref(false)
 const checkListDoc = ref(null)
+/** 盘点清单的本地编辑副本：登记结果先改副本，保存时才写回单据 */
+const checkItems = ref([])
+/** 盘点结果选项：value 写 result，明细状态 itemStatus 由 result 派生 */
+const CHECK_RESULT_OPTIONS = [
+  { value: 'MATCHED', label: '账实相符' },
+  { value: 'SURPLUS', label: '盘盈' },
+  { value: 'LOSS', label: '盘亏' },
+  { value: 'ABNORMAL', label: '异常' }
+]
+const ITEM_STATUS_OF_RESULT = { MATCHED: 'CHECKED', SURPLUS: 'SURPLUS', LOSS: 'LOSS', ABNORMAL: 'ABNORMAL', UNCHECKED: 'UNCHECKED' }
+/** 明细当前状态：优先按已登记的 result 推导，未登记时回退单据里的状态 */
+function itemStatusOf(item) {
+  return ITEM_STATUS_OF_RESULT[item?.result] || item?.itemStatus || 'UNCHECKED'
+}
 /** 盘点明细状态一律存枚举编码（见 INVENTORY_ITEM_STATUS），筛选也按编码走 */
 const checkFilter = ref('ALL')
 const checkFilterKeys = [
@@ -1569,21 +1527,136 @@ const checkFilterKeys = [
 ]
 
 const checkCounts = computed(() => {
-  const items = checkListDoc.value ? checkListDoc.value.items : []
-  const c = { ALL: items.length, UNCHECKED: 0, CHECKED: 0, SURPLUS: 0, LOSS: 0, ABNORMAL: 0 }
-  items.forEach(i => { if (c[i.itemStatus] !== undefined) c[i.itemStatus]++ })
+  const c = { ALL: 0, UNCHECKED: 0, CHECKED: 0, SURPLUS: 0, LOSS: 0, ABNORMAL: 0 }
+  checkItems.value.forEach(i => {
+    const s = itemStatusOf(i)
+    if (c[s] !== undefined) c[s]++
+    c.ALL++
+  })
   return c
 })
 
 const filteredCheckItems = computed(() => {
-  const items = checkListDoc.value ? checkListDoc.value.items : []
-  return checkFilter.value === 'ALL' ? items : items.filter(i => i.itemStatus === checkFilter.value)
+  if (checkFilter.value === 'ALL') return checkItems.value
+  return checkItems.value.filter(i => itemStatusOf(i) === checkFilter.value)
+})
+
+/**
+ * 盘点明细是否可编辑：只有草稿 / 已驳回的单据能改。
+ *
+ * <p>盘点明细就是审批对象，审批期间改动等于篡改审批依据，
+ * 后端对审批中的盘点单也会直接 409，这里同步置灰避免点了才报错。</p>
+ */
+const checkListEditable = computed(() => {
+  const status = checkListDoc.value?.status
+  return status === 'DRAFT' || status === 'REJECTED'
 })
 
 function openCheckList(row) {
   checkListDoc.value = row
+  checkItems.value = (row.items || []).map(i => ({ ...i }))
   checkFilter.value = 'ALL'
   checkListVisible.value = true
+}
+
+/** 登记账外资产（盘盈）：现场多出来、台账上没有的资产 */
+function addProfitItem() {
+  ElMessageBox.prompt('请填写账外资产名称（盘盈登记）', '登记账外资产', {
+    inputPlaceholder: '如：闲置会议桌',
+    inputValidator: v => (v && v.trim() ? true : '资产名称不能为空')
+  }).then(({ value }) => {
+    const me = userStore.user || {}
+    const now = new Date().toISOString()
+    checkItems.value.unshift({
+      assetId: '',
+      assetNo: `PY-${String(Date.now()).slice(-6)}`,
+      assetName: value,
+      assetType: '其他',
+      assetStatus: '',
+      dept: '待确认',
+      userName: '待确认',
+      location: '待确认',
+      itemStatus: 'SURPLUS',
+      result: 'SURPLUS',
+      remark: '账外资产，需补办入库',
+      checker: me.id || '',
+      checkerName: me.name || '',
+      countMethod: '现场登记',
+      createTime: now,
+      checkTime: now
+    })
+    ElMessage.success('已登记账外资产，保存后生效')
+  }).catch(() => {})
+}
+
+/**
+ * 保存盘点结果：把本地副本写回单据，并按盘点员累计进度。
+ * 盘盈/盘亏/异常必须填原因，否则差异没有依据、后续核销无从追溯。
+ */
+async function saveCheckResults() {
+  const doc = checkListDoc.value
+  if (!doc) return
+  const unregistered = checkItems.value.filter(i => !i.result || i.result === 'UNCHECKED').length
+  if (unregistered) {
+    ElMessage.warning(`还有 ${unregistered} 项未登记盘点结果`)
+    return
+  }
+  const noReason = checkItems.value.find(i =>
+    (i.result === 'LOSS' || i.result === 'SURPLUS' || i.result === 'ABNORMAL') && !(i.remark || '').trim()
+  )
+  if (noReason) {
+    const label = CHECK_RESULT_OPTIONS.find(o => o.value === noReason.result)?.label || noReason.result
+    ElMessage.warning(`「${noReason.assetNo || noReason.assetName}」标记为${label}时必须填写原因`)
+    return
+  }
+  const now = new Date().toISOString()
+  const me = userStore.user || {}
+  const items = checkItems.value.map(i => ({
+    ...i,
+    itemStatus: ITEM_STATUS_OF_RESULT[i.result] || 'UNCHECKED',
+    checker: i.checker || me.id || '',
+    checkerName: i.checkerName || me.name || '',
+    checkTime: i.checkTime || now
+  }))
+  const target = inventoryDocs.value.find(d => d.id === doc.id)
+  if (!target) return
+  const counters = (target.counters || []).map(c => {
+    const done = items.filter(i => i.checker === c.userId).length
+    return { ...c, done, status: done >= items.length ? 'DONE' : 'COUNTING' }
+  })
+  try {
+    Object.assign(target, { items, counters })
+    await inventoryDocCol.update(target)
+    checkListDoc.value = target
+    checkItems.value = items.map(i => ({ ...i }))
+    ElMessage.success('盘点结果已保存')
+  } catch (e) {
+    ElMessage.error(e?.message || '盘点结果保存失败')
+  }
+}
+
+/** 结束盘点：全部明细已登记结果后，把盘点员标记为已完成并记录完结时间 */
+async function finishCounting() {
+  const doc = checkListDoc.value
+  if (!doc) return
+  const pending = checkItems.value.filter(i => !i.result || i.result === 'UNCHECKED').length
+  if (pending) {
+    ElMessage.warning(`还有 ${pending} 项未盘点，无法结束盘点`)
+    return
+  }
+  const target = inventoryDocs.value.find(d => d.id === doc.id)
+  if (!target) return
+  try {
+    Object.assign(target, {
+      counters: (target.counters || []).map(c => ({ ...c, status: 'DONE' })),
+      finishTime: new Date().toISOString()
+    })
+    await inventoryDocCol.update(target)
+    checkListDoc.value = target
+    ElMessage.success('盘点已结束，可提交审批')
+  } catch (e) {
+    ElMessage.error(e?.message || '结束盘点失败')
+  }
 }
 
 function itemStatusType(status) {
@@ -1627,23 +1700,79 @@ function wizardNext() {
   wizardStep.value++
 }
 
+/**
+ * 按「所属公司 + 资产类型」从资产台账取真实资产生成盘点明细。
+ *
+ * 明细带资产快照（编号/名称/状态/部门/使用人/位置），
+ * 单据脱离主数据后仍可追溯，也能与台账逐项对账。
+ */
+function buildInventoryItems() {
+  const companyId = wizardForm.company
+  const types = wizardForm.assetTypes || []
+  // 用 store 的完整视图模型：带 id / companyId / 状态编码，明细才能与台账逐项对账
+  const list = fixedAssetStore.assetLedger.filter(a => {
+    if (companyId && a.companyId !== companyId) return false
+    if (wizardForm.scope === '按资产类型' && types.length && !types.includes(a.type)) return false
+    return true
+  })
+  const now = new Date().toISOString()
+  return list.map(a => ({
+    assetId: a.id,
+    assetNo: a.code,
+    assetName: a.name,
+    assetType: a.type,
+    assetStatus: a.statusCode,
+    dept: a.dept,
+    userName: a.user,
+    location: a.location,
+    itemStatus: 'UNCHECKED',
+    result: 'UNCHECKED',
+    remark: '',
+    checker: '',
+    checkerName: '',
+    countMethod: '',
+    createTime: now,
+    checkTime: ''
+  }))
+}
+
+/**
+ * 盘点单号：api 模式交给后端生成，前端按可见列表推算会跨数据范围撞号
+ * （两个管理员同一天各建一张盘点单，必然撞 unique 约束）。
+ * mock 演示没有后端，才在前端按当日序号生成。
+ */
+function nextInvDocNo() {
+  if (!useMock) return ''
+  const now = new Date()
+  const ymd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`
+  const used = inventoryDocs.value.filter(d => String(d.docNo || '').includes(ymd)).length
+  return `PD${ymd}${String(used + 1).padStart(3, '0')}`
+}
+
 async function submitWizard() {
   if (!wizardForm.startDate) {
     ElMessage.warning('请选择盘点开始日期')
     return
   }
+  if (!wizardForm.counterIds.length) {
+    ElMessage.warning('请至少选择一名盘点员')
+    return
+  }
   const n = wizardForm.counterIds.length
-  const total = 6 + n * 3
-  const per = Math.ceil(total / n)
-  const counters = wizardForm.counterIds.map(name => {
-    const e = empPool.find(x => x.name === name) || { name, dept: '-', phone: '-' }
-    return { userId: e.userId || '', name: e.name, dept: e.dept, phone: e.phone, assigned: per, done: 0, status: 'COUNTING' }
-  })
   const seq = inventoryDocs.value.length + 6
   try {
+    const items = buildInventoryItems()
+    if (!items.length) {
+      ElMessage.warning('所选公司 / 资产类型下没有可盘点的资产，请调整盘点范围')
+      return
+    }
+    // empPool 是 computed ref，脚本里必须取 .value 再 find（模板中才是自动解包）
+    const counters = wizardForm.counterIds.map(name => {
+      const e = empPool.value.find(x => x.name === name) || { name, dept: '-', phone: '-' }
+      return { userId: e.userId || '', name: e.name, dept: e.dept, phone: e.phone, assigned: items.length, done: 0, status: 'COUNTING' }
+    })
     await inventoryDocCol.add({
-      id: `IV${Date.now()}`,
-      docNo: `PD2026${String(1000 + inventoryDocs.value.length * 11).slice(0, 4)}`,
+      docNo: nextInvDocNo(),
       name: wizardForm.name,
       companyId: wizardForm.company,
       applicant: wizardForm.applicant,
@@ -1654,7 +1783,7 @@ async function submitWizard() {
       finishTime: '',
       remark: `盘点开始日期 ${wizardForm.startDate}`,
       status: 'DRAFT',
-      items: buildCheckItems(total, 0, seq * 3, fixedAssetStore.assets),
+      items,
       counters
     })
   } catch (e) {
@@ -1765,6 +1894,12 @@ async function runInvApproval(doc, action, comment = '', targetUserId = '') {
 }
 
 async function submitInvDoc(doc) {
+  // 没盘完的盘点单不允许提交审批：否则会出现「空盘点单被审批通过」
+  const pending = (doc.items || []).filter(i => !i.result || i.result === 'UNCHECKED').length
+  if (pending > 0) {
+    ElMessage.warning(`还有 ${pending} 项资产未登记盘点结果，请先在「盘点清单」完成盘点`)
+    return
+  }
   await runInvApproval(doc, 'submit', '提交盘点审批')
 }
 async function approveInvDoc(doc) {
@@ -2203,6 +2338,14 @@ async function loadAssetRecords(asset) {
   align-items: center;
   gap: 16px;
   margin-bottom: 12px;
+}
+
+/* 盘点清单右侧操作区：靠右排列 */
+.checklist-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
 }
 
 .counter-group {
