@@ -7,7 +7,10 @@
       "DISPATCHING": "派发中",
       "BORROWED": "借出中",
       "REPAIRING": "维修中",
-      "DISPOSING": "处置中"
+      "DISPOSING": "处置中",
+      "PENDING_INBOUND": "待入库",
+      "PENDING_WRITE_OFF": "待核销",
+      "DISPOSED": "已核销"
     },
     "ASSET_CATEGORY": {
       "ELECTRONIC": "电子设备",

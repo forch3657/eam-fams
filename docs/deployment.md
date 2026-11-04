@@ -192,12 +192,22 @@ Remove-Item Env:MYSQL_PWD
 
 ### 3.4 契约与前端 schema
 
-表结构变更后，若字段要暴露给通用 CRUD 引擎，按顺序改：
+表结构变更后，若字段要暴露给通用 CRUD 引擎，**只改前端 schema，再导出后端契约**：
 
-1. `fams-backend/src/main/resources/contract/resources.json` —— 声明字段。
-2. `fams-frontend/src/services/contract/schema.js` —— 前端表单/列表字段。
+1. `fams-frontend/src/services/contract/schema.js` —— **唯一真源**（字段、表名映射、引用、删除保护）。
+2. `cd fams-frontend && npm run export:contract` —— 生成 `fams-backend/src/main/resources/contract/`
+   下的 `resources.json`（集合契约）、`enums.json`（枚举白名单）、`permissions.json`（权限码）。
+3. 枚举同理：先改 `fams-frontend/src/constants/enums.js`，再导出 `enums.json`；
+   只改后端契约会在下次导出时被**原样覆盖抹掉**。
 
 原因：通用引擎会**丢弃契约未声明的字段**；反过来，契约声明了但库里没有列，查询/写入会直接 500（P5-D1 就是这么暴露的）。
+
+> 历史坑（2026-11-04）：`fixed-asset-report-depreciation-plan-details` 的 8 个补列字段与
+> `fixed-asset-doc-approvals.targetUserId` 当时只手工加进了后端 `resources.json`，
+> 前端 schema 没同步；一次 `npm run export:contract` 就把这两处声明冲掉了，
+> 折旧计划明细落库开始丢字段、审批协作的转办/加签判定读不到目标人。
+> 现在这两个集合的字段已补回前端 schema（契约与 schema 恢复一致），
+> **今后禁止只改后端 `resources.json`**。
 
 ### 3.5 已有迁移记录
 

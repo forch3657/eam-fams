@@ -205,7 +205,17 @@ const REPORT_DEPRECIATION_PLAN_DETAILS = {
     totalLife: f.num(),
     usedLife: f.num(),
     depDate: f.date(),
-    finished: f.bool()
+    finished: f.bool(),
+    // 2026-11-02 补列：折旧计划明细要落资产编号 / 部门 / 位置 / 入库日期 / 折旧方法 /
+    // 月折旧额 / 累计折旧 / 净值（曾只补了后端契约、前端 schema 漏了，重新导出会被抹掉）
+    assetNo: f.str(),
+    department: f.str(),
+    location: f.str(),
+    inboundDate: f.date(),
+    method: f.enum('DEPRECIATION_METHOD'),
+    monthly: f.num(),
+    accumulated: f.num(),
+    netValue: f.num()
   },
   query: { keyword: ['planName', 'assetName'], filters: ['assetType', 'companyId', 'finished'], sort: ['depDate'], page: true },
   rules: {}
@@ -675,12 +685,15 @@ const DOC_APPROVALS = {
     approverId: f.ref('org-users'),
     approverName: f.str(),
     approverRoleName: f.str(),
+    // 加签 / 转办 / 抄送的目标人员：审批环节判定要读这条记录（曾只补了后端契约）
+    targetUserId: f.ref('org-users'),
     time: f.date()
   },
-  query: { keyword: ['docCode', 'approverName', 'stepName'], filters: ['docKey', 'bizType', 'result', 'approverId'], sort: ['time'], page: true },
+  query: { keyword: ['docCode', 'approverName', 'stepName'], filters: ['docKey', 'bizType', 'result', 'approverId', 'targetUserId'], sort: ['time'], page: true },
   rules: {
     refs: [
       { field: 'approverId', collection: 'org-users' },
+      { field: 'targetUserId', collection: 'org-users' },
       { field: 'flowId', collection: 'system-workflow-flows' }
     ]
   }

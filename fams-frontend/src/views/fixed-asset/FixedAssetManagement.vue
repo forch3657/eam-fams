@@ -228,7 +228,7 @@
                   <el-button v-if="canSubmitInvDoc(row)" link type="primary" size="small" @click="submitInvDoc(row)">提交</el-button>
                   <el-button v-if="canApproveInvDoc(row)" link type="success" size="small" @click="approveInvDoc(row)">通过</el-button>
                   <el-button v-if="canApproveInvDoc(row)" link type="danger" size="small" @click="rejectInvDoc(row)">驳回</el-button>
-                  <el-button link type="primary" size="small" :disabled="row.status === 'PROCESSING'" @click="openDocDialog(row)">修改</el-button>
+                  <el-button v-if="can('fa:inventory')" link type="primary" size="small" :disabled="row.status === 'PROCESSING'" @click="openDocDialog(row)">修改</el-button>
                   <el-button v-if="can('fa:inventory')" link type="danger" size="small" :disabled="row.status === 'PROCESSING'" @click="deleteInvDoc(row)">删除</el-button>
                 </template>
               </el-table-column>
@@ -274,8 +274,8 @@
             </el-table-column>
             <el-table-column label="盘盈/盘亏" width="110">
               <template #default="{ row }">
-                <el-tag type="primary" size="small" effect="plain">盈 {{ countResult(row.items, 'SURPLUS') }}</el-tag>
-                <el-tag type="danger" size="small" effect="plain" style="margin-left:4px">亏 {{ countResult(row.items, 'LOSS') }}</el-tag>
+                <el-tag type="primary" size="small" effect="plain">盈 {{ countResult(itemsOfPlan(row), 'SURPLUS') }}</el-tag>
+                <el-tag type="danger" size="small" effect="plain" style="margin-left:4px">亏 {{ countResult(itemsOfPlan(row), 'LOSS') }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column prop="status" label="状态" width="100">
@@ -782,13 +782,16 @@
         差异 {{ checkCounts.SURPLUS + checkCounts.LOSS + checkCounts.ABNORMAL }} 项
         （盘盈 {{ checkCounts.SURPLUS }} / 盘亏 {{ checkCounts.LOSS }} / 异常 {{ checkCounts.ABNORMAL }}）；
         盘盈、盘亏、异常必须填写原因。
+        审批通过后：盘盈自动建账并生成入库单（待入库 → 验收后可用），盘亏在台账置「待核销」并生成处置单。
       </div>
       <el-alert
         v-if="checkListDoc && !checkListEditable"
         type="info"
         show-icon
         :closable="false"
-        title="该盘点单已进入审批，明细只读；如需修改请先在盘点单列表撤销审批。"
+        :title="can('fa:inventory')
+          ? '该盘点单已进入审批，明细只读；如需修改请先在盘点单列表撤销审批。'
+          : '您没有盘点执行权限，盘点明细只读；核对明细与审批不受影响。'"
         style="margin-bottom:10px"
       />
       <el-table :data="filteredCheckItems" max-height="440" style="width:100%">
@@ -822,6 +825,51 @@
       <template #footer>
         <el-button @click="checkListVisible = false">关闭</el-button>
         <el-button type="primary" :disabled="!checkItems.length" @click="saveCheckResults">保存盘点结果</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 登记账外资产（盘盈）：要素要齐，盘点完结后据此建账并生成入库单 -->
+    <el-dialog v-model="profitDialogVisible" title="登记账外资产（盘盈）" width="560px">
+      <el-alert
+        type="info"
+        show-icon
+        :closable="false"
+        title="账外资产：现场有、台账上没有。盘点审批通过后自动建档（待入库）并生成入库单，走入库验收流程后转正式可用。"
+        style="margin-bottom:12px"
+      />
+      <el-form :model="profitForm" label-width="100px">
+        <el-form-item label="资产名称" required>
+          <el-input v-model="profitForm.assetName" placeholder="如：闲置会议桌" maxlength="60" show-word-limit />
+        </el-form-item>
+        <el-form-item label="资产分类" required>
+          <el-select v-model="profitForm.assetType" placeholder="请选择分类" style="width:100%">
+            <el-option v-for="c in categoryCodeOptions" :key="c.value" :label="c.label" :value="c.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="使用部门">
+          <el-select v-model="profitForm.dept" placeholder="请选择部门" clearable filterable style="width:100%">
+            <el-option v-for="d in orgStore.departments" :key="d.id" :label="d.name" :value="d.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="使用人">
+          <el-select v-model="profitForm.userId" placeholder="请选择使用人" clearable filterable style="width:100%">
+            <el-option v-for="u in orgStore.users" :key="u.id" :label="u.name" :value="u.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="存放位置">
+          <el-input v-model="profitForm.location" placeholder="如：总部办公楼2层" maxlength="60" />
+        </el-form-item>
+        <el-form-item label="数量">
+          <el-input-number v-model="profitForm.qty" :min="1" :max="999" :precision="0" controls-position="right" />
+          <span class="muted hint" style="margin-left:8px">每件单独建一条台账</span>
+        </el-form-item>
+        <el-form-item label="购置金额">
+          <el-input-number v-model="profitForm.price" :min="0" :precision="2" :controls="false" style="width:200px" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="profitDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitProfitItem">登记</el-button>
       </template>
     </el-dialog>
 
@@ -867,7 +915,7 @@ import { optionsOf, labelOf } from '../../constants/enums'
 import { formatDateTime } from '../../utils/format'
 import {
   getFlow, effectiveSteps, approvalsOf, currentStep,
-  canSubmit, canApprove, runApproval, isCollabAction
+  canSubmit, canApprove, runApproval, isCollabAction, isApproverOfBiz
 } from '../../services/approval'
 
 /**
@@ -904,6 +952,9 @@ const disposePrefix = { transfer: 'DB', repair: 'WX', dispose: 'CZ' }
 /** 权限判定：按钮级鉴权 */
 const can = code => userStore.can(code)
 
+/** 盘点单的业务类型（对应流程配置里的 bizType） */
+const INV_BIZ = 'INVENTORY'
+
 const orgStore = useOrgStore()
 const approvalStore = useApprovalStore()
 const route = useRoute()
@@ -933,6 +984,9 @@ onMounted(() => {
   if (can('fa:view')) fixedAssetStore.loadAll().catch(() => {})
   // 守卫只加载基础三张表；用户表按权限补，无权角色不请求（否则首屏 403）
   if (can('org:user') || can('wm:todo')) orgStore.loadAll({ withUsers: true }).catch(() => {})
+  // 流程配置与审批轨迹：盘点单的「当前环节 / 通过 / 驳回」按钮要靠它算，
+  // 没有流程配置时按钮恒不显示（审批人只能看到单据却批不了）。
+  if (can('wm:todo') || can('sys:workflow')) approvalStore.load().catch(() => {})
 })
 // 折旧台账是后端产物，进入页签时按当前期间拉取；报表仅折旧执行角色需要
 onMounted(() => {
@@ -1125,8 +1179,13 @@ function scopeLabel(scopeType, scopeValue) {
   return `${scopeType}：${scopeValue}`
 }
 
-// 盘点数据只对 fa:inventory 开放，没有权限就不发请求（否则无权角色首屏 403）
-const inventoryPlanCol = useCollection(COLLECTION.inventoryPlans, { enabled: () => can('fa:inventory') })
+// 盘点数据的可见性：
+// - 有 fa:inventory（盘点执行权）：建计划、建盘点单、登记结果；
+// - 盘点流程的环节审批人（如审计员 R6）：只读打开盘点单核对明细，否则等于盲批。
+const canReadInventory = computed(() =>
+  can('fa:inventory') || isApproverOfBiz(INV_BIZ, userStore.user, orgStore, approvalStore.flows)
+)
+const inventoryPlanCol = useCollection(COLLECTION.inventoryPlans, { enabled: () => canReadInventory.value })
 const inventoryPlans = inventoryPlanCol.items
 
 /**
@@ -1138,8 +1197,54 @@ function countResult(items = [], value) {
   return items.filter(i => i.result === value).length
 }
 
+/**
+ * 盘点明细可能以 JSON 字符串落库，统一解析成数组
+ */
+function asItems(value) {
+  if (Array.isArray(value)) return value
+  if (typeof value === 'string' && value.trim()) {
+    try {
+      const parsed = JSON.parse(value)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  }
+  return []
+}
+
+/**
+ * 盘点单 → 来源盘点计划单号。
+ *
+ * <p>盘点单契约里没有 planId 字段（加字段要改表结构），来源计划写在 remark 里：
+ * 「由盘点计划 PD-2026-001 生成」（后端同步计划状态时用同一标记）。</p>
+ */
+function planNoOfDoc(doc) {
+  const m = String(doc?.remark || '').match(/盘点计划\s*([A-Za-z0-9\-]+)/)
+  return m ? m[1] : ''
+}
+
+/** 某计划生成的全部盘点单 */
+function docsOfPlan(plan) {
+  const no = String(plan?.planNo || '')
+  if (!no) return []
+  return inventoryDocs.value.filter(d => planNoOfDoc(d) === no)
+}
+
+/**
+ * 计划下的盘点明细（带盘点单号）。
+ *
+ * <p>盘点结果登记在**盘点单**明细上，计划里只有资产范围快照；
+ * 直接读计划的 items 会导致进度、盘盈盘亏、导出报表恒为 0。</p>
+ */
+function itemsOfPlan(plan) {
+  return docsOfPlan(plan).flatMap(d => asItems(d.items).map(i => ({ ...i, docNo: d.docNo })))
+}
+
 function countedOf(plan) {
-  return plan.items.filter(i => i.result === 'MATCHED' || i.result === 'SURPLUS' || i.result === 'LOSS').length
+  const items = itemsOfPlan(plan)
+  if (!items.length) return 0
+  return items.filter(i => i.result === 'MATCHED' || i.result === 'SURPLUS' || i.result === 'LOSS').length
 }
 
 function progressOf(plan) {
@@ -1175,9 +1280,11 @@ function remindTagType(row) {
 }
 
 const inventoryStats = computed(() => {
-  const items = inventoryPlans.value.flatMap(p => p.items)
+  // 应盘/已盘/盘盈/盘亏取盘点单明细：结果登记在盘点单上，计划里只有资产范围快照
+  const items = inventoryDocs.value.flatMap(d => asItems(d.items))
+  const planned = inventoryPlans.value.filter(p => p.status !== 'DONE').length
   return {
-    running: inventoryPlans.value.filter(p => p.status !== 'DONE').length,
+    running: planned,
     total: items.length,
     counted: items.filter(i => i.result === 'MATCHED' || i.result === 'SURPLUS' || i.result === 'LOSS').length,
     profit: countResult(items, 'SURPLUS'),
@@ -1194,6 +1301,10 @@ function resultType(result) {
 }
 
 const planDialogVisible = ref(false)
+const profitDialogVisible = ref(false)
+const profitForm = reactive({
+  assetName: '', assetType: '', dept: '', userId: '', location: '', qty: 1, price: 0
+})
 const planForm = reactive({ planName: '', scopeType: '全部', scopeValue: '', counter: '', planDate: '', methods: ['小程序扫码'] })
 
 const planPreviewCount = computed(() => {
@@ -1207,6 +1318,24 @@ function handleCreatePlan() {
   inventorySub.value = 'plans'
   Object.assign(planForm, { planName: '', scopeType: '全部', scopeValue: '', counter: '', planDate: '', methods: ['小程序扫码'] })
   planDialogVisible.value = true
+}
+
+/**
+ * 盘点计划单号：api 模式交给后端生成，前端按可见列表推算会跨数据范围撞号
+ * （两个管理员同一天各建一张计划，必然撞 unique 约束）。
+ * mock 演示没有后端，才在前端按当年序号生成。
+ */
+function nextPlanNo() {
+  if (!useMock) return ''
+  const year = new Date().getFullYear()
+  const head = `PD-${year}-`
+  const max = inventoryPlans.value.reduce((m, p) => {
+    const no = String(p?.planNo || '')
+    if (!no.startsWith(head)) return m
+    const n = Number(no.slice(head.length))
+    return Number.isFinite(n) ? Math.max(m, n) : m
+  }, 0)
+  return `${head}${String(max + 1).padStart(3, '0')}`
 }
 
 function submitPlan() {
@@ -1228,7 +1357,7 @@ function submitPlan() {
     return
   }
   inventoryPlanCol.add({
-    planNo: `PD-${new Date().getFullYear()}-${String(inventoryPlans.value.length + 1).padStart(3, '0')}`,
+    planNo: nextPlanNo(),
     planName: planForm.planName,
     scope: scopeLabel(planForm.scopeType, planForm.scopeValue),
     counter: planForm.counter,
@@ -1241,10 +1370,14 @@ function submitPlan() {
 }
 
 function exportInventory(row) {
+  // 盘点结果登记在盘点单明细上，计划里只有资产范围快照；导出要用盘点单的结果，
+  // 否则报表里「盘点结果」永远是空值。
+  const rows = itemsOfPlan(row)
+  const source = rows.length ? rows : (row.items || [])
   downloadCsv(
     `${row.planNo}_盘点报表.csv`,
-    ['计划编号', '资产编号', '资产名称', '分类', '使用部门', '存放位置', '使用人', '账面数量', '盘点结果', '盘点方式', '盘点时间', '备注'],
-    row.items.map(i => [row.planNo, i.assetNo, i.assetName, i.category, i.department, i.location, i.user, i.bookQty, labelOf('INVENTORY_RESULT', i.result), i.countMethod, i.countTime, i.remark])
+    ['计划编号', '盘点单号', '资产编号', '资产名称', '分类', '使用部门', '存放位置', '使用人', '账面数量', '盘点结果', '盘点方式', '盘点时间', '备注'],
+    source.map(i => [row.planNo, i.docNo || '', i.assetNo, i.assetName, i.category, i.department, i.location, i.user, i.bookQty, labelOf('INVENTORY_RESULT', i.result), i.countMethod, i.countTime, i.remark])
   )
   ElMessage.success(`盘点报表 ${row.planNo} 已导出`)
 }
@@ -1409,7 +1542,17 @@ function depreciationSummaries({ columns, data }) {
   })
 }
 
-const inventoryDocCol = useCollection(COLLECTION.inventoryDocs, { enabled: () => can('fa:inventory') })
+const inventoryDocCol = useCollection(COLLECTION.inventoryDocs, { enabled: () => canReadInventory.value })
+/**
+ * 审批人视角的补载：集合的 enabled 只在 onMounted 判一次，
+ * 而「本流程审批人」要等流程配置加载完才能判定（审计员 R6），
+ * 判定结果从 false 变 true 时补载一次，否则审计员看到的永远是空列表。
+ */
+watch(canReadInventory, allowed => {
+  if (!allowed) return
+  inventoryPlanCol.load()
+  inventoryDocCol.load()
+})
 /** 处置单集合：盘点盘亏核销时补建处置单；读权限随台账 fa:view */
 const disposeDocCol = useCollection(`${COLLECTION.docListPrefix}-dispose`, { enabled: () => can('fa:view') })
 const inventoryDocs = inventoryDocCol.items
@@ -1542,14 +1685,17 @@ const filteredCheckItems = computed(() => {
 })
 
 /**
- * 盘点明细是否可编辑：只有草稿 / 已驳回的单据能改。
+ * 盘点明细是否可编辑：只有草稿 / 已驳回的单据能改，且必须持有盘点执行权。
  *
  * <p>盘点明细就是审批对象，审批期间改动等于篡改审批依据，
  * 后端对审批中的盘点单也会直接 409，这里同步置灰避免点了才报错。</p>
+ *
+ * <p>另外要求 fa:inventory：审计员等只读审批人要看明细、能审批，但不能改明细。</p>
  */
 const checkListEditable = computed(() => {
   const status = checkListDoc.value?.status
-  return status === 'DRAFT' || status === 'REJECTED'
+  if (status !== 'DRAFT' && status !== 'REJECTED') return false
+  return can('fa:inventory')
 })
 
 function openCheckList(row) {
@@ -1561,32 +1707,52 @@ function openCheckList(row) {
 
 /** 登记账外资产（盘盈）：现场多出来、台账上没有的资产 */
 function addProfitItem() {
-  ElMessageBox.prompt('请填写账外资产名称（盘盈登记）', '登记账外资产', {
-    inputPlaceholder: '如：闲置会议桌',
-    inputValidator: v => (v && v.trim() ? true : '资产名称不能为空')
-  }).then(({ value }) => {
-    const me = userStore.user || {}
-    const now = new Date().toISOString()
-    checkItems.value.unshift({
-      assetId: '',
-      assetNo: `PY-${String(Date.now()).slice(-6)}`,
-      assetName: value,
-      assetType: '其他',
-      assetStatus: '',
-      dept: '待确认',
-      userName: '待确认',
-      location: '待确认',
-      itemStatus: 'SURPLUS',
-      result: 'SURPLUS',
-      remark: '账外资产，需补办入库',
-      checker: me.id || '',
-      checkerName: me.name || '',
-      countMethod: '现场登记',
-      createTime: now,
-      checkTime: now
-    })
-    ElMessage.success('已登记账外资产，保存后生效')
-  }).catch(() => {})
+  Object.assign(profitForm, {
+    assetName: '', assetType: '', dept: '', userId: '', location: '', qty: 1, price: 0
+  })
+  profitDialogVisible.value = true
+}
+
+/**
+ * 提交账外资产登记。
+ *
+ * <p>要素必须齐：盘点审批完结后，后端按这些字段建台账（待入库）并生成入库单，
+ * 分类要落枚举码（不是中文名），否则台账的枚举校验会拒绝这条资产。</p>
+ */
+function submitProfitItem() {
+  if (!profitForm.assetName.trim()) {
+    ElMessage.warning('请填写资产名称')
+    return
+  }
+  if (!profitForm.assetType) {
+    ElMessage.warning('请选择资产分类')
+    return
+  }
+  const me = userStore.user || {}
+  const now = new Date().toISOString()
+  checkItems.value.unshift({
+    assetId: '',
+    assetNo: `PY-${String(Date.now()).slice(-6)}`,
+    assetName: profitForm.assetName.trim(),
+    assetType: profitForm.assetType,
+    assetStatus: '',
+    dept: profitForm.dept,
+    userId: profitForm.userId,
+    userName: userNameOf(profitForm.userId),
+    location: profitForm.location.trim(),
+    qty: profitForm.qty,
+    price: profitForm.price,
+    itemStatus: 'SURPLUS',
+    result: 'SURPLUS',
+    remark: '账外资产，盘点完结后建账并补录入库单',
+    checker: me.id || '',
+    checkerName: me.name || '',
+    countMethod: '现场登记',
+    createTime: now,
+    checkTime: now
+  })
+  profitDialogVisible.value = false
+  ElMessage.success('已登记账外资产，保存后生效')
 }
 
 /**
@@ -1842,7 +2008,6 @@ function viewDocApproval(row) {
 }
 
 // ---------------- 盘点单审批（按「系统管理 → 流程配置」执行） ----------------
-const INV_BIZ = 'INVENTORY'
 
 function invFlow() {
   return getFlow(INV_BIZ, approvalStore.flows)
@@ -1953,7 +2118,10 @@ function assetStatusType(status) {
   const m = {
     IDLE: 'success', IN_USE: 'success', DISPATCHING: 'primary',
     BORROWED: 'warning', REPAIRING: 'danger', DISPOSING: 'info',
-    空闲: 'success', 使用中: 'success', 派发中: 'primary', 借出中: 'warning', 维修中: 'danger', 处置中: 'info'
+    // 待入库：盘盈建账后等验收；待核销：盘亏等处置；已核销：账面上注销
+    PENDING_INBOUND: 'warning', PENDING_WRITE_OFF: 'danger', DISPOSED: 'info',
+    空闲: 'success', 使用中: 'success', 派发中: 'primary', 借出中: 'warning', 维修中: 'danger', 处置中: 'info',
+    待入库: 'warning', 待核销: 'danger', 已核销: 'info'
   }
   return m[status] || 'info'
 }
@@ -2104,19 +2272,6 @@ function userNameOf(id) {
   return orgStore.users.find(u => u.id === id)?.name || ''
 }
 
-/** 盘点明细可能以 JSON 字符串落库，统一解析成数组 */
-function planItemsOf(plan) {
-  if (Array.isArray(plan?.items)) return plan.items
-  if (typeof plan?.items === 'string' && plan.items.trim()) {
-    try {
-      return JSON.parse(plan.items)
-    } catch {
-      return []
-    }
-  }
-  return []
-}
-
 async function loadAssetRecords(asset) {
   assetRecordLoading.value = true
   const next = EMPTY_RECORDS()
@@ -2171,16 +2326,16 @@ async function loadAssetRecords(asset) {
       }
     }
 
-    // 盘点记录：盘点计划是唯一来源，明细里按 assetId 命中
-    if (can('fa:inventory')) {
-      for (const plan of inventoryPlans.value) {
-        for (const item of planItemsOf(plan)) {
+    // 盘点记录：来源是盘点单明细（结果登记在盘点单上，计划里只有资产范围快照）
+    if (canReadInventory.value) {
+      for (const doc of inventoryDocs.value) {
+        for (const item of asItems(doc.items)) {
           if (item.assetId !== asset.id) continue
           next.check.push({
-            docNo: plan.planNo || '',
+            docNo: doc.docNo || '',
             result: INVENTORY_RESULT_TEXT[item.result] || item.result || '未盘',
-            person: plan.counter || '',
-            time: plan.planDate || plan.createTime || ''
+            person: item.checkerName || item.checker || '',
+            time: item.checkTime || doc.finishTime || doc.createTime || ''
           })
         }
       }

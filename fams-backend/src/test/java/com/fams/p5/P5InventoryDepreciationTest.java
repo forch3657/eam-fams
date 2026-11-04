@@ -61,6 +61,9 @@ class P5InventoryDepreciationTest {
 
     private static final String DISPOSE_DOCS = "fixed-asset-doc-lists-dispose";
 
+    /** 入库单集合：盘点盘盈建账后生成待验收入库单 */
+    private static final String INBOUND_DOCS = "fixed-asset-doc-lists-inbound";
+
     private static final String APPROVER_PASSWORD = "Test@12345";
 
     @Autowired
@@ -526,6 +529,273 @@ class P5InventoryDepreciationTest {
             docNos.add(docNo);
         }
         assertThat(docNos).hasSize(2);
+    }
+
+    /**
+     * 盘点计划单号由服务端生成。
+     *
+     * <p>planNo 是唯一键，前端按「可见列表长度 + 1」推算必然撞号（同 BUG-005 低值领用），
+     * 单号必须由服务端按全表当年最大序号生成。</p>
+     */
+    @Test
+    @DisplayName("盘点计划不传单号时由服务端生成，连续创建不撞号")
+    void inventoryPlanNoIsGeneratedByServer() throws Exception {
+        Set<String> planNos = new HashSet<>();
+        for (int i = 0; i < 2; i++) {
+            Map<String, Object> plan = new HashMap<>();
+            plan.put("planName", "服务端生成计划单号测试" + i);
+            plan.put("scope", "全部资产");
+            plan.put("counter", "测试盘点员");
+            plan.put("planDate", "2026-11-04");
+            plan.put("status", "DRAFT");
+            plan.put("items", new ArrayList<>());
+            String created = mockMvc.perform(auth(post("/api/" + PLANS))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(plan)))
+                    .andExpect(status().isOk())
+                    .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+            String planNo = objectMapper.readTree(created).path("data").path("planNo").asText();
+            assertThat(planNo).matches("PD-\\d{4}-\\d{3}");
+            planNos.add(planNo);
+        }
+        assertThat(planNos).hasSize(2);
+    }
+
+    /**
+     * 盘点单完结后，来源盘点计划随之置为「已完成」。
+     *
+     * <p>盘点计划没有自己的审批流，状态只能跟着盘点单走：生成盘点单时置 PROCESSING，
+     * 盘点单完结后若没人回写，计划就永远停在「盘点中」，计划页「进行中」也永远归不了零。</p>
+     */
+    @Test
+    @DisplayName("盘点单完结后来源盘点计划置为已完成")
+    void inventoryDocCompletionClosesSourcePlan() throws Exception {
+        String assetToken = ensureApprover("inv_asset_plan", "R2");
+        Map<String, Object> plan = new HashMap<>();
+        plan.put("planName", "计划联动测试");
+        plan.put("scope", "全部资产");
+        plan.put("counter", "测试盘点员");
+        plan.put("planDate", "2026-11-04");
+        plan.put("status", "DRAFT");
+        plan.put("items", new ArrayList<>());
+        String planCreated = mockMvc.perform(auth(post("/api/" + PLANS))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(plan)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        String planNo = objectMapper.readTree(planCreated).path("data").path("planNo").asText();
+        String planId = objectMapper.readTree(planCreated).path("data").path("id").asText();
+
+        // 生成盘点单：remark 带上来源计划标记（与前端生成盘点单时一致）
+        Map<String, Object> doc = new HashMap<>();
+        doc.put("docNo", "PD-PLAN-" + System.nanoTime());
+        doc.put("name", "计划联动盘点单");
+        doc.put("companyId", "C1");
+        doc.put("creatorId", "U1");
+        doc.put("status", "DRAFT");
+        doc.put("remark", "由盘点计划 " + planNo + " 生成");
+        List<Map<String, Object>> items = new ArrayList<>();
+        items.add(checkItem("", "A-01", "无差异资产", "MATCHED", "CHECKED", "账实相符"));
+        doc.put("items", items);
+        String docId = createInventoryDoc(doc);
+
+        // 计划进入「盘点中」（通用更新按整行校验，必填字段要一起带上）
+        Map<String, Object> planPatch = new HashMap<>();
+        planPatch.put("planNo", planNo);
+        planPatch.put("planName", "计划联动测试");
+        planPatch.put("status", "PROCESSING");
+        genericService.updateQuietly(PLANS, planId, planPatch);
+
+        mockMvc.perform(auth(post("/api/approvals/action"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"docKey\":\"inventory\",\"docId\":\"" + docId
+                                + "\",\"action\":\"submit\",\"ctx\":{\"amount\":0,\"hasDiff\":false}}"))
+                .andExpect(status().isOk());
+        // 无差异：只需结果确认一个环节即完结
+        approve(docId, assetToken, "DONE");
+
+        assertThat(String.valueOf(genericService.get(PLANS, planId).get("status"))).isEqualTo("DONE");
+    }
+
+    /**
+     * 审计员要能读到被审的盘点单，否则「审计抽查确认」环节等于盲批。
+     *
+     * <p>读权限随 fa:view 放开；写、删仍要 fa:inventory（盘点执行权）。</p>
+     */
+    @Test
+    @DisplayName("审计员可只读打开盘点单，但不能修改盘点明细")
+    void auditorCanReadInventoryDocButNotWrite() throws Exception {
+        String auditToken = ensureApprover("inv_audit_read", "R6");
+        Map<String, Object> doc = new HashMap<>();
+        doc.put("docNo", "PD-READ-" + System.nanoTime());
+        doc.put("name", "审计员只读测试");
+        doc.put("companyId", "C1");
+        doc.put("creatorId", "U1");
+        doc.put("status", "DRAFT");
+        doc.put("items", new ArrayList<>());
+        String docId = createInventoryDoc(doc);
+
+        // 只读可见
+        mockMvc.perform(get("/api/" + DOCS + "/" + docId).header("Authorization", "Bearer " + auditToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.docNo").value(doc.get("docNo")));
+
+        // 改明细仍被拒（写要 fa:inventory）
+        Map<String, Object> patch = new HashMap<>();
+        patch.put("name", "审计员改的名字");
+        mockMvc.perform(put("/api/" + DOCS + "/" + docId)
+                        .header("Authorization", "Bearer " + auditToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(patch)))
+                .andExpect(status().isForbidden());
+    }
+
+    /**
+     * 盘盈（账外资产）建账：建台账（待入库）+ 生成入库单，入库验收通过后转空闲。
+     *
+     * <p>产品口径：盘盈走「入库单审批流建账」。台账行是分类/部门/位置/金额这些要素的载体
+     * （入库单契约装不下），入库单负责验收这一环（WF1：仓管验收 → 资产管理员复核）。</p>
+     */
+    @Test
+    @DisplayName("盘点盘盈：自动建账为待入库并生成入库单，验收通过后转空闲")
+    void inventorySurplusCreatesAssetAndInboundDoc() throws Exception {
+        String assetToken = ensureApprover("inv_asset_surplus", "R2");
+        String warehouseToken = ensureApprover("inv_wh_surplus", "R8");
+
+        Map<String, Object> item = new HashMap<>();
+        item.put("assetId", "");
+        item.put("assetNo", "");
+        item.put("assetName", "账外会议桌");
+        item.put("assetType", "FURNITURE");
+        item.put("dept", "D1");
+        item.put("location", "总部办公楼2层");
+        item.put("qty", 2);
+        item.put("price", 1200);
+        item.put("result", "SURPLUS");
+        item.put("itemStatus", "SURPLUS");
+        item.put("remark", "现场多出的会议桌");
+
+        Map<String, Object> doc = new HashMap<>();
+        doc.put("docNo", "PD-SURPLUS-" + System.nanoTime());
+        doc.put("name", "盘盈建账测试");
+        doc.put("companyId", "C1");
+        doc.put("creatorId", "U1");
+        doc.put("status", "DRAFT");
+        doc.put("items", new ArrayList<>(java.util.Collections.singletonList(item)));
+        String docId = createInventoryDoc(doc);
+
+        // 有差异 → 结果确认 + 差异复核 + 审计抽查三环
+        mockMvc.perform(auth(post("/api/approvals/action"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"docKey\":\"inventory\",\"docId\":\"" + docId
+                                + "\",\"action\":\"submit\",\"ctx\":{\"amount\":0,\"hasDiff\":true}}"))
+                .andExpect(status().isOk());
+        approve(docId, assetToken, "PROCESSING");
+        approve(docId, assetToken, "PROCESSING");
+        approve(docId, ensureApprover("inv_audit_surplus", "R6"), "DONE");
+
+        // 台账里多了两件「待入库」的账外资产，数量按登记件数拆行
+        List<Map<String, Object>> created = new ArrayList<>();
+        for (Map<String, Object> row : genericService.list(ASSETS, Collections.emptyMap())) {
+            if ("账外会议桌".equals(String.valueOf(row.get("name")))) {
+                created.add(row);
+            }
+        }
+        assertThat(created).hasSize(2);
+        for (Map<String, Object> row : created) {
+            assertThat(String.valueOf(row.get("status"))).isEqualTo("PENDING_INBOUND");
+            assertThat(String.valueOf(row.get("category"))).isEqualTo("FURNITURE");
+        }
+
+        // 每件资产一张待验收入库单
+        List<Map<String, Object>> inbounds = new ArrayList<>();
+        for (Map<String, Object> row : genericService.list(INBOUND_DOCS, Collections.emptyMap())) {
+            if (String.valueOf(row.get("remark")).contains("盘点盘盈建账")) {
+                inbounds.add(row);
+            }
+        }
+        assertThat(inbounds).as("盘盈应按件数生成入库单").hasSize(2);
+        for (Map<String, Object> row : inbounds) {
+            assertThat(String.valueOf(row.get("status"))).isEqualTo("DRAFT");
+            assertThat(String.valueOf(row.get("assetId"))).isIn(created.stream()
+                    .map(r -> String.valueOf(r.get("id"))).toArray(String[]::new));
+        }
+
+        // 走 WF1 入库验收：仓管验收 → 资产管理员复核 → 资产转空闲
+        // 入库单的创建人是盘点单的创建人，提交只能由创建人发起
+        for (Map<String, Object> row : inbounds) {
+            String inboundId = String.valueOf(row.get("id"));
+            mockMvc.perform(auth(post("/api/approvals/action"))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"docKey\":\"inbound\",\"docId\":\"" + inboundId + "\",\"action\":\"submit\"}"))
+                    .andExpect(status().isOk());
+            approveDoc("inbound", inboundId, warehouseToken, "PROCESSING");
+            approveDoc("inbound", inboundId, assetToken, "DONE");
+        }
+
+        for (Map<String, Object> row : genericService.list(ASSETS, Collections.emptyMap())) {
+            if ("账外会议桌".equals(String.valueOf(row.get("name")))) {
+                assertThat(String.valueOf(row.get("status"))).isEqualTo("IDLE");
+            }
+        }
+    }
+
+    /**
+     * 盘亏在台账上可见：盘点完结时置「待核销」。
+     */
+    @Test
+    @DisplayName("盘点盘亏：台账资产置为待核销")
+    void inventoryLossMarksAssetPendingWriteOff() throws Exception {
+        String assetToken = ensureApprover("inv_asset_loss", "R2");
+        String assetCode = "INV-LOSS-" + System.nanoTime();
+        Map<String, Object> asset = new HashMap<>();
+        asset.put("code", assetCode);
+        asset.put("name", "盘亏待核销资产");
+        asset.put("category", "ELECTRONIC");
+        asset.put("companyId", "C1");
+        asset.put("deptId", "D1");
+        asset.put("status", "IDLE");
+        asset.put("original", 1000);
+        asset.put("net", 1000);
+        String assetId = createAsset(asset);
+
+        List<Map<String, Object>> items = new ArrayList<>();
+        items.add(checkItem(assetId, assetCode, "盘亏待核销资产", "LOSS", "LOSS", "现场未找到实物"));
+        Map<String, Object> doc = new HashMap<>();
+        doc.put("docNo", "PD-LOSS-" + System.nanoTime());
+        doc.put("name", "盘亏待核销测试");
+        doc.put("companyId", "C1");
+        doc.put("creatorId", "U1");
+        doc.put("status", "DRAFT");
+        doc.put("items", items);
+        String docId = createInventoryDoc(doc);
+
+        mockMvc.perform(auth(post("/api/approvals/action"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"docKey\":\"inventory\",\"docId\":\"" + docId
+                                + "\",\"action\":\"submit\",\"ctx\":{\"amount\":0,\"hasDiff\":true}}"))
+                .andExpect(status().isOk());
+        approve(docId, assetToken, "PROCESSING");
+        approve(docId, assetToken, "PROCESSING");
+        approve(docId, ensureApprover("inv_audit_loss", "R6"), "DONE");
+
+        Map<String, Object> updated = genericService.get(ASSETS, assetId);
+        assertThat(String.valueOf(updated.get("status"))).isEqualTo("PENDING_WRITE_OFF");
+    }
+
+    /** 走一次指定单据类型的审批动作，返回单据状态 */
+    private String approveDoc(String docKey, String docId, String approveToken, String expectedStatus)
+            throws Exception {
+        String body = mockMvc.perform(post("/api/approvals/action")
+                        .header("Authorization", "Bearer " + approveToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"docKey\":\"" + docKey + "\",\"docId\":\"" + docId
+                                + "\",\"action\":\"approve\",\"ctx\":{\"amount\":0,\"hasDiff\":false}}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        String status = objectMapper.readTree(body).path("data").path("status").asText();
+        assertThat(status).isEqualTo(expectedStatus);
+        return status;
     }
 
     /** 走一次盘点审批动作，返回单据状态 */

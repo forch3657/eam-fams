@@ -68,11 +68,19 @@ public class GenericService {
      */
     private static final Map<String, String> DOC_NO_DATE_PREFIX = new java.util.LinkedHashMap<>();
 
+    /**
+     * 单号按「前缀 + 年份 + 序号」生成的集合（盘点计划：PD-2026-001）。
+     *
+     * <p>与盘点单同理：计划单号唯一，前端按可见列表长度推算必然撞号。</p>
+     */
+    private static final Map<String, String> DOC_NO_YEAR_DASH_PREFIX = new java.util.LinkedHashMap<>();
+
     static {
         DOC_NO_PREFIX.put("low-value-inbound", "RK");
         DOC_NO_PREFIX.put("low-value-requisition", "PY");
         DOC_NO_PREFIX.put("low-value-return", "TK");
         DOC_NO_DATE_PREFIX.put("fixed-asset-inventory-docs", "PD");
+        DOC_NO_YEAR_DASH_PREFIX.put("fixed-asset-inventory-plans", "PD-");
     }
 
     private final ResourceRegistry registry;
@@ -155,6 +163,11 @@ public class GenericService {
         String docNoDatePrefix = DOC_NO_DATE_PREFIX.get(key);
         if (docNoDatePrefix != null && isBlank(row.get("docNo"))) {
             row.put("docNo", nextDocNoByDate(meta, docNoDatePrefix));
+        }
+        // 盘点计划：单号是 planNo，同样由服务端生成（前端按列表长度推算会撞号）
+        String planNoPrefix = DOC_NO_YEAR_DASH_PREFIX.get(key);
+        if (planNoPrefix != null && isBlank(row.get("planNo"))) {
+            row.put("planNo", nextDocNoByYearDash(meta, planNoPrefix));
         }
 
         Object pk = row.get(meta.getPkField());
@@ -732,27 +745,34 @@ public class GenericService {
      * <p>排序/前缀判断都基于全表，不受数据范围过滤影响，因此不会与别的部门的单号重复。</p>
      */
     private String nextDocNo(ResourceMeta meta, String prefix) {
-        return nextDocNoWithHead(meta, prefix + java.time.Year.now().getValue());
+        return nextDocNoWithHead(meta, prefix + java.time.Year.now().getValue(), "doc_no");
     }
 
     /** 单号按「前缀 + 当日日期 + 序号」生成（盘点单：PD20261104001） */
     private String nextDocNoByDate(ResourceMeta meta, String prefix) {
         String ymd = java.time.LocalDate.now()
                 .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
-        return nextDocNoWithHead(meta, prefix + ymd);
+        return nextDocNoWithHead(meta, prefix + ymd, "doc_no");
+    }
+
+    /** 单号按「前缀 + 年份 + 序号」生成（盘点计划：PD-2026-001） */
+    private String nextDocNoByYearDash(ResourceMeta meta, String prefix) {
+        return nextDocNoWithHead(meta, prefix + java.time.Year.now().getValue() + "-", "plan_no");
     }
 
     /**
      * 生成「{head}{三位序号}」：取表内同前缀的最大序号 + 1。
      *
      * <p>排序/前缀判断都基于全表，不受数据范围过滤影响，因此不会与别的部门的单号重复。</p>
+     *
+     * @param noColumn 单号所在列（低值/盘点单是 doc_no，盘点计划是 plan_no）
      */
-    private String nextDocNoWithHead(ResourceMeta meta, String head) {
+    private String nextDocNoWithHead(ResourceMeta meta, String head, String noColumn) {
         Map<String, Object> params = new QuerySpec(meta).toParams(meta.getAllColumns(), 50L, null);
-        params.put("orderBy", "`doc_no` DESC");
+        params.put("orderBy", "`" + noColumn + "` DESC");
         long max = 0;
         for (Map<String, Object> row : mapper.selectList(params)) {
-            String no = text(row.get("doc_no"));
+            String no = text(row.get(noColumn));
             if (no == null || !no.startsWith(head)) {
                 continue;
             }

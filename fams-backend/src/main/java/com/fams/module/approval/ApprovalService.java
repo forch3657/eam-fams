@@ -2,6 +2,7 @@ package com.fams.module.approval;
 
 import com.fams.common.ApiException;
 import com.fams.common.ErrorCode;
+import com.fams.engine.DateTimes;
 import com.fams.engine.GenericService;
 import com.fams.security.AuthContext;
 import com.fams.security.UserPrincipal;
@@ -17,6 +18,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringJoiner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 审批动作服务（契约 5.6）。
@@ -42,6 +45,29 @@ public class ApprovalService {
 
     /** 处置单集合：盘点盘亏核销生成待审处置单 */
     private static final String DISPOSE_DOCS = "fixed-asset-doc-lists-dispose";
+
+    /** 入库单集合：盘点盘盈建账生成待验收入库单（走 WF1 资产入库验收流程） */
+    private static final String INBOUND_DOCS = "fixed-asset-doc-lists-inbound";
+
+    /** 资产状态：盘盈建账后待入库验收 */
+    private static final String STATUS_PENDING_INBOUND = "PENDING_INBOUND";
+
+    /** 资产状态：盘亏待核销（等处置审批） */
+    private static final String STATUS_PENDING_WRITE_OFF = "PENDING_WRITE_OFF";
+
+    /** 资产状态：已核销（处置审批完结） */
+    private static final String STATUS_DISPOSED = "DISPOSED";
+
+    /** 盘点计划集合：盘点单完结后回写来源计划的状态 */
+    private static final String INVENTORY_PLANS = "fixed-asset-inventory-plans";
+
+    /**
+     * 来源盘点计划的单号标记。
+     *
+     * <p>盘点单契约里没有 planId 字段（加字段要改表结构），来源计划写在 remark 里：
+     * 「由盘点计划 PD-2026-001 生成」。</p>
+     */
+    private static final Pattern PLAN_FROM_REMARK = Pattern.compile("盘点计划\\s*([A-Za-z0-9\\-]+)");
 
     private final GenericService genericService;
 
@@ -174,12 +200,16 @@ public class ApprovalService {
         }
         genericService.updateQuietly(collection, docId, next);
 
-        // 固资单据完结后联动台账（派发/退库/借出）
+        // 固资单据完结后联动台账（派发/退库/借出/入库/处置）
         if ("DONE".equals(nextStatus)) {
             syncAssetLedger(bizType, previous);
             if ("INVENTORY".equals(bizType)) {
                 // 盘点结论落地：盘亏明细生成处置单草案，等管理员走处置审批
                 syncInventoryLoss(previous);
+                // 盘盈（账外资产）：建账并生成入库单，等仓管/资产管理员验收入库
+                syncInventorySurplus(previous);
+                // 来源盘点计划随之完结（计划本身没有审批流，状态只能跟着盘点单走）
+                syncInventoryPlan(previous);
             }
         }
 
@@ -328,8 +358,10 @@ public class ApprovalService {
      * 固资单据完结后联动资产台账（P1-D2）。
      *
      * <p>派发：使用人取单据创建人（alloc 契约暂无独立使用人字段），资产置为使用中；
-     * 退库：清空使用人并回到空闲；借出：置为借出中。
-     * 其余单据（入库/调拨/维修/变更/处置）只留痕，不动台账字段。</p>
+     * 退库：清空使用人并回到空闲；借出：置为借出中；
+     * 入库：待入库 → 空闲（盘点盘盈建账后的验收通过）；
+     * 处置：待核销 → 已核销（盘点盘亏的核销完成）。
+     * 其余单据（调拨/维修/变更）只留痕，不动台账字段。</p>
      */
     private void syncAssetLedger(String bizType, Map<String, Object> doc) {
         String assetId = text(doc.get("assetId"));
@@ -348,8 +380,34 @@ public class ApprovalService {
             case "BORROW":
                 genericService.patchField(ASSETS, assetId, "status", "BORROWED", null);
                 break;
+            case "INBOUND":
+                // 入库验收通过：待入库的账外资产正式转空闲可用，并补入库日期
+                String current = assetStatus(assetId);
+                if (STATUS_PENDING_INBOUND.equals(current)) {
+                    genericService.patchField(ASSETS, assetId, "status", "IDLE", null);
+                    genericService.patchField(ASSETS, assetId, "inboundDate", DateTimes.format(LocalDateTime.now()), null);
+                    log.info("入库验收通过，账外资产转空闲 assetId={}", assetId);
+                }
+                break;
+            case "DISPOSE":
+                // 处置核销通过：待核销的资产账面上注销（保留在台账里留痕）
+                if (STATUS_PENDING_WRITE_OFF.equals(assetStatus(assetId))) {
+                    genericService.patchField(ASSETS, assetId, "status", STATUS_DISPOSED, null);
+                }
+                break;
             default:
                 break;
+        }
+    }
+
+    /** 读资产当前状态（台账回写前先确认状态，避免覆盖别的流程改过的状态） */
+    private String assetStatus(String assetId) {
+        try {
+            Map<String, Object> row = genericService.get(ASSETS, assetId);
+            return text(row.get("status"));
+        } catch (RuntimeException e) {
+            log.warn("读取资产状态失败 assetId={}", assetId, e);
+            return "";
         }
     }
 
@@ -485,6 +543,131 @@ public class ApprovalService {
                 // 处置单生成失败不推翻盘点结论，只记录待人工处理
                 log.warn("盘点盘亏生成处置单失败 assetId={} code={}", assetId, dispose.get("code"), e);
             }
+            // 台账反映差异：盘亏资产置「待核销」，账实不符在台账上看得见，
+            // 等处置审批通过再由 syncAssetLedger 转「已核销」
+            try {
+                genericService.patchField(ASSETS, assetId, "status", STATUS_PENDING_WRITE_OFF, null);
+            } catch (RuntimeException e) {
+                log.warn("盘点盘亏回写台账状态失败 assetId={}", assetId, e);
+            }
+        }
+    }
+
+    /**
+     * 盘点盘盈（账外资产）建账：建台账 + 生成入库单。
+     *
+     * <p>盘盈意味着现场有、账上没有，按产品口径走「入库单审批流建账」：
+     * 这里把账外资产建进台账（状态「待入库」），同时生成一张待验收入库单，
+     * 走 WF1（仓管验收 → 资产管理员复核）；入库审批通过后资产转「空闲」正式可用。</p>
+     *
+     * <p>为什么先建台账再建入库单：入库单契约里只有 code/name/companyId/assetId/remark，
+     * 装不下分类、部门、位置、金额这些建账要素；台账行才是这些信息的载体，
+     * 入库单负责「验收」这一环。</p>
+     */
+    private void syncInventorySurplus(Map<String, Object> doc) {
+        Object itemsObj = doc.get("items");
+        if (!(itemsObj instanceof List)) {
+            return;
+        }
+        String companyId = text(doc.get("companyId"));
+        String creatorId = text(doc.get("creatorId"));
+        String docNo = text(doc.get("docNo"));
+        String stamp = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS").format(LocalDateTime.now());
+        String salt = java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 4);
+        int seq = 0;
+        for (Object itemObj : (List<?>) itemsObj) {
+            if (!(itemObj instanceof Map)) {
+                continue;
+            }
+            Map<?, ?> item = (Map<?, ?>) itemObj;
+            if (!"SURPLUS".equals(resultOf(item))) {
+                continue;
+            }
+            String assetName = cut(text(item.get("assetName")), 120);
+            if (assetName.isEmpty()) {
+                // 没有名称没法建账，等盘点员补齐明细再重新提交
+                log.warn("盘点盘盈明细缺少资产名称，跳过建账 doc={}", docNo);
+                continue;
+            }
+            seq++;
+            int qty = Math.max(1, numberOf(item.get("qty")));
+            for (int i = 0; i < qty; i++) {
+                // 单号带件序：同一明细登记多件时，每件一个资产、一个入库单
+                String unit = String.format("%02d", seq) + String.format("%02d", i + 1);
+                String assetCode = "GD" + stamp + unit + salt;
+                Map<String, Object> asset = new LinkedHashMap<>();
+                asset.put("code", assetCode);
+                asset.put("name", assetName);
+                asset.put("category", categoryOf(item));
+                putIfPresent(asset, "companyId", companyId);
+                putIfPresent(asset, "deptId", text(item.get("dept")));
+                putIfPresent(asset, "userId", text(item.get("userId")));
+                asset.put("location", cut(text(item.get("location")), 120));
+                Object price = item.get("price");
+                asset.put("amount", price);
+                asset.put("original", price);
+                asset.put("net", price);
+                asset.put("status", STATUS_PENDING_INBOUND);
+                asset.put("depreciate", Boolean.TRUE);
+                asset.put("purchaseMode", "PURCHASE");
+                String assetId;
+                try {
+                    // 独立事务：建账失败只回滚自己，不牵连审批状态推进
+                    Map<String, Object> created = genericService.createIndependent(ASSETS, asset);
+                    assetId = text(created.get("id"));
+                } catch (RuntimeException e) {
+                    log.warn("盘点盘盈建账失败 assetName={} code={}", assetName, assetCode, e);
+                    continue;
+                }
+                if (assetId.isEmpty()) {
+                    continue;
+                }
+                Map<String, Object> inbound = new LinkedHashMap<>();
+                inbound.put("code", "RK" + stamp + unit + salt);
+                inbound.put("name", cut(assetName, 200) + " 盘盈建账入库");
+                inbound.put("companyId", companyId);
+                inbound.put("assetId", assetId);
+                inbound.put("creatorId", creatorId);
+                inbound.put("createTime", LocalDateTime.now());
+                inbound.put("finishTime", null);
+                inbound.put("remark", cut("盘点盘盈建账：盘点单 " + docNo, 250));
+                inbound.put("status", "DRAFT");
+                try {
+                    genericService.createIndependent(INBOUND_DOCS, inbound);
+                } catch (RuntimeException e) {
+                    // 入库单生成失败不推翻盘点结论：台账里已是「待入库」，管理员可手工补入库单
+                    log.warn("盘点盘盈生成入库单失败 assetId={} code={}", assetId, inbound.get("code"), e);
+                }
+            }
+        }
+    }
+
+    /** 空值不写入：引用字段（公司/部门/用户）传空串会被引用校验判成「引用对象不存在」 */
+    private static void putIfPresent(Map<String, Object> row, String field, String value) {
+        if (value != null && !value.trim().isEmpty()) {
+            row.put(field, value.trim());
+        }
+    }
+
+    /** 盘盈明细的资产分类：必须是 ASSET_CATEGORY 枚举码，否则台账校验不过 */
+    private static String categoryOf(Map<?, ?> item) {
+        String category = text(item.get("assetType"));
+        if (!category.isEmpty() && category.matches("[A-Z_]+")) {
+            return category;
+        }
+        // 老明细里存的是中文分类名，退回「其他设备」
+        return "OTHER";
+    }
+
+    /** 明细里的数量：非法值按 1 处理 */
+    private static int numberOf(Object value) {
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        try {
+            return Integer.parseInt(text(value));
+        } catch (NumberFormatException e) {
+            return 1;
         }
     }
 
@@ -492,6 +675,39 @@ public class ApprovalService {
     private static String cut(String value, int max) {
         String v = value == null ? "" : value.trim();
         return v.length() <= max ? v : v.substring(0, max);
+    }
+
+    /**
+     * 盘点单完结后把来源盘点计划置为「已完成」。
+     *
+     * <p>盘点计划没有自己的审批流，它的状态只能跟着盘点单走：生成盘点单时置 PROCESSING，
+     * 盘点单完结后若没人回写，计划就永远停在「盘点中」，计划页的「进行中」计数也永远归不了零。</p>
+     *
+     * <p>来源计划从 remark 的「由盘点计划 {planNo} 生成」标记解析（盘点单契约里没有 planId
+     * 字段，加字段要改表结构）。解析不到标记就跳过，不影响审批结论。</p>
+     */
+    private void syncInventoryPlan(Map<String, Object> doc) {
+        String remark = text(doc.get("remark"));
+        if (remark.isEmpty()) {
+            return;
+        }
+        Matcher matcher = PLAN_FROM_REMARK.matcher(remark);
+        if (!matcher.find()) {
+            return;
+        }
+        String planNo = matcher.group(1);
+        // 用 listInternal：这是系统侧的联动，不该受审批人自己的数据范围影响
+        for (Map<String, Object> plan : genericService.listInternal(INVENTORY_PLANS, new LinkedHashMap<>())) {
+            if (!planNo.equals(text(plan.get("planNo")))) {
+                continue;
+            }
+            // 通用更新按整行校验（必填字段要一起带上），所以基于计划原行改状态
+            Map<String, Object> patch = new LinkedHashMap<>(plan);
+            patch.put("status", "DONE");
+            genericService.updateQuietly(INVENTORY_PLANS, text(plan.get("id")), patch);
+            log.info("盘点单完结，来源盘点计划置为已完成 planNo={}", planNo);
+            return;
+        }
     }
 
     private static String text(Object value) {

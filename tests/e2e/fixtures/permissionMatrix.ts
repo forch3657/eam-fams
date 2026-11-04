@@ -57,8 +57,10 @@ const LOW_VALUE_DOC_RULES: ResourceRule[] = [
 export const RESOURCE_RULES: ResourceRule[] = [
   // ---------------- 固定资产
   { key: 'fixed-assets', read: ['fa:view'], write: ['fa:add', 'fa:edit'], remove: ['fa:delete'] },
-  { key: 'fixed-asset-inventory-plans', read: ['fa:inventory'], write: ['fa:inventory'], remove: ['fa:inventory'] },
-  { key: 'fixed-asset-inventory-docs', read: ['fa:inventory'], write: ['fa:inventory'], remove: ['fa:inventory'] },
+  // 盘点单/计划是被审计对象：读随 fa:view（审计员 R6 要能核对被审单），
+  // 写与删仍要 fa:inventory（盘点执行权）
+  { key: 'fixed-asset-inventory-plans', read: ['fa:inventory', 'fa:view'], write: ['fa:inventory'], remove: ['fa:inventory'] },
+  { key: 'fixed-asset-inventory-docs', read: ['fa:inventory', 'fa:view'], write: ['fa:inventory'], remove: ['fa:inventory'] },
   // 折旧方案/规则是基础字典：能看台账就要能读，写与计提仍要 fa:depreciation
   { key: 'fixed-asset-depreciation-schemes', read: ['fa:view'], write: ['fa:depreciation'], remove: ['fa:depreciation'] },
   { key: 'fixed-asset-depreciation-reports', read: ['fa:depreciation'], write: ['fa:depreciation'], remove: ['fa:depreciation'] },

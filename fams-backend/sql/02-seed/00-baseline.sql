@@ -42,7 +42,7 @@ INSERT INTO `org_roles` (`id`, `code`, `name`, `org_scope`, `data_scope`, `statu
 ('R3', 'ROLE_USER', '资产使用人', 'DEPT', 'DEPT_ONLY', 'ENABLED', 3, '普通员工，可查看本人名下资产并发起低值资产领用/退库', '["fa:view","lv:view","lv:requisition","lv:return","wm:view","wm:todo","wm:message"]', 'seed', '2024-01-05 09:10:00', 'seed', '2026-09-16 09:05:44', 1),
 ('R4', 'ROLE_FINANCE', '财务管理员', 'COMPANY', 'COMPANY', 'ENABLED', 4, '负责折旧计提、资产报表与导出', '["fa:view","fa:export","fa:depreciation","fa:report","lv:view","lv:report","sys:log","wm:view","wm:overview","wm:message"]', 'seed', '2024-01-05 09:15:00', 'seed', '2026-09-15 14:22:08', 1),
 ('R5', 'ROLE_LEADER', '部门主管', 'DEPT', 'DEPT', 'ENABLED', 5, '部门负责人，可审批本部门资产业务单据', '["fa:view","fa:edit","fa:dispatch","fa:borrow","fa:inventory","fa:report","lv:view","lv:requisition","lv:report","wm:view","wm:todo","wm:alert","wm:message"]', 'seed', '2024-01-05 09:20:00', 'seed', '2026-09-14 11:31:52', 1),
-('R6', 'ROLE_AUDITOR', '审计员', 'GROUP', 'ALL', 'ENABLED', 6, '只读权限，用于内审与合规检查', '["fa:view","fa:report","lv:view","lv:report","sys:log","wm:view","wm:overview","wm:message"]', 'seed', '2024-01-05 09:25:00', 'seed', '2026-09-13 16:48:20', 1),
+('R6', 'ROLE_AUDITOR', '审计员', 'GROUP', 'ALL', 'ENABLED', 6, '只读权限，用于内审与合规检查；是盘点流程「审计抽查确认」环节的审批人，需 wm:todo 才能处理待办', '["fa:view","fa:report","lv:view","lv:report","sys:log","wm:view","wm:todo","wm:overview","wm:message"]', 'seed', '2024-01-05 09:25:00', 'seed', '2026-09-13 16:48:20', 1),
 ('R7', 'ROLE_VP', '分管副总', 'GROUP', 'ALL', 'ENABLED', 7, '资产处置流程中大额资产（原值 20 万以上）的分管领导审批环节', '["fa:view","fa:edit","fa:dispose","fa:report","lv:view","lv:report","wm:view","wm:todo","wm:overview","wm:message"]', 'seed', '2024-01-05 09:30:00', 'seed', '2026-09-12 15:20:10', 1),
 ('R8', 'ROLE_WAREHOUSE', '仓管员', 'COMPANY', 'COMPANY', 'ENABLED', 8, '低值资产领用流程中的出库确认环节，同时负责低值物品出入库', '["fa:view","lv:view","lv:inbound","lv:requisition","lv:return","wm:view","wm:todo","wm:alert","wm:message"]', 'seed', '2024-01-05 09:35:00', 'seed', '2026-09-11 10:05:33', 1);
 
@@ -85,7 +85,10 @@ INSERT INTO `system_dict_items` (`id`, `label`, `value`, `sort`, `status`, `rema
 ('DI_asset_status_DISPATCHING', '派发中', 'DISPATCHING', 3, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'asset_status'),
 ('DI_asset_status_BORROWED', '借出中', 'BORROWED', 4, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'asset_status'),
 ('DI_asset_status_REPAIRING', '维修中', 'REPAIRING', 5, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'asset_status'),
-('DI_asset_status_DISPOSING', '处置中', 'DISPOSING', 6, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'asset_status');
+('DI_asset_status_DISPOSING', '处置中', 'DISPOSING', 6, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'asset_status'),
+('DI_asset_status_PENDING_INBOUND', '待入库', 'PENDING_INBOUND', 7, 'ENABLED', '盘点盘盈建账后待入库验收', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'asset_status'),
+('DI_asset_status_PENDING_WRITE_OFF', '待核销', 'PENDING_WRITE_OFF', 8, 'ENABLED', '盘点盘亏待处置核销', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'asset_status'),
+('DI_asset_status_DISPOSED', '已核销', 'DISPOSED', 9, 'ENABLED', '处置审批完结，账面上注销', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'asset_status');
 
 -- 字典项 (system-dict-types-asset_type-items)
 INSERT INTO `system_dict_items` (`id`, `label`, `value`, `sort`, `status`, `remark`, `create_by`, `create_time`, `update_by`, `update_time`, `version`, `dict_code`) VALUES

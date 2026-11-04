@@ -88,7 +88,7 @@ export async function createDoc(
 export async function createInventoryDoc(
   session: Session,
   units: OrgUnits,
-  options: { docNo?: string; items?: unknown[]; status?: string } = {}
+  options: { docNo?: string; items?: unknown[]; status?: string; remark?: string } = {}
 ): Promise<{ id: string; docNo: string }> {
   const docNo = options.docNo ?? `E2E_PD_${suffix()}`
   return withApi(session.token, async api => {
@@ -104,7 +104,7 @@ export async function createInventoryDoc(
           assetTypes: [],
           createTime: new Date().toISOString(),
           finishTime: '',
-          remark: 'E2E 自动创建，用后删除',
+          remark: options.remark ?? 'E2E 自动创建，用后删除',
           status: options.status ?? 'DRAFT',
           items: options.items ?? [],
           counters: []

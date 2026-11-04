@@ -95,7 +95,8 @@
     },
     {
       "resource": "fixed-asset-inventory",
-      "read": ["fa:inventory"],
+      "note": "盘点单/计划是被审计对象：读随 fa:view（审计员只有只读码，读不到就等于盲批审计抽查环节）；写与删仍要 fa:inventory",
+      "read": ["fa:inventory", "fa:view"],
       "write": ["fa:inventory"],
       "delete": ["fa:inventory"]
     },

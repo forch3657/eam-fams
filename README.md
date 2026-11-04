@@ -186,6 +186,21 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 - [ ] **领用 / 退库代申请**：`新增领用 / 新增退库` 打开后默认预填「本人 + 本部门」；先选部门、领用人下拉自动过滤该部门人员；可改选他人代申请
 - [ ] **审批流**：抽查一张单据提交审批 → 审批人能看到并处理
 
+### 盘点闭环口径（盘盈 / 盘亏）
+
+盘点单审批完结（`WF9`：盘点结果确认 → 差异复核 → 审计抽查）后，结论按明细自动落地：
+
+| 差异 | 台账 | 派生单据 | 后续 |
+| --- | --- | --- | --- |
+| 盘盈（账外资产） | 按登记件数建账，状态 `PENDING_INBOUND`（待入库） | 每件一张入库单（`DRAFT`） | 走 WF1 入库验收（仓管 → 资产管理员）通过后转 `IDLE`（空闲）并补入库日期 |
+| 盘亏 | 原资产置 `PENDING_WRITE_OFF`（待核销） | 一张处置单（`DRAFT`） | 处置审批通过后转 `DISPOSED`（已核销），台账保留记录留痕 |
+
+- 盘盈明细必须带齐建账要素：名称、分类（**枚举码**，如 `FURNITURE`）、数量、金额、存放位置。
+  前端「登记账外资产（盘盈）」弹窗负责收集；分类落中文名会被台账枚举校验拒绝（422）。
+- 派生单据走独立事务：入库单 / 处置单生成失败只记 warn，不推翻盘点结论（台账上已能看出差异）。
+- 新增的三个资产状态（待入库 / 待核销 / 已核销）落在 `system_dict_items.asset_status`，
+  迁移脚本 `fams-backend/sql/04-maintenance/07-inventory-closure.sql`（幂等，root 执行）。
+
 ---
 
 ## 4. 演示账号清单
@@ -279,7 +294,7 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 | R3 资产使用人 | `fa:view`、`lv:view`、`lv:requisition`、`lv:return` | 本部门（DEPT_ONLY） |
 | R4 财务管理员 | `fa:view/export/depreciation/report`、`sys:log` | 本公司（COMPANY） |
 | R5 部门主管 | `fa:view/edit/dispatch/borrow/inventory`、`fa:report`、`lv:requisition` | 本部门（DEPT） |
-| R6 审计员 | 只读：`fa:view/report`、`lv:view/report`、`sys:log` | 全集团（ALL） |
+| R6 审计员 | 只读：`fa:view/report`、`lv:view/report`、`sys:log`；`wm:todo`（盘点「审计抽查确认」环节的审批人，需有待办才能处理） | 全集团（ALL） |
 | R7 分管副总 | `fa:view/edit/dispose/report`（大额处置审批环节） | 全集团（ALL） |
 | R8 仓管员 | `fa:view`、`lv:inbound/requisition/return` | 本公司（COMPANY） |
 
@@ -400,7 +415,7 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 
 | 层次 | 位置 | 数量 | 说明 |
 |---|---|---|---|
-| 接口/集成测试 | `fams-backend/src/test/java/com/fams/p0..p12` | 130 用例 | `@SpringBootTest + MockMvc + H2`，覆盖骨架、鉴权、通用引擎、审批、低值库存、折旧、系统管理、口令安全、**盘点闭环**与数据导入 |
+| 接口/集成测试 | `fams-backend/src/test/java/com/fams/p0..p12` | 127 用例 | `@SpringBootTest + MockMvc + H2`，覆盖骨架、鉴权、通用引擎、审批、低值库存、折旧、系统管理、口令安全、**盘点闭环**与数据导入 |
 | 前端单元测试 | `fams-frontend/*.test.mjs` | 4 组 | 自研 runner（`npm run test`），验证 auth / 审批 / 低值 / 工作台的 store 与数据层 |
 | E2E 端到端 | `tests/e2e/*.spec.ts` | 18 个 spec | Playwright Test Runner，针对真实生产栈 `https://localhost` 验证关键点击流；盘点专项见 `docs/e2e/test-plan-p1-p5.md` 第 8 节 |
 | 覆盖率度量 | jacoco | 整体行覆盖约 79% | `security` ≥ 70%、`engine` ≥ 78% 才允许构建通过 |

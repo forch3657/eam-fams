@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { dataService, COLLECTION } from '../services'
-import { BIZ_DOC_REGISTRY, ALL_BIZ_TYPES } from '../services/approval'
+import { BIZ_DOC_REGISTRY, ALL_BIZ_TYPES, isApproverOfBiz } from '../services/approval'
 import { myTodos, buildAlerts, buildOverview } from '../services/workbench'
 import { paramNumber } from '../services/sysParams'
 import { useOrgStore } from './org'
@@ -28,8 +28,21 @@ export const useWorkbenchStore = defineStore('workbench', () => {
 
   /** 每类单据的读权限码：没有对应权限就不发请求，避免业务角色首屏 403 */
   function readCodeOf(bt) {
-    if (bt === 'INVENTORY') return 'fa:inventory'
     return BIZ_DOC_REGISTRY[bt].scope === 'low-value' ? 'lv:view' : 'fa:view'
+  }
+
+  /**
+   * 某类单据当前账号能不能读。
+   *
+   * <p>盘点单额外放行「盘点流程的环节审批人」：审计员 R6 是「审计抽查确认」环节的审批人，
+   * 读不到盘点单就等于盲批，待办里也拼不出这张单（后端读权限已随 fa:view 放开）。</p>
+   */
+  function readable(bt, can) {
+    if (bt === 'INVENTORY') {
+      if (can('fa:inventory')) return true
+      return isApproverOfBiz('INVENTORY', useUserStore().user, orgStore, approvalStore.flows)
+    }
+    return can(readCodeOf(bt))
   }
 
   function permKey() {
@@ -42,7 +55,12 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     loading.value = true
     const can = code => useUserStore().can(code)
     try {
-      const readableTypes = ALL_BIZ_TYPES.filter(bt => can(readCodeOf(bt)))
+      // 盘点单的可见性要按流程环节判定审批人，必须先拿到流程配置；
+      // 无 wm:todo 的账号读流程会 403，这里吞掉异常，退回按权限码判定。
+      if (!approvalStore.loaded) {
+        await approvalStore.load().catch(() => {})
+      }
+      const readableTypes = ALL_BIZ_TYPES.filter(bt => readable(bt, can))
       const [docResults, assetRows, itemRows, planRows] = await Promise.all([
         Promise.all(readableTypes.map(async bt => {
           const rows = await dataService.list(BIZ_DOC_REGISTRY[bt].collection)

@@ -98,4 +98,22 @@ class P12PermissionContractTest {
         Set<String> viewer = new HashSet<>(Collections.singletonList("wm:view"));
         assertThat(policy.matches("org-users", "GET", viewer)).isFalse();
     }
+
+    /**
+     * 盘点单 / 盘点计划是被审计对象：审计员（R6 只有只读码）要能读到才能核对明细，
+     * 否则「审计抽查确认」环节等于盲批；写与删仍要 fa:inventory（盘点执行权）。
+     */
+    @Test
+    @DisplayName("盘点单读随 fa:view（审计员可核对），写删仍要 fa:inventory")
+    void inventoryDocsAreReadableByAuditor() {
+        Set<String> auditor = new HashSet<>(Arrays.asList("fa:view", "wm:todo"));
+        assertThat(policy.matches("fixed-asset-inventory-docs", "GET", auditor)).isTrue();
+        assertThat(policy.matches("fixed-asset-inventory-plans", "GET", auditor)).isTrue();
+        assertThat(policy.matches("fixed-asset-inventory-docs", "POST", auditor)).isFalse();
+        assertThat(policy.matches("fixed-asset-inventory-docs", "DELETE", auditor)).isFalse();
+
+        Set<String> checker = new HashSet<>(Arrays.asList("fa:inventory"));
+        assertThat(policy.matches("fixed-asset-inventory-docs", "GET", checker)).isTrue();
+        assertThat(policy.matches("fixed-asset-inventory-docs", "POST", checker)).isTrue();
+    }
 }

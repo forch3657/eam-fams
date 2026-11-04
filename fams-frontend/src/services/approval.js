@@ -95,6 +95,24 @@ export function stepRoleId(step, org) {
   return roleIdByName(step.approver, org)
 }
 
+/**
+ * 当前用户是否是某业务类型流程的环节审批人（按角色匹配，与 canApprove 同口径）。
+ *
+ * <p>用途：审批人必须能读到被审单据，否则就是「盲批」——审计员 R6 只有只读码，
+ * 若盘点单读权限只认 fa:inventory，R6 打不开盘点单，审计抽查环节只能绕过界面调接口。
+ * 这里按流程配置判定，盘点审批人即可只读打开盘点单核对明细。</p>
+ */
+export function isApproverOfBiz(bizType, user, org, flows) {
+  const me = user || useUserStore().user
+  if (!me) return false
+  const roleIds = me.roleIds || []
+  if (!roleIds.length) return false
+  const orgStore = org || useOrgStore()
+  return (flows || [])
+    .filter(f => f.bizType === bizType)
+    .some(f => (f.steps || []).some(s => roleIds.includes(stepRoleId(s, orgStore))))
+}
+
 /** 环节审批人类型 -> 中文 */
 export const APPROVER_TYPE_TEXT = {
   ROLE: '角色成员',

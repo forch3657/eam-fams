@@ -79,7 +79,9 @@ public class PermissionPolicy {
         WRITE.put("fixed-asset-doc-lists-dispose", new String[]{"fa:dispose", "fa:add", "fa:edit"});
         DELETE.put("fixed-asset-doc-lists-dispose", new String[]{"fa:dispose", "fa:edit"});
 
-        READ.put("fixed-asset-inventory", new String[]{"fa:inventory"});
+        // 盘点单 / 盘点计划是「被审计的对象」：读随 fa:view（审计员 R6 只有只读码，
+        // 读不到盘点单就等于盲批「审计抽查确认」环节）；写与删仍要 fa:inventory（盘点执行权）。
+        READ.put("fixed-asset-inventory", new String[]{"fa:inventory", "fa:view"});
         WRITE.put("fixed-asset-inventory", new String[]{"fa:inventory"});
         DELETE.put("fixed-asset-inventory", new String[]{"fa:inventory"});
 

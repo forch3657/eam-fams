@@ -16,7 +16,11 @@ export const ASSET_STATUS = {
   DISPATCHING: '派发中',
   BORROWED: '借出中',
   REPAIRING: '维修中',
-  DISPOSING: '处置中'
+  DISPOSING: '处置中',
+  // 盘点闭环新增：盘盈建账后待入库验收、盘亏待核销、核销完成后留痕
+  PENDING_INBOUND: '待入库',
+  PENDING_WRITE_OFF: '待核销',
+  DISPOSED: '已核销'
 }
 
 /**
