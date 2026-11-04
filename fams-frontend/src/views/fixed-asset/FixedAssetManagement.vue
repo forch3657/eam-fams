@@ -733,7 +733,15 @@
           </el-select>
         </el-form-item>
         <el-form-item label="申请人" required>
-          <el-input v-model="wizardForm.applicant" placeholder="请输入申请人" style="width:100%" />
+          <el-select
+            v-model="wizardForm.applicant"
+            filterable
+            :disabled="!wizardForm.company"
+            :placeholder="wizardForm.company ? '请选择申请人' : '请先选择所属公司'"
+            style="width:100%"
+          >
+            <el-option v-for="p in applicantOptions" :key="p.userId" :label="`${p.name}（${p.dept}）`" :value="p.name" />
+          </el-select>
         </el-form-item>
         <el-form-item label="名称" required>
           <el-input v-model="wizardForm.name" maxlength="50" show-word-limit placeholder="请输入盘点名称" />
@@ -952,13 +960,29 @@ const FALLBACK_COMPANIES = ['华信科技集团有限公司', '云鼎资产管�
 const companyOptions = computed(() => (orgStore.companyOptions.length ? orgStore.companyOptions : FALLBACK_COMPANIES))
 /** 公司下拉：取主数据的 id/name，表单保存公司 ID 而非名称 */
 const companyOptionList = computed(() => orgStore.companies.map(c => ({ id: c.id, name: c.name })))
-/** 盘点员候选（来自组织架构用户） */
-const empPool = computed(() => orgStore.users.map(u => ({
-  userId: u.id,
-  name: u.name,
-  dept: orgStore.deptName(u.deptId) || '-',
-  phone: u.phone || '-'
-})))
+/** E2E 临时账号（username 以 e2e_ 开头）不是业务人员，选人时排除 */
+const isTempAccount = u =>
+  String(u?.username || '').toLowerCase().startsWith('e2e_') ||
+  String(u?.name || '').startsWith('E2E_')
+/** 所属公司的在职人员：申请人与盘点员都从这里选，不允许跨公司挑人 */
+const companyStaff = computed(() => {
+  const companyId = wizardForm.company
+  if (!companyId) return []
+  return orgStore.users
+    .filter(u => u.companyId === companyId && u.status === 'ENABLED')
+    // E2E 临时账号不是业务人员，不出现在选人下拉里
+    .filter(u => !isTempAccount(u))
+    .map(u => ({
+      userId: u.id,
+      name: u.name,
+      dept: orgStore.deptName(u.deptId) || '-',
+      phone: u.phone || '-'
+    }))
+})
+/** 申请人候选（所属公司在职人员） */
+const applicantOptions = computed(() => companyStaff.value)
+/** 盘点员候选（同一公司在职人员） */
+const empPool = computed(() => companyStaff.value)
 // 分类与购置方式取自统一枚举（value 为编码，label 为文案）
 // 枚举选项走 computed：optionsOf 读运行时字典覆盖表，字典改文案后下拉即时刷新
 const assetTypeOptions = computed(() => optionsOf('ASSET_CATEGORY'))
@@ -1578,6 +1602,12 @@ function openCounters(row) {
 const wizardVisible = ref(false)
 const wizardStep = ref(0)
 const wizardForm = reactive({ company: '', applicant: '', name: '', scope: '全部资产', assetTypes: [], counterIds: [], startDate: '' })
+
+// 换公司后人员范围变了：已选的申请人与盘点员都作废，避免留到不属于该公司的旧选择
+watch(() => wizardForm.company, () => {
+  wizardForm.applicant = ''
+  wizardForm.counterIds = []
+})
 
 function openWizard() {
   Object.assign(wizardForm, { company: '', applicant: '', name: '', scope: '全部资产', assetTypes: [], counterIds: [], startDate: '' })

@@ -142,6 +142,22 @@ export async function createTempUser(
  */
 const deptApproverState = new Map<string, { leaderId?: string; vpId?: string; bound: Set<string> }>()
 
+/**
+ * 只把「真实账号」当作可还原的原值。
+ *
+ * E2E 临时用户（username 以 e2e_ 开头）不算：否则清理后部门负责人会被还原成
+ * 另一个临时账号，几轮之后生产库里就留下「负责人 = E2E_临时用户_xxx」的脏数据。
+ */
+async function realApproverId(api: Awaited<ReturnType<typeof apiAs>>, userId?: string): Promise<string> {
+  if (!userId) return ''
+  const res = await api.get(`/api/org-users/${userId}`)
+  if (!res.ok()) return ''
+  const row = ((await res.json()).data ?? {}) as Record<string, unknown>
+  const username = String(row.username || '')
+  if (!username || username.toLowerCase().startsWith('e2e_')) return ''
+  return userId
+}
+
 async function bindDeptApprover(session: Session, userId: string, roleIds: string[], deptId: string) {
   if (!deptId || !roleIds?.length) return
   const api = await apiAs(session.token)
@@ -154,8 +170,8 @@ async function bindDeptApprover(session: Session, userId: string, roleIds: strin
     const dept = await assertOk(await api.get(`/api/org-departments/${deptId}`), '读取部门')
     if (!deptApproverState.has(deptId)) {
       deptApproverState.set(deptId, {
-        leaderId: dept.leaderId || '',
-        vpId: dept.vpId || '',
+        leaderId: await realApproverId(api, dept.leaderId),
+        vpId: await realApproverId(api, dept.vpId),
         bound: new Set<string>()
       })
     }
