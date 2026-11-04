@@ -14,6 +14,8 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.StringJoiner;
 
 /**
  * 审批动作服务（契约 5.6）。
@@ -70,12 +72,14 @@ public class ApprovalService {
         List<Map<String, Object>> steps = ApprovalSupport.effectiveSteps(flow, request.getCtx());
         List<Map<String, Object>> approvals =
                 ApprovalSupport.approvalsOf(genericService, APPROVALS, docKey, docId);
-        Map<String, Object> current = ApprovalSupport.currentStep(steps, approvals, genericService);
+        // 单据归属部门：部门负责人 / 分管领导按这个部门解析
+        String deptId = ApproverResolver.deptIdOf(genericService, previous);
+        Map<String, Object> current = ApprovalSupport.currentStep(steps, approvals, genericService, deptId);
 
         // 加签 / 转办 / 抄送：只写轨迹，不推进单据状态
         if ("addSign".equals(action) || "transfer".equals(action) || "cc".equals(action)) {
             return collaborate(request, docKey, docId, action, comment, previous, oldStatus,
-                    flow, current, bizType, approvals);
+                    flow, current, bizType, approvals, deptId);
         }
 
         String result;
@@ -90,6 +94,12 @@ public class ApprovalService {
             requireInitiator(previous, flow);
             if (steps.isEmpty()) {
                 throw new ApiException(ErrorCode.BAD_REQUEST, "该流程没有可用环节，请检查流程配置");
+            }
+            // 提交前预解析全部生效环节：没有审批人就不让提交，避免单据卡在中间没人能批
+            List<String> unresolved = ApproverResolver.unresolvedStepNames(genericService, steps, deptId);
+            if (!unresolved.isEmpty()) {
+                throw new ApiException(ErrorCode.BAD_REQUEST,
+                        "以下环节没有可用的审批人，请先在「组织架构」中指定：" + String.join("、", unresolved));
             }
             result = "SUBMIT";
             step = null;
@@ -111,7 +121,7 @@ public class ApprovalService {
             if (current == null) {
                 throw new ApiException(ErrorCode.CONFLICT, "该单据已无待审环节");
             }
-            requireApprover(current, approvals);
+            requireApprover(current, approvals, deptId);
             if (comment.isEmpty()) {
                 throw new ApiException(ErrorCode.VALIDATION, "驳回必须填写意见");
             }
@@ -130,7 +140,7 @@ public class ApprovalService {
                 stepName = "审批完成";
                 nextStatus = "DONE";
             } else {
-                requireApprover(current, approvals);
+                requireApprover(current, approvals, deptId);
                 result = "AGREE";
                 step = current;
                 stepName = text(current.get("name"));
@@ -197,17 +207,39 @@ public class ApprovalService {
         throw new ApiException(ErrorCode.FORBIDDEN, "只有单据创建人或流程发起人角色可以提交或撤销");
     }
 
-    private void requireApprover(Map<String, Object> step, List<Map<String, Object>> approvals) {
+    private void requireApprover(Map<String, Object> step, List<Map<String, Object>> approvals, String deptId) {
         String me = AuthContext.currentUserId();
         if (me == null || me.isEmpty()) {
             throw new ApiException(ErrorCode.UNAUTHORIZED, "未登录，无法审批");
         }
-        if (ApprovalSupport.approverIdsOf(step, approvals, genericService).contains(me)) {
+        Set<String> approvers = ApprovalSupport.approverIdsOf(step, approvals, genericService, deptId);
+        if (approvers.contains(me)) {
             return;
         }
-        String roleId = text(step.get("approverRoleId"));
-        throw new ApiException(ErrorCode.FORBIDDEN, "当前环节「" + text(step.get("name"))
-                + "」需要由「" + trailWriter.roleNameOf(roleId) + "」审批");
+        throw new ApiException(ErrorCode.FORBIDDEN, approvalHint(step, approvers));
+    }
+
+    /**
+     * 403 文案：能点名到具体的人就点名（部门负责人/分管领导），
+     * 否则回退到角色名（财务、仓管等归口角色）。
+     */
+    private String approvalHint(Map<String, Object> step, Set<String> approvers) {
+        String stepName = text(step.get("name"));
+        if (ApproverResolver.isPersonScoped(step)) {
+            StringJoiner names = new StringJoiner("、");
+            for (String id : approvers) {
+                String name = ApproverResolver.userNameOf(genericService, id);
+                if (!name.isEmpty()) {
+                    names.add(name);
+                }
+            }
+            String who = names.length() == 0
+                    ? ApproverResolver.personLabel(step.get("approverType"))
+                    : names.toString();
+            return "当前环节「" + stepName + "」需要由「" + who + "」审批";
+        }
+        return "当前环节「" + stepName + "」需要由「"
+                + trailWriter.roleNameOf(text(step.get("approverRoleId"))) + "」审批";
     }
 
     /**
@@ -220,7 +252,7 @@ public class ApprovalService {
     private Map<String, Object> collaborate(ApprovalRequest request, String docKey, String docId, String action,
                                             String comment, Map<String, Object> previous, String oldStatus,
                                             Map<String, Object> flow, Map<String, Object> current,
-                                            String bizType, List<Map<String, Object>> approvals) {
+                                            String bizType, List<Map<String, Object>> approvals, String deptId) {
         String me = AuthContext.currentUserId();
         if (me == null || me.isEmpty()) {
             throw new ApiException(ErrorCode.UNAUTHORIZED, "未登录，无法执行审批协作动作");
@@ -247,12 +279,12 @@ public class ApprovalService {
             throw new ApiException(ErrorCode.CONFLICT, "该单据已无待审环节，不能加签或转办");
         }
         boolean isApprover = current != null
-                && ApprovalSupport.approverIdsOf(current, approvals, genericService).contains(me);
+                && ApprovalSupport.approverIdsOf(current, approvals, genericService, deptId).contains(me);
         if (!isApprover && !(cc && me.equals(text(previous.get("creatorId"))))) {
             throw new ApiException(ErrorCode.FORBIDDEN,
                     "只有当前环节的审批人可以执行该动作（抄送还允许单据创建人）");
         }
-        if (!cc && ApprovalSupport.approverIdsOf(current, approvals, genericService).contains(target)) {
+        if (!cc && ApprovalSupport.approverIdsOf(current, approvals, genericService, deptId).contains(target)) {
             throw new ApiException(ErrorCode.CONFLICT, "该人员已是当前环节的审批人");
         }
         String result = "addSign".equals(action) ? "ADD_SIGN"

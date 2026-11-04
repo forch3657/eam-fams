@@ -1693,7 +1693,7 @@ function invCurrent(doc) {
   if (!flow) return null
   const steps = effectiveSteps(flow, invCtx(doc))
   const records = approvalsOf(approvalStore.approvals, 'inventory', doc?.id)
-  return currentStep(steps, records, orgStore)
+  return currentStep(steps, records, orgStore, doc)
 }
 function canSubmitInvDoc(doc) {
   const flow = invFlow()
@@ -1705,7 +1705,7 @@ function canApproveInvDoc(doc) {
   if (doc.status !== 'PROCESSING') return false
   const cur = invCurrent(doc)
   if (!cur) return false
-  return canApprove(cur.step, userStore.user, orgStore, cur.records)
+  return canApprove(cur.step, userStore.user, orgStore, cur.records, doc)
 }
 
 async function runInvApproval(doc, action, comment = '', targetUserId = '') {

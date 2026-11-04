@@ -144,10 +144,11 @@ public final class ApprovalSupport {
         return "HAS_DIFF".equals(type) && truthy(ctx.get("hasDiff"));
     }
 
-    /** 当前待审环节；全部通过时返回 null */
+    /** 当前待审环节；全部通过时返回 null。deptId 用于按部门解析审批人。 */
     public static Map<String, Object> currentStep(List<Map<String, Object>> steps,
                                                   List<Map<String, Object>> approvals,
-                                                  GenericService service) {
+                                                  GenericService service,
+                                                  String deptId) {
         for (Map<String, Object> step : steps) {
             String key = text(step.get("key"));
             Set<String> agreedBy = new LinkedHashSet<>();
@@ -162,7 +163,7 @@ public final class ApprovalSupport {
                 return step;
             }
             if ("ALL".equals(text(step.get("mode")))) {
-                Set<String> approvers = approverIdsOf(step, approvals, service);
+                Set<String> approvers = approverIdsOf(step, approvals, service, deptId);
                 if (!approvers.isEmpty() && !agreedBy.containsAll(approvers)) {
                     return step;
                 }
@@ -176,9 +177,12 @@ public final class ApprovalSupport {
      *
      * <p>角色成员为基础；存在转办时由最后一次转办目标替换基础集合；
      * 转办之后（或从未转办时）的加签目标追加进集合，参与 ANY / ALL 判定。</p>
+     *
+     * <p>基础集合按 {@code approverType} 解析：默认 ROLE 用角色成员；
+     * DEPT_LEADER / DEPT_VP 等按单据归属部门解析到具体的人（唯一审批人）。</p>
      */
     public static Set<String> approverIdsOf(Map<String, Object> step, List<Map<String, Object>> approvals,
-                                            GenericService service) {
+                                            GenericService service, String deptId) {
         Set<String> ids = new LinkedHashSet<>();
         String key = text(step.get("key"));
         Map<String, Object> lastTransfer = null;
@@ -198,7 +202,7 @@ public final class ApprovalSupport {
                 ids.add(target);
             }
         } else {
-            ids.addAll(service.userIdsOfRole(text(step.get("approverRoleId"))));
+            ids.addAll(ApproverResolver.resolve(service, step, deptId));
         }
         boolean afterTransfer = lastTransfer == null;
         for (Map<String, Object> record : stepRecords) {

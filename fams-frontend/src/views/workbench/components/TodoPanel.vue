@@ -202,6 +202,8 @@ async function runAction(item, action, comment = '', targetUserId = '') {
     ctx: docCtx(item.doc, workbench.assets),
     flows: approvalStore.flows,
     approvals: approvalStore.approvals,
+    // 固资单据没有 dept_id，归属部门要由关联资产推导（纵向审批按部门解析审批人）
+    assets: workbench.assets,
     saveDoc: next => persistDoc(item, next),
     saveApproval: row => approvalStore.addApproval(row)
   })

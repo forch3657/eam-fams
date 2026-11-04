@@ -97,7 +97,7 @@ const ITEM = 'DZ08' // 白色复印纸，种子库存 135
 const before = await stockOf(ITEM)
 await login('wangqiang') // 资产使用人（发起人）
 const draft = await lv.addRequisition({
-  itemId: ITEM, quantity: 10, receiver: '王强', deptId: 'D3',
+  itemId: ITEM, quantity: 10, receiver: '王强', deptId: 'D7',
   requisitionDate: '2026-10-20', purpose: '日常办公', operator: '王强'
 })
 eq(draft.status, 'DRAFT', '新建领用单应为草稿')
@@ -116,7 +116,7 @@ eq(afterSubmit.reserved, before.reserved + 10, '审批中应预占 10')
 eq(lv.availableStock(ITEM), before.stock - 10, '审批中可用量应减少 10')
 
 // ---------------------------------------------------------------- 3. 第一环节通过：仍不结算
-await login('chengang') // 部门主管
+await login('fengtao') // 仓储部负责人（纵向审批：归属部门负责人才能批）
 res = (await act(draft, 'requisition', 'approve', '同意')).res
 ok(res.ok, '部门主管审批失败：' + res.message)
 const afterStep1 = await stockOf(ITEM)
@@ -134,13 +134,13 @@ eq(afterDone.reserved, before.reserved, '结算后应释放占用')
 
 // ---------------------------------------------------------------- 5. 驳回释放预占
 const draft2 = await lv.addRequisition({
-  itemId: ITEM, quantity: 5, receiver: '王强', deptId: 'D3',
+  itemId: ITEM, quantity: 5, receiver: '王强', deptId: 'D7',
   requisitionDate: '2026-10-20', purpose: '测试驳回', operator: '王强'
 })
 await act(draft2, 'requisition', 'submit', '提交')
 const mid2 = await stockOf(ITEM)
 eq(mid2.reserved, afterDone.reserved + 5, '驳回前应预占 5')
-await login('chengang')
+await login('fengtao')
 res = (await act(draft2, 'requisition', 'reject', '用途不符')).res
 ok(res.ok, '驳回失败：' + res.message)
 eq(draft2.status, 'REJECTED', '驳回后状态')
@@ -151,7 +151,7 @@ eq(afterReject.reserved, afterDone.reserved, '驳回应释放预占')
 // ---------------------------------------------------------------- 6. 撤销释放预占
 await login('wangqiang')
 const draft3 = await lv.addRequisition({
-  itemId: ITEM, quantity: 3, receiver: '王强', deptId: 'D3',
+  itemId: ITEM, quantity: 3, receiver: '王强', deptId: 'D7',
   requisitionDate: '2026-10-20', purpose: '测试撤销', operator: '王强'
 })
 await act(draft3, 'requisition', 'submit', '提交')
@@ -178,7 +178,7 @@ const issued = lv.issuedQuantity(ITEM)
 eq(issued, 45, '已领未退数量口径')
 const beforeRet = await stockOf(ITEM)
 const retDraft = await lv.addReturn({
-  itemId: ITEM, quantity: 5, returner: '王强', deptId: 'D3',
+  itemId: ITEM, quantity: 5, returner: '王强', deptId: 'D7',
   returnDate: '2026-10-20', reason: '过量领用退回', operator: '王强'
 })
 eq(retDraft.status, 'DRAFT', '新建退库单应为草稿')
@@ -190,7 +190,7 @@ eq(retDraft.status, 'PROCESSING', '退库提交后状态')
 eq(lv.returnableQuantity(ITEM), issued - 5, '审批中退库应占用可退额度')
 eq((await stockOf(ITEM)).stock, beforeRet.stock, '退库审批中不回补库存')
 
-await login('chengang')
+await login('fengtao')
 res = (await act(retDraft, 'return', 'approve', '同意')).res
 ok(res.ok, '退库第一环节审批失败：' + res.message)
 await login('cangguan')
@@ -203,7 +203,7 @@ eq((await stockOf(ITEM)).stock, beforeRet.stock + 5, '退库审批通过后才�
 let threw = false
 try {
   await lv.addReturn({
-    itemId: ITEM, quantity: 999, returner: '王强', deptId: 'D3',
+    itemId: ITEM, quantity: 999, returner: '王强', deptId: 'D7',
     returnDate: '2026-10-20', reason: '超额', operator: '王强'
   })
 } catch (e) { threw = true }
@@ -213,7 +213,7 @@ ok(threw, '超过可退额度的退库单应被拦截')
 threw = false
 try {
   await lv.addRequisition({
-    itemId: 'DZ01', quantity: 50, receiver: '王强', deptId: 'D3',
+    itemId: 'DZ01', quantity: 50, receiver: '王强', deptId: 'D7',
     requisitionDate: '2026-10-20', purpose: '超量', operator: '王强'
   })
 } catch (e) { threw = true }
@@ -222,7 +222,7 @@ ok(threw, '超过可用库存的领用单应被拦截')
 // ---------------------------------------------------------------- 11. 并发占用：两张审批中的单据不会超领
 await login('wangqiang')
 const d1 = await lv.addRequisition({
-  itemId: 'DZ03', quantity: 15, receiver: '王强', deptId: 'D3',
+  itemId: 'DZ03', quantity: 15, receiver: '王强', deptId: 'D7',
   requisitionDate: '2026-10-20', purpose: '并发1', operator: '王强'
 })
 await act(d1, 'requisition', 'submit', '提交')

@@ -54,7 +54,9 @@ const DOC_STATUS_POOL = ['DONE', 'PROCESSING', 'DRAFT', 'REJECTED', 'REVOKED']
 const DOC_NOTE_POOL = ['按季度例行办理', '需资产管理员现场复核', '已完成实物验收', '等待财务确认金额', '附现场照片存档']
 const COMPANY_POOL = ['C1', 'C2', 'C3', 'C4']
 // 关联资产：决定金额门槛类环节是否生效（如处置流程 5 万/20 万）
-const ASSET_POOL = ['A01', 'A04', 'A05', 'A07', 'A11', 'A02', 'A13']
+// 同时决定单据归属部门（部门负责人/分管领导按归属部门解析），
+// 因此「审批中」状态的单据（status 池下标 1）要落在有负责人的部门上。
+const ASSET_POOL = ['A01', 'A05', 'A04', 'A07', 'A11', 'A02', 'A13']
 
 /**
  * @param {string} prefix 单号前缀

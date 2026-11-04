@@ -48,12 +48,16 @@ const SEED_PARAMS = [
 // 约定：
 // - initiatorRoleId / approverRoleId 引用「系统管理 → 组织架构 → 角色」的角色 id：审批权由角色派生，
 //   持有该角色的**启用**用户即为该环节审批人；
+// - approverType 决定审批人怎么解析：ROLE（缺省）按角色成员；DEPT_LEADER 按单据归属部门的负责人；
+//   DEPT_VP 按该部门分管领导（唯一审批人）；
 // - mode 存 APPROVE_MODE 编码（ANY 或签 / SEQUENCE 依次 / ALL 会签）；
 // - conditionType 存 APPROVE_CONDITION 编码（NONE / AMOUNT_GT / HAS_DIFF），conditionValue 为阈值；
 // - approver / condition 为冗余展示文案（兼容旧数据与只读场景），不参与判定。
 const STEP = (key, name, roleId, roleName, mode = 'ANY', conditionType = 'NONE', conditionValue = 0) => ({
   key,
   name,
+  // 审批人解析方式：部门主管 → 按单据归属部门解析「部门负责人」；分管副总 → 解析「分管领导」
+  approverType: roleId === 'R5' ? 'DEPT_LEADER' : roleId === 'R7' ? 'DEPT_VP' : undefined,
   approverRoleId: roleId,
   approver: roleName,
   mode,

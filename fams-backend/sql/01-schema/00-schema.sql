@@ -406,6 +406,8 @@ CREATE TABLE `org_departments` (
   `parent_id` VARCHAR(255) COMMENT '→org-departments',
   `company_id` VARCHAR(255) COMMENT '→org-companies 必填',
   `leader` VARCHAR(255),
+  `leader_id` VARCHAR(64) COMMENT '部门负责人 →org-users（审批按人解析）',
+  `vp_id` VARCHAR(64) COMMENT '分管领导 →org-users（审批按人解析）',
   `headcount` BIGINT,
   `phone` VARCHAR(255),
   `status` VARCHAR(64) COMMENT 'ENABLE_STATUS 必填',

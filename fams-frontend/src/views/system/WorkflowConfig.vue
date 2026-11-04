@@ -75,10 +75,11 @@
                   <div class="node-idx">{{ i + 1 }}</div>
                   <div class="node-body">
                     <div class="node-title">{{ s.name }}</div>
-                    <div class="node-sub">审批角色：{{ roleName(s.approverRoleId) || s.approver || '未指定' }}</div>
+                    <div class="node-sub">审批人：{{ approverText(s) }}</div>
                     <div class="node-sub">方式：{{ labelOf('APPROVE_MODE', s.mode) || s.mode }}</div>
                     <div v-if="condText(s)" class="node-cond">条件：{{ condText(s) }}</div>
-                    <div v-if="usersOf(s.approverRoleId).length" class="node-sub">
+                    <div v-if="isPersonStep(s)" class="node-cond">{{ personTypeText(s) }}：运行时按单据所属部门解析，唯一审批人</div>
+                    <div v-else-if="usersOf(s.approverRoleId).length" class="node-sub">
                       审批账号：{{ usersOf(s.approverRoleId).map(u => u.username + '(' + u.name + ')').join('、') }}
                     </div>
                     <div v-else class="node-cond">该角色暂无启用账号</div>
@@ -130,7 +131,13 @@
     <el-dialog v-model="showStep" title="编辑审批环节" width="560px">
       <el-form :model="stepForm" label-width="100px">
         <el-form-item label="环节名称" required><el-input v-model="stepForm.name" placeholder="如：部门审批" /></el-form-item>
-        <el-form-item label="审批角色" required>
+        <el-form-item label="审批人类型">
+          <el-select v-model="stepForm.approverType" style="width:100%">
+            <el-option v-for="t in approverTypeOptions" :key="t.value" :label="t.label" :value="t.value" />
+          </el-select>
+          <div class="tip">{{ approverTypeTip }}</div>
+        </el-form-item>
+        <el-form-item v-if="stepForm.approverType === 'ROLE'" label="审批角色" required>
           <el-select v-model="stepForm.approverRoleId" placeholder="选择承担该环节的系统角色" filterable style="width:100%">
             <el-option v-for="r in roleOptions" :key="r.id" :label="r.name" :value="r.id" />
           </el-select>
@@ -138,7 +145,17 @@
             可审批账号：{{ usersOf(stepForm.approverRoleId).map(u => u.username + '(' + u.name + ')').join('、') || '该角色暂无启用账号' }}
           </div>
         </el-form-item>
-        <el-form-item label="审批方式">
+        <el-form-item v-else-if="stepForm.approverType === 'USER'" label="指定审批人" required>
+          <el-select v-model="stepForm.approverId" placeholder="选择固定的审批账号" filterable style="width:100%">
+            <el-option
+              v-for="u in enabledUsers"
+              :key="u.id"
+              :label="`${u.name}（${u.username}）`"
+              :value="u.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="stepForm.approverType === 'ROLE'" label="审批方式">
           <el-radio-group v-model="stepForm.mode">
             <el-radio v-for="m in modeOptions" :key="m.value" :value="m.value">{{ m.label }}</el-radio>
           </el-radio-group>
@@ -220,7 +237,55 @@ function condText(step) {
 // ===== 环节操作 =====
 const showStep = ref(false)
 const editingKey = ref(null)
-const stepForm = ref({ name: '', approverRoleId: '', mode: 'ANY', conditionType: 'NONE', conditionValue: 0 })
+const stepForm = ref({ name: '', approverType: 'ROLE', approverRoleId: '', approverId: '', mode: 'ANY', conditionType: 'NONE', conditionValue: 0 })
+
+/**
+ * 审批人类型：
+ * - ROLE：角色成员，任一启用账号即可（历史口径）
+ * - DEPT_LEADER / PARENT_DEPT_LEADER / DEPT_VP：按单据归属部门解析到唯一的人
+ * - USER：环节上固定的审批账号
+ */
+const approverTypeOptions = [
+  { value: 'ROLE', label: '角色成员（该角色下任一启用账号）' },
+  { value: 'DEPT_LEADER', label: '本部门负责人（唯一）' },
+  { value: 'PARENT_DEPT_LEADER', label: '上级部门负责人（唯一）' },
+  { value: 'DEPT_VP', label: '本部门分管领导（唯一）' },
+  { value: 'USER', label: '指定审批人（唯一）' }
+]
+
+const PERSON_TYPE_TEXT = {
+  DEPT_LEADER: '部门负责人',
+  PARENT_DEPT_LEADER: '上级部门负责人',
+  DEPT_VP: '分管领导',
+  USER: '指定审批人'
+}
+
+const enabledUsers = computed(() => orgStore.users.filter(u => u.status === 'ENABLED'))
+
+function isPersonStep(s) {
+  return ((s && s.approverType) || 'ROLE') !== 'ROLE'
+}
+function personTypeText(s) {
+  return PERSON_TYPE_TEXT[(s && s.approverType)] || '按人解析'
+}
+function approverText(s) {
+  const type = (s && s.approverType) || 'ROLE'
+  if (type === 'ROLE') return roleName(s.approverRoleId) || s.approver || '未指定'
+  if (type === 'USER') {
+    const u = orgStore.users.find(x => x.id === s.approverId)
+    return u ? `${u.name}（${u.username}）` : '未指定'
+  }
+  return personTypeText(s)
+}
+
+const approverTypeTip = computed(() => {
+  const type = stepForm.value.approverType
+  if (type === 'ROLE') return '与历史一致：持有该角色的任一启用账号都可审批'
+  if (type === 'DEPT_LEADER') return '按单据归属部门的「部门负责人」解析，唯一审批人；需在「组织架构 → 部门」中指定'
+  if (type === 'PARENT_DEPT_LEADER') return '按单据归属部门的上一级部门负责人解析，唯一审批人'
+  if (type === 'DEPT_VP') return '按单据归属部门的「分管领导」解析，唯一审批人；本部门未配置时向上级部门查找'
+  return '固定由指定账号审批'
+})
 
 const modeTip = computed(() => ({
   ANY: '或签：该环节任一审批账号通过即可进入下一环节',
@@ -299,14 +364,16 @@ async function saveFlow() {
 let stepSeq = 100
 function addStep() {
   editingKey.value = null
-  stepForm.value = { name: '', approverRoleId: '', mode: 'ANY', conditionType: 'NONE', conditionValue: 0 }
+  stepForm.value = { name: '', approverType: 'ROLE', approverRoleId: '', approverId: '', mode: 'ANY', conditionType: 'NONE', conditionValue: 0 }
   showStep.value = true
 }
 function editStep(s) {
   editingKey.value = s.key
   stepForm.value = {
     name: s.name,
+    approverType: s.approverType || 'ROLE',
     approverRoleId: s.approverRoleId || '',
+    approverId: s.approverId || '',
     mode: s.mode || 'ANY',
     conditionType: s.conditionType || 'NONE',
     conditionValue: Number(s.conditionValue || 0)
@@ -315,10 +382,19 @@ function editStep(s) {
 }
 async function saveStep() {
   if (!stepForm.value.name) { ElMessage.warning('请填写环节名称'); return }
-  if (!stepForm.value.approverRoleId) { ElMessage.warning('请选择审批角色'); return }
+  if (stepForm.value.approverType === 'ROLE' && !stepForm.value.approverRoleId) {
+    ElMessage.warning('请选择审批角色')
+    return
+  }
+  if (stepForm.value.approverType === 'USER' && !stepForm.value.approverId) {
+    ElMessage.warning('请选择指定审批人')
+    return
+  }
   const payload = {
     ...stepForm.value,
-    approver: roleName(stepForm.value.approverRoleId),
+    approver: stepForm.value.approverType === 'ROLE'
+      ? roleName(stepForm.value.approverRoleId)
+      : personTypeText(stepForm.value),
     condition: condText(stepForm.value)
   }
   if (editingKey.value) {

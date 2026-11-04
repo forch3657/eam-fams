@@ -87,7 +87,7 @@ export function myTodos(p = {}) {
       const flow = getFlow(bizType, flows)
       const steps = flow ? effectiveSteps(flow, ctx) : []
       const records = approvalsOf(approvals, reg.docKey, doc.id)
-      const cur = steps.length ? currentStep(steps, records, org) : null
+      const cur = steps.length ? currentStep(steps, records, org, doc, assets) : null
       const base = {
         bizType,
         bizName: labelOf('BUSINESS_TYPE', bizType),
@@ -110,7 +110,7 @@ export function myTodos(p = {}) {
       }
 
       // 待我审批：单据在审批中，且当前环节的审批角色包含我的角色
-      if (doc.status === 'PROCESSING' && cur && canApprove(cur.step, user, org, cur.records)) {
+      if (doc.status === 'PROCESSING' && cur && canApprove(cur.step, user, org, cur.records, doc, assets)) {
         pending.push({
           ...base,
           stepKey: cur.step.key,
@@ -243,7 +243,7 @@ export function buildAlerts(p = {}) {
       const flow = getFlow(bizType, flows)
       const steps = flow ? effectiveSteps(flow, ctx) : []
       const records = approvalsOf(approvals, reg.docKey, doc.id)
-      const cur = steps.length ? currentStep(steps, records, org) : null
+      const cur = steps.length ? currentStep(steps, records, org, doc, assets) : null
       const code = docCode(doc)
 
       if (doc.status === 'PROCESSING') {
@@ -350,7 +350,7 @@ export function buildOverview(p = {}) {
       const flow = getFlow(bizType, flows)
       if (!flow) continue
       const steps = effectiveSteps(flow, docCtx(doc, assets))
-      const cur = currentStep(steps, approvalsOf(approvals, reg.docKey, doc.id), org)
+      const cur = currentStep(steps, approvalsOf(approvals, reg.docKey, doc.id), org, doc, assets)
       if (!cur) continue
       const roleId = stepRoleId(cur.step, org)
       const roleName = (org?.roles || []).find(r => r.id === roleId)?.name || '未指定角色'

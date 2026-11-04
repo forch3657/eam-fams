@@ -713,7 +713,7 @@ function currentOf(kind, doc) {
   if (!flow) return null
   const steps = effectiveSteps(flow, ctxOf(doc))
   const records = approvalsOf(approvalStore.approvals, kind, doc?.id)
-  return currentStep(steps, records, orgStore)
+  return currentStep(steps, records, orgStore, doc)
 }
 function canSubmitDoc(doc, kind) {
   const flow = flowOf(kind)
@@ -725,7 +725,7 @@ function canApproveDoc(doc, kind) {
   if (doc.status !== 'PROCESSING') return false
   const cur = currentOf(kind, doc)
   if (!cur) return false
-  return canApprove(cur.step, userStore.user, orgStore, cur.records)
+  return canApprove(cur.step, userStore.user, orgStore, cur.records, doc)
 }
 function canRevokeDoc(doc, kind) {
   const flow = flowOf(kind)

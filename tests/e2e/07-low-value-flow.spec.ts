@@ -20,6 +20,8 @@ import { act, json, suffix, withApi } from './fixtures/fixedAsset'
  */
 let admin: Session
 let user3: { user: TempUser; token: string }
+/** 纵向审批：低值单据按 deptId 找部门负责人，临时「部门主管」会被绑定为该部门负责人 */
+let lvDeptId = ''
 
 const items: string[] = []
 const docs: Array<{ collection: string; id: string; docNo: string }> = []
@@ -27,8 +29,11 @@ const users: TempUser[] = []
 
 test.beforeAll(async () => {
   admin = await loginViaApi()
+  // 单据归属部门 = deptId；部门负责人由临时「部门主管」账号担任（fixtures 自动绑定），
+  // 因此发起人与单据部门必须与负责人同一个部门，否则提交会被「没有可用的审批人」拦下。
+  lvDeptId = (await pickOrgUnit(admin)).deptId
   const roleId = await findRoleIdByCode(admin, 'ROLE_USER')
-  const user = await createTempUser(admin, roleId)
+  const user = await createTempUser(admin, roleId, { deptId: lvDeptId })
   users.push(user)
   const session = await loginViaApi({ username: user.username, password: user.password })
   user3 = { user, token: session.token }
@@ -122,6 +127,7 @@ async function createLvDoc(
     amount: Number(options.price ?? 10.5) * options.quantity,
     operator: 'E2E',
     remark: 'E2E 自动创建，用后删除',
+    deptId: lvDeptId,
     status: options.status ?? 'DRAFT',
     creatorId: options.creatorId ?? admin.user.id,
     submitTime: '',
@@ -159,7 +165,7 @@ async function trailsOf(docNo: string) {
 
 async function createLeader(): Promise<{ user: TempUser; token: string; session: Session }> {
   const roleId = await findRoleIdByCode(admin, 'ROLE_LEADER')
-  const user = await createTempUser(admin, roleId)
+  const user = await createTempUser(admin, roleId, { deptId: lvDeptId })
   users.push(user)
   const session = await loginViaApi({ username: user.username, password: user.password })
   return { user, token: session.token, session }
@@ -167,7 +173,7 @@ async function createLeader(): Promise<{ user: TempUser; token: string; session:
 
 async function createWarehouse(): Promise<{ user: TempUser; token: string }> {
   const roleId = await findRoleIdByCode(admin, 'ROLE_WAREHOUSE')
-  const user = await createTempUser(admin, roleId)
+  const user = await createTempUser(admin, roleId, { deptId: lvDeptId })
   users.push(user)
   const session = await loginViaApi({ username: user.username, password: user.password })
   return { user, token: session.token }

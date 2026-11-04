@@ -655,6 +655,8 @@ test('[P3-13] 非当前环节角色审批被拒且不产生轨迹', async () => 
   const asset = await createAsset()
   const doc = await createDoc('alloc', { assetId: asset.id })
   const normal = await createRoleUser('ROLE_USER')
+  // 纵向审批：该环节只能由归属部门负责人批，403 文案点名到具体的人
+  const leader = await createLeaderUser()
   await act(admin.token, { docKey: 'alloc', docId: doc.id, action: 'submit' })
 
   const res = await act(normal.session.token, {
@@ -665,7 +667,7 @@ test('[P3-13] 非当前环节角色审批被拒且不产生轨迹', async () => 
   })
   expect(res.status).toBe(403)
   expect(res.body.message).toContain('使用部门确认')
-  expect(res.body.message).toContain('部门主管')
+  expect(res.body.message).toContain(leader.user.name)
 
   expect(await docStatus('alloc', doc.id)).toBe('PROCESSING')
   const trails = await trailsOf(doc.id, doc.code)

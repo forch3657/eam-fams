@@ -146,7 +146,9 @@ const props = defineProps({
   /** 业务类型：默认按 docKey 映射；同名但业务不同的单据（如低值退库）显式指定 */
   bizType: { type: String, default: '' },
   /** 条件上下文：{ amount, hasDiff }，决定哪些环节在本单据上生效 */
-  ctx: { type: Object, default: () => ({}) }
+  ctx: { type: Object, default: () => ({}) },
+  /** 资产台账：固资单据没有 dept_id，需要按 assetId 找资产所属部门来定位审批人 */
+  assets: { type: Array, default: () => [] }
 })
 const emit = defineEmits(['update:modelValue', 'act'])
 
@@ -162,7 +164,7 @@ const bizType = computed(() => props.bizType || DOC_BIZ_TYPE[props.docKey] || pr
 const flow = computed(() => getFlow(bizType.value, approvalStore.flows))
 const steps = computed(() => effectiveSteps(flow.value, props.ctx))
 const records = computed(() => props.doc ? approvalsOf(approvalStore.approvals, props.docKey, props.doc.id) : [])
-const current = computed(() => currentStep(steps.value, records.value, orgStore))
+const current = computed(() => currentStep(steps.value, records.value, orgStore, props.doc, props.assets))
 
 const timeline = computed(() => [...records.value].sort((a, b) => String(a.time || '').localeCompare(String(b.time || ''))))
 const activeIndex = computed(() => (current.value ? current.value.index : steps.value.length))
@@ -180,7 +182,7 @@ const stepDesc = step => {
   const info = stepInfo(step)
   return `${info.roleName} · ${info.modeText}${info.conditionText ? ' · ' + info.conditionText : ''}`
 }
-const stepAccounts = step => stepApproverAccounts(step, orgStore, records.value)
+const stepAccounts = step => stepApproverAccounts(step, orgStore, records.value, props.doc, props.assets)
 /** 环节状态：已通过 / 已驳回 / 待审批 / 未开始 */
 const stateOf = step => stepState(step, records.value, orgStore, current.value)
 const stateText = state => ({ DONE: '已通过', PENDING: '待审批', REJECTED: '已驳回', WAITING: '未开始' }[state] || '未开始')
@@ -202,7 +204,7 @@ const showSubmit = computed(() => {
 const showApprove = computed(() => {
   const d = props.doc
   if (!d || d.status !== 'PROCESSING' || !current.value) return false
-  return canApprove(current.value.step, userStore.user, orgStore, records.value)
+  return canApprove(current.value.step, userStore.user, orgStore, records.value, props.doc, props.assets)
 })
 const showReject = computed(() => showApprove.value)
 const showRevoke = computed(() => {
@@ -239,7 +241,7 @@ const collabCandidates = computed(() => {
   const step = current.value?.step
   return (orgStore.users || [])
     .filter(u => u.status === 'ENABLED' && u.id !== me.id)
-    .filter(u => collabAction.value === 'cc' || !canApprove(step, u, orgStore, records.value))
+    .filter(u => collabAction.value === 'cc' || !canApprove(step, u, orgStore, records.value, props.doc, props.assets))
     .map(u => ({ id: u.id, name: u.name || u.username, username: u.username }))
 })
 

@@ -95,33 +95,114 @@ export function stepRoleId(step, org) {
   return roleIdByName(step.approver, org)
 }
 
-/** 环节的审批人（持有该角色的启用用户） */
-export function stepApprovers(step, org) {
+/** 环节审批人类型 -> 中文 */
+export const APPROVER_TYPE_TEXT = {
+  ROLE: '角色成员',
+  DEPT_LEADER: '部门负责人',
+  PARENT_DEPT_LEADER: '上级部门负责人',
+  DEPT_VP: '分管领导',
+  USER: '指定审批人'
+}
+
+/** 环节是否按「组织里的人」解析（唯一审批人，与后端 ApproverResolver 对齐） */
+export function isPersonScoped(step) {
+  const type = (step && step.approverType) || 'ROLE'
+  return type === 'DEPT_LEADER' || type === 'PARENT_DEPT_LEADER'
+    || type === 'DEPT_VP' || type === 'USER'
+}
+
+function deptById(org, deptId) {
+  return (org.departments || []).find(d => d.id === deptId) || null
+}
+
+function userById(org, id) {
+  return (org.users || []).find(u => u.id === id) || null
+}
+
+/**
+ * 单据归属部门：单据 deptId → 资产 deptId → 创建人所属部门。
+ *
+ * 固资单据表里没有 dept_id，必须先看资产；后端 ApproverResolver 用的是同一口径。
+ */
+export function docDeptId(doc, org, assets = []) {
   const orgStore = org || useOrgStore()
+  if (!doc) return ''
+  if (doc.deptId) return doc.deptId
+  const asset = (assets || []).find(a => a && a.id === doc.assetId)
+  if (asset && asset.deptId) return asset.deptId
+  const creator = userById(orgStore, doc.creatorId)
+  return (creator && creator.deptId) || ''
+}
+
+/** 分管领导：本部门没配就沿父部门向上找 */
+function vpIdOf(org, deptId) {
+  let cursor = deptId
+  let depth = 0
+  while (cursor && depth++ < 12) {
+    const dept = deptById(org, cursor)
+    if (!dept) return ''
+    if (dept.vpId) return dept.vpId
+    cursor = dept.parentId || ''
+  }
+  return ''
+}
+
+/**
+ * 环节的审批人。
+ *
+ * - ROLE（缺省）：持有该角色的启用用户；
+ * - DEPT_LEADER / PARENT_DEPT_LEADER / DEPT_VP：按单据归属部门解析到**唯一的人**；
+ * - USER：环节上指定的固定审批人。
+ */
+export function stepApprovers(step, org, doc = null, assets = []) {
+  const orgStore = org || useOrgStore()
+  if (!step) return []
+  const type = step.approverType || 'ROLE'
+  if (type === 'DEPT_LEADER' || type === 'PARENT_DEPT_LEADER' || type === 'DEPT_VP') {
+    const deptId = docDeptId(doc, orgStore, assets)
+    if (!deptId) return []
+    let target = ''
+    if (type === 'DEPT_LEADER') {
+      const dept = deptById(orgStore, deptId)
+      target = (dept && dept.leaderId) || ''
+    } else if (type === 'PARENT_DEPT_LEADER') {
+      const dept = deptById(orgStore, (deptById(orgStore, deptId) || {}).parentId || '')
+      target = (dept && dept.leaderId) || ''
+    } else {
+      target = vpIdOf(orgStore, deptId)
+    }
+    if (!target) return []
+    const user = userById(orgStore, target)
+    return user && user.status === 'ENABLED' ? [user] : []
+  }
+  if (type === 'USER') {
+    const user = step.approverId ? userById(orgStore, step.approverId) : null
+    return user && user.status === 'ENABLED' ? [user] : []
+  }
   const roleId = stepRoleId(step, orgStore)
   if (!roleId) return []
   return orgStore.users.filter(u => (u.roleIds || []).includes(roleId) && u.status === 'ENABLED')
 }
 
 /** 环节可审批的账号清单（用于界面提示"该环节由谁审"，传入 records 时按加签/转办后的实际审批人） */
-export function stepApproverAccounts(step, org, records = []) {
-  return stepApproversWithRecords(step, org, records).map(u => ({ id: u.id, name: u.name, username: u.username }))
+export function stepApproverAccounts(step, org, records = [], doc = null, assets = []) {
+  return stepApproversWithRecords(step, org, records, doc, assets).map(u => ({ id: u.id, name: u.name, username: u.username }))
 }
 
 /**
  * 环节的实际审批人（含协作改动）：
- * - 基础 = 审批角色成员；
+ * - 基础 = 按环节类型解析出的审批人（角色成员 / 部门负责人 / 分管领导）；
  * - 存在转办时，最后一次转办的目标人替换基础集合；
  * - 转办之后（或从未转办时）的加签目标追加进集合。
  */
-export function stepApproversWithRecords(step, org, records = []) {
+export function stepApproversWithRecords(step, org, records = [], doc = null, assets = []) {
   if (!step) return []
   const orgStore = org || useOrgStore()
   const stepRecords = (records || []).filter(r => r.stepKey === step.key)
   const lastTransfer = [...stepRecords].reverse().find(r => r.result === 'TRANSFER' && r.targetUserId)
   const base = lastTransfer
     ? (orgStore.users || []).filter(u => u.id === lastTransfer.targetUserId)
-    : stepApprovers(step, orgStore)
+    : stepApprovers(step, orgStore, doc, assets)
   const result = new Map(base.map(u => [u.id, u]))
   const after = lastTransfer ? stepRecords.slice(stepRecords.indexOf(lastTransfer) + 1) : stepRecords
   for (const r of after) {
@@ -165,7 +246,7 @@ export function approvalsOf(records, docKey, docId) {
  * - ALL：需该环节全部审批人通过
  * - 只有"通过"记录才算该环节已处理；驳回后重新提交会回到该环节
  */
-export function currentStep(steps, approvals, org) {
+export function currentStep(steps, approvals, org, doc = null, assets = []) {
   const list = steps || []
   const done = approvals || []
   for (let i = 0; i < list.length; i++) {
@@ -174,7 +255,7 @@ export function currentStep(steps, approvals, org) {
     const agreed = stepRecords.filter(a => a.result === 'AGREE')
     if (!agreed.length) return { index: i, step, records: stepRecords }
     if (step.mode === 'ALL') {
-      const approvers = stepApproversWithRecords(step, org, stepRecords)
+      const approvers = stepApproversWithRecords(step, org, stepRecords, doc, assets)
       const passed = new Set(agreed.map(a => a.approverId))
       if (approvers.length && approvers.some(u => !passed.has(u.id))) {
         return { index: i, step, records: stepRecords }
@@ -211,10 +292,10 @@ export function canSubmit(doc, flow, user, org) {
 }
 
 /** 当前登录用户是否可以审批该环节（records 传入后按加签/转办后的实际审批人判定） */
-export function canApprove(step, user, org, records = []) {
+export function canApprove(step, user, org, records = [], doc = null, assets = []) {
   const me = user || useUserStore().user
   if (!me || !step) return false
-  return stepApproversWithRecords(step, org, records).some(u => u.id === me.id)
+  return stepApproversWithRecords(step, org, records, doc, assets).some(u => u.id === me.id)
 }
 
 /** 环节的展示信息（角色名 / 方式 / 条件） */
@@ -248,7 +329,7 @@ export function stepInfo(step, org) {
 export async function runApproval(p) {
   const {
     doc, docKey, bizType, action, comment = '', ctx = {},
-    saveDoc, saveApproval, flows = [], approvals = []
+    saveDoc, saveApproval, flows = [], approvals = [], assets = []
   } = p
 
   // 后端模式下把整个审批动作交给服务端完成：状态推进 + 轨迹落库在一次请求内原子完成，
@@ -271,7 +352,7 @@ export async function runApproval(p) {
 
   const steps = effectiveSteps(flow, ctx)
   const docApprovals = approvalsOf(approvals, docKey, doc.id)
-  const cur = currentStep(steps, docApprovals, org)
+  const cur = currentStep(steps, docApprovals, org, doc, assets)
   const roleNameOf = step => (step ? ((org.roles.find(r => r.id === stepRoleId(step, org)) || {}).name || '') : '')
 
   const pushRecord = async record => {
@@ -324,11 +405,11 @@ export async function runApproval(p) {
     if (targetUser.status !== 'ENABLED') return { ok: false, message: '目标人员已停用，不能接收审批任务' }
     const cc = action === 'cc'
     if (!cur && !cc) return { ok: false, message: '该单据已无待审环节，不能加签或转办' }
-    const isApprover = cur ? canApprove(cur.step, me, org, docApprovals) : false
+    const isApprover = cur ? canApprove(cur.step, me, org, docApprovals, doc, assets) : false
     if (!isApprover && !(cc && doc.creatorId === me.id)) {
       return { ok: false, message: '只有当前环节的审批人可以执行该动作（抄送还允许单据创建人）' }
     }
-    if (!cc && canApprove(cur.step, targetUser, org, docApprovals)) {
+    if (!cc && canApprove(cur.step, targetUser, org, docApprovals, doc, assets)) {
       return { ok: false, message: '该人员已是当前环节的审批人' }
     }
     const result = action === 'addSign' ? 'ADD_SIGN' : action === 'transfer' ? 'TRANSFER' : 'CC'
@@ -355,8 +436,9 @@ export async function runApproval(p) {
     if (saveDoc) await saveDoc({ ...doc, status: 'DONE', finishTime: new Date().toISOString() })
     return { ok: true, status: 'DONE', message: '审批已全部通过' }
   }
-  if (!canApprove(cur.step, me, org, docApprovals)) {
-    return { ok: false, message: '当前环节「' + cur.step.name + '」需要由「' + (roleNameOf(cur.step) || cur.step.approver) + '」审批' }
+  if (!canApprove(cur.step, me, org, docApprovals, doc, assets)) {
+    const who = stepApproversWithRecords(cur.step, org, docApprovals, doc, assets).map(u => u.name).join('、')
+    return { ok: false, message: '当前环节「' + cur.step.name + '」需要由「' + (who || roleNameOf(cur.step) || cur.step.approver) + '」审批' }
   }
 
   if (action === 'reject') {
@@ -369,7 +451,7 @@ export async function runApproval(p) {
 
   if (action === 'approve') {
     await pushRecord({ ...base, stepKey: cur.step.key, stepName: cur.step.name, result: 'AGREE', comment })
-    const after = currentStep(steps, [...docApprovals, { stepKey: cur.step.key, result: 'AGREE', approverId: me.id }], org)
+    const after = currentStep(steps, [...docApprovals, { stepKey: cur.step.key, result: 'AGREE', approverId: me.id }], org, doc, assets)
     const done = !after
     const next = { ...doc, status: done ? 'DONE' : 'PROCESSING', finishTime: done ? new Date().toISOString() : '' }
     if (saveDoc) await saveDoc(next)
@@ -384,11 +466,11 @@ export async function runApproval(p) {
 }
 
 /** 单据的审批进度（供界面展示） */
-export function progressOf(doc, docKey, bizType, flows, approvals, org, ctx = {}) {
+export function progressOf(doc, docKey, bizType, flows, approvals, org, ctx = {}, assets = []) {
   const flow = getFlow(bizType, flows)
   if (!flow) return { flow: null, steps: [], current: null, records: [] }
   const steps = effectiveSteps(flow, ctx)
   const records = approvalsOf(approvals, docKey, doc.id)
-  const cur = currentStep(steps, records, org)
+  const cur = currentStep(steps, records, org, doc, assets)
   return { flow, steps, current: cur, records }
 }

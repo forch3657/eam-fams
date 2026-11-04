@@ -118,6 +118,7 @@
       :doc="approvalDoc"
       :doc-key="props.docKey"
       :ctx="approvalCtx"
+      :assets="assetStore.assets"
       @act="onApprovalAct"
     />
   </div>
@@ -284,7 +285,7 @@ function currentOf(doc) {
   if (!flow) return null
   const steps = effectiveSteps(flow, ctxOf(doc))
   const records = approvalsOf(approvalStore.approvals, props.docKey, doc?.id)
-  return currentStep(steps, records, orgStore)
+  return currentStep(steps, records, orgStore, doc, assetStore.assets)
 }
 
 function canSubmitRow(doc) {
@@ -297,7 +298,7 @@ function canApproveRow(doc) {
   if (doc.status !== 'PROCESSING') return false
   const cur = currentOf(doc)
   if (!cur) return false
-  return canApprove(cur.step, userStore.user, orgStore, cur.records)
+  return canApprove(cur.step, userStore.user, orgStore, cur.records, doc, assetStore.assets)
 }
 function canRevokeRow(doc) {
   const flow = flowOf(doc)
@@ -318,6 +319,7 @@ async function doApproval(doc, action, comment = '', targetUserId = '') {
     ctx: ctxOf(doc),
     flows: approvalStore.flows,
     approvals: approvalStore.approvals,
+    assets: assetStore.assets,
     saveDoc: async next => {
       const target = items.value.find(d => d.id === doc.id)
       if (target) {

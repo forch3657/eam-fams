@@ -73,7 +73,12 @@
           <el-table-column label="所属公司" min-width="180" show-overflow-tooltip>
             <template #default="{ row }">{{ orgStore.companyName(row.companyId) }}</template>
           </el-table-column>
-          <el-table-column prop="leader" label="负责人" width="100" />
+          <el-table-column label="部门负责人" width="120" show-overflow-tooltip>
+            <template #default="{ row }">{{ userLabel(row.leaderId, row.leader) }}</template>
+          </el-table-column>
+          <el-table-column label="分管领导" width="120" show-overflow-tooltip>
+            <template #default="{ row }">{{ userLabel(row.vpId) }}</template>
+          </el-table-column>
           <el-table-column prop="headcount" label="编制" width="80" align="center" />
           <el-table-column label="在职" width="80" align="center">
             <template #default="{ row }">
@@ -133,7 +138,14 @@
           </el-select>
         </el-form-item>
         <el-form-item label="部门负责人">
-          <el-input v-model="dialog.form.leader" style="width: 200px" />
+          <el-select v-model="dialog.form.leaderId" placeholder="审批时按该部门负责人解析" clearable filterable style="width: 100%" @change="onLeaderChange">
+            <el-option v-for="u in companyUsers()" :key="u.id" :label="`${u.name}（${u.position || '—'}）`" :value="u.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="分管领导">
+          <el-select v-model="dialog.form.vpId" placeholder="审批时按该部门分管领导解析" clearable filterable style="width: 100%">
+            <el-option v-for="u in companyUsers()" :key="u.id" :label="`${u.name}（${u.position || '—'}）`" :value="u.id" />
+          </el-select>
         </el-form-item>
         <el-form-item label="编制人数">
           <el-input-number v-model="dialog.form.headcount" :min="0" :precision="0" />
@@ -217,6 +229,24 @@ function parentName(id) {
   return orgStore.departments.find(d => d.id === id)?.name || ''
 }
 
+/** 部门负责人/分管领导以用户 id 存储，展示时回退到历史文本 */
+function userLabel(id, fallback = '') {
+  if (!id) return fallback || '—'
+  return orgStore.users.find(u => u.id === id)?.name || fallback || '—'
+}
+
+/** 审批人只能从本公司在职用户中选，避免跨公司选人 */
+function companyUsers() {
+  const companyId = dialog.form.companyId
+  if (!companyId) return []
+  return orgStore.users.filter(u => u.companyId === companyId && u.status === 'ENABLED')
+}
+
+/** 负责人姓名同步回 leader 文本列，保持列表/导出兼容 */
+function onLeaderChange(id) {
+  dialog.form.leader = orgStore.users.find(u => u.id === id)?.name || ''
+}
+
 function handleSearch() { page.value = 1 }
 
 function handleReset() {
@@ -273,7 +303,7 @@ const rules = {
 }
 
 function emptyForm() {
-  return { id: '', code: '', name: '', companyId: '', parentId: null, leader: '', headcount: 0, phone: '', sort: 0, status: 'ENABLED' }
+  return { id: '', code: '', name: '', companyId: '', parentId: null, leader: '', leaderId: '', vpId: '', headcount: 0, phone: '', sort: 0, status: 'ENABLED' }
 }
 
 /** 上级部门候选：同一公司内的部门，且排除自身及其子孙 */

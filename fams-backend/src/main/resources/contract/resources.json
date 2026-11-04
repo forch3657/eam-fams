@@ -2596,6 +2596,22 @@
           "refCollection": null
         },
         {
+          "name": "leaderId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-users"
+        },
+        {
+          "name": "vpId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-users"
+        },
+        {
           "name": "headcount",
           "type": "number",
           "required": false,
@@ -2639,6 +2655,14 @@
         {
           "field": "parentId",
           "collection": "org-departments"
+        },
+        {
+          "field": "leaderId",
+          "collection": "org-users"
+        },
+        {
+          "field": "vpId",
+          "collection": "org-users"
         }
       ],
       "protect": [

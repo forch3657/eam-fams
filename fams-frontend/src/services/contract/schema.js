@@ -494,6 +494,9 @@ const ORG_DEPARTMENTS = {
     parentId: f.ref('org-departments'),
     companyId: f.ref('org-companies', { required: true }),
     leader: f.str(),
+    // 审批按「人」解析：部门负责人 / 分管领导（org-users.id）
+    leaderId: f.ref('org-users'),
+    vpId: f.ref('org-users'),
     headcount: f.num(),
     phone: f.str(),
     status: f.enum('ENABLE_STATUS', { required: true }),
@@ -504,7 +507,9 @@ const ORG_DEPARTMENTS = {
     unique: ['code'],
     refs: [
       { field: 'companyId', collection: 'org-companies' },
-      { field: 'parentId', collection: 'org-departments' }
+      { field: 'parentId', collection: 'org-departments' },
+      { field: 'leaderId', collection: 'org-users' },
+      { field: 'vpId', collection: 'org-users' }
     ],
     protect: [
       { collection: 'org-departments', field: 'parentId', message: '该部门下仍有子部门，不能删除' },

@@ -104,15 +104,20 @@ export async function createTempRole(
 }
 
 /** 建一个临时用户并绑定角色（支持多角色，验证权限并集）；口令满足密码策略 */
-export async function createTempUser(session: Session, roleId: string | string[]): Promise<TempUser> {
+export async function createTempUser(
+  session: Session,
+  roleId: string | string[],
+  options?: { deptId?: string }
+): Promise<TempUser> {
   const suffix = uniqueSuffix()
   const org = await pickOrgUnit(session)
+  const deptId = options?.deptId || org.deptId
   const payload = {
     username: `e2e_${suffix}`,
     password: 'E2e@2026test',
     name: `${E2E_PREFIX}临时用户_${suffix}`,
     companyId: org.companyId,
-    deptId: org.deptId,
+    deptId,
     position: 'E2E',
     roleIds: Array.isArray(roleId) ? roleId : [roleId],
     status: 'ENABLED'
@@ -120,7 +125,74 @@ export async function createTempUser(session: Session, roleId: string | string[]
   const api = await apiAs(session.token)
   try {
     const created = await assertOk(await api.post('/api/org-users', { data: payload }), '创建临时用户')
+    await bindDeptApprover(session, created.id, payload.roleIds, deptId)
     return { id: created.id, username: payload.username, name: payload.name, password: payload.password }
+  } finally {
+    await api.dispose()
+  }
+}
+
+/**
+ * 纵向审批（DEPT_LEADER / DEPT_VP）：审批人按单据归属部门解析到具体的人。
+ *
+ * 测试里承担「部门主管」「分管副总」的临时账号必须同时是该部门的
+ * 负责人/分管领导，否则环节解析不到人、提交会被拦下。
+ * 这里在创建临时账号时绑定，清理临时账号时还原，
+ * 避免在库里留下指向已删除用户的悬空引用。
+ */
+const deptApproverState = new Map<string, { leaderId?: string; vpId?: string; bound: Set<string> }>()
+
+async function bindDeptApprover(session: Session, userId: string, roleIds: string[], deptId: string) {
+  if (!deptId || !roleIds?.length) return
+  const api = await apiAs(session.token)
+  try {
+    const roles = await assertOk(await api.get('/api/org-roles?pageSize=200'), '查询角色')
+    const codes = roleIds.map(id => ((roles ?? []).find((r: any) => r.id === id) || {}).code || '')
+    const wantLeader = codes.includes('ROLE_LEADER')
+    const wantVp = codes.includes('ROLE_VP')
+    if (!wantLeader && !wantVp) return
+    const dept = await assertOk(await api.get(`/api/org-departments/${deptId}`), '读取部门')
+    if (!deptApproverState.has(deptId)) {
+      deptApproverState.set(deptId, {
+        leaderId: dept.leaderId || '',
+        vpId: dept.vpId || '',
+        bound: new Set<string>()
+      })
+    }
+    const state = deptApproverState.get(deptId)!
+    const body: Record<string, unknown> = {}
+    if (wantLeader) body.leaderId = userId
+    if (wantVp) body.vpId = userId
+    state.bound.add(userId)
+    await assertOk(
+      await api.put(`/api/org-departments/${deptId}`, { data: { ...dept, ...body } }),
+      '设置部门审批人'
+    )
+  } finally {
+    await api.dispose()
+  }
+}
+
+/** 清理临时账号前，把部门负责人/分管领导还原回原值 */
+async function restoreDeptApprover(session: Session, userId: string) {
+  const targets = [...deptApproverState.entries()].filter(([, s]) => s.bound.has(userId))
+  if (!targets.length) return
+  const api = await apiAs(session.token)
+  try {
+    for (const [deptId, state] of targets) {
+      const dept = await assertOk(await api.get(`/api/org-departments/${deptId}`), '读取部门')
+      const body: Record<string, unknown> = {}
+      if (dept.leaderId === userId) body.leaderId = state.leaderId || ''
+      if (dept.vpId === userId) body.vpId = state.vpId || ''
+      if (Object.keys(body).length) {
+        await assertOk(
+          await api.put(`/api/org-departments/${deptId}`, { data: { ...dept, ...body } }),
+          '还原部门审批人'
+        )
+      }
+      state.bound.delete(userId)
+      if (!state.bound.size) deptApproverState.delete(deptId)
+    }
   } finally {
     await api.dispose()
   }
@@ -131,6 +203,7 @@ export async function cleanupTemp(session: Session, entities: { userId?: string;
   const api = await apiAs(session.token)
   try {
     if (entities.userId) {
+      await restoreDeptApprover(session, entities.userId)
       await api.delete(`/api/org-users/${entities.userId}`).catch(() => null)
     }
     if (entities.roleId) {
