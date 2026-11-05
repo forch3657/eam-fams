@@ -18,6 +18,7 @@
     "e2e:p10": "playwright test tests/e2e/18-inventory-flow.spec.ts",
     "e2e:real-org": "playwright test tests/e2e/19-real-org-flow.spec.ts",
     "e2e:perm-audit": "playwright test tests/e2e/20-role-permission-audit.spec.ts",
+    "e2e:approval-feedback": "playwright test tests/e2e/21-approval-feedback.spec.ts",
     "e2e:l4": "playwright test tests/e2e/12-role-permission-matrix.spec.ts tests/e2e/13-primary-action-smoke.spec.ts tests/e2e/14-persona-journeys.spec.ts tests/e2e/16-imported-ledger-closure.spec.ts",
     "e2e:nightly": "powershell -ExecutionPolicy Bypass -File scripts/e2e/nightly-clone.ps1",
     "e2e:report": "playwright show-report playwright-report --host 127.0.0.1 --port 9323",

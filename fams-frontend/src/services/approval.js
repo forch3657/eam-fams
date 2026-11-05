@@ -372,12 +372,21 @@ export async function runApproval(p) {
   // 后端模式下把整个审批动作交给服务端完成：状态推进 + 轨迹落库在一次请求内原子完成，
   // 避免前端「先写轨迹再改状态」两次写入导致轨迹缺失或重复。
   if (dataMode === 'api') {
-    const data = await httpService.approvalAction(
-      { docKey, docId: doc.id, bizType, action, comment, ctx, targetUserId: p.targetUserId })
-    doc.status = data.status
-    // 协作动作不关闭审批弹窗，需要把服务端新写入的轨迹拉回来，界面才能显示新的审批人
-    if (isCollabAction(action)) await useApprovalStore().load(true).catch(() => {})
-    return { ok: true, status: data.status, message: data.message }
+    let data
+    try {
+      data = await httpService.approvalAction(
+        { docKey, docId: doc.id, bizType, action, comment, ctx, targetUserId: p.targetUserId })
+    } catch (e) {
+      // 服务端的 400/403/409（重复提交、越权、审批链缺配置等）必须变成界面上可见的提示。
+      // 所有调用点都按 { ok, message } 弹 ElMessage；异常若直接抛出就是「点了没反应」。
+      return { ok: false, message: e?.message || '审批操作失败，请稍后重试' }
+    }
+    if (data?.status) doc.status = data.status
+    // 服务端每次动作都会落一条审批轨迹（提交/通过/驳回/撤销/协作），必须强制重拉。
+    // 原来只在协作动作刷新：部门主管点「通过」后弹窗仍停在上一环节「待审批」，
+    // 用户再点一次就被后端按真实进度拒绝「当前环节需要由仓管员审批」。
+    await useApprovalStore().load(true).catch(() => {})
+    return { ok: true, status: data?.status || doc.status, message: data?.message || '操作成功' }
   }
 
   const org = useOrgStore()

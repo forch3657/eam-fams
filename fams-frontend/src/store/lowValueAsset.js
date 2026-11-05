@@ -210,7 +210,10 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     })
     const row = created || record
     requisitionRecords.value.unshift(row)
-    return row
+    // 返回响应式数组里的元素（Proxy）：新建后会自动提交审批，
+    // runApproval 要在这行上回写 status；返回原始对象不会触发视图更新，
+    // 列表会一直显示草稿态的「提交」按钮，用户误以为没提交而重复点击。
+    return requisitionRecords.value[0]
   }
 
   /** 已领未退数量 = 已生效领用总量 - 已生效退库总量（与引擎的退库限额规则一致） */
@@ -287,7 +290,8 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     })
     const row = created || record
     returnRecords.value.unshift(row)
-    return row
+    // 同 addRequisition：返回响应式行，自动提交后的状态回写才能刷新界面
+    return returnRecords.value[0]
   }
 
   /**
@@ -312,6 +316,18 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
 
   function updateReturnDoc(id, patch) {
     return updateDoc('return', id, patch)
+  }
+
+  /**
+   * 审批动作后把状态同步回 store 的原始记录。
+   * 列表展示的是 decorateDoc 生成的副本，只改副本会在下次列表重算时状态回退；
+   * 这里做本地兜底，配合组件按服务端重拉，保证界面 / store / 数据库一致。
+   */
+  function syncDocStatus(kind, id, status) {
+    if (!id || !status) return
+    const list = kind === 'return' ? returnRecords : requisitionRecords
+    const idx = list.value.findIndex(r => r.id === id)
+    if (idx > -1) list.value[idx] = { ...list.value[idx], status }
   }
 
   /** 当前登录用户 id（单据创建人 = 发起人） */
@@ -497,6 +513,7 @@ export const useLowValueAssetStore = defineStore('lowValueAsset', () => {
     addReturn,
     updateRequisitionDoc,
     updateReturnDoc,
+    syncDocStatus,
     addLocation,
     updateLocation,
     removeLocation,

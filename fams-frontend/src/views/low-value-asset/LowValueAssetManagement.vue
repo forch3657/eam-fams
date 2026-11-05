@@ -758,6 +758,14 @@ async function runDocApproval(doc, kind, action, comment = '', targetUserId = ''
     },
     saveApproval: row => approvalStore.addApproval(row)
   })
+  // 表格行是 decorateDoc 生成的副本：runApproval 回写的 status 只落在副本上，
+  // store 里的原始记录还是旧状态。任何一次列表重算（新增单据、切页、搜索）
+  // 都会把状态「退回」旧值，表现为「撤销后新增领用，已撤销单据又变进行中」。
+  // 审批动作一律以服务端为准重拉一次，保证界面、store、数据库三者一致。
+  if (res.ok) {
+    store.syncDocStatus(kind, doc.id, res.status)
+    await store.loadAll().catch(() => {})
+  }
   return res
 }
 

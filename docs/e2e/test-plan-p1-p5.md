@@ -446,6 +446,12 @@ P5 已落地 `09-workbench-reports.spec.ts`（14 条）与 `10-import-reset.spec
 
 | 2026-11-05 | 全角色权限梳理（RP-01~RP-06） | 生产形态 `http://localhost`（`stop-prod` → `build-prod` → `start-prod` 重建 jar + dist；`org_roles` 由管理员 API 配置） | 后端全量单测 **131 passed / 0 failed**（15 suites），前端 `check:perm` 40 码 / 36 映射 / 68 集合通过、单测 187+66+125+20 全绿；`npm run e2e:perm-audit` **6 passed / 0 failed（23.6s）**：RP-01 生产库 8 角色权限数组逐项比对、RP-02 陈学知真账号可写 borrow/repair/change 且 6 类越权集合 403、RP-03 部门主管职责分离 + 仓管入库验收、RP-04 `fa:repair` 不泄露 `fa:dispose`、RP-05/06 真账号界面页签显隐与新增入口；只读 SQL 复核 `org_roles`：8 角色权限数 40/27/10/11/9/10/8/12、中文 `name`/`remark` 无污染、`version` 2~3、`update_by=admin`，自定义 `ROLE_LEADERSHIP`（11 权限）原样保留；登记 BUG-027/028 |
 
+| 2026-11-05 | 审批反馈专项 + 合并回归（74 条） | 生产形态 `http://localhost`（`stop-prod` → `build-prod` → `start-prod` 重建 jar + dist，前端 `version.txt` = `71abe00`） | 修 BUG-029：`runApproval` 的 API 分支捕获 `ApiError` 转成可见错误，`addRequisition` / `addReturn` 返回响应式行；新增 `21-approval-feedback.spec.ts` 的 `[AF-01]`~`[AF-03]`，用陈学知真账号点「提交」覆盖成功 / 失败 / 状态同步，**3 passed**；合并回归 P2+P3+P10+FZ+RP+AF 共 74 条首跑 **71 passed / 3 failed**，失败全在 RP-01/RP-02/RP-05，原因是生产库 R3 于 14:02:29 被管理员加了 `fa:inbound` / `lv:inbound`（`update_time` 早于回归，非测试写入），用管理员 API 收回后 `RP+AF` 复跑 **9 passed / 0 failed**；前端单测 187+66+125+20 全绿、`check:perm` 通过、后端 131 单测通过；覆盖盲区复盘见 `docs/qa/escaped-defects.md` |
+
+| 2026-11-05 | 撤销状态回退修复（AF-04） | 生产形态 `http://localhost`（`stop-prod` → `build-prod` → `start-prod` 重建 jar + dist） | 修 BUG-030：`LowValueAssetManagement.vue` 的 `runDocApproval` 在审批成功后先 `syncDocStatus` 本地同步、再 `loadAll()` 按服务端重拉，消除 `decorateDoc` 副本导致的状态回退；`[AF-04]` 修复前稳定失败（撤销后新增领用，旧行「已撤销」标签消失），修复后通过；合并回归 P2+P3+P10+RP+AF 共 **64 passed / 0 failed（7.6 分钟）**；前端单测 187+66+125+20 全绿、`check:perm` 通过、后端 131 单测通过；用户手工单据 `PY2026001` / `PY2026015` / `PY2026016` 仍为 `REVOKED`，数据库从未被误写 |
+
+| 2026-11-05 | 审批轨迹刷新修复（AF-05） | 生产形态 `http://localhost`（`stop-prod` → `build-prod` → `start-prod` 重建 jar + dist） | 修 BUG-031：`runApproval` 的 API 分支去掉 `isCollabAction` 条件，所有成功审批动作后强制 `approvalStore.load(true)`；`[AF-05]` 在**修复前的生产包上实测失败**（后端已有 `AGREE` 轨迹，界面仍「部门主管审批 / 待审批」且「通过」按钮还在），重建后通过；合并回归 P2+P3+P10+FZ+RP+AF 共 **76 passed / 0 failed（8.8 分钟）**，含 8 部门真实审批链 FZ-00~FZ-10 全绿；前端单测 187+66+125+20、`check:perm`、后端 131 单测全绿；用户手工单 `PY2026017` 保持 `PROCESSING`（已推进到仓管员出库确认），`E2E_AF_` / `E2E_ORG_` 残留 0 |
+
 P4 执行清单：`tests/e2e/04-permission-matrix.spec.ts`（21 条），
 覆盖菜单可见性、路由兜底、按钮级、接口 401/403、角色停用/启用/加权限的即时性、
 多角色并集、角色删除保护、`dataScope` 回读；3 条 `fixme` 对应第 9 节 P4-D1~D3。
