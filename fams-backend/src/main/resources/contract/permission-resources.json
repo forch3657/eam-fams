@@ -85,8 +85,9 @@
     },
     {
       "resource": "fixed-asset-doc-lists-repair",
-      "write": ["fa:dispose", "fa:add", "fa:edit"],
-      "delete": ["fa:dispose", "fa:edit"]
+      "note": "维修报修由资产使用人持 fa:repair 发起；资产管理员可用 fa:dispose 全权办理调拨/维修/处置。报修权不等于资产处置权。",
+      "write": ["fa:repair", "fa:dispose", "fa:add", "fa:edit"],
+      "delete": ["fa:repair", "fa:dispose", "fa:edit"]
     },
     {
       "resource": "fixed-asset-doc-lists-dispose",

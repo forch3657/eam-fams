@@ -222,6 +222,13 @@ Remove-Item Env:MYSQL_PWD
 | `08-inventory-disposal.sql` | 盘点异常处理去向字典（`REPAIR` / `CHANGE` / `EXPLAINED`） | 2026-11-04 已执行 |
 | `09-borrow-return.sql` | 仅 `fixed_asset_doc_lists_borrow` 加归还日期/备注/登记人/是否已归还 4 列 | 2026-11-04 已执行 |
 | `10-asset-source-tag.sql` | `fixed_assets` 加 `source_tag`，承载「期初导入」标注 | 2026-11-04 已执行 |
+| `11-role-permissions.sql` | 8 个内置角色权限基线校准：新增 `fa:repair`、收回部门主管执行权、补齐财务/审计/仓管审批权；等价管理员在角色管理页配置 | 2026-11-05 已通过管理员 API 落生产库，脚本供重部署复跑 |
+
+> `11-role-permissions.sql` 是纯 DML 校准，不改表结构、不需重建 jar；
+> 但 `fa:repair` 权限码来自 `fams-frontend/src/config/permissions.js`，
+> 已由 `npm run export:contract` 导出到 `permissions.json`，并同步 `permission-resources.json` 与 `PermissionPolicy`。
+> 用管理员 API 改角色权限时，PowerShell 5.1 必须显式按 UTF-8 字节发送中文 `name` / `remark`，
+> 否则会变成 `?????` 并触发名称唯一键 409。
 
 > 08/09/10 涉及**契约字段新增**，务必按 §3.4 的顺序：先改
 > `fams-frontend/src/services/contract/schema.js` → `npm run export:contract` → 再执行迁移脚本 →

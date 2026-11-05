@@ -25,6 +25,7 @@ export const PERMISSION_TREE = [
       { id: 'fa:borrow', label: '借出使用' },
       { id: 'fa:change', label: '资产变更' },
       { id: 'fa:dispose', label: '资产处置' },
+      { id: 'fa:repair', label: '维修报修' },
       { id: 'fa:inventory', label: '资产盘点' },
       { id: 'fa:depreciation', label: '折旧管理' },
       { id: 'fa:report', label: '资产报表' },

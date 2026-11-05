@@ -444,6 +444,8 @@ P5 已落地 `09-workbench-reports.spec.ts`（14 条）与 `10-import-reset.spec
 
 | 2026-11-04 | 全量回归（212 条，两轮） | 生产形态 `http://localhost`（功能冻结，未重建栈；后端 `mvn test` 退出 0、前端单测 187+66+125+20 全绿、`check:perm` 68 集合通过） | 两轮均 **210 passed / 2 failed**：第 1 轮 `SMK-04` / `P1-30`（已修：菜单项显式等可见 + 标签页轮询；P1-30 改为登记真实差异明细 `ABNORMAL`+`EXPLAINED` 以适配服务端按明细判定 `hasDiff`），第 2 轮换为 `P1-24` / `P2-20`，单跑均通过，属长时间串行的环境噪音；**FZ-00~FZ-10 在两轮全量里 11/11 全绿**；另修 `15-doc-state-machine.spec.ts` 的 P7-03 漏登记派发单导致 `E2E_` 资产累积（单跑验证不再新增）；全量后 SQL 复核：真实 46 台资产全部 `IN_USE`、13 部门配置 / 81 账号 / `PD20261104001` 未变、`E2E_ORG_` 残留 0，既有全量遗留 42 台 `E2E_` 测试资产按口径只汇报不自动清库；生产栈健康检查登录 `code=0`、前端 `/version.txt` 200（`c227f1b`） |
 
+| 2026-11-05 | 全角色权限梳理（RP-01~RP-06） | 生产形态 `http://localhost`（`stop-prod` → `build-prod` → `start-prod` 重建 jar + dist；`org_roles` 由管理员 API 配置） | 后端全量单测 **131 passed / 0 failed**（15 suites），前端 `check:perm` 40 码 / 36 映射 / 68 集合通过、单测 187+66+125+20 全绿；`npm run e2e:perm-audit` **6 passed / 0 failed（23.6s）**：RP-01 生产库 8 角色权限数组逐项比对、RP-02 陈学知真账号可写 borrow/repair/change 且 6 类越权集合 403、RP-03 部门主管职责分离 + 仓管入库验收、RP-04 `fa:repair` 不泄露 `fa:dispose`、RP-05/06 真账号界面页签显隐与新增入口；只读 SQL 复核 `org_roles`：8 角色权限数 40/27/10/11/9/10/8/12、中文 `name`/`remark` 无污染、`version` 2~3、`update_by=admin`，自定义 `ROLE_LEADERSHIP`（11 权限）原样保留；登记 BUG-027/028 |
+
 P4 执行清单：`tests/e2e/04-permission-matrix.spec.ts`（21 条），
 覆盖菜单可见性、路由兜底、按钮级、接口 401/403、角色停用/启用/加权限的即时性、
 多角色并集、角色删除保护、`dataScope` 回读；3 条 `fixme` 对应第 9 节 P4-D1~D3。

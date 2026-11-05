@@ -43,7 +43,7 @@ const FIXED_DOC_RULES: ResourceRule[] = [
   { key: 'fixed-asset-doc-lists-borrow', read: ['fa:view'], write: ['fa:borrow', 'fa:add', 'fa:edit'], remove: ['fa:borrow', 'fa:edit'] },
   { key: 'fixed-asset-doc-lists-change', read: ['fa:view'], write: ['fa:change', 'fa:add', 'fa:edit'], remove: ['fa:change', 'fa:edit'] },
   { key: 'fixed-asset-doc-lists-transfer', read: ['fa:view'], write: ['fa:dispose', 'fa:add', 'fa:edit'], remove: ['fa:dispose', 'fa:edit'] },
-  { key: 'fixed-asset-doc-lists-repair', read: ['fa:view'], write: ['fa:dispose', 'fa:add', 'fa:edit'], remove: ['fa:dispose', 'fa:edit'] },
+  { key: 'fixed-asset-doc-lists-repair', read: ['fa:view'], write: ['fa:repair', 'fa:dispose', 'fa:add', 'fa:edit'], remove: ['fa:repair', 'fa:dispose', 'fa:edit'] },
   { key: 'fixed-asset-doc-lists-dispose', read: ['fa:view'], write: ['fa:dispose', 'fa:add', 'fa:edit'], remove: ['fa:dispose', 'fa:edit'] }
 ]
 

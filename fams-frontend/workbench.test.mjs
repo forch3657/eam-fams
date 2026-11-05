@@ -190,8 +190,9 @@ eq(daysUntil(new Date(Date.now() - 2 * 86400000).toISOString()), -2, 'daysUntil 
 const DOC_STATUS_CODES = Object.keys(ENUMS.DOC_STATUS)
 const DEPRECIATION_CODES = Object.keys(ENUMS.DEPRECIATION_METHOD)
 
-// 盘点计划需要 fa:inventory 才能装载，改用具备该权限的部门主管视角校验种子形态
-await login('chengang')
+// 盘点计划需要 fa:inventory 才能装载：全角色权限梳理后 R5 部门主管已收回盘点执行权，
+// 改用资产管理员（R2）视角校验种子形态
+await login('asset')
 await wb.load()
 ok(wb.plans.length > 0, '应有盘点计划种子数据')
 ok(

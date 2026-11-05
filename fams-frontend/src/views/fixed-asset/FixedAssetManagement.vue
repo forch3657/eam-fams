@@ -17,7 +17,7 @@
     <el-card class="fill">
 
       <el-tabs v-model="activeTab">
-        <el-tab-pane label="固定资产" name="asset">
+        <el-tab-pane v-if="tabVisible('fa:view')" label="固定资产" name="asset">
           <el-form :inline="true" class="search-form">
             <el-form-item label="关键字">
               <el-input v-model="assetSearch.keyword" placeholder="资产编号/资产名称" clearable style="width: 180px" />
@@ -38,7 +38,7 @@
                 查询
               </el-button>
               <el-button @click="resetAssetSearch">重置</el-button>
-              <el-button type="primary" @click="openAssetDialog()">
+              <el-button v-if="can('fa:add')" type="primary" @click="openAssetDialog()">
                 <el-icon><Plus /></el-icon>
                 新增
               </el-button>
@@ -93,12 +93,12 @@
         </el-tab-pane>
 
         <!-- 入库/验收 -->
-        <el-tab-pane label="入库/验收" name="inbound">
+        <el-tab-pane v-if="tabVisible('fa:inbound')" label="入库/验收" name="inbound">
           <FixedAssetDocList doc-key="inbound" prefix="RK" :perm="can('fa:inbound')" />
         </el-tab-pane>
 
         <!-- 派发/退库 -->
-        <el-tab-pane label="派发/退库" name="dispatch">
+        <el-tab-pane v-if="tabVisible('fa:dispatch')" label="派发/退库" name="dispatch">
           <el-tabs v-model="dispatchSub" type="card" class="sub-tabs">
             <el-tab-pane label="分配" name="alloc" />
             <el-tab-pane label="退库" name="back" />
@@ -107,27 +107,31 @@
         </el-tab-pane>
 
         <!-- 借出使用 -->
-        <el-tab-pane label="借出使用" name="borrow">
+        <el-tab-pane v-if="tabVisible('fa:borrow')" label="借出使用" name="borrow">
           <FixedAssetDocList doc-key="borrow" prefix="JC" :perm="can('fa:borrow')" />
         </el-tab-pane>
 
         <!-- 资产变更 -->
-        <el-tab-pane label="资产变更" name="change">
+        <el-tab-pane v-if="tabVisible('fa:change')" label="资产变更" name="change">
           <FixedAssetDocList doc-key="change" prefix="BG" :perm="can('fa:change')" />
         </el-tab-pane>
 
-        <!-- 资产处置 -->
-        <el-tab-pane label="资产处置" name="dispose">
+        <!-- 资产处置：调拨/处置要 fa:dispose；只持 fa:repair 的使用人只能看到「维修」子签 -->
+        <el-tab-pane v-if="tabVisible('fa:dispose') || tabVisible('fa:repair')" label="资产处置" name="dispose">
           <el-tabs v-model="disposeSub" type="card" class="sub-tabs">
-            <el-tab-pane label="调拨" name="transfer" />
-            <el-tab-pane label="维修" name="repair" />
-            <el-tab-pane label="处置" name="dispose" />
+            <el-tab-pane v-if="tabVisible('fa:dispose')" label="调拨" name="transfer" />
+            <el-tab-pane v-if="tabVisible('fa:dispose') || can('fa:repair')" label="维修" name="repair" />
+            <el-tab-pane v-if="tabVisible('fa:dispose')" label="处置" name="dispose" />
           </el-tabs>
-          <FixedAssetDocList :doc-key="disposeSub" :prefix="disposePrefix[disposeSub]" :perm="can('fa:dispose')" />
+          <FixedAssetDocList
+            :doc-key="disposeSub"
+            :prefix="disposePrefix[disposeSub]"
+            :perm="can('fa:dispose') || (disposeSub === 'repair' && can('fa:repair'))"
+          />
         </el-tab-pane>
 
         <!-- 资产盘点 -->
-        <el-tab-pane label="资产盘点" name="inventory">
+        <el-tab-pane v-if="tabVisible('fa:inventory')" label="资产盘点" name="inventory">
           <el-tabs v-model="inventorySub" type="card" class="sub-tabs">
             <el-tab-pane label="盘点单" name="docs" />
             <el-tab-pane label="盘点计划" name="plans" />
@@ -175,7 +179,7 @@
                   查询
                 </el-button>
                 <el-button @click="resetInvSearch">重置</el-button>
-                <el-button type="primary" @click="openWizard">
+                <el-button v-if="can('fa:inventory')" type="primary" @click="openWizard">
                   <el-icon><Plus /></el-icon>
                   新增盘点
                 </el-button>
@@ -295,7 +299,7 @@
         </el-tab-pane>
 
         <!-- 折旧管理 -->
-        <el-tab-pane label="折旧管理" name="depreciation">
+        <el-tab-pane v-if="tabVisible('fa:depreciation')" label="折旧管理" name="depreciation">
           <div class="grid-4 kpi-row">
             <div class="kpi-card"><div class="kpi-label">资产原值合计</div><div class="kpi-value num">¥{{ money(planSummary.original) }}</div></div>
             <div class="kpi-card"><div class="kpi-label">累计折旧</div><div class="kpi-value num" style="color:#e6a23c">¥{{ money(planSummary.accumulated) }}</div></div>
@@ -969,6 +973,16 @@ const disposePrefix = { transfer: 'DB', repair: 'WX', dispose: 'CZ' }
 /** 权限判定：按钮级鉴权 */
 const can = code => userStore.can(code)
 
+/**
+ * 页签级鉴权：持报表/导出/设置权的管理层与审批人要能在页面上只读浏览全部业务页签
+ * （核对单据、查看审批信息都在这里）；普通资产使用人只看自己能办理的页签。
+ * 写操作仍由各按钮按对应模块权限码判定，并由后端 PermissionPolicy 独立把关，页签显隐不是安全边界。
+ */
+const canBrowseAll = computed(() =>
+  ['fa:report', 'fa:export', 'fa:settings'].some(code => can(code))
+)
+const tabVisible = code => canBrowseAll.value || can(code)
+
 /** 盘点单的业务类型（对应流程配置里的 bizType） */
 const INV_BIZ = 'INVENTORY'
 
@@ -978,7 +992,8 @@ const route = useRoute()
 
 const activeTab = ref('asset')
 const dispatchSub = ref('alloc')
-const disposeSub = ref('transfer')
+// 只有报修权的使用人默认落在「维修」子签，否则会停在无权的「调拨」上看到空壳列表
+const disposeSub = ref(tabVisible('fa:dispose') ? 'transfer' : 'repair')
 const inventorySub = ref('docs')
 
 /**
@@ -990,7 +1005,10 @@ function applyDeepLink() {
   if (q.tab) activeTab.value = String(q.tab)
   if (q.sub) {
     if (activeTab.value === 'dispatch') dispatchSub.value = String(q.sub)
-    if (activeTab.value === 'dispose') disposeSub.value = String(q.sub)
+    if (activeTab.value === 'dispose') {
+      // 只有报修权的使用人不能被深链带进调拨/处置子签（后端会 403，这里避免空壳页面）
+      disposeSub.value = tabVisible('fa:dispose') ? String(q.sub) : 'repair'
+    }
     if (activeTab.value === 'inventory') inventorySub.value = String(q.sub)
   }
 }

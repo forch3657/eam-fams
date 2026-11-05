@@ -73,8 +73,8 @@
         <template #default="{ row }">
           <el-button v-if="canReturnRow(row)" link type="primary" size="small" @click="openReturnDialog(row)">归还登记</el-button>
           <el-button link type="primary" size="small" @click="openApproval(row)">审批信息</el-button>
-          <el-button link type="primary" size="small" :disabled="row.status === 'PROCESSING'" @click="openDialog(row)">修改</el-button>
-          <el-button link type="danger" size="small" :disabled="row.status === 'PROCESSING'" @click="removeRow(row)">删除</el-button>
+          <el-button v-if="perm" link type="primary" size="small" :disabled="row.status === 'PROCESSING'" @click="openDialog(row)">修改</el-button>
+          <el-button v-if="perm" link type="danger" size="small" :disabled="row.status === 'PROCESSING'" @click="removeRow(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>

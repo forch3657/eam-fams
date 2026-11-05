@@ -74,8 +74,10 @@ public class PermissionPolicy {
         DELETE.put("fixed-asset-doc-lists-change", new String[]{"fa:change", "fa:edit"});
         WRITE.put("fixed-asset-doc-lists-transfer", new String[]{"fa:dispose", "fa:add", "fa:edit"});
         DELETE.put("fixed-asset-doc-lists-transfer", new String[]{"fa:dispose", "fa:edit"});
-        WRITE.put("fixed-asset-doc-lists-repair", new String[]{"fa:dispose", "fa:add", "fa:edit"});
-        DELETE.put("fixed-asset-doc-lists-repair", new String[]{"fa:dispose", "fa:edit"});
+        // 维修单单独用 fa:repair：资产使用人要能报修，但不能因此拿到调拨/处置单的写权限
+        // （契约版见 permission-resources.json 的 fixed-asset-doc-lists-repair 规则）
+        WRITE.put("fixed-asset-doc-lists-repair", new String[]{"fa:repair", "fa:dispose", "fa:add", "fa:edit"});
+        DELETE.put("fixed-asset-doc-lists-repair", new String[]{"fa:repair", "fa:dispose", "fa:edit"});
         WRITE.put("fixed-asset-doc-lists-dispose", new String[]{"fa:dispose", "fa:add", "fa:edit"});
         DELETE.put("fixed-asset-doc-lists-dispose", new String[]{"fa:dispose", "fa:edit"});
 
