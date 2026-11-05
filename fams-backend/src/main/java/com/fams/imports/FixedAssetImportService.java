@@ -54,6 +54,25 @@ public class FixedAssetImportService {
     private static final String IDLE = "IDLE";
     private static final String KEY_SEP = "\u0000";
 
+    /**
+     * 期初导入时这些状态通常应由业务单据产生。
+     * BUG-003 已定「期初允许无单据，状态以台账为准」，因此这里不阻断导入，
+     * 只做行级告警并在资产上标注来源，便于上线后补录单据。
+     */
+    private static final Set<String> LEGACY_STATES = new HashSet<>(Arrays.asList(
+            "DISPATCHING", "BORROWED", "REPAIRING", "DISPOSING"));
+
+    private static final Map<String, String> LEGACY_STATE_LABELS = new LinkedHashMap<>();
+
+    static {
+        LEGACY_STATE_LABELS.put("DISPATCHING", "派发中");
+        LEGACY_STATE_LABELS.put("BORROWED", "借出中");
+        LEGACY_STATE_LABELS.put("REPAIRING", "维修中");
+        LEGACY_STATE_LABELS.put("DISPOSING", "处置中");
+    }
+
+    private static final String SOURCE_TAG_LEGACY = "期初导入";
+
     // ---------------------------------------------------------------- 单表列定义
 
     public static final String COL_NAME = "资产名称";
@@ -94,7 +113,7 @@ public class FixedAssetImportService {
             "资产原值，选填；留空取购置金额",
             "净值，选填；留空取资产原值",
             "购置方式，选填；默认 购买，可选 购买/租赁/自建/受赠",
-            "状态，选填；默认 空闲，可选 空闲/使用中/派发中/借出中/维修中/处置中",
+            "状态，选填；默认 空闲，可选 空闲/使用中/派发中/借出中/维修中/处置中；后四种一般应有业务单据，导入时告警并标注「期初导入」",
             "是否计提折旧，选填；默认 是，可选 是/否"
     };
 
@@ -264,6 +283,10 @@ public class FixedAssetImportService {
         body.put("net", row.net);
         body.put("purchaseMode", row.purchaseMode);
         body.put("status", row.status);
+        if (row.legacyState) {
+            // 保留「这批状态从哪来」的线索，后续补录单据时可直接按 sourceTag 筛
+            body.put("sourceTag", SOURCE_TAG_LEGACY);
+        }
         body.put("depreciate", row.depreciate);
         body.put("leaseMonths", row.leaseMonths);
         try {
@@ -271,6 +294,12 @@ public class FixedAssetImportService {
             String savedCode = str(saved.get("code"));
             index.assetsByCode.put(savedCode.isEmpty() ? code : savedCode, saved);
             result.createdAssets++;
+            if (row.legacyState) {
+                String label = LEGACY_STATE_LABELS.getOrDefault(row.status, row.status);
+                result.warnings.add(new FixedAssetImportResult.Warning(row.line,
+                        "状态「" + label + "」通常应有对应业务单据；已按期初数据放行并标注「" + SOURCE_TAG_LEGACY + "」，请后续补录单据"));
+                log.warn("固定资产导入：第 {} 行状态 {} 无来源单据，已标注期初导入 code={}", row.line, row.status, code);
+            }
         } catch (ApiException e) {
             fail(row, "新建资产失败：" + e.getMessage(), result, abort);
         }
@@ -323,6 +352,7 @@ public class FixedAssetImportService {
             throw new ApiException(ErrorCode.VALIDATION,
                     "状态「" + statusInput + "」不合法，可选值：" + describeEnum(STATUS_ENUM));
         }
+        row.legacyState = LEGACY_STATES.contains(row.status);
 
         String modeInput = value(raw, COL_PURCHASE_MODE);
         row.purchaseMode = modeInput.isEmpty() ? "PURCHASE" : resolveEnum(PURCHASE_MODE_ENUM, modeInput);
@@ -596,6 +626,8 @@ public class FixedAssetImportService {
         result.createdAssets = 0;
         result.reusedAssets = 0;
         result.createdLocations = 0;
+        // 整批回滚时数据没有落库，告警也不该留在报告里
+        result.warnings.clear();
     }
 
     private static String str(Object value) {
@@ -645,6 +677,8 @@ public class FixedAssetImportService {
         String status = IDLE;
         boolean depreciate = true;
         BigDecimal leaseMonths = new BigDecimal("36");
+        /** 状态属于「应有业务单据」的四种，导入时告警并标注期初来源 */
+        boolean legacyState;
         boolean invalid;
     }
 
@@ -675,7 +709,7 @@ public class FixedAssetImportService {
 
     // ---------------------------------------------------------------- DTO
 
-    /** 分级结果报告：新建/复用统计 + 失败明细（带行号） */
+    /** 分级结果报告：新建/复用统计 + 失败明细 + 行级告警（告警不阻断导入） */
     public static class FixedAssetImportResult {
         public int total;
         public int createdAssets;
@@ -683,12 +717,24 @@ public class FixedAssetImportService {
         public int createdLocations;
         public String status;
         public List<Failure> failures = new ArrayList<>();
+        public List<Warning> warnings = new ArrayList<>();
 
         public static class Failure {
             public int row;
             public String message;
 
             public Failure(int row, String message) {
+                this.row = row;
+                this.message = message;
+            }
+        }
+
+        /** 与 Failure 分开：告警行已经写入，只是需要后续补业务单据 */
+        public static class Warning {
+            public int row;
+            public String message;
+
+            public Warning(int row, String message) {
                 this.row = row;
                 this.message = message;
             }

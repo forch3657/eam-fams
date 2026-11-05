@@ -150,6 +150,17 @@ export const INVENTORY_COUNTER_STATUS = {
   DONE: '已完成'
 }
 
+/**
+ * 盘点异常处理去向。
+ * 异常没有唯一的落账动作，必须由盘点员给出后续处理方式；
+ * 审批完结时后端按此生成维修单 / 变更单，选「已说明」则只留痕。
+ */
+export const INVENTORY_DISPOSAL = {
+  REPAIR: '转维修单',
+  CHANGE: '转变更单',
+  EXPLAINED: '已说明'
+}
+
 /** 折旧方法（收敛「年限平均法」与「直线法」语义重复） */
 export const DEPRECIATION_METHOD = {
   STRAIGHT_LINE: '年限平均法',
@@ -279,6 +290,7 @@ export const ENUMS = {
   INVENTORY_RESULT,
   INVENTORY_ITEM_STATUS,
   INVENTORY_COUNTER_STATUS,
+  INVENTORY_DISPOSAL,
   DEPRECIATION_METHOD,
   CALC_TIME,
   BUSINESS_TYPE,
@@ -320,6 +332,7 @@ export const ENUM_DICT_META = [
   { enumName: 'INVENTORY_RESULT', code: 'inventory_result', name: '盘点结果' },
   { enumName: 'INVENTORY_ITEM_STATUS', code: 'inventory_item_status', name: '盘点明细状态' },
   { enumName: 'INVENTORY_COUNTER_STATUS', code: 'inventory_counter_status', name: '盘点单状态' },
+  { enumName: 'INVENTORY_DISPOSAL', code: 'inventory_disposal', name: '盘点异常处理去向' },
   { enumName: 'DEPRECIATION_METHOD', code: 'depreciation_method', name: '折旧方法' },
   { enumName: 'CALC_TIME', code: 'calc_time', name: '计提频率' },
   { enumName: 'BUSINESS_TYPE', code: 'business_type', name: '审批业务' },

@@ -95,6 +95,11 @@
       "COUNTING": "盘点中",
       "DONE": "已完成"
     },
+    "INVENTORY_DISPOSAL": {
+      "REPAIR": "转维修单",
+      "CHANGE": "转变更单",
+      "EXPLAINED": "已说明"
+    },
     "DEPRECIATION_METHOD": {
       "STRAIGHT_LINE": "年限平均法",
       "DOUBLE_DECLINE": "双倍余额递减法",
@@ -261,6 +266,11 @@
       "enumName": "INVENTORY_COUNTER_STATUS",
       "code": "inventory_counter_status",
       "name": "盘点单状态"
+    },
+    {
+      "enumName": "INVENTORY_DISPOSAL",
+      "code": "inventory_disposal",
+      "name": "盘点异常处理去向"
     },
     {
       "enumName": "DEPRECIATION_METHOD",

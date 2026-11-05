@@ -64,6 +64,7 @@ INSERT INTO `system_dict_types` (`code`, `name`, `count`, `status`, `remark`, `c
 ('inventory_result', '盘点结果', 4, 'ENABLED', NULL, 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1),
 ('inventory_item_status', '盘点明细状态', 4, 'ENABLED', NULL, 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1),
 ('inventory_counter_status', '盘点单状态', 2, 'ENABLED', NULL, 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1),
+('inventory_disposal', '盘点异常处理去向', 3, 'ENABLED', NULL, 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1),
 ('depreciation_method', '折旧方法', 4, 'ENABLED', NULL, 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1),
 ('calc_time', '计提频率', 3, 'ENABLED', NULL, 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1),
 ('business_type', '审批业务', 11, 'ENABLED', NULL, 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1),
@@ -187,6 +188,12 @@ INSERT INTO `system_dict_items` (`id`, `label`, `value`, `sort`, `status`, `rema
 INSERT INTO `system_dict_items` (`id`, `label`, `value`, `sort`, `status`, `remark`, `create_by`, `create_time`, `update_by`, `update_time`, `version`, `dict_code`) VALUES
 ('DI_inventory_counter_status_COUNTING', '盘点中', 'COUNTING', 1, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'inventory_counter_status'),
 ('DI_inventory_counter_status_DONE', '已完成', 'DONE', 2, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'inventory_counter_status');
+
+-- 字典项 (system-dict-types-inventory_disposal-items)
+INSERT INTO `system_dict_items` (`id`, `label`, `value`, `sort`, `status`, `remark`, `create_by`, `create_time`, `update_by`, `update_time`, `version`, `dict_code`) VALUES
+('DI_inventory_disposal_REPAIR', '转维修单', 'REPAIR', 1, 'ENABLED', '盘点异常生成待审维修单', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'inventory_disposal'),
+('DI_inventory_disposal_CHANGE', '转变更单', 'CHANGE', 2, 'ENABLED', '盘点异常生成待审资产变更单', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'inventory_disposal'),
+('DI_inventory_disposal_EXPLAINED', '已说明', 'EXPLAINED', 3, 'ENABLED', '异常已在备注说明，不生成派生单据', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'inventory_disposal');
 
 -- 字典项 (system-dict-types-depreciation_method-items)
 INSERT INTO `system_dict_items` (`id`, `label`, `value`, `sort`, `status`, `remark`, `create_by`, `create_time`, `update_by`, `update_time`, `version`, `dict_code`) VALUES

@@ -407,6 +407,28 @@
         <el-table-column prop="row" label="行号" width="90" />
         <el-table-column prop="message" label="失败原因" min-width="320" show-overflow-tooltip />
       </el-table>
+
+      <!-- 告警与失败分开：告警行已经写入，只是期初状态缺业务单据，需要后续补录 -->
+      <el-alert
+        v-if="result.warnings && result.warnings.length"
+        type="warning"
+        :closable="false"
+        show-icon
+        :title="`有 ${result.warnings.length} 行已导入但需补录业务单据，资产已标注「期初导入」。`"
+        style="margin-top:12px"
+      />
+      <el-table
+        v-if="result.warnings && result.warnings.length"
+        :data="result.warnings"
+        border
+        stripe
+        size="small"
+        max-height="300"
+        style="margin-top:12px"
+      >
+        <el-table-column prop="row" label="行号" width="90" />
+        <el-table-column prop="message" label="告警说明（不影响导入）" min-width="320" show-overflow-tooltip />
+      </el-table>
     </el-card>
 
     <!-- 5. 危险操作：数据重置 -->
@@ -712,6 +734,10 @@ function notifyResult(res) {
     ElMessage.warning(`部分成功：失败 ${res.failures?.length || 0} 行，请查看失败明细`)
   } else {
     ElMessage.error(statusText.value)
+  }
+  // 告警不阻断导入：即使状态是 OK 也要提醒补录业务单据
+  if (res.warnings?.length) {
+    ElMessage.warning(`另有 ${res.warnings.length} 行已导入但需补录业务单据，请查看告警明细`)
   }
 }
 

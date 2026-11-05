@@ -49,6 +49,18 @@ public class ApprovalService {
     /** 入库单集合：盘点盘盈建账生成待验收入库单（走 WF1 资产入库验收流程） */
     private static final String INBOUND_DOCS = "fixed-asset-doc-lists-inbound";
 
+    /** 维修单 / 变更单集合：盘点异常按登记的处理去向生成待审单据 */
+    private static final String REPAIR_DOCS = "fixed-asset-doc-lists-repair";
+
+    private static final String CHANGE_DOCS = "fixed-asset-doc-lists-change";
+
+    /** 盘点异常的处理去向（INVENTORY_DISPOSAL 枚举）：前两种生成单据，「已说明」只留痕 */
+    private static final String DISPOSAL_REPAIR = "REPAIR";
+
+    private static final String DISPOSAL_CHANGE = "CHANGE";
+
+    private static final String DISPOSAL_EXPLAINED = "EXPLAINED";
+
     /** 资产状态：盘盈建账后待入库验收 */
     private static final String STATUS_PENDING_INBOUND = "PENDING_INBOUND";
 
@@ -95,6 +107,10 @@ public class ApprovalService {
         }
         Map<String, Object> previous = genericService.get(collection, docId);
         String oldStatus = text(previous.get("status"));
+        // 借出归还登记不是审批推进动作：尽早返回，避免为已完结单据解析流程与写轨迹
+        if ("return".equals(action)) {
+            return registerBorrowReturn(request, docKey, docId, collection, previous, oldStatus);
+        }
         String bizType = text(request.getBizType()).isEmpty()
                 ? ApprovalSupport.bizTypeOf(docKey)
                 : text(request.getBizType());
@@ -130,6 +146,12 @@ public class ApprovalService {
                 if (pending > 0) {
                     throw new ApiException(ErrorCode.BAD_REQUEST,
                             "还有 " + pending + " 项资产未登记盘点结果，请先在「盘点清单」完成盘点");
+                }
+                // 异常明细必须有明确去向，否则盘点完结时无单据可派、结论悬空
+                long unresolved = unresolvedAbnormalCount(previous);
+                if (unresolved > 0) {
+                    throw new ApiException(ErrorCode.BAD_REQUEST,
+                            "还有 " + unresolved + " 项异常资产未选择处理去向，请在「盘点清单」登记（转维修单 / 转变更单 / 已说明）");
                 }
             }
             if (steps.isEmpty()) {
@@ -206,6 +228,8 @@ public class ApprovalService {
             if ("INVENTORY".equals(bizType)) {
                 // 盘点结论落地：盘亏明细生成处置单草案，等管理员走处置审批
                 syncInventoryLoss(previous);
+                // 盘点异常：按明细登记的去向生成待审维修单 / 变更单
+                syncInventoryAbnormal(previous);
                 // 盘盈（账外资产）：建账并生成入库单，等仓管/资产管理员验收入库
                 syncInventorySurplus(previous);
                 // 来源盘点计划随之完结（计划本身没有审批流，状态只能跟着盘点单走）
@@ -238,6 +262,58 @@ public class ApprovalService {
         return "DONE".equals(status)
                 ? "审批已全部通过，单据完结"
                 : "已通过「" + stepName + "」，等待下一环节审批";
+    }
+
+    /**
+     * 借出归还登记：只在已完结且未归还的借出单上登记，不推进审批状态。
+     *
+     * <p>归还不是一次审批动作，因此不写审批轨迹、不改单据状态；归还人/时间/备注
+     * 留在单据上，同时把台账资产状态从 BORROWED 回写为 IN_USE。
+     * 只有借出单创建人、资产管理员(R2)、仓管员(R8)能登记，避免任意使用人私自改状态。</p>
+     */
+    private Map<String, Object> registerBorrowReturn(ApprovalRequest request, String docKey, String docId,
+                                                     String collection, Map<String, Object> previous,
+                                                     String oldStatus) {
+        if (!"borrow".equals(docKey)) {
+            throw new ApiException(ErrorCode.BAD_REQUEST, "归还登记只适用于借出单");
+        }
+        if (!"DONE".equals(oldStatus)) {
+            throw new ApiException(ErrorCode.CONFLICT, "只有审批通过的借出单可以登记归还");
+        }
+        // MySQL 的 TINYINT(1) 可能读成 Boolean / Integer / 字符串，统一兼容
+        Object returned = previous.get("returned");
+        String returnedText = String.valueOf(returned);
+        if (Boolean.TRUE.equals(returned) || "1".equals(returnedText)
+                || "true".equalsIgnoreCase(returnedText)) {
+            throw new ApiException(ErrorCode.CONFLICT, "该借出单已登记归还，不能重复登记");
+        }
+        String me = AuthContext.currentUserId();
+        if (me == null || me.isEmpty()) {
+            throw new ApiException(ErrorCode.UNAUTHORIZED, "未登录，无法登记归还");
+        }
+        if (!me.equals(text(previous.get("creatorId")))
+                && !genericService.userHasRole(me, "R2")
+                && !genericService.userHasRole(me, "R8")) {
+            throw new ApiException(ErrorCode.FORBIDDEN, "只有借出单创建人、资产管理员或仓管员可以登记归还");
+        }
+        String assetId = text(previous.get("assetId"));
+        if (assetId.isEmpty()) {
+            throw new ApiException(ErrorCode.BAD_REQUEST, "借出单缺少资产主键，无法登记归还");
+        }
+
+        // 基于原整行打补丁：updateQuietly 会按整行做必填校验，只传几个字段会被拒
+        Map<String, Object> patch = new LinkedHashMap<>(previous);
+        patch.put("returned", true);
+        patch.put("returnDate", DateTimes.format(LocalDateTime.now()));
+        patch.put("returnBy", me);
+        patch.put("returnRemark", cut(text(request.getComment()), 255));
+        genericService.updateQuietly(collection, docId, patch);
+
+        if ("BORROWED".equals(assetStatus(assetId))) {
+            genericService.patchField(ASSETS, assetId, "status", "IN_USE", null);
+        }
+        log.info("借出归还已登记 assetId={} docId={} by={}", assetId, docId, me);
+        return result(oldStatus, "归还已登记，资产恢复使用中", null);
     }
 
     private void requireInitiator(Map<String, Object> doc, Map<String, Object> flow) {
@@ -491,6 +567,105 @@ public class ApprovalService {
             }
         }
         return pending;
+    }
+
+    /**
+     * 盘点异常里还没选处理去向的明细数。
+     *
+     * <p>异常不同于盘盈/盘亏：它没有唯一的落账动作，必须由盘点员先给出去向
+     * （转维修 / 转变更 / 已说明），否则审批完结后这条差异无人跟进。
+     * 判定以服务端读到的明细为准，不采信客户端传值。</p>
+     */
+    private static long unresolvedAbnormalCount(Map<String, Object> doc) {
+        Object itemsObj = doc.get("items");
+        if (!(itemsObj instanceof List)) {
+            return 0L;
+        }
+        long unresolved = 0L;
+        for (Object itemObj : (List<?>) itemsObj) {
+            if (!(itemObj instanceof Map)) {
+                continue;
+            }
+            Map<?, ?> item = (Map<?, ?>) itemObj;
+            if (!"ABNORMAL".equals(resultOf(item))) {
+                continue;
+            }
+            String disposal = text(item.get("disposal"));
+            if (!DISPOSAL_REPAIR.equals(disposal) && !DISPOSAL_CHANGE.equals(disposal)
+                    && !DISPOSAL_EXPLAINED.equals(disposal)) {
+                unresolved++;
+            }
+        }
+        return unresolved;
+    }
+
+    /**
+     * 盘点异常结论落地：按登记去向生成待审维修单 / 变更单。
+     *
+     * <p>复用已有 repair / change 集合与 WF6 / WF7，不新增集合与资产状态。
+     * 「已说明」只留在盘点明细里，不生成单据。派生单据走独立事务，
+     * 生成失败只记 warn，不推翻盘点审批结论。</p>
+     */
+    private void syncInventoryAbnormal(Map<String, Object> doc) {
+        Object itemsObj = doc.get("items");
+        if (!(itemsObj instanceof List)) {
+            return;
+        }
+        String companyId = text(doc.get("companyId"));
+        String creatorId = text(doc.get("creatorId"));
+        String docNo = text(doc.get("docNo"));
+        // 单号精确到毫秒并带随机盐：同一秒内完结多张盘点单也不撞唯一键
+        String stamp = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS").format(LocalDateTime.now());
+        String salt = java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 4);
+        int seq = 0;
+        for (Object itemObj : (List<?>) itemsObj) {
+            if (!(itemObj instanceof Map)) {
+                continue;
+            }
+            Map<?, ?> item = (Map<?, ?>) itemObj;
+            if (!"ABNORMAL".equals(resultOf(item))) {
+                continue;
+            }
+            String collection;
+            String prefix;
+            String actionName;
+            String disposal = text(item.get("disposal"));
+            if (DISPOSAL_REPAIR.equals(disposal)) {
+                collection = REPAIR_DOCS;
+                prefix = "WX";
+                actionName = "转维修";
+            } else if (DISPOSAL_CHANGE.equals(disposal)) {
+                collection = CHANGE_DOCS;
+                prefix = "BG";
+                actionName = "转变更";
+            } else {
+                // EXPLAINED 只留痕；非法/空值已由送审前置拦下，这里防御性跳过
+                continue;
+            }
+            String assetId = text(item.get("assetId"));
+            if (assetId.isEmpty()) {
+                log.warn("盘点异常明细缺少资产主键，跳过生成单据 doc={} disposal={}", docNo, disposal);
+                continue;
+            }
+            seq++;
+            String code = prefix + stamp + String.format("%02d", seq) + salt;
+            Map<String, Object> derived = new LinkedHashMap<>();
+            derived.put("code", code);
+            derived.put("name", cut(text(item.get("assetName")), 200) + " 盘点异常" + actionName);
+            derived.put("companyId", companyId);
+            derived.put("assetId", assetId);
+            derived.put("creatorId", creatorId);
+            derived.put("createTime", LocalDateTime.now());
+            derived.put("finishTime", null);
+            derived.put("remark", cut("盘点异常" + actionName + "：盘点单 " + docNo
+                    + "；" + text(item.get("remark")), 250));
+            derived.put("status", "DRAFT");
+            try {
+                genericService.createIndependent(collection, derived);
+            } catch (RuntimeException e) {
+                log.warn("盘点异常生成单据失败 assetId={} code={}", assetId, code, e);
+            }
+        }
     }
 
     /**

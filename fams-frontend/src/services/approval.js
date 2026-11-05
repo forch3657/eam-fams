@@ -26,6 +26,25 @@ export function isCollabAction(action) {
   return COLLAB_ACTIONS.includes(action)
 }
 
+/**
+ * 借出归还登记（4B）。
+ *
+ * <p>不是审批推进动作：服务端在已完结且未归还的借出单上记录归还人/时间/备注，
+ * 并把台账资产状态从 BORROWED 回写为 IN_USE；单据状态保持 DONE，不新增审批轨迹。
+ * 权限由服务端判定（创建人 / 资产管理员 / 仓管员）。</p>
+ */
+export const BORROW_RETURN_ACTION = 'return'
+
+export async function registerBorrowReturn(doc, comment = '') {
+  return httpService.approvalAction({
+    docKey: 'borrow',
+    docId: doc.id,
+    bizType: 'BORROW',
+    action: BORROW_RETURN_ACTION,
+    comment
+  })
+}
+
 /** 单据类型 -> 审批业务类型 */
 export const DOC_BIZ_TYPE = {
   inbound: 'INBOUND',

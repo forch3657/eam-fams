@@ -105,6 +105,39 @@ function surplusItem(name: string, qty: number): Row {
   }
 }
 
+/** 异常明细：disposal 为处理去向，空串表示还没选（送审应被拦） */
+function abnormalItem(asset: Row, disposal: string, remark: string): Row {
+  return { ...itemOf(asset, 'ABNORMAL', remark), disposal }
+}
+
+/** 审批人按角色缓存，避免新增用例反复造临时账号 */
+const approverCache = new Map<string, Promise<Session>>()
+async function cachedApprover(roleCode: string): Promise<Session> {
+  if (!approverCache.has(roleCode)) approverCache.set(roleCode, approver(roleCode))
+  return approverCache.get(roleCode)!
+}
+
+/** 送审并走完 WF9 三环（结果确认 → 差异复核 → 审计抽查） */
+async function completeInventory(docId: string): Promise<void> {
+  const submitted = await act(admin.token, {
+    docKey: 'inventory', docId, action: 'submit', ctx: { amount: 0, hasDiff: true }
+  })
+  expect(submitted.status, JSON.stringify(submitted.body)).toBe(200)
+  const assetManager = await cachedApprover('ROLE_ASSET')
+  const auditor = await cachedApprover('ROLE_AUDITOR')
+  for (let i = 0; i < 2; i++) {
+    const res = await act(assetManager.token, {
+      docKey: 'inventory', docId, action: 'approve', ctx: { amount: 0, hasDiff: true }
+    })
+    expect(res.status, JSON.stringify(res.body)).toBe(200)
+  }
+  const audited = await act(auditor.token, {
+    docKey: 'inventory', docId, action: 'approve', ctx: { amount: 0, hasDiff: true }
+  })
+  expect(audited.status, JSON.stringify(audited.body)).toBe(200)
+  expect(audited.body.data.status).toBe('DONE')
+}
+
 /** 读单据当前状态 */
 async function statusOf(docId: string): Promise<string> {
   return withApi(admin.token, async api => {
@@ -152,6 +185,16 @@ test.afterAll(async () => {
     for (const row of rows) {
       if (String(row.remark || '').includes('E2E盘点')) {
         await api.delete(`/api/fixed-asset-doc-lists-dispose/${row.id}`).catch(() => null)
+      }
+    }
+    // 盘点异常派生出的待审维修单 / 变更单（备注里带「盘点异常」）
+    for (const collection of ['fixed-asset-doc-lists-repair', 'fixed-asset-doc-lists-change']) {
+      const derived = await api.get(`/api/${collection}?pageSize=2000`)
+      const list = ((await derived.json()).data ?? []) as Row[]
+      for (const row of list) {
+        if (String(row.remark || '').includes('盘点异常')) {
+          await api.delete(`/api/${collection}/${row.id}`).catch(() => null)
+        }
       }
     }
     // 盘盈入库单：先删单据（资产被单据引用时不能删资产）
@@ -621,4 +664,100 @@ test('[P10-12] 盘亏在台账上可见：盘点完结时资产置「待核销�
   const mine = disposes.filter(d => String(d.assetId) === String(lossAsset.id))
   expect(mine.length, '盘亏没有生成处置单').toBeGreaterThan(0)
   expect(mine[0].status).toBe('DRAFT')
+})
+
+test('[P10-13] 异常按处理去向落地：转维修单 / 转变更单，已说明只留痕', async () => {
+  expect(assets.length, '台账资产不足，无法覆盖异常去向用例').toBeGreaterThanOrEqual(10)
+  const repairAsset = assets[4]
+  const changeAsset = assets[5]
+  const explainedAsset = assets[6]
+  const doc = await createDoc([
+    abnormalItem(repairAsset, 'REPAIR', 'E2E盘点 现场标签与台账不符'),
+    abnormalItem(changeAsset, 'CHANGE', 'E2E盘点 使用人与台账不符'),
+    abnormalItem(explainedAsset, 'EXPLAINED', 'E2E盘点 标签已重贴，无需后续单据')
+  ])
+  await completeInventory(String(doc.id))
+
+  const repairs = await apiList(admin, 'fixed-asset-doc-lists-repair')
+  const changes = await apiList(admin, 'fixed-asset-doc-lists-change')
+  const mineRepairs = repairs.filter(d => String(d.assetId) === String(repairAsset.id))
+  const mineChanges = changes.filter(d => String(d.assetId) === String(changeAsset.id))
+  expect(mineRepairs, '转维修单没有生成').toHaveLength(1)
+  expect(mineChanges, '转变更单没有生成').toHaveLength(1)
+  expect(String(mineRepairs[0].status), '派生单据应是待审草案').toBe('DRAFT')
+  expect(String(mineChanges[0].status), '派生单据应是待审草案').toBe('DRAFT')
+  expect(String(mineRepairs[0].remark)).toContain(String(doc.docNo))
+  expect(String(mineChanges[0].remark)).toContain(String(doc.docNo))
+
+  // 「已说明」只在盘点明细里留痕，不产生任何派生单据
+  expect(repairs.some(d => String(d.assetId) === String(explainedAsset.id)), '已说明不应生成维修单').toBe(false)
+  expect(changes.some(d => String(d.assetId) === String(explainedAsset.id)), '已说明不应生成变更单').toBe(false)
+})
+
+test('[P10-14] 异常未选处理去向不得送审，补选后可送审', async () => {
+  const doc = await createDoc([abnormalItem(assets[7], '', 'E2E盘点 去向待定')])
+  const submit = () => act(admin.token, {
+    docKey: 'inventory', docId: String(doc.id), action: 'submit', ctx: { amount: 0, hasDiff: true }
+  })
+  const blocked = await submit()
+  expect(blocked.status, JSON.stringify(blocked.body)).toBe(400)
+
+  const detail = await withApi(admin.token, async api => {
+    const res = await api.get(`/api/fixed-asset-inventory-docs/${doc.id}`)
+    return ((await res.json()).data ?? {}) as Row
+  })
+  const items = (detail.items as Row[]).map(i => ({ ...i, disposal: 'EXPLAINED' }))
+  const put = await withApi(admin.token, async api => {
+    const res = await api.put(`/api/fixed-asset-inventory-docs/${doc.id}`, { data: { ...detail, items } })
+    return { status: res.status(), body: await res.json() }
+  })
+  expect(put.status, JSON.stringify(put.body)).toBe(200)
+  const sent = await submit()
+  expect(sent.status, JSON.stringify(sent.body)).toBe(200)
+})
+
+test('[P10-15] 部分保存可行但送审兜底：先存已盘部分，补齐后才能送审', async () => {
+  const doc = await createDoc([
+    itemOf(assets[8], 'UNCHECKED', ''),
+    itemOf(assets[9], 'UNCHECKED', '')
+  ])
+  // 每次保存前都重读最新行：通用引擎有 version 乐观锁，分批保存的第二笔
+  // 若还拿建单时的版本去 PUT 会 409，前端保存前也会先刷新集合。
+  const patchItems = (items: Row[]) => withApi(admin.token, async api => {
+    const current = await api.get(`/api/fixed-asset-inventory-docs/${doc.id}`)
+    const base = ((await current.json()).data ?? {}) as Row
+    const res = await api.put(`/api/fixed-asset-inventory-docs/${doc.id}`, { data: { ...base, items } })
+    return { status: res.status(), body: await res.json() }
+  })
+  const submit = () => act(admin.token, {
+    docKey: 'inventory', docId: String(doc.id), action: 'submit', ctx: { amount: 0, hasDiff: false }
+  })
+
+  // 只登记第一项就保存（前端「保存盘点结果」放开拦截后的等价写操作）
+  const partial = [
+    { ...itemOf(assets[8], 'MATCHED', '账实相符') },
+    { ...itemOf(assets[9], 'UNCHECKED', '') }
+  ]
+  const saved = await patchItems(partial)
+  expect(saved.status, JSON.stringify(saved.body)).toBe(200)
+
+  const reloaded = await withApi(admin.token, async api => {
+    const res = await api.get(`/api/fixed-asset-inventory-docs/${doc.id}`)
+    return ((await res.json()).data ?? {}) as Row
+  })
+  const rows = reloaded.items as Row[]
+  expect(String(rows[0].result), '已盘部分应已落盘').toBe('MATCHED')
+  expect(String(rows[1].result), '未盘部分应保持未盘').toBe('UNCHECKED')
+
+  // 后端送审前置仍要求全部登记完，分批保存不能绕过审批
+  const blocked = await submit()
+  expect(blocked.status, JSON.stringify(blocked.body)).toBe(400)
+
+  const filled = await patchItems([
+    rows[0],
+    { ...itemOf(assets[9], 'MATCHED', '账实相符') }
+  ])
+  expect(filled.status, JSON.stringify(filled.body)).toBe(200)
+  const sent = await submit()
+  expect(sent.status, JSON.stringify(sent.body)).toBe(200)
 })

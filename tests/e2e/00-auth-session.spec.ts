@@ -58,7 +58,11 @@ test.describe('已登录会话', () => {
     const openViaMenu = async (group: string, item: string) => {
       const sub = page.locator('.el-sub-menu').filter({ hasText: group }).first()
       await sub.locator('.el-sub-menu__title').click()
-      await sub.locator('.el-menu-item').filter({ hasText: item }).first().click()
+      // 菜单项与路由是异步渲染的：全量串行时上一条用例刚做过令牌失效，
+      // 只等 .el-menu 可见会点到尚未就绪的菜单，出现「只累积 1 个标签页」的假失败
+      const target = sub.locator('.el-menu-item').filter({ hasText: item }).first()
+      await target.waitFor({ state: 'visible' })
+      await target.click()
       await waitSettled(page)
     }
 
@@ -68,8 +72,9 @@ test.describe('已登录会话', () => {
     await openViaMenu('低值资产', '资产管理')
 
     await expect(page.locator('.tags-view .tag-item').first()).toBeVisible()
+    await expect.poll(async () => page.locator('.tags-view .tag-item').count(), { timeout: 10_000 })
+      .toBeGreaterThan(1)
     const before = await page.locator('.tags-view .tag-item').count()
-    expect(before, '应累积多个标签页').toBeGreaterThan(1)
     await shot(page, testInfo, 1, '切换前标签栏')
 
     // 退出登录（el-dropdown 默认 hover 触发）

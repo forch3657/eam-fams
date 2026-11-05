@@ -783,6 +783,194 @@ class P5InventoryDepreciationTest {
         assertThat(String.valueOf(updated.get("status"))).isEqualTo("PENDING_WRITE_OFF");
     }
 
+    /**
+     * 异常闭环：完结时按明细登记的处理去向生成待审维修单 / 变更单；
+     * 「已说明」只留在盘点明细里，不生成派生单据。
+     */
+    @Test
+    @DisplayName("盘点异常：按处理去向生成维修单 / 变更单，已说明不生成单据")
+    void inventoryAbnormalCreatesRepairOrChangeDoc() throws Exception {
+        String assetToken = ensureApprover("inv_asset_abn", "R2");
+        String suffix = String.valueOf(System.nanoTime());
+        String repairCode = "INV-ABN-R-" + suffix;
+        String changeCode = "INV-ABN-C-" + suffix;
+        String explainedCode = "INV-ABN-E-" + suffix;
+        String repairId = createAsset(testAsset(repairCode, "异常待维修资产"));
+        String changeId = createAsset(testAsset(changeCode, "异常待变更资产"));
+        String explainedId = createAsset(testAsset(explainedCode, "异常已说明资产"));
+
+        List<Map<String, Object>> items = new ArrayList<>();
+        items.add(abnormalItem(repairId, repairCode, "异常待维修资产", "REPAIR"));
+        items.add(abnormalItem(changeId, changeCode, "异常待变更资产", "CHANGE"));
+        items.add(abnormalItem(explainedId, explainedCode, "异常已说明资产", "EXPLAINED"));
+        Map<String, Object> doc = new HashMap<>();
+        doc.put("docNo", "PD-ABN-" + suffix);
+        doc.put("name", "盘点异常去向测试");
+        doc.put("companyId", "C1");
+        doc.put("creatorId", "U1");
+        doc.put("status", "DRAFT");
+        doc.put("items", items);
+        String docId = createInventoryDoc(doc);
+
+        // 有异常 → 结果确认 + 差异复核 + 审计抽查三环
+        mockMvc.perform(auth(post("/api/approvals/action"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"docKey\":\"inventory\",\"docId\":\"" + docId
+                                + "\",\"action\":\"submit\",\"ctx\":{\"amount\":0,\"hasDiff\":true}}"))
+                .andExpect(status().isOk());
+        approve(docId, assetToken, "PROCESSING");
+        approve(docId, assetToken, "PROCESSING");
+        approve(docId, ensureApprover("inv_audit_abn", "R6"), "DONE");
+
+        List<Map<String, Object>> repairs = derivedDocs("fixed-asset-doc-lists-repair", "盘点异常转维修");
+        List<Map<String, Object>> changes = derivedDocs("fixed-asset-doc-lists-change", "盘点异常转变更");
+        assertThat(repairs).as("转维修单应生成 1 张待审草案").hasSize(1);
+        assertThat(changes).as("转变更单应生成 1 张待审草案").hasSize(1);
+        assertThat(String.valueOf(repairs.get(0).get("assetId"))).isEqualTo(repairId);
+        assertThat(String.valueOf(changes.get(0).get("assetId"))).isEqualTo(changeId);
+        assertThat(String.valueOf(repairs.get(0).get("status"))).isEqualTo("DRAFT");
+        assertThat(String.valueOf(changes.get(0).get("status"))).isEqualTo("DRAFT");
+        assertThat(String.valueOf(repairs.get(0).get("remark"))).contains(String.valueOf(doc.get("docNo")));
+
+        // 「已说明」不落任何派生单据
+        for (String collection : java.util.Arrays.asList(
+                "fixed-asset-doc-lists-repair", "fixed-asset-doc-lists-change")) {
+            for (Map<String, Object> row : genericService.list(collection, Collections.emptyMap())) {
+                assertThat(String.valueOf(row.get("assetId"))).isNotEqualTo(explainedId);
+            }
+        }
+    }
+
+    /** 异常未选处理去向时送审前置必须拦下，补选后才允许送审。 */
+    @Test
+    @DisplayName("盘点异常：未选处理去向不得送审，补选后可送审")
+    void inventoryAbnormalWithoutDisposalCannotSubmit() throws Exception {
+        String suffix = String.valueOf(System.nanoTime());
+        String code = "INV-ABN-N-" + suffix;
+        String assetId = createAsset(testAsset(code, "异常未定去向资产"));
+        List<Map<String, Object>> items = new ArrayList<>();
+        items.add(abnormalItem(assetId, code, "异常未定去向资产", null));
+        Map<String, Object> doc = new HashMap<>();
+        doc.put("docNo", "PD-ABN-N-" + suffix);
+        doc.put("name", "盘点异常未定去向测试");
+        doc.put("companyId", "C1");
+        doc.put("creatorId", "U1");
+        doc.put("status", "DRAFT");
+        doc.put("items", items);
+        String docId = createInventoryDoc(doc);
+
+        String submit = "{\"docKey\":\"inventory\",\"docId\":\"" + docId
+                + "\",\"action\":\"submit\",\"ctx\":{\"amount\":0,\"hasDiff\":true}}";
+        mockMvc.perform(auth(post("/api/approvals/action"))
+                        .contentType(MediaType.APPLICATION_JSON).content(submit))
+                .andExpect(status().isBadRequest());
+
+        // 补选去向后整行更新（通用引擎按完整行校验）
+        items.get(0).put("disposal", "EXPLAINED");
+        doc.put("items", items);
+        mockMvc.perform(auth(put("/api/" + DOCS + "/" + docId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(doc)))
+                .andExpect(status().isOk());
+        mockMvc.perform(auth(post("/api/approvals/action"))
+                        .contentType(MediaType.APPLICATION_JSON).content(submit))
+                .andExpect(status().isOk());
+    }
+
+    /**
+     * 借出归还：已完结且未归还的借出单可登记归还，单据留痕、状态保持 DONE，
+     * 台账资产从 BORROWED 回写 IN_USE；重复登记与越权登记都要被拒。
+     */
+    @Test
+    @DisplayName("借出归还：状态回写、留痕、重复与越权防护")
+    void borrowReturnRestoresAssetStatus() throws Exception {
+        String suffix = String.valueOf(System.nanoTime());
+        String code = "BR-RET-" + suffix;
+        String assetId = createAsset(testAsset(code, "借出归还资产"));
+        genericService.patchField(ASSETS, assetId, "status", "BORROWED", null);
+
+        String borrowId = createBorrowDoc(code, assetId);
+        String returnBody = "{\"docKey\":\"borrow\",\"docId\":\"" + borrowId
+                + "\",\"action\":\"return\",\"comment\":\"实物已归还，外观完好\"}";
+        mockMvc.perform(auth(post("/api/approvals/action"))
+                        .contentType(MediaType.APPLICATION_JSON).content(returnBody))
+                .andExpect(status().isOk());
+
+        Map<String, Object> updated = genericService.get("fixed-asset-doc-lists-borrow", borrowId);
+        assertThat(String.valueOf(updated.get("returned"))).isIn("true", "1");
+        assertThat(String.valueOf(updated.get("returnBy"))).isEqualTo("U1");
+        assertThat(String.valueOf(updated.get("returnRemark"))).contains("实物已归还");
+        assertThat(String.valueOf(updated.get("status"))).isEqualTo("DONE");
+        assertThat(String.valueOf(genericService.get(ASSETS, assetId).get("status"))).isEqualTo("IN_USE");
+
+        // 重复登记：同一张借出单不能还两次
+        mockMvc.perform(auth(post("/api/approvals/action"))
+                        .contentType(MediaType.APPLICATION_JSON).content(returnBody))
+                .andExpect(status().isConflict());
+
+        // 越权：普通使用人既不是创建人也不是资产管理员/仓管员
+        genericService.patchField("fixed-asset-doc-lists-borrow", borrowId, "returned", false, null);
+        String outsider = ensureApprover("borrow_outsider_" + suffix, "R3");
+        mockMvc.perform(post("/api/approvals/action")
+                        .header("Authorization", "Bearer " + outsider)
+                        .contentType(MediaType.APPLICATION_JSON).content(returnBody))
+                .andExpect(status().isForbidden());
+    }
+
+    /** 造一张已完结、未归还的借出单（跳过审批链，只测归还动作本身） */
+    private String createBorrowDoc(String code, String assetId) throws Exception {
+        Map<String, Object> borrow = new HashMap<>();
+        borrow.put("code", code);
+        borrow.put("name", "借出归还测试单据");
+        borrow.put("companyId", "C1");
+        borrow.put("assetId", assetId);
+        borrow.put("creatorId", "U1");
+        borrow.put("status", "DONE");
+        borrow.put("returned", false);
+        String created = mockMvc.perform(auth(post("/api/fixed-asset-doc-lists-borrow"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(borrow)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        return objectMapper.readTree(created).path("data").path("id").asText();
+    }
+
+    /** 造一条最小可用的台账资产 */
+    private static Map<String, Object> testAsset(String code, String name) {
+        Map<String, Object> asset = new HashMap<>();
+        asset.put("code", code);
+        asset.put("name", name);
+        asset.put("category", "ELECTRONIC");
+        asset.put("companyId", "C1");
+        asset.put("deptId", "D1");
+        asset.put("status", "IDLE");
+        asset.put("original", 1000);
+        asset.put("net", 1000);
+        return asset;
+    }
+
+    /** 盘点异常明细；disposal 为 null 表示还没选处理去向 */
+    private static Map<String, Object> abnormalItem(String assetId, String assetNo, String assetName,
+                                                    String disposal) {
+        Map<String, Object> item = checkItem(assetId, assetNo, assetName,
+                "ABNORMAL", "ABNORMAL", "现场标签与台账不符");
+        if (disposal != null) {
+            item.put("disposal", disposal);
+        }
+        return item;
+    }
+
+    /** 按备注关键字筛出本次生成的派生单据 */
+    private List<Map<String, Object>> derivedDocs(String collection, String remarkKeyword) {
+        List<Map<String, Object>> found = new ArrayList<>();
+        for (Map<String, Object> row : genericService.list(collection, Collections.emptyMap())) {
+            if (String.valueOf(row.get("remark")).contains(remarkKeyword)) {
+                found.add(row);
+            }
+        }
+        return found;
+    }
+
     /** 走一次指定单据类型的审批动作，返回单据状态 */
     private String approveDoc(String docKey, String docId, String approveToken, String expectedStatus)
             throws Exception {

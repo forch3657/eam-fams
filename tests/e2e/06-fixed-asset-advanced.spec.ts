@@ -280,7 +280,21 @@ test('[P1-29] 盘点无差异只需资产管理员确认', async () => {
 
 test('[P1-30] 盘点有差异追加复核与审计环节', async () => {
   const auditor = await userWithRole('ROLE_AUDITOR')
-  const doc = await createInventoryDoc(admin, units)
+  // 差异由服务端按盘点明细重算（P10-D4），客户端 ctx.hasDiff 已不再生效：
+  // 必须登记一条真实差异明细才能触发「差异复核 / 审计抽查」条件环节。
+  // 异常明细还必须选去向（P10-D14）；这里用「已说明」，只触发条件环节、
+  // 不派生维修/变更单、不改台账，本用例聚焦审批链而非结论落地。
+  const doc = await createInventoryDoc(admin, units, {
+    items: [{
+      assetId: '',
+      assetNo: 'E2E_P1_30',
+      assetName: 'E2E 盘点差异明细',
+      itemStatus: 'ABNORMAL',
+      result: 'ABNORMAL',
+      disposal: 'EXPLAINED',
+      remark: 'E2E 盘点差异（已说明，不派生单据）'
+    }]
+  })
   inventoryDocs.push(doc)
   const ctx = { hasDiff: true }
 

@@ -64,11 +64,13 @@ const ASSETS = {
     status: f.enum('ASSET_STATUS', { required: true }),
     depreciate: f.bool(),
     purchaseMode: f.enum('PURCHASE_MODE'),
-    leaseMonths: f.num()
+    leaseMonths: f.num(),
+    // 期初导入时状态为「借出中/维修中/派发中/处置中」的资产标注来源（5B）
+    sourceTag: f.str()
   },
   query: {
     keyword: ['name', 'code', 'brand', 'model'],
-    filters: ['companyId', 'deptId', 'userId', 'status', 'category'],
+    filters: ['companyId', 'deptId', 'userId', 'status', 'category', 'sourceTag'],
     sort: ['updateTime', 'code'],
     page: true
   },
@@ -817,8 +819,49 @@ const OPERATION_LOGS = {
 
 // ---------------------------------------------------------------- 契约表
 
+/**
+ * 借出单：唯一需要额外字段（归还登记）的单据集合。
+ *
+ * <p>`fixed-asset-doc-lists-*` 共用一套动态契约模板，往模板上加字段会连带
+ * 8 张表；这里单独定义静态契约，并在 CONTRACT_PATTERNS / DYNAMIC_KEYS 里排除
+ * borrow，让归还字段只落在 `fixed_asset_doc_lists_borrow` 一张表上。</p>
+ */
+const BORROW_DOCS = {
+  key: 'fixed-asset-doc-lists-borrow',
+  label: '借出单列表',
+  idField: 'id',
+  audit: true,
+  fields: {
+    code: f.str({ required: true, unique: true }),
+    name: f.str({ required: true }),
+    companyId: f.ref('org-companies'),
+    assetId: f.ref('fixed-assets'),
+    creatorId: f.ref('org-users'),
+    createTime: f.date(),
+    finishTime: f.date(),
+    remark: f.str(),
+    status: f.enum('DOC_STATUS', { required: true }),
+    // 归还登记（4B）：已完结的借出单在这些字段上留痕，资产状态回 IN_USE
+    returnDate: f.date(),
+    returnRemark: f.str(),
+    returnBy: f.ref('org-users'),
+    returned: f.bool()
+  },
+  query: { keyword: ['code', 'name'], filters: ['status', 'companyId', 'returned'], sort: ['createTime'], page: true },
+  rules: {
+    unique: ['code'],
+    refs: [
+      { field: 'companyId', collection: 'org-companies' },
+      { field: 'assetId', collection: 'fixed-assets' },
+      { field: 'creatorId', collection: 'org-users' },
+      { field: 'returnBy', collection: 'org-users' }
+    ]
+  }
+}
+
 const CONTRACT_LIST = [
   ASSETS,
+  BORROW_DOCS,
   INVENTORY_PLANS, INVENTORY_DOCS,
   DEPRECIATION_SCHEMES, DEPRECIATION_REPORTS,
   REPORT_DEPRECIATION_DETAILS, REPORT_DEPRECIATION_PLAN_DETAILS,
@@ -844,7 +887,8 @@ export const CONTRACTS = CONTRACT_LIST.reduce((acc, c) => {
  */
 export const CONTRACT_PATTERNS = [
   {
-    test: key => key.startsWith('fixed-asset-doc-lists-'),
+    // borrow 有独立的归还登记字段，不走共用模板
+    test: key => key.startsWith('fixed-asset-doc-lists-') && key !== 'fixed-asset-doc-lists-borrow',
     make: key => {
       const biz = key.replace('fixed-asset-doc-lists-', '')
       return {
@@ -898,7 +942,7 @@ export const CONTRACT_PATTERNS = [
 
 /** 已知的动态集合 key（供种子注册与文档生成使用） */
 export const DYNAMIC_KEYS = [
-  ...DOC_LIST_KEYS.map(k => `fixed-asset-doc-lists-${k}`),
+  ...DOC_LIST_KEYS.filter(k => k !== 'borrow').map(k => `fixed-asset-doc-lists-${k}`),
   // 字典项集合由「数据字典」页动态创建：每个绑定枚举的字典类型一个集合
   ...ENUM_DICT_META.map(d => `system-dict-types-${d.code}-items`)
 ]

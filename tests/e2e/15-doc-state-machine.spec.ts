@@ -293,6 +293,9 @@ test('[P7-03] 固资派发状态机矩阵：未提交不可审批，完结后不
       const asset = await createAsset(admin, units, { name: `E2E_派发资产_${suffix()}` })
       assets.push(asset.id)
       const doc = await createDoc(leader.session, units, 'alloc', { assetId: asset.id })
+      // 矩阵里的每张单据都要登记到清理数组：否则 afterAll 删不到单据，
+      // 资产又因「被单据引用」删不掉，每跑一次全量就留一批 E2E_ 资产
+      docs.push({ collection: 'fixed-asset-doc-lists-alloc', id: doc.id })
 
       if (state !== 'DRAFT') {
         await act(leader.session.token, { docKey: 'alloc', docId: doc.id, action: 'submit' })

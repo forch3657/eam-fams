@@ -217,6 +217,16 @@ Remove-Item Env:MYSQL_PWD
 | `2026-10-29-depreciation-reset.sql` | 折旧口径重置：补齐明细展示字段、计提周期统一按月、修正公司编码、清空历史计提供重算 | 已执行 |
 | `2026-10-29-depreciation-settings-fix.sql` | 折旧设置修复：规则补齐 8 个分类、清空互相冲突的演示计划 | 已执行 |
 | `2026-10-30-fix-plan-details-columns.sql` | 折旧方案明细表补 8 列（17 → 25 列），修复 `plan-details` 与清空预览 500 | 2026-11-02 已在生产库执行 |
+| `06-auditor-wm-todo.sql` | 审计员（R6）补 `wm:todo`，使审计抽查确认在工作台可见 | 2026-11-04 已执行 |
+| `07-inventory-closure.sql` | 资产状态字典新增「待入库 / 待核销 / 已核销」3 项 | 2026-11-04 已执行 |
+| `08-inventory-disposal.sql` | 盘点异常处理去向字典（`REPAIR` / `CHANGE` / `EXPLAINED`） | 2026-11-04 已执行 |
+| `09-borrow-return.sql` | 仅 `fixed_asset_doc_lists_borrow` 加归还日期/备注/登记人/是否已归还 4 列 | 2026-11-04 已执行 |
+| `10-asset-source-tag.sql` | `fixed_assets` 加 `source_tag`，承载「期初导入」标注 | 2026-11-04 已执行 |
+
+> 08/09/10 涉及**契约字段新增**，务必按 §3.4 的顺序：先改
+> `fams-frontend/src/services/contract/schema.js` → `npm run export:contract` → 再执行迁移脚本 →
+> 最后 `stop-prod.ps1` / `build-prod.ps1` / `start-prod.ps1` 重建生产栈。
+> 顺序颠倒会出现「契约声明了字段但库里没列」导致读写 500。
 
 ### 3.6 回滚
 

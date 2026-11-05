@@ -69,8 +69,9 @@
           <el-button v-if="canRevokeRow(row)" link type="warning" size="small" @click="revokeRow(row)">撤销</el-button>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="170" fixed="right">
+      <el-table-column label="操作" width="240" fixed="right">
         <template #default="{ row }">
+          <el-button v-if="canReturnRow(row)" link type="primary" size="small" @click="openReturnDialog(row)">归还登记</el-button>
           <el-button link type="primary" size="small" @click="openApproval(row)">审批信息</el-button>
           <el-button link type="primary" size="small" :disabled="row.status === 'PROCESSING'" @click="openDialog(row)">修改</el-button>
           <el-button link type="danger" size="small" :disabled="row.status === 'PROCESSING'" @click="removeRow(row)">删除</el-button>
@@ -113,6 +114,29 @@
       </template>
     </el-dialog>
 
+    <!-- 借出归还登记：只在已完结且未归还的借出单上出现，不推进审批状态 -->
+    <el-dialog v-model="returnVisible" title="借出归还登记" width="460px">
+      <el-alert
+        type="info"
+        show-icon
+        :closable="false"
+        title="登记后资产状态由「借出中」恢复为「使用中」，单据保持已完结；归还人、时间与备注留痕。"
+        style="margin-bottom:12px"
+      />
+      <el-form :model="returnForm" label-width="90px">
+        <el-form-item label="单据编号">
+          <span>{{ returnForm.code || '-' }}</span>
+        </el-form-item>
+        <el-form-item label="归还备注">
+          <el-input v-model="returnForm.comment" type="textarea" :rows="3" maxlength="250" show-word-limit placeholder="如：实物已归还、外观完好" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="returnVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitReturn">确认归还</el-button>
+      </template>
+    </el-dialog>
+
     <DocApprovalDialog
       v-model="approvalVisible"
       :doc="approvalDoc"
@@ -149,7 +173,7 @@ import { useFixedAssetStore } from '../../store/fixedAsset'
 import DocApprovalDialog from './DocApprovalDialog.vue'
 import {
   DOC_BIZ_TYPE, getFlow, effectiveSteps, approvalsOf, currentStep,
-  canSubmit, canApprove, runApproval, isCollabAction
+  canSubmit, canApprove, runApproval, isCollabAction, registerBorrowReturn
 } from '../../services/approval'
 
 const props = defineProps({
@@ -265,6 +289,35 @@ async function removeRow(row) {
     ElMessage.success('单据已删除')
   } catch (e) {
     ElMessage.error(e?.message || '删除失败')
+  }
+}
+
+// ---------------- 借出归还（4B） ----------------
+const returnVisible = ref(false)
+const returnForm = reactive({ docId: '', code: '', comment: '' })
+
+/** 只有已完结、未归还的借出单能登记；其余七类单据不显示这个入口 */
+function canReturnRow(doc) {
+  return props.docKey === 'borrow' && doc.status === 'DONE' && !doc.returned
+}
+
+function openReturnDialog(row) {
+  Object.assign(returnForm, { docId: row.id, code: row.code || '', comment: '' })
+  returnVisible.value = true
+}
+
+async function submitReturn() {
+  const target = items.value.find(d => d.id === returnForm.docId)
+  if (!target) { ElMessage.warning('单据不存在，请刷新后重试'); return }
+  try {
+    const res = await registerBorrowReturn(target, returnForm.comment.trim())
+    ElMessage.success(res?.message || '归还已登记')
+    returnVisible.value = false
+    // 服务端一次改了单据归还字段与台账状态，两处都要刷新
+    await col.load().catch(() => null)
+    await assetStore.loadAll().catch(() => null)
+  } catch (e) {
+    ElMessage.error(e?.message || '归还登记失败')
   }
 }
 

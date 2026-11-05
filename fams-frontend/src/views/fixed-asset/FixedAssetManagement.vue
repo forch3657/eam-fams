@@ -781,8 +781,10 @@
         应盘 {{ checkCounts.ALL }} 项，已盘 {{ checkCounts.ALL - checkCounts.UNCHECKED }} 项，
         差异 {{ checkCounts.SURPLUS + checkCounts.LOSS + checkCounts.ABNORMAL }} 项
         （盘盈 {{ checkCounts.SURPLUS }} / 盘亏 {{ checkCounts.LOSS }} / 异常 {{ checkCounts.ABNORMAL }}）；
-        盘盈、盘亏、异常必须填写原因。
-        审批通过后：盘盈自动建账并生成入库单（待入库 → 验收后可用），盘亏在台账置「待核销」并生成处置单。
+        盘盈、盘亏、异常必须填写原因，异常还要选「处理去向」。
+        可先保存已登记部分，下次接着盘；提交审批仍需全部明细登记完毕。
+        审批通过后：盘盈自动建账并生成入库单（待入库 → 验收后可用），盘亏在台账置「待核销」并生成处置单，
+        异常按去向生成待审维修单 / 变更单（选「已说明」只留痕）。
       </div>
       <el-alert
         v-if="checkListDoc && !checkListEditable"
@@ -808,6 +810,21 @@
             <el-select v-model="row.result" size="small" placeholder="选择结果" style="width:100%" :disabled="!checkListEditable">
               <el-option v-for="r in CHECK_RESULT_OPTIONS" :key="r.value" :label="r.label" :value="r.value" />
             </el-select>
+          </template>
+        </el-table-column>
+        <el-table-column label="处理去向" width="130">
+          <template #default="{ row }">
+            <el-select
+              v-if="row.result === 'ABNORMAL'"
+              v-model="row.disposal"
+              size="small"
+              placeholder="选择去向"
+              style="width:100%"
+              :disabled="!checkListEditable"
+            >
+              <el-option v-for="o in DISPOSAL_OPTIONS" :key="o.value" :label="o.label" :value="o.value" />
+            </el-select>
+            <span v-else style="color:#909399">-</span>
           </template>
         </el-table-column>
         <el-table-column label="盘点备注" min-width="170">
@@ -1374,12 +1391,31 @@ function exportInventory(row) {
   // 否则报表里「盘点结果」永远是空值。
   const rows = itemsOfPlan(row)
   const source = rows.length ? rows : (row.items || [])
-  downloadCsv(
-    `${row.planNo}_盘点报表.csv`,
-    ['计划编号', '盘点单号', '资产编号', '资产名称', '分类', '使用部门', '存放位置', '使用人', '账面数量', '盘点结果', '盘点方式', '盘点时间', '备注'],
-    source.map(i => [row.planNo, i.docNo || '', i.assetNo, i.assetName, i.category, i.department, i.location, i.user, i.bookQty, labelOf('INVENTORY_RESULT', i.result), i.countMethod, i.countTime, i.remark])
-  )
-  ElMessage.success(`盘点报表 ${row.planNo} 已导出`)
+  const header = ['计划编号', '盘点单号', '资产编号', '资产名称', '分类', '使用部门', '存放位置', '使用人', '账面数量', '盘点结果', '盘点方式', '盘点时间', '备注']
+  const detail = source.map(i => [row.planNo, i.docNo || '', i.assetNo, i.assetName, i.category, i.department, i.location, i.user, i.bookQty, labelOf('INVENTORY_RESULT', i.result), i.countMethod, i.countTime, i.remark])
+
+  // 差异汇总：验收时可以直接对着清单核对盘盈/盘亏/异常的结论与后续去向，
+  // 不必再回系统逐条翻明细。每行仍补齐到与表头相同的列数，保证 CSV 可解析。
+  const blank = () => Array(header.length).fill('')
+  const countOf = result => source.filter(i => i.result === result).length
+  const diffs = source.filter(i => i.result === 'SURPLUS' || i.result === 'LOSS' || i.result === 'ABNORMAL')
+  const summary = [
+    blank(),
+    ['差异汇总', `盘点单号：${source.find(i => i.docNo)?.docNo || ''}`, `计划编号：${row.planNo}`, `期间：${row.planDate || ''}`, '', '', '', '', '', '', '', '', ''],
+    ['差异类型', '资产编号', '资产名称', '使用部门', '存放位置', '盘点结果', '处理去向', '原因', '盘点人', '盘点时间', '', '', ''],
+    ...diffs.map(i => [
+      labelOf('INVENTORY_RESULT', i.result), i.assetNo || '', i.assetName || '',
+      i.department || i.dept || '', i.location || '', labelOf('INVENTORY_RESULT', i.result),
+      i.result === 'ABNORMAL' ? (labelOf('INVENTORY_DISPOSAL', i.disposal) || '') : '',
+      i.remark || '', i.userName || i.user || i.checkerName || '',
+      i.countTime || i.checkTime || '', '', '', ''
+    ]),
+    ['合计', `应盘 ${source.length}`, `已盘 ${source.filter(i => i.result && i.result !== 'UNCHECKED').length}`,
+      `盘盈 ${countOf('SURPLUS')}`, `盘亏 ${countOf('LOSS')}`, `异常 ${countOf('ABNORMAL')}`,
+      `差异合计 ${diffs.length}`, '', '', '', '', '', '']
+  ]
+  downloadCsv(`${row.planNo}_盘点报表.csv`, header, [...detail, ...summary])
+  ElMessage.success(`盘点报表 ${row.planNo} 已导出（含差异汇总）`)
 }
 
 /**
@@ -1654,6 +1690,9 @@ const CHECK_RESULT_OPTIONS = [
   { value: 'ABNORMAL', label: '异常' }
 ]
 const ITEM_STATUS_OF_RESULT = { MATCHED: 'CHECKED', SURPLUS: 'SURPLUS', LOSS: 'LOSS', ABNORMAL: 'ABNORMAL', UNCHECKED: 'UNCHECKED' }
+/** 异常处理去向：运行期字典 inventory_disposal 覆盖内置枚举，与后端白名单同源 */
+const DISPOSAL_OPTIONS = computed(() => optionsOf('INVENTORY_DISPOSAL'))
+const DISPOSAL_VALUES = ['REPAIR', 'CHANGE', 'EXPLAINED']
 /** 明细当前状态：优先按已登记的 result 推导，未登记时回退单据里的状态 */
 function itemStatusOf(item) {
   return ITEM_STATUS_OF_RESULT[item?.result] || item?.itemStatus || 'UNCHECKED'
@@ -1757,16 +1796,14 @@ function submitProfitItem() {
 
 /**
  * 保存盘点结果：把本地副本写回单据，并按盘点员累计进度。
- * 盘盈/盘亏/异常必须填原因，否则差异没有依据、后续核销无从追溯。
+ *
+ * <p>支持分批保存：已登记的部分可以先落盘、下次接着盘；送审时后端仍要求
+ * 全部明细登记完毕（pendingCheckCount），并校验异常已选处理去向，
+ * 因此放开这里的拦截不会绕过审批。盘盈/盘亏/异常仍必须填原因。</p>
  */
 async function saveCheckResults() {
   const doc = checkListDoc.value
   if (!doc) return
-  const unregistered = checkItems.value.filter(i => !i.result || i.result === 'UNCHECKED').length
-  if (unregistered) {
-    ElMessage.warning(`还有 ${unregistered} 项未登记盘点结果`)
-    return
-  }
   const noReason = checkItems.value.find(i =>
     (i.result === 'LOSS' || i.result === 'SURPLUS' || i.result === 'ABNORMAL') && !(i.remark || '').trim()
   )
@@ -1786,9 +1823,14 @@ async function saveCheckResults() {
   }))
   const target = inventoryDocs.value.find(d => d.id === doc.id)
   if (!target) return
+  // done 只统计「该盘点员已登记结果」的明细，且与该盘点员的分派数比较：
+  // 旧口径拿单人已盘数去比整单总数，多人分工时永远到不了 DONE。
   const counters = (target.counters || []).map(c => {
-    const done = items.filter(i => i.checker === c.userId).length
-    return { ...c, done, status: done >= items.length ? 'DONE' : 'COUNTING' }
+    const assigned = Number(c.assigned) || 0
+    const done = items.filter(i =>
+      i.checker === c.userId && i.result && i.result !== 'UNCHECKED'
+    ).length
+    return { ...c, done, status: assigned > 0 && done >= assigned ? 'DONE' : 'COUNTING' }
   })
   try {
     Object.assign(target, { items, counters })
@@ -1808,6 +1850,14 @@ async function finishCounting() {
   const pending = checkItems.value.filter(i => !i.result || i.result === 'UNCHECKED').length
   if (pending) {
     ElMessage.warning(`还有 ${pending} 项未盘点，无法结束盘点`)
+    return
+  }
+  // 异常必须有处理去向才能完结（后端送审前置也会拦，这里提前给出可读提示）
+  const unresolved = checkItems.value.filter(i =>
+    i.result === 'ABNORMAL' && !DISPOSAL_VALUES.includes(i.disposal)
+  ).length
+  if (unresolved) {
+    ElMessage.warning(`还有 ${unresolved} 项异常未选择处理去向，无法结束盘点`)
     return
   }
   const target = inventoryDocs.value.find(d => d.id === doc.id)

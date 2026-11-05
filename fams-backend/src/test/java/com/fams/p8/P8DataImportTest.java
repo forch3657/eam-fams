@@ -3,6 +3,7 @@ package com.fams.p8;
 import com.fams.TestAccounts;
 import com.fams.engine.GenericService;
 import com.fams.imports.DataImportService;
+import com.fams.imports.FixedAssetImportService;
 import com.fams.security.LoginAttemptService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -41,6 +42,9 @@ public class P8DataImportTest {
 
     @Autowired
     private DataImportService importService;
+
+    @Autowired
+    private FixedAssetImportService fixedAssetImportService;
 
     @Autowired
     private GenericService genericService;
@@ -193,6 +197,42 @@ public class P8DataImportTest {
         assertThat(res.status).isEqualTo("PARTIAL");
         assertThat(res.success).isEqualTo(1);
         assertThat(res.failures).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("固资导入：期初「借出中」告警但放行并标注来源，空闲不告警")
+    public void fixedAssetImportWarnsLegacyState() throws Exception {
+        String suffix = String.valueOf(System.nanoTime());
+        String borrowedCode = "BR-WARN-" + suffix;
+        String idleCode = "IDLE-WARN-" + suffix;
+        // 用模板保证表头/说明/示例行齐全，数据行按 16 列对齐
+        String[] borrowedRow = {"E2E_期初借出资产", "电子设备", borrowedCode,
+                "", "", "", "", "", "", "", "8500", "8500", "8500", "购买", "借出中", "是"};
+        String[] idleRow = {"E2E_期初空闲资产", "电子设备", idleCode,
+                "", "", "", "", "", "", "", "8500", "8500", "8500", "购买", "空闲", "是"};
+        String csv = fixedAssetImportService.templateCsv()
+                + String.join(",", borrowedRow) + "\n" + String.join(",", idleRow) + "\n";
+        MockMultipartFile file = new MockMultipartFile("file", "asset.csv", "text/csv",
+                ("\ufeff" + csv).getBytes(StandardCharsets.UTF_8));
+
+        FixedAssetImportService.FixedAssetImportResult res = fixedAssetImportService.doImport(file, false);
+        assertThat(res.status).isEqualTo("OK");
+        assertThat(res.createdAssets).isEqualTo(2);
+        assertThat(res.failures).isEmpty();
+        assertThat(res.warnings).hasSize(1);
+        assertThat(res.warnings.get(0).message).contains("期初导入").contains("借出中");
+
+        List<Map<String, Object>> assets = genericService.list("fixed-assets", new HashMap<String, String[]>());
+        Map<String, Object> borrowed = assets.stream()
+                .filter(r -> borrowedCode.equals(String.valueOf(r.get("code")))).findFirst().orElse(null);
+        Map<String, Object> idle = assets.stream()
+                .filter(r -> idleCode.equals(String.valueOf(r.get("code")))).findFirst().orElse(null);
+        assertThat(borrowed).isNotNull();
+        assertThat(idle).isNotNull();
+        assertThat(String.valueOf(borrowed.get("status"))).isEqualTo("BORROWED");
+        assertThat(String.valueOf(borrowed.get("sourceTag"))).isEqualTo("期初导入");
+        assertThat(String.valueOf(idle.get("status"))).isEqualTo("IDLE");
+        assertThat(String.valueOf(idle.get("sourceTag"))).isIn("", "null");
     }
 
     // -------------------------------------------------------------- 控制器层

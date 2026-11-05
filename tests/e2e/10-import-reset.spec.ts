@@ -386,3 +386,39 @@ test('[P5-17] 清空预览条数准确且必须输入「清空」确认', async 
 
   guards.assertClean()
 })
+
+// ---------------------------------------------------------------- P5-18 期初状态告警
+
+test('[P5-18] 期初「借出中」告警但放行：结果区显示告警明细，资产标注来源', async ({ context, page }, testInfo) => {
+  const suffix = uniqueSuffix()
+  const assetName = `E2E_期初借出_${suffix}`
+  const code = `E2E_BR_${suffix}`
+  const buffer = csvBuffer(ASSET_HEADERS, [
+    [assetName, '电子设备', code, '', '', companyName, deptName, '', '',
+      '2026-03-12', '8500', '8500', '7650', '购买', '借出中', '是']
+  ])
+
+  const guards = installGuards(page)
+  await seedSession(context, admin)
+  await openImport(page)
+  await switchMode(page, '固定资产导入')
+  await uploadCsv(page, 'asset-legacy-state.csv', buffer)
+
+  // 告警不阻断导入：状态仍是「全部成功」，但结果区单独给一张告警表
+  await expectStatus(page, '全部成功')
+  expect(await metric(page, '新建资产')).toBe('1')
+  await expect(resultCard(page).getByText('需补录业务单据', { exact: false })).toBeVisible()
+  await expect(resultCard(page).getByRole('cell', { name: /期初导入/ })).toBeVisible()
+  await expect(resultCard(page).getByText('失败原因')).toHaveCount(0)
+
+  const asset = await findOne('fixed-assets', assetName)
+  expect(asset, '告警行应已落库').toBeTruthy()
+  expect(String(asset?.status)).toBe('BORROWED')
+  expect(String(asset?.sourceTag)).toBe('期初导入')
+  cleanups.push(async () => {
+    await apiDeleteQuiet(admin, `/api/fixed-assets/${asset!.id}`)
+  })
+
+  await shot(page, testInfo, 1, '期初状态导入告警与来源标注')
+  guards.assertClean()
+})

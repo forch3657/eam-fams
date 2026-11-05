@@ -215,7 +215,9 @@ spec：`tests/e2e/08-approval-center.spec.ts`。待办与流程口径：
 | P3-14 | [缺陷] 非管理员审批人待办 | 仅有 `wm:todo`+`fa:view` 的角色打不开待办（flows/users 读接口 403），标记 `fixme`（P3-D1） |
 | P3-15 | [缺陷] 审批记录不可篡改 | 现状任意登录账号可 PUT/DELETE 轨迹，标记 `fixme`（P3-D2） |
 
-未实现能力（本轮不写断言）：加签、转办、抄送（无对应接口与界面，见 P3-D3）；
+历史口径（当时不写断言）：加签、转办、抄送在 P3 编写时尚未实现（见 P3-D3）；
+**2026-11-04 核对：后端 `ApprovalService.collaborate` 与前端 `DocApprovalDialog` 已实现，P3-D3 已闭环**，
+这些用例未补断言属于当时的覆盖范围，不代表功能仍缺失。
 环节条件只有「金额大于 / 存在差异」，无部门维度条件；金额区间已由 P1-27/P1-28 覆盖。
 
 ## 7. P5 报表 / 导入导出 / 消息 / 工作台（已完成，20 条）
@@ -277,7 +279,7 @@ spec：`tests/e2e/09-workbench-reports.spec.ts`（工作台 + 报表 + 消息，
 - 模板下载是前端 Blob，偶发首次点击不产生 download 事件，用例内置一次重试。
 - 导入用例产生的公司/部门/用户/物品/资产全部 `E2E_` 前缀，`afterAll` 逆序清理。
 
-## 8. P10 盘点专项（已实现，P10-01 ~ P10-12）
+## 8. P10 盘点专项（已实现，P10-01 ~ P10-15）
 
 盘点是「计划 → 盘点单 → 正式审批 → 结论落地」的长链路，历史上只做过界面点测，
 链路上的问题（假明细、空单送审、审批对象可改、审批被跳过、盘亏落不了地、盘盈不建账）一个都没被用例覆盖。
@@ -297,6 +299,12 @@ spec：`tests/e2e/09-workbench-reports.spec.ts`（工作台 + 报表 + 消息，
 | P10-10 | 审计员只读盘点单 | 审计员（R6）能打开盘点单核对明细，但改明细 403（写仍要 `fa:inventory`） |
 | P10-11 | 盘盈建账（走入库审批流） | 盘盈明细完结后按登记件数建台账（状态 `PENDING_INBOUND`、分类落枚举码），每件生成一张 `DRAFT` 入库单；走 WF1（仓管 R8 验收 → 资产管理员 R2 复核）后资产转 `IDLE` |
 | P10-12 | 盘亏在台账上可见 | 盘点完结时盘亏资产在台账置 `PENDING_WRITE_OFF`（不再是原状态，也不是直接注销），同时生成 `DRAFT` 处置单待审 |
+| P10-13 | 异常按处理去向落地 | 完结后 `REPAIR`/`CHANGE` 各生成 1 张 `DRAFT` 维修单 / 变更单（带来源盘点单号），`EXPLAINED` 不生成任何单据 |
+| P10-14 | 异常未选去向不得送审 | 未填 `disposal` 送审 400；补选 `EXPLAINED` 后可送审（校验以服务端读到的明细为准） |
+| P10-15 | 部分保存可行但送审兜底 | 只登记第一项即可 PUT 保存、刷新后未盘项仍是 `UNCHECKED`；此时送审 400，补齐后才 200 |
+
+二期补充用例（不在本文件）：`17-dept-approval-chain.spec.ts` 的 P9-05（借出归还状态回写 / 重复 409 / 越权 403）、
+`10-import-reset.spec.ts` 的 P5-18（期初「借出中」告警表可见、资产 `sourceTag=期初导入`）。
 
 ### 8.1 前置条件与注意
 
@@ -310,12 +318,41 @@ spec：`tests/e2e/09-workbench-reports.spec.ts`（工作台 + 报表 + 消息，
 - 盘盈建账会产生新台账行（新资产被入库单引用时不能先删资产），盘亏会把被盘资产置成
   「待核销」；`afterAll` 按「先删入库单 → 再删新建资产 → 最后把资产状态还原成用例执行前」收尾，
   不在生产库留残余状态。
+- 异常去向会派生维修单 / 变更单，`afterAll` 按备注里的「盘点异常」标记清理这两个集合；
+  分批保存用例每次 PUT 前重读最新行，避免 `version` 乐观锁把第二笔保存打成 409。
 - 用例跑在生产形态地址上（`http://localhost`），只留 `E2E_` 前缀数据，不自动清库。
+
+### 8.2 真实组织回归（FZ-00 ~ FZ-10）
+
+`tests/e2e/19-real-org-flow.spec.ts` + `tests/e2e/fixtures/realOrg.ts`，脚本 `npm run e2e:real-org`。
+与 P9/P10 用临时账号验证「规则」不同，本专项用**福州数据技术研究院有限公司在册真人 +
+生产部门 `leader_id`/`vp_id` + 生产流程配置**验证「规则在真实组织里确实跑得通」。
+
+| 编号 | 部门 | 真实流程 | 关键断言 |
+| --- | --- | --- | --- |
+| FZ-00 | — | 矩阵自检 | 8 个有资产部门、真人账号、部门配置、手工草稿单 `PD20261104001` |
+| FZ-01 | 产品研发一部 | WF2 派发 | 石顺中审批；台账 `IDLE→IN_USE`、`userId` 落陈学知 |
+| FZ-02 | 综合管理部（党群工作部） | WF4 借出 + 归还 | 江小芳提交 / 归还、程乔楠审批；台账 `IN_USE→BORROWED→IN_USE`，归还留痕 |
+| FZ-03 | 财务资金部 | WF6 大额维修 | 陈宇 → R2 → 郭晓雅（`DEPT_VP`），台账状态保持 |
+| FZ-04 | 产品研发二部 | WF7 变更 | 陈福沨 → R2，台账状态保持 |
+| FZ-05 | 科技创新部 | WF8 大额处置 | 陈阳红 → 李弥贤 → 郭晓雅 → 陈容源；台账 `PENDING_WRITE_OFF→DISPOSED` |
+| FZ-06 | 项目管理部 | WF1 入库（角色池例外） | 陈铃（跨部门仓管）验收；台账 `PENDING_INBOUND→IDLE`、补入库日期 |
+| FZ-07 | 市场营销部 | WF9 盘点（跨部门角色池） | 差异复核 + 陈容源审计抽查；台账置待核销、派生 `DRAFT` 处置单 |
+| FZ-08 | 公司领导 | WF6 层级例外 | `leader` 为 R7 账号严坤斌、`vp` 郭晓雅，链路不卡单 |
+| FZ-09 | 跨部门 | 越权防护 | 程乔楠批产品研发一部单据 403，文案点名石顺中 |
+| FZ-10 | — | 收尾核对 | 部门配置 / 81 个真实账号 / 手工草稿单 / 8 条链路结果一致 |
+
+- 只登录真人账号，不新建、不删除、不停用；部门 `leader_id`/`vp_id` 只读，前后逐项断言一致。
+- `R2` 资产管理员在真实人员里没有独立账号，按用户确认由 `admin` 兜底（唯一非真人环节）。
+- 清理按「基线 id 差集 + `E2E_ORG_` 前缀」双过滤逆序删本轮单据，资产整行还原，轨迹由后端级联清理。
+- 交付：可复跑只读 SQL `docs/e2e/sql/real-org-check.sql`、分部门分层报告
+  `docs/e2e/real-org-verification.md`、结构化结果 `e2e-artifacts/real-org-result.json`。
 
 ## 9. 已知缺陷登记（本轮发现）
 
 缺陷状态（2026-11-02）：**已修复 12 项**（P3-D4、P5-D1、P5-D2、P4-D1~D3、P1-D1/D2、P2-D1/D2、P3-D1/D2）；
-**待需求确认 1 项**：P3-D3（加签/转办/抄送）；**监控 1 项**：ENV-01。
+**监控 1 项**：ENV-01。P3-D3（加签 / 转办 / 抄送）此前标为「待需求确认」，
+2026-11-04 核对代码确认后端与前端均已实现，更正为**已闭环**（该条是文档滞后于代码，不是待办）。
 P3-14/P3-15、P4-19/20/21、P1-16/P1-20、P2-22 的 `fixme` 已全部移除并转绿。
 
 | 编号 | 缺陷 | 证据 | 影响 | 处理 |
@@ -330,7 +367,7 @@ P3-14/P3-15、P4-19/20/21、P1-16/P1-20、P2-22 的 `fixme` 已全部移除并�
 | P2-D2 | 低值单据完结后 `settleTime` 为空 | 审批端点统一写 `finishTime`，但低值单据的合同字段是 `settleTime`（无 finishTime 列），接口审批后结算时间为空；前端自己在改状态时补 settleTime | 审批中心办结的单据缺结算时间，报表/审计口径不一致 | **已修复（2026-11-02）**：审批完结时对 `low-value-*` 集合同时写入 `settleTime`；P2-09 增加结算时间断言 |
 | P3-D1 | 非管理员审批人工作台待办恒为空 | `Workbench.onMounted` 需要 `system-workflow-flows`（`sys:workflow`）与 `org-users`（`org:user`）才能算待办，但 `PermissionPolicy` 只把这两个读权限给管理员；R5 部门主管权限清单里没有，两个请求均 403，`flows/users` 为空且 `Promise.all` 抛异常 | 真正的审批人只能去业务页面逐单找，审批中心对非管理员不可用 | **已修复（2026-11-02）**：`org-users` / `system-workflow` 的读权限额外允许 `wm:todo`（写仍要求 `org:user` / `sys:workflow`）；P3-14 转绿，用例对工作台消息/日志面板的无关 403 放行 |
 | P3-D2 | 审批轨迹可被篡改/删除 | `fixed-asset-doc-approvals` 走通用 CRUD 且 `PermissionPolicy` 未登记该集合，任何登录账号可 `PUT` 改意见、`DELETE` 删记录（实测改意见返回 `code=0`） | 审批留痕不可信，可事后抹除责任 | **已修复（2026-11-02）**：`PermissionPolicy` 新增只读集合，轨迹集合的 POST/PUT/DELETE 一律 403；服务端 `ApprovalTrailWriter` 直写服务层不受影响；P3-15 转绿 |
-| P3-D3 | 加签 / 转办 / 抄送未实现 | `ApprovalService.act` 仅支持 `submit/approve/reject/revoke`，其余 action 返回 400；前端无对应按钮与抄送页签 | 计划中的审批协作能力缺失 | **待需求确认（本轮未实现）**：方案为轨迹表增加 `actionType`（ADD_SIGN/TRANSFER/CC）与 `targetUserId`，环节判定时 ADD_SIGN 参与者纳入 ANY/ALL 计算、TRANSFER 替换当前审批人、CC 只写轨迹不参与决策；需产品确认权限与可见范围后再落库并补用例 |
+| P3-D3 | 加签 / 转办 / 抄送未实现（当时） | 编写 P3 用例时 `ApprovalService.act` 仅支持 `submit/approve/reject/revoke`，前端无对应按钮 | 审批协作能力缺失 | **已闭环（2026-11-04 核对）**：后端已实现 `collaborate`（轨迹表 `actionType` + `targetUserId`，ADD_SIGN 纳入 ANY/ALL、TRANSFER 替换审批人、CC 只留痕），前端 `DocApprovalDialog` 已提供按钮；此前台账长期停留在「待需求确认」属文档滞后 |
 | P3-D4 | 流程配置页连续保存静默失败 | `approvalStore.saveFlow` 用服务端返回**替换** `flows` 数组元素，`WorkflowConfig.selected` 仍指向旧对象；第二次保存带旧 `version` 被 409 拒绝，`saveStep/removeStep/moveStep` 未提示（2026-10-30 首次执行 P3-09：改名后删除环节无「已删除」、steps 未清空） | 连续调整环节必须重新点选流程，否则修改看似成功实则丢失 | **已修复（2026-10-30）**：`saveFlow` 先 `Object.assign(flow, saved)` 回写 version 再回写数组（与 `persistDoc` 同口径）；前端单测 405 项全绿、P3 复跑 13 passed / 2 skipped |
 | P5-D1 | 折旧方案明细表缺列，接口与清空预览 500 | `fixed_asset_report_depreciation_plan_details` 建表缺 `asset_no / department / location / inbound_date / method / monthly / accumulated / net_value`，但 `resources.json` 契约与 `DepreciationService.planRow` 都在用；实测 `GET /api/fixed-asset-report-depreciation-plan-details` 与 `GET /api/data-import/reset/preview?scope=fixed-asset` 均 500 | 折旧方案报表不可用；固定资产清空预览打不开 | **已修复（2026-11-02）**：root@localhost 执行 `fams-backend/sql/04-maintenance/2026-10-30-fix-plan-details-columns.sql`，表由 17 → 25 列；两个接口恢复 code=0；`sql/01-schema/00-schema.sql`、`deploy/sql/mysql/schema.sql` 已同步；P5-17 恢复固定资产范围并转绿（P5-17B 已并入） |
 | P5-D2 | 消息模板重复键提示「新增成功」 | `MessageTemplate.saveTemplate` 未 `await store.addTemplate`，返回的 Promise 恒真，重复键既不创建也不报错，还提示「模板已新增」并关闭弹窗 | 运营误以为模板已建，消息发送时才暴露 | **已修复（2026-10-30）**：`saveTemplate` 改 async 并 `await addTemplate`，重复键保留弹窗报「模板键已存在」；前端单测全绿、P5-19 复跑通过 |
@@ -346,7 +383,12 @@ P3-14/P3-15、P4-19/20/21、P1-16/P1-20、P2-22 的 `fixme` 已全部移除并�
 | P10-D10 | 审计员在界面上处理不了「审计抽查确认」 | 盘点单读权限只认 `fa:inventory`，R6 审计员没有该码 → 读盘点单 403；工作台待办按可读集合拼 → 待办里也没有盘点单；角色也没有 `wm:todo`，连流程配置都读不到 | 审计抽查环节形同虚设（只能绕过界面调接口） | **已修复（2026-11-04）**：盘点单/计划读权限放开 `fa:view`（写与删仍要 `fa:inventory`）；R6 补 `wm:todo`（迁移脚本 `sql/04-maintenance/06-auditor-wm-todo.sql`）；工作台与盘点页按「盘点流程审批人」放开读取；P10-10 转绿 |
 | P10-D11 | 盘点计划单号由前端推算，撞号 | `planNo` 是唯一键，前端按「可见列表长度 + 1」拼 `PD-2026-00N`（与 BUG-005 / P10-D7 同一类问题） | 两个管理员同建计划 → 409「已存在」 | **已修复（2026-11-04）**：计划单号改由服务端按全表当年最大序号生成（`PD-2026-001`）；P10-09 转绿 |
 | P10-D12 | 盘盈不建账（只留一句「账外资产，需补办入库」） | 盘点完结时 `ApprovalService` 只处理盘亏（生成处置单），盘盈明细在台账里查无此物，账外资产永远进不了账 | 账外资产既不能核销也不能入账，账实差异长期挂账 | **已修复（2026-11-04）**：盘点完结时按登记件数建台账（状态 `PENDING_INBOUND`）并生成入库单，走 WF1 验收（仓管 → 资产管理员）通过后转 `IDLE`；资产状态字典新增 `PENDING_INBOUND/待入库`（迁移脚本 `sql/04-maintenance/07-inventory-closure.sql`）；P10-11 转绿 |
-| P10-D13 | 盘亏不反映到台账（仍是原状态） | 盘点盘亏只生成处置单，台账状态没动，账实不符在资产列表上看不出来 | 资产列表看不出哪些实物已丢失，核销进度无法在台账上跟踪 | **已修复（2026-11-04）**：盘点完结时盘亏资产置 `PENDING_WRITE_OFF`（待核销），处置审批通过后由 `syncAssetLedger` 转 `DISPOSED`（已核销）；资产状态字典新增 `PENDING_WRITE_OFF/待核销`、`DISPOSED/已核销`；P10-12 转绿 |
+| P10-D13 | 盘亏不反映到台账（仍是原状态） | 盘点盘亏只生成处置单，台账状态没动，账实不符在资产列表上看不出来 | 资产列表看不出哪些实物已丢失，核销进度无法在台账上跟踪 | **已修复（2026-11-04）**：盘点完结时盘亏资产置 `PENDING_WRITE_OFF`（待核销），处置审批通过后由 `syncAssetLedger` 转 `DISPOSED`（已核销）；资产状态字典新增 `PENDING_WRITE_OFF/待核销`、`DISPOSED/已核销`；P10-12 转绿 || P10-D14 | 盘点异常只填原因、没有后续动作 | 明细登记为「异常」时只需写备注，完结后不生成任何单据，异常资产无人跟进 | 实物异常长期挂账，维修/变更无单据可追溯 | **已修复（2026-11-04）**：异常明细必须选处理去向（转维修单 / 转变更单 / 已说明），送审前校验未选去向返回 400；完结时按去向用 `createIndependent` 生成 DRAFT 维修/变更单，「已说明」只留痕；新增 `inventory_disposal` 字典（迁移 `08-inventory-disposal.sql`）；P10-13 转绿 |
+| P10-D15 | 盘点结果必须一次全部登记完才能保存 | `saveCheckResults` 前端拦截「还有 N 项未登记」，中途不能保存；进度按全单总数算，多人分派时盘点员进度虚低 | 现场盘点中断即丢失已登记结果，协同盘点进度失真 | **已修复（2026-11-04）**：放开保存拦截，送审仍由后端 `pendingCheckCount` 兜底；`counters.done` 改按本人分派数计算；P10-14 / P10-15 转绿 |
+| P10-D16 | 盘点报表只有明细，没有差异汇总 | `exportInventory` 只导出逐条明细，缺盘盈/盘亏/异常清单与合计、盘点单号、期间 | 报表不能直接作为盘点结论归档，需人工二次统计 | **已修复（2026-11-04）**：CSV 末尾追加盘点单号、期间与差异汇总段（盘盈、盘亏、异常清单及合计）；纯前端实现，不新增后端导出接口 |
+| P10-D17 | 借出只有「出」没有「归还」 | 借出单审批完结后资产一直 `BORROWED`，没有归还登记入口 | 台账状态与实物脱节，归还动作无留痕 | **已修复（2026-11-04）**：借出单改为静态契约，新增 `returnDate/returnRemark/returnBy/returned`（迁移 `09-borrow-return.sql` 只加 `fixed_asset_doc_lists_borrow` 一列组）；`ApprovalService` 新增非推进型 `return` 动作，校验 `DONE` 且未归还，写归还字段并 `patchField` 台账回 `IN_USE`；重复 409、越权 403；P9-05 转绿 |
+| P10-D18 | 期初导入「借出中/维修中」等状态无任何提示 | 台账导入允许直接写 `借出中/维修中/派发中/处置中`，结果区只有成功/失败两类，用户分不清哪些行需补录业务单据 | 期初无单据资产与正常资产混淆，后续对账困难 | **已修复（2026-11-04）**：`FixedAssetImportResult` 增加 `warnings`，告警但放行，资产写 `sourceTag=期初导入`（迁移 `10-asset-source-tag.sql`）；`SystemDataImport.vue` 告警表与失败表分离展示；P5-18 转绿，保留 BUG-003「期初允许无单据、状态以台账为准」口径 |
+| P10-D19 | 契约导出抹掉折旧明细 8 列与审批轨迹 `targetUserId` | 只手工加进后端 `resources.json` 的字段，执行 `npm run export:contract` 后被前端 `schema.js` 覆盖；通用引擎静默丢弃未声明字段 | 折旧报表列丢失、协作审批（加签/转办）目标人丢失 | **已修复（2026-11-04）**：字段、refs、filters 补回 `fams-frontend/src/services/contract/schema.js` 后重新导出；`docs/deployment.md` §3.4 固化「前端 schema 唯一真源，禁止手改后端契约」；导出后逐项比对 `git diff` |
 
 ## 10. 运行与验收
 
@@ -366,7 +408,11 @@ npm run e2e:p3
 # P5 单跑（工作台/报表/消息 + 导入/清空预览）
 npm run e2e:p5
 
-# 全量（L0 + P4 + P1 + P2 + P3 + P5，自动包含 09/10）
+# 真实组织回归（8 个有资产部门 × 真人账号 × 真实审批链）
+npm run e2e:real-org
+# 跑完按 docs/e2e/sql/real-org-check.sql 复跑只读 SQL 数据复核
+
+# 全量（自动包含 09/10/17/18/19）
 npm run e2e
 ```
 
@@ -391,6 +437,12 @@ P5 已落地 `09-workbench-reports.spec.ts`（14 条）与 `10-import-reset.spec
 | 2026-11-02 | 全量（缺陷修复后） | 同上；dist + jar 为 12:01 重建版本 | **146 passed / 0 failed / 0 skipped**，串行 13.6 分钟；产物 `e2e-artifacts/2026-11-02T04-01-46`。修复副作用的清理适配：P1-D1 使 `PROCESSING` 单据无法直接删、P3-D2 使轨迹无法经通用 CRUD 删除——新增 `deleteDocQuietly`（先 revoke 再删）与 `ApprovalTrailHook.afterDelete` 级联清理；09 的 afterAll 适配后复跑 `13 passed`（P5-18 首次因消息轮询 flaky 失败，单跑通过）；8 类 `E2E_` 残留全部 0 |
 | 2026-11-04 | P10（盘盈建账 / 盘亏待核销） | 生产形态 `http://localhost`（jar + dist 于 14:29 重建；生产库已执行 `06-auditor-wm-todo.sql`、`07-inventory-closure.sql`） | 后端全量单测 **127 passed / 0 failed**、前端单测 187+66+125+20 全绿；P10 **12 passed / 0 failed**（串行 57 秒），新增 P10-11（盘盈建账 + 入库验收转空闲）、P10-12（盘亏置待核销）；P10-06 原依赖「台账资产足够多」的前提失效（导入清理后仅 71 条资产、18.9KB），改为用例自造 64KB 明细后转绿 |
 | 2026-11-04 | P10（契约修复后复跑） | 同上；jar/dist 于 14:47 重建（契约修复后） | 复跑 P10 **12 passed**；P5 回归 **19 passed / 1 failed**（P5-02 报 `[safe-delete] ETIMEDOUT`，是 IDE 文件回收 shim 超时的环境噪音，单跑通过）；修复内容：`npm run export:contract` 曾把「只手工加进后端契约」的 8 个折旧计划明细字段与 `targetUserId` 冲掉，已补回前端 `schema.js` 并重新导出（`resources.json` 恢复与提交态一致），并改 `docs/deployment.md` §3.4 的操作顺序；收尾后复核：新建资产/入库单/处置单/计划/E2E 账号全部 0 条残留，71 条资产状态全部还原为 `IN_USE` |
+
+| 2026-11-04 | 数据闭环批次（异常去向 / 分批保存 / 盘点报表汇总 / 借出归还 / 导入告警） | 生产形态 `http://localhost`（`stop-prod` → `build-prod` → `start-prod` 重建 jar + dist；生产库执行 `08-inventory-disposal.sql`、`09-borrow-return.sql`、`10-asset-source-tag.sql`） | 后端全量单测 **131 passed / 0 failed**，前端单测、`check:perm` 与 `vite build` 全绿；P9 + P10 合并回归 **20 passed / 0 failed**（含 P9-05 借出归还、P10-13/14/15 异常去向与分批保存）；P5-18 单跑通过；新增用例 P9-05、P5-18、P10-13~15，登记 P10-D14~D19 与 BUG-021~026；契约导出后逐项比对 `git diff` 无字段丢失；生产库 `E2E_` 残留 0，用户手工草稿盘点单 `PD20261104001` 完好 |
+
+| 2026-11-04 | 真实组织回归（第四期，FZ-00~FZ-10） | 生产形态 `http://localhost`（功能冻结，jar/dist 为数据闭环批次版本，未重建；MySQL `fams` 生产库） | `npm run e2e:real-org` **11 passed / 0 failed / 0 skipped（42.0s）**；8 个有资产部门 × 真人账号 × WF1/2/4/6/7/8/9 真实审批链全部通过，逐单断言台账状态、派生单据、审批轨迹命中真人、部门配置前后一致；只读 SQL 复核 `docs/e2e/sql/real-org-check.sql`：固资单据 / 盘点单 / 派生单 / 审批轨迹 / 非 `IN_USE` 资产残留全部 0，46 台资产全部还原 `IN_USE`，81 个真实账号与 13 个部门 `leader_id`/`vp_id` 未变，手工草稿单 `PD20261104001` 保持 `DRAFT`；交付 `docs/e2e/real-org-verification.md` 与 `e2e-artifacts/real-org-result.json` |
+
+| 2026-11-04 | 全量回归（212 条，两轮） | 生产形态 `http://localhost`（功能冻结，未重建栈；后端 `mvn test` 退出 0、前端单测 187+66+125+20 全绿、`check:perm` 68 集合通过） | 两轮均 **210 passed / 2 failed**：第 1 轮 `SMK-04` / `P1-30`（已修：菜单项显式等可见 + 标签页轮询；P1-30 改为登记真实差异明细 `ABNORMAL`+`EXPLAINED` 以适配服务端按明细判定 `hasDiff`），第 2 轮换为 `P1-24` / `P2-20`，单跑均通过，属长时间串行的环境噪音；**FZ-00~FZ-10 在两轮全量里 11/11 全绿**；另修 `15-doc-state-machine.spec.ts` 的 P7-03 漏登记派发单导致 `E2E_` 资产累积（单跑验证不再新增）；全量后 SQL 复核：真实 46 台资产全部 `IN_USE`、13 部门配置 / 81 账号 / `PD20261104001` 未变、`E2E_ORG_` 残留 0，既有全量遗留 42 台 `E2E_` 测试资产按口径只汇报不自动清库；生产栈健康检查登录 `code=0`、前端 `/version.txt` 200（`c227f1b`） |
 
 P4 执行清单：`tests/e2e/04-permission-matrix.spec.ts`（21 条），
 覆盖菜单可见性、路由兜底、按钮级、接口 401/403、角色停用/启用/加权限的即时性、

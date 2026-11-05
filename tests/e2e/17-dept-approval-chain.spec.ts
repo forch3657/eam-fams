@@ -42,7 +42,7 @@ async function principal(roleCode: string, deptId: string) {
 
 async function act(
   session: Session,
-  payload: { docKey: string; docId: string; action: string; ctx?: Record<string, unknown> }
+  payload: { docKey: string; docId: string; action: string; ctx?: Record<string, unknown>; comment?: string }
 ) {
   return withApi(session, async api => {
     const res = await api.post('/api/approvals/action', {
@@ -228,4 +228,54 @@ test('[P9-04] 同部门其他主管也不是审批人（只有负责人本人）
   const ok = await act(leader.session, { docKey: 'alloc', docId: doc.id, action: 'approve' })
   expect(ok.status, JSON.stringify(ok.body)).toBe(200)
   expect(ok.body.data.status).toBe('PROCESSING')
+})
+
+test('[P9-05] 借出归还：台账状态回写、留痕与越权防护', async () => {
+  const creator = await principal('ROLE_USER', units.deptId)
+  const asset = await createAsset(units.deptId, creator.user.id)
+  // 直接造一张已完结的借出单，只验证归还动作本身（审批链由其它用例覆盖）
+  const doc = await createDoc(admin, units, 'borrow', {
+    assetId: String(asset.id),
+    status: 'DONE'
+  })
+  docs.push({ key: 'borrow', id: doc.id, code: doc.code })
+
+  // 模拟借出审批完结后的台账状态
+  await withApi(admin, async api => {
+    const current = await api.get(`/api/fixed-assets/${asset.id}`)
+    const row = ((await current.json()).data ?? {}) as Row
+    const res = await api.put(`/api/fixed-assets/${asset.id}`, { data: { ...row, status: 'BORROWED' } })
+    expect(res.status(), '把资产置为借出中失败').toBe(200)
+  })
+
+  const readDoc = async () => withApi(admin, async api => {
+    const res = await api.get(`/api/fixed-asset-doc-lists-borrow/${doc.id}`)
+    return ((await res.json()).data ?? {}) as Row
+  })
+  const readAsset = async () => withApi(admin, async api => {
+    const res = await api.get(`/api/fixed-assets/${asset.id}`)
+    return ((await res.json()).data ?? {}) as Row
+  })
+
+  // 普通使用人既不是创建人，也不是资产管理员 / 仓管员
+  const blocked = await act(creator.session, { docKey: 'borrow', docId: doc.id, action: 'return' })
+  expect(blocked.status, JSON.stringify(blocked.body)).toBe(403)
+
+  // 创建人（admin）登记归还：单据保持已完结，台账恢复使用中
+  const returned = await act(admin, {
+    docKey: 'borrow', docId: doc.id, action: 'return', comment: 'E2E 实物已归还，外观完好'
+  })
+  expect(returned.status, JSON.stringify(returned.body)).toBe(200)
+  expect(returned.body.data.status).toBe('DONE')
+
+  const saved = await readDoc()
+  expect(['true', '1']).toContain(String(saved.returned))
+  expect(String(saved.returnBy)).toBe(String(admin.user.id))
+  expect(String(saved.returnRemark)).toContain('实物已归还')
+  expect(String(saved.status), '归还不应推进审批状态').toBe('DONE')
+  expect(String((await readAsset()).status)).toBe('IN_USE')
+
+  // 同一张借出单不能重复归还
+  const again = await act(admin, { docKey: 'borrow', docId: doc.id, action: 'return' })
+  expect(again.status).toBe(409)
 })
