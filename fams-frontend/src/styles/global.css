@@ -195,20 +195,20 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
+  padding: 0 var(--sp-5);
   height: var(--h-top);
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--sp-4);
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 22px;
+  gap: var(--sp-5);
 }
 
 .collapse-btn {
@@ -265,10 +265,17 @@ body {
 
 .main-content {
   background: var(--bg-page);
-  padding: 24px;
+  padding: var(--sp-6);
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+}
+/* 超宽屏不出现 2000px 长行：页面根元素统一限宽居中 */
+.main-content > * {
+  width: 100%;
+  max-width: 1600px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* Status tags — 资产状态色统一 */
@@ -443,13 +450,16 @@ body {
   /* 中性色 */
   --t-main: #0F172A;
   --t-sub: #475569;
-  --t-weak: #94A3B8;
+  --t-weak: #617188;
   --bd: #E2E8F0;
   --bd-split: #EEF2F7;
   --bg-page: #F0F2F5;
   --bg-card: #FFFFFF;
   --bg-th: #F5F7FA;
   --bg-hover: #F5F7FA;
+  /* P2：两级中性层次，用于卡片内分区与需要强调的分隔线 */
+  --bg-subtle: #F8FAFC;
+  --bd-strong: #CBD5E1;
 
   /* 语义色：数据只读用中性色，避免与可点击链接同色 */
   --c-data: var(--t-main);
@@ -513,7 +523,7 @@ body {
   --el-font-size-base: 14px;
   --el-text-color-primary: #0F172A;
   --el-text-color-regular: #475569;
-  --el-text-color-secondary: #94A3B8;
+  --el-text-color-secondary: #617188;
   --el-border-color: #E2E8F0;
   --el-border-color-light: #EEF2F7;
   --el-fill-color-blank: #FFFFFF;
@@ -530,46 +540,10 @@ body {
 /* 只读数据/金额：用中性深色，避免与可点击的主色链接混淆 */
 .metric-data { color: var(--c-data); }
 
-/* 深色模式 */
-[data-theme="dark"] {
-  --c-primary: #4C8DFF;
-  --c-primary-dark: #1B3A6B;
-  --c-primary-light: #16243D;
-  --c-accent: #E0B558;
-  --c-success: #35C07E;
-  --c-warning: #F5A742;
-  --c-danger: #F2604F;
-  --c-info: #5A9BE0;
-  --t-main: #E6EDF7;
-  --t-sub: #A9B8CC;
-  --t-weak: #71809A;
-  --bd: #2A3550;
-  --bd-split: #222C44;
-  --bg-page: #0F172A;
-  --bg-card: #16213A;
-  --bg-th: #1B2740;
-  --bg-hover: #1B2740;
-  --st-rented: #35C07E;
-  --st-idle: #8892A6;
-  --st-self: #5A9BE0;
-  --st-owing: #F5A742;
-  --st-uncert: #F2604F;
-  --shadow: 0 1px 2px rgba(0,0,0,.30), 0 4px 12px rgba(0,0,0,.28);
-
-  --el-color-primary: #4C8DFF;
-  --el-color-primary-light-3: #7AA8FF;
-  --el-color-primary-light-5: #A8C8FF;
-  --el-color-primary-light-7: #D0E0FF;
-  --el-color-primary-light-8: #E0EAFF;
-  --el-color-primary-light-9: #F0F4FF;
-  --el-color-primary-dark-2: #1B3A6B;
-  --el-text-color-primary: #E6EDF7;
-  --el-text-color-regular: #A9B8CC;
-  --el-text-color-secondary: #71809A;
-  --el-border-color: #2A3550;
-  --el-border-color-light: #222C44;
-  --el-fill-color-blank: #16213A;
-}
+/* 深色模式：2026-11-06 移除。
+   原实现无任何切换入口（MainLayout 固定 theme-ent），属不可达死代码；
+   且未覆盖 Element Plus 全量变量，保留会误导维护、也让对比度基线多一份口径。
+   如将来要做主题切换，请先补切换入口，再按 :root 的变量清单整体重做。 */
 
 /* ============ CSS Variables — 品牌色 / 功能色 / 中性色 / 状态色 / 字体 ============ */
 .tags-view {
@@ -666,7 +640,7 @@ body {
   gap: 8px;
   cursor: pointer;
   color: rgba(255, 255, 255, 0.85);
-  outline: none;
+  /* 不移除焦点轮廓：键盘用户需要看到当前位置，白底使用主色环、顶栏使用白色环 */
 }
 
 .user-info:hover {
@@ -1035,4 +1009,83 @@ body {
 .num {
   font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
+}
+
+/* ============ 可访问性基线（P0，2026-11-06） ============ */
+/* 键盘焦点必须可见；Element Plus 部分组件会重置 outline，这里兜底 */
+:focus-visible {
+  outline: 2px solid var(--c-primary) !important;
+  outline-offset: 2px;
+}
+/* 深蓝顶栏 / 侧栏上主色环不清晰，换成白色 */
+.layout-header :focus-visible,
+.sidebar :focus-visible {
+  outline-color: #fff !important;
+}
+/* 语义化图标按钮：去掉浏览器默认外观，保持原 el-icon 的视觉一致 */
+button.collapse-btn,
+button.hdr-badge,
+button.tag-close {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+button.collapse-btn { color: rgba(255, 255, 255, .85); }
+button.tag-close { display: inline-flex; align-items: center; }
+/* 尊重系统「减少动态效果」偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============ 响应式基线（P0，2026-11-06） ============ */
+/* 固定 px 宽度的弹窗在窄屏/矮屏会溢出、底部按钮被裁；
+   header/footer 固定、body 独立滚动，保证「确定/取消」始终可见 */
+.el-dialog {
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 64px);
+  display: flex;
+  flex-direction: column;
+}
+.el-dialog__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+@media (max-height: 800px) {
+  .el-dialog { margin-top: 4vh !important; margin-bottom: 16px; }
+}
+@media (max-width: 1280px) {
+  .main-content { padding: var(--sp-4); }
+  .layout-header { padding: 0 var(--sp-4); }
+  .header-right { gap: var(--sp-3); }
+}
+@media (max-width: 1100px) {
+  .main-content { padding: var(--sp-3); }
+  .page-header, .filter-bar { padding-left: var(--sp-3); padding-right: var(--sp-3); }
+  /* 分页器窄屏隐藏每页条数与跳页，保留上/下页与总数 */
+  .el-pagination__sizes, .el-pagination__jump { display: none; }
+}
+
+/* ============ 观感基线（P2，2026-11-06） ============ */
+body { font-size: 14px; line-height: 1.5; }
+/* 辅助字不小于 13px：表头 / 表单标签 / 描述标签过去是 12px */
+.el-table th.el-table__cell .cell,
+.el-form-item__label,
+.el-descriptions__label,
+.el-breadcrumb { font-size: 13px; }
+/* 三级标题节奏 */
+.page-header h2 { font-size: 20px; font-weight: 600; line-height: 1.4; }
+.section-title { font-size: 16px; font-weight: 600; line-height: 1.5; }
+/* 微过渡只解释状态变化，统一 120ms，不做装饰性动画 */
+.el-button, .el-tag, .el-card, .el-link, .chip {
+  transition: background-color .12s ease, border-color .12s ease,
+              color .12s ease, box-shadow .12s ease;
 }

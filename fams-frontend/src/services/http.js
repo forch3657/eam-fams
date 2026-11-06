@@ -55,7 +55,22 @@ function authHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
-async function request(path, { method = 'GET', params, data, timeout = DEFAULT_TIMEOUT } = {}) {
+/**
+ * 全局错误提示器：由 main.js 注入 ElMessage，http 层不直接依赖 UI 库。
+ * 只兜底「权限 / 服务端 / 网络」这类调用方通常不会逐条处理的失败；
+ * 400/409 等业务错误仍由各页面按上下文自行提示，避免重复弹窗。
+ */
+let errorNotifier = null
+export function setErrorNotifier(fn) { errorNotifier = fn }
+function notifyError(message) {
+  if (!errorNotifier) return
+  try { errorNotifier(message) } catch (e) { console.warn('[http] 错误提示器异常', e) }
+}
+
+/** 并发的相同写请求复用同一个 promise，防双击/重复提交造成双写 */
+const inFlightWrites = new Map()
+
+async function performRequest(path, { method = 'GET', params, data, timeout = DEFAULT_TIMEOUT, silent = false } = {}) {
   if (!BASE) throw new ApiError(ERROR_CODES.SERVER, '未配置 VITE_API_BASE_URL，无法调用后端接口')
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeout)
@@ -81,6 +96,8 @@ async function request(path, { method = 'GET', params, data, timeout = DEFAULT_T
       const code = Number(body?.code ?? res.status ?? ERROR_CODES.SERVER)
       // 未登录 / token 失效：统一跳登录（文档约定 401 → 跳转登录）
       if (code === ERROR_CODES.UNAUTHORIZED) notifyUnauthorized()
+      else if (!silent && code === 403) notifyError(body?.message || '无权限执行该操作')
+      else if (!silent && code >= 500) notifyError('服务暂时不可用，请稍后重试')
       throw new ApiError(code, body?.message || `接口请求失败：${res.status}`, res.status, body?.details)
     }
 
@@ -88,6 +105,8 @@ async function request(path, { method = 'GET', params, data, timeout = DEFAULT_T
     if (body && typeof body === 'object' && !Array.isArray(body) && 'code' in body) {
       if (Number(body.code) !== 0) {
         if (Number(body.code) === ERROR_CODES.UNAUTHORIZED) notifyUnauthorized()
+        else if (!silent && Number(body.code) === 403) notifyError(body.message || '无权限执行该操作')
+        else if (!silent && Number(body.code) >= 500) notifyError('服务暂时不可用，请稍后重试')
         throw new ApiError(Number(body.code), body.message || '操作失败', res.status, body.details)
       }
       return body.data
@@ -95,11 +114,27 @@ async function request(path, { method = 'GET', params, data, timeout = DEFAULT_T
     return body
   } catch (err) {
     if (err instanceof ApiError) throw err
-    if (err?.name === 'AbortError') throw new ApiError(ERROR_CODES.SERVER, '接口请求超时')
+    if (err?.name === 'AbortError') {
+      if (!silent) notifyError('接口请求超时，请稍后重试')
+      throw new ApiError(ERROR_CODES.SERVER, '接口请求超时')
+    }
+    if (!silent) notifyError('网络异常，请检查连接后重试')
     throw new ApiError(ERROR_CODES.SERVER, err?.message || '网络异常')
   } finally {
     clearTimeout(timer)
   }
+}
+
+async function request(path, options = {}) {
+  const { method = 'GET', params, data } = options
+  if (method === 'GET' || data === undefined) return performRequest(path, options)
+  const key = `${method} ${path}${buildQuery(params)} ${JSON.stringify(data)}`
+  if (inFlightWrites.has(key)) return inFlightWrites.get(key)
+  const promise = performRequest(path, options)
+  inFlightWrites.set(key, promise)
+  // 只清理登记，不吞掉调用方需要处理的 rejection
+  promise.finally(() => inFlightWrites.delete(key)).catch(() => {})
+  return promise
 }
 
 /**

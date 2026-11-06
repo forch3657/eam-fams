@@ -131,6 +131,7 @@ import { useWorkbenchStore } from '../../../store/workbench'
 import { useApprovalStore } from '../../../store/approval'
 import { useLowValueAssetStore } from '../../../store/lowValueAsset'
 import { useOrgStore } from '../../../store/org'
+import { statusType } from '../../../utils/status'
 import { useNotifyStore } from '../../../store/notify'
 import { dataService } from '../../../services'
 import { BIZ_DOC_REGISTRY, runApproval, isCollabAction } from '../../../services/approval'
@@ -177,9 +178,7 @@ const currentCtx = computed(() => docCtx(current.value.doc, workbench.assets))
 /** 供工作台指标卡联动切换页签 */
 defineExpose({ setTab: (name) => { tab.value = name } })
 
-function statusType(status) {
-  return { DONE: 'success', PROCESSING: 'primary', DRAFT: 'warning', REJECTED: 'danger', REVOKED: 'info' }[status] || 'info'
-}
+// statusType 统一取自 utils/status.js（P1 一致性收敛）
 
 /** 单据落库：低值单据必须走低值 store（带库存结算联动） */
 async function persistDoc(item, next) {

@@ -52,10 +52,15 @@
     <el-container class="main-area">
       <el-header class="layout-header">
         <div class="header-left">
-          <el-icon class="collapse-btn" @click="appStore.toggleSidebar">
-            <Fold v-if="!appStore.sidebarCollapsed" />
-            <Expand v-else />
-          </el-icon>
+          <button
+            type="button"
+            class="collapse-btn"
+            :aria-label="appStore.sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
+            :aria-expanded="!appStore.sidebarCollapsed"
+            @click="appStore.toggleSidebar"
+          >
+            <el-icon><Fold v-if="!appStore.sidebarCollapsed" /><Expand v-else /></el-icon>
+          </button>
           <!-- 当前数据范围标识：由角色配置决定，只读展示（避免看起来像可切换控件） -->
           <el-tooltip :content="scopeTip" placement="bottom">
             <span class="scope-chip">
@@ -66,30 +71,39 @@
         </div>
         <div class="header-right">
           <el-tooltip v-if="can('wm:todo')" :content="pendingTip" placement="bottom">
-            <el-badge
-              :value="workbench.pendingCount"
-              :hidden="!workbench.pendingCount"
-              :offset="[10, 6]"
+            <button
+              type="button"
               class="hdr-badge"
+              :aria-label="`待我审批 ${workbench.pendingCount} 条，前往工作台`"
               @click="goWorkbench"
             >
-              <el-icon class="hdr-icon" :class="{ 'is-empty': !workbench.pendingCount }"><Bell /></el-icon>
-            </el-badge>
+              <el-badge :value="workbench.pendingCount" :hidden="!workbench.pendingCount" :offset="[10, 6]">
+                <el-icon class="hdr-icon" :class="{ 'is-empty': !workbench.pendingCount }"><Bell /></el-icon>
+              </el-badge>
+            </button>
           </el-tooltip>
           <el-tooltip v-if="can('wm:message')" :content="messageTip" placement="bottom">
-            <el-badge
-              :value="notifyStore.unreadCount"
-              :hidden="!notifyStore.unreadCount"
-              :offset="[10, 6]"
+            <button
+              type="button"
               class="hdr-badge"
+              :aria-label="`未读消息 ${notifyStore.unreadCount} 条，前往消息中心`"
               @click="goWorkbench"
             >
-              <el-icon class="hdr-icon" :class="{ 'is-empty': !notifyStore.unreadCount }"><ChatDotRound /></el-icon>
-            </el-badge>
+              <el-badge :value="notifyStore.unreadCount" :hidden="!notifyStore.unreadCount" :offset="[10, 6]">
+                <el-icon class="hdr-icon" :class="{ 'is-empty': !notifyStore.unreadCount }"><ChatDotRound /></el-icon>
+              </el-badge>
+            </button>
           </el-tooltip>
           <el-tag v-if="dataMode === 'mock'" class="mode-tag" type="info" effect="plain" size="small">{{ modeLabel }}</el-tag>
-          <el-dropdown @command="handleCommand">
-            <span class="user-info">
+          <el-dropdown trigger="click" @command="handleCommand">
+            <span
+              class="user-info"
+              role="button"
+              tabindex="0"
+              :aria-label="`当前用户 ${userStore.user?.name || ''}，打开账户菜单`"
+              @keydown.enter.prevent="$event.target.click()"
+              @keydown.space.prevent="$event.target.click()"
+            >
               <span class="avatar">{{ (userStore.user?.name || '管').charAt(0) }}</span>
               {{ userStore.user?.name }}
               <el-icon><CaretBottom /></el-icon>
@@ -106,6 +120,7 @@
       <TagsView home="/workbench" />
 
       <el-main class="main-content">
+        <AppBreadcrumb />
         <router-view />
       </el-main>
     </el-container>
@@ -114,6 +129,7 @@
 
 <script setup>
 import { computed, onMounted, watch } from 'vue'
+import AppBreadcrumb from '../components/AppBreadcrumb.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '../store/app'
 import { useUserStore } from '../store/user'

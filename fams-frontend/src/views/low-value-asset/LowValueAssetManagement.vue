@@ -505,6 +505,7 @@ import { useUserStore } from '../../store/user'
 import { useApprovalStore } from '../../store/approval'
 import { useNotifyStore } from '../../store/notify'
 import DocApprovalDialog from '../fixed-asset/DocApprovalDialog.vue'
+import { statusType as docStatusType } from '../../utils/status'
 import { labelOf, optionsOf } from '../../constants/enums'
 import {
   getFlow, effectiveSteps, approvalsOf, currentStep,
@@ -702,9 +703,7 @@ function resetReturnSearch() {
 /** 低值单据类型 → 审批业务类型（低值退库与固定资产退库是两条不同的流程） */
 const LV_BIZ = { requisition: 'REQUISITION', return: 'LV_RETURN' }
 
-function docStatusType(status) {
-  return { DONE: 'success', PROCESSING: 'primary', DRAFT: 'warning', REJECTED: 'danger', REVOKED: 'info' }[status] || 'info'
-}
+// docStatusType 统一取自 utils/status.js（P1 一致性收敛）
 
 /** 条件上下文：金额门槛类环节按单据金额判断 */
 function ctxOf(doc) {

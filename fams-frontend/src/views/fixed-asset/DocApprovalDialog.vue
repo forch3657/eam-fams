@@ -132,6 +132,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { labelOf } from '../../constants/enums'
 import { formatDateTime } from '../../utils/format'
+import { statusType, approveResultType as timelineType } from '../../utils/status'
 import { useOrgStore } from '../../store/org'
 import { useUserStore } from '../../store/user'
 import { useApprovalStore } from '../../store/approval'
@@ -194,11 +195,7 @@ const userName = id => {
   const u = orgStore.users.find(x => x.id === id)
   return u ? `${u.name}（${u.username}）` : id
 }
-const timelineType = result => ({
-  AGREE: 'success', REJECT: 'danger', REVOKE: 'info', SUBMIT: 'primary',
-  WITHDRAW: 'warning', VOID: 'info', TERMINATE: 'danger'
-}[result] || 'info')
-const statusType = status => ({ DONE: 'success', PROCESSING: 'primary', DRAFT: 'warning', REJECTED: 'danger', REVOKED: 'info' }[status] || 'info')
+// timelineType / statusType 统一取自 utils/status.js（P1 一致性收敛）
 
 const showSubmit = computed(() => {
   const d = props.doc

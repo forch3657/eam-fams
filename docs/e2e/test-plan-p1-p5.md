@@ -456,6 +456,8 @@ P5 已落地 `09-workbench-reports.spec.ts`（14 条）与 `10-import-reset.spec
 
 | 2026-11-06 | 六动作改造后的完整全量复跑 | 生产形态 `http://localhost` | `npx playwright test` 全量 **227 条：225 passed / 2 failed（37.4 分钟）**；相比首轮 219/8，修复的 6 条稳定转绿（`P2-24`、`P4-22` 三条、`P5-02`、`P7-03`），另 2 条首轮通过、第三轮因长时间串行出现环境噪音（`P5-15` / `P4-21-2`），单跑 **2/2 通过**；`21` 专项 9/9、FZ 真实组织 8 部门审批链 11/11、RP 权限审计 6/6 全绿；SQL 复核 `approve_result` 字典 7 项、R1~R8 权限数 `40/27/10/11/9/10/8/12` 未漂移，真实账号与手工单据未被破坏 |
 
+| 2026-11-06 | UI/UX 分阶段优化（阶段 0 + P0~P3） | 生产形态 `http://localhost`（`stop-prod` → `build-prod` → `start-prod` 重建 jar + dist） | 阶段 0：冻结基线（`e2e-artifacts/ui-baseline/baseline.json`、7 张基线截图、`contrast.mjs`）；P0：`--t-weak` 提至 AA 达标 `#617188`、全局 `:focus-visible` 与 `prefers-reduced-motion`、`utils/a11y.js` 自动关联表单 label、图标按钮语义化、`http.js` 全局错误兜底 + 写请求去重 + `useAsyncAction`、弹窗窄屏/矮屏自适应；P1：`utils/status.js` 状态色真源（收敛 4 处）、`utils/format.js` 金额真源、面包屑、token 间距落地与 1600px 限宽；P2：两级中性色、字号节奏、120ms 微过渡、登录页两行网格、纯 CSS 通过率条；P3：删除暗色主题死代码、`docs/design-system.md`、基线/P0/final 三组截图归档；静态校验 lint 0、前端单测 199+66+125+20、`check:perm` 40/36/68、后端 131、build 全绿；浏览器实测 `Tab` 焦点环 2px、`aria-label` 129 个、23/30 表单 label 关联、1024 弹窗底部按钮 `bottom=719 < 768`、面包屑与限宽生效；全量 E2E **224 passed / 3 failed（227 条，34.6 分钟）**，3 条逐条定位：`P1-11`/`P1-12` 为 IDE 回收站 shim `ETIMEDOUT` 环境噪音，`SMK-04` 为 P0 把账户菜单改 click 触发后用例仍用 hover 的**真实回归**（已修用例），单跑 **3/3 通过**；SQL 复核 R1~R8 权限数 `40/27/10/11/9/10/8/12`、`approve_result` 字典 7 项未漂移 |
+
 P4 执行清单：`tests/e2e/04-permission-matrix.spec.ts`（21 条），
 覆盖菜单可见性、路由兜底、按钮级、接口 401/403、角色停用/启用/加权限的即时性、
 多角色并集、角色删除保护、`dataScope` 回读；3 条 `fixme` 对应第 9 节 P4-D1~D3。

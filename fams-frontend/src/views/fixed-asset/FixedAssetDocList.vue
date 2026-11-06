@@ -165,6 +165,7 @@ import { useCollection } from '../../composables/useCollection'
 import { COLLECTION } from '../../services'
 import { optionsOf, labelOf } from '../../constants/enums'
 import { formatDateTime } from '../../utils/format'
+import { statusType } from '../../utils/status'
 import { genDocNo } from '../../utils/docNo'
 import { useOrgStore } from '../../store/org'
 import { useUserStore } from '../../store/user'
@@ -218,9 +219,7 @@ const pagedRows = computed(() => {
 function statusText(status) {
   return labelOf('DOC_STATUS', status)
 }
-function statusType(status) {
-  return { DONE: 'success', PROCESSING: 'primary', DRAFT: 'warning', REJECTED: 'danger', REVOKED: 'info' }[status] || 'info'
-}
+// statusType 统一取自 utils/status.js（P1 一致性收敛）
 function resetSearch() {
   Object.assign(search, { docNo: '', company: '', status: '' })
   page.value = 1

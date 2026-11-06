@@ -303,52 +303,59 @@ async function handleLogin() {
 }
 
 .login-tip {
-  margin-top: 22px;
-  font-size: 12px;
-  line-height: 1.7;
-  color: #64748b;
-  background: #f5f7fa;
-  border: 1px dashed #e2e8f0;
-  border-radius: 8px;
-  padding: 10px 12px;
+  margin-top: var(--sp-5);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--t-sub);
+  background: var(--bg-th);
+  border: 1px solid var(--bd-strong);
+  border-radius: var(--r-md);
+  padding: var(--sp-3) var(--sp-4);
 }
 .tip-title {
   font-weight: 600;
-  color: #475569;
-  margin-bottom: 4px;
+  color: var(--t-main);
+  margin-bottom: var(--sp-2);
 }
 .tip-list {
   list-style: none;
   margin: 0;
   padding: 0;
 }
+/* 三列挤在一行会把职责说明压成多行碎字：改成「账号 + 角色/说明」两行网格 */
 .tip-list li {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  padding: 1px 0;
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 2px var(--sp-2);
+  padding: 3px 0;
 }
 .tip-list b {
-  color: #1e40af;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-self: start;
+  color: var(--c-primary-dark);
   font-weight: 600;
-  min-width: 88px;
   white-space: nowrap;
-  font-family: Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
 }
 .tip-list span {
-  color: #334155;
-  min-width: 62px;
+  grid-column: 2;
+  color: var(--t-main);
+  font-weight: 500;
 }
 .tip-list i {
+  grid-column: 2;
   font-style: normal;
-  color: #94a3b8;
-  font-size: 11px;
+  color: var(--t-weak);
+  font-size: 13px;
+  line-height: 1.45;
 }
 .tip-note {
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px dashed #e2e8f0;
-  color: #94a3b8;
+  margin-top: var(--sp-2);
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--bd-strong);
+  color: var(--t-weak);
+  font-size: 13px;
 }
 
 @keyframes float {

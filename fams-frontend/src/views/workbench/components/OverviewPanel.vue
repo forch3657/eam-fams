@@ -45,6 +45,10 @@
           <span class="n"><span class="lb">通过</span><b class="metric-num">{{ overview.approval.agreeCount }}</b></span>
           <span class="n"><span class="lb">驳回</span><b class="metric-num">{{ overview.approval.rejectCount }}</b></span>
         </div>
+        <div v-if="passRate !== null" class="ov-rate" :aria-label="`近 7 天一次通过率 ${passRate}%`">
+          <span class="ov-rate-bar"><i :style="{ width: passRate + '%' }" /></span>
+          <span class="ov-rate-txt">{{ passRate }}%</span>
+        </div>
         <div class="ov-chips">
           <span v-if="passRate !== null" class="chip">通过率 {{ passRate }}%</span>
           <span v-if="overview.approval.sampleCount" class="chip">平均 {{ overview.approval.avgHours }} 小时</span>
@@ -64,6 +68,10 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useWorkbenchStore } from '../../../store/workbench'
+import { formatMoney as formatMoneyRaw } from '../../../utils/format'
+
+/** 概览指标沿用整数金额（与历史展示一致），但统一走 utils/format 真源 */
+const formatMoney = v => formatMoneyRaw(v, 0)
 
 const router = useRouter()
 const workbench = useWorkbenchStore()
@@ -76,9 +84,6 @@ const passRate = computed(() => {
   return done ? Math.round((agreeCount / done) * 100) : null
 })
 
-function formatMoney(v) {
-  return Math.round(Number(v || 0)).toLocaleString()
-}
 function go(path) {
   router.push(path)
 }
@@ -182,5 +187,31 @@ function go(path) {
   .ov-nums .n b { font-size: 18px; }
   .ov-panel :deep(.el-card__body) { padding: var(--sp-1) var(--content-px); }
   .ov-panel :deep(.el-card__header) { padding: 2px var(--content-px); }
+}
+
+/* P2 轻量可视化：纯 CSS 通过率条，不引入图表库 */
+.ov-rate { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-1) 0; }
+.ov-rate-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--bd);
+  overflow: hidden;
+}
+.ov-rate-bar i {
+  display: block;
+  height: 100%;
+  background: var(--c-success);
+  border-radius: 3px;
+  transition: width .12s ease;
+}
+.ov-rate-txt {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--t-sub);
+  font-family: var(--font-num);
+  min-width: 36px;
+  text-align: right;
 }
 </style>

@@ -6,12 +6,24 @@
         :key="v.path"
         class="tag-item"
         :class="{ active: v.path === route.path }"
+        role="link"
+        tabindex="0"
+        :aria-label="`切换到页签 ${v.title}`"
+        :aria-current="v.path === route.path ? 'page' : undefined"
         @click="go(v.path)"
+        @keydown.enter="go(v.path)"
+        @keydown.space.prevent="go(v.path)"
       >
         {{ v.title }}
-        <el-icon v-if="v.path !== home" class="tag-close" @click.stop="close(v)">
-          <Close />
-        </el-icon>
+        <button
+          v-if="v.path !== home"
+          type="button"
+          class="tag-close"
+          :aria-label="`关闭页签 ${v.title}`"
+          @click.stop="close(v)"
+        >
+          <el-icon><Close /></el-icon>
+        </button>
       </span>
     </div>
   </div>

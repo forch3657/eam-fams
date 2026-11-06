@@ -77,8 +77,8 @@ test.describe('已登录会话', () => {
     const before = await page.locator('.tags-view .tag-item').count()
     await shot(page, testInfo, 1, '切换前标签栏')
 
-    // 退出登录（el-dropdown 默认 hover 触发）
-    await page.locator('.user-info').hover()
+    // 退出登录（P0 可访问性改造把账户菜单改为 click 触发，让键盘用户也能展开）
+    await page.locator('.user-info').click()
     await page.locator('.el-dropdown-menu__item', { hasText: '退出登录' }).click()
     await page.waitForURL(/\/login/, { timeout: 30_000 })
     await shot(page, testInfo, 2, '已退出登录')
