@@ -452,6 +452,10 @@ P5 已落地 `09-workbench-reports.spec.ts`（14 条）与 `10-import-reset.spec
 
 | 2026-11-05 | 审批轨迹刷新修复（AF-05） | 生产形态 `http://localhost`（`stop-prod` → `build-prod` → `start-prod` 重建 jar + dist） | 修 BUG-031：`runApproval` 的 API 分支去掉 `isCollabAction` 条件，所有成功审批动作后强制 `approvalStore.load(true)`；`[AF-05]` 在**修复前的生产包上实测失败**（后端已有 `AGREE` 轨迹，界面仍「部门主管审批 / 待审批」且「通过」按钮还在），重建后通过；合并回归 P2+P3+P10+FZ+RP+AF 共 **76 passed / 0 failed（8.8 分钟）**，含 8 部门真实审批链 FZ-00~FZ-10 全绿；前端单测 187+66+125+20、`check:perm`、后端 131 单测全绿；用户手工单 `PY2026017` 保持 `PROCESSING`（已推进到仓管员出库确认），`E2E_AF_` / `E2E_ORG_` 残留 0 |
 
+| 2026-11-06 | 发起人三动作 + 审批人三动作（六动作改造） | 生产形态 `http://localhost`（`stop-prod` → `build-prod` → `start-prod` 重建 jar + dist） | 契约：`APPROVE_RESULT` 增 `WITHDRAW`/`VOID`/`TERMINATE`，`schema.js` 的 `releaseOn` 加 `DRAFT`，由 `npm run export:contract` 导出；修 BUG-032 库存预占重复 / 遗漏释放（后端 `GenericService` 与前端 mock 统一「仅从 `PROCESSING` 离开才释放一次」）；后端 `ApprovalService` 新增 `withdraw`/`void`/`terminate`、保留 `revoke` 兼容，作废单禁改、仅管理员可删；前端低值领用 / 退库列表、`DocApprovalDialog`、工作台待办与「我发起的」按状态矩阵显示六动作，撤回 / 作废 / 终止必填意见并通知发起人；`21` 专项扩到 **9 条**（`AF-06`~`AF-09` 覆盖撤回、被驳回后作废、审批人终止与越权、按钮矩阵），**修复前旧包 4 条全失败 → 重建后 9/9 通过**；前端单测 199+66+125+20、后端 131、`check:perm` 40/36/68 全绿；首轮完整全量 **219 passed / 8 failed（共 227 条）**，8 条逐条定位：1 条为弹窗「提交审批→提交」文案回归、4 条为上一轮 `ROLE_LEADER` 收敛为只读后旧用例主体未适配、3 条为长时间串行环境噪音，全部修复并单跑 **8/8 通过**；字典迁移 `12-approve-result-dict.sql` 已落生产库（7 项），SQL 复核角色权限与真实账号未漂移 |
+
+| 2026-11-06 | 六动作改造后的完整全量复跑 | 生产形态 `http://localhost` | `npx playwright test` 全量 **227 条：225 passed / 2 failed（37.4 分钟）**；相比首轮 219/8，修复的 6 条稳定转绿（`P2-24`、`P4-22` 三条、`P5-02`、`P7-03`），另 2 条首轮通过、第三轮因长时间串行出现环境噪音（`P5-15` / `P4-21-2`），单跑 **2/2 通过**；`21` 专项 9/9、FZ 真实组织 8 部门审批链 11/11、RP 权限审计 6/6 全绿；SQL 复核 `approve_result` 字典 7 项、R1~R8 权限数 `40/27/10/11/9/10/8/12` 未漂移，真实账号与手工单据未被破坏 |
+
 P4 执行清单：`tests/e2e/04-permission-matrix.spec.ts`（21 条），
 覆盖菜单可见性、路由兜底、按钮级、接口 401/403、角色停用/启用/加权限的即时性、
 多角色并集、角色删除保护、`dataScope` 回读；3 条 `fixme` 对应第 9 节 P4-D1~D3。

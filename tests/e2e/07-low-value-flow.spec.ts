@@ -552,7 +552,7 @@ test('[P2-24] 已有草稿可从审批弹窗提交', async ({ context, page }, t
   const responsePromise = page.waitForResponse(
     r => r.url().includes('/api/approvals/action') && r.request().method() === 'POST'
   )
-  await dialog.getByRole('button', { name: '提交审批' }).click()
+  await dialog.getByRole('button', { name: '提交', exact: true }).click()
   const response = await responsePromise
   const body = await response.json()
   expect(response.status(), JSON.stringify(body)).toBe(200)

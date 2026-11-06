@@ -202,12 +202,14 @@
                 <el-tag :type="docStatusType(row.status)" size="small">{{ labelOf('DOC_STATUS', row.status) }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="审批操作" width="190" fixed="right">
+            <el-table-column label="审批操作" width="280" fixed="right">
               <template #default="{ row }">
                 <el-button v-if="canSubmitDoc(row, 'requisition')" link type="primary" size="small" @click="submitDoc(row, 'requisition')">提交</el-button>
+                <el-button v-if="canWithdrawDoc(row, 'requisition')" link type="info" size="small" @click="withdrawDoc(row, 'requisition')">撤回</el-button>
+                <el-button v-if="canVoidDoc(row, 'requisition')" link type="warning" size="small" @click="voidDoc(row, 'requisition')">作废</el-button>
                 <el-button v-if="canApproveDoc(row, 'requisition')" link type="success" size="small" @click="approveDoc(row, 'requisition')">通过</el-button>
                 <el-button v-if="canApproveDoc(row, 'requisition')" link type="danger" size="small" @click="rejectDoc(row, 'requisition')">驳回</el-button>
-                <el-button v-if="canRevokeDoc(row, 'requisition')" link type="warning" size="small" @click="revokeDoc(row, 'requisition')">撤销</el-button>
+                <el-button v-if="canTerminateDoc(row, 'requisition')" link type="danger" size="small" @click="terminateDoc(row, 'requisition')">终止</el-button>
                 <el-button link type="primary" size="small" @click="openApproval(row, 'requisition')">审批信息</el-button>
               </template>
             </el-table-column>
@@ -271,12 +273,14 @@
                 <el-tag :type="docStatusType(row.status)" size="small">{{ labelOf('DOC_STATUS', row.status) }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="审批操作" width="190" fixed="right">
+            <el-table-column label="审批操作" width="280" fixed="right">
               <template #default="{ row }">
                 <el-button v-if="canSubmitDoc(row, 'return')" link type="primary" size="small" @click="submitDoc(row, 'return')">提交</el-button>
+                <el-button v-if="canWithdrawDoc(row, 'return')" link type="info" size="small" @click="withdrawDoc(row, 'return')">撤回</el-button>
+                <el-button v-if="canVoidDoc(row, 'return')" link type="warning" size="small" @click="voidDoc(row, 'return')">作废</el-button>
                 <el-button v-if="canApproveDoc(row, 'return')" link type="success" size="small" @click="approveDoc(row, 'return')">通过</el-button>
                 <el-button v-if="canApproveDoc(row, 'return')" link type="danger" size="small" @click="rejectDoc(row, 'return')">驳回</el-button>
-                <el-button v-if="canRevokeDoc(row, 'return')" link type="warning" size="small" @click="revokeDoc(row, 'return')">撤销</el-button>
+                <el-button v-if="canTerminateDoc(row, 'return')" link type="danger" size="small" @click="terminateDoc(row, 'return')">终止</el-button>
                 <el-button link type="primary" size="small" @click="openApproval(row, 'return')">审批信息</el-button>
               </template>
             </el-table-column>
@@ -499,6 +503,7 @@ import { useLowValueAssetStore } from '../../store/lowValueAsset'
 import { useOrgStore } from '../../store/org'
 import { useUserStore } from '../../store/user'
 import { useApprovalStore } from '../../store/approval'
+import { useNotifyStore } from '../../store/notify'
 import DocApprovalDialog from '../fixed-asset/DocApprovalDialog.vue'
 import { labelOf, optionsOf } from '../../constants/enums'
 import {
@@ -510,6 +515,7 @@ const store = useLowValueAssetStore()
 const orgStore = useOrgStore()
 const userStore = useUserStore()
 const approvalStore = useApprovalStore()
+const notifyStore = useNotifyStore()
 /** 权限判定：按钮级鉴权 */
 const can = code => userStore.can(code)
 
@@ -727,10 +733,20 @@ function canApproveDoc(doc, kind) {
   if (!cur) return false
   return canApprove(cur.step, userStore.user, orgStore, cur.records, doc)
 }
-function canRevokeDoc(doc, kind) {
+/** 发起人三动作：提交（草稿/已驳回）、撤回（审批中）、作废（未完结） */
+function isInitiatorOf(doc, kind) {
   const flow = flowOf(kind)
-  if (!flow || doc.status !== 'PROCESSING') return false
-  return canSubmit(doc, flow, userStore.user, orgStore)
+  return !!flow && canSubmit(doc, flow, userStore.user, orgStore)
+}
+function canWithdrawDoc(doc, kind) {
+  return doc.status === 'PROCESSING' && isInitiatorOf(doc, kind)
+}
+function canVoidDoc(doc, kind) {
+  return ['DRAFT', 'PROCESSING', 'REJECTED'].includes(doc.status) && isInitiatorOf(doc, kind)
+}
+/** 审批人三动作：通过、驳回、终止（只限当前环节审批人） */
+function canTerminateDoc(doc, kind) {
+  return canApproveDoc(doc, kind)
 }
 
 /**
@@ -765,6 +781,22 @@ async function runDocApproval(doc, kind, action, comment = '', targetUserId = ''
   if (res.ok) {
     store.syncDocStatus(kind, doc.id, res.status)
     await store.loadAll().catch(() => {})
+    // 撤回 / 作废 / 终止等结果必须通知发起人。工作台入口由 TodoPanel.notifyResult 负责，
+    // 这里覆盖业务页与审批弹窗入口，保证同一个动作在不同入口的留痕一致。
+    const resultText = {
+      submit: '提交', withdraw: '撤回', approve: '通过', reject: '驳回',
+      revoke: '撤销', void: '作废', terminate: '终止'
+    }[action]
+    if (resultText && !isCollabAction(action)) {
+      const creator = orgStore.users.find(u => u.id === doc.creatorId)
+      const target = creator?.companyId ? orgStore.companyName(creator.companyId) : 'all'
+      notifyStore.sendByTemplate('approval_result', {
+        billNo: doc.docNo || doc.code || doc.id,
+        bizType: kind === 'return' ? '低值资产退库单' : '低值资产领用单',
+        result: resultText,
+        comment: comment ? `，意见：${comment}` : ''
+      }, { target, route: '/low-value-assets' }).catch(() => {})
+    }
   }
   return res
 }
@@ -791,15 +823,27 @@ async function rejectDoc(row, kind) {
     // 取消
   }
 }
-async function revokeDoc(row, kind) {
+/** 需要留痕的动作统一走意见输入：撤回/终止必填，草稿作废可留空 */
+async function promptAction(row, kind, action, title, tip, allowEmpty = false) {
   try {
-    await ElMessageBox.confirm('确认撤销该单据的审批申请？', '撤销审批', { type: 'warning' })
+    const { value } = await ElMessageBox.prompt(tip, title, {
+      inputValidator: v => (allowEmpty || (v && v.trim())) ? true : `${title}必须填写意见`
+    })
+    const res = await runDocApproval(row, kind, action, (value || '').trim())
+    if (res.ok) ElMessage.success(res.message)
+    else ElMessage.error(res.message)
   } catch (e) {
-    return
+    // 取消输入
   }
-  const res = await runDocApproval(row, kind, 'revoke', '发起人撤销')
-  if (res.ok) ElMessage.success('已撤销')
-  else ElMessage.error(res.message)
+}
+async function withdrawDoc(row, kind) {
+  await promptAction(row, kind, 'withdraw', '撤回', '请填写撤回原因（必填）')
+}
+async function voidDoc(row, kind) {
+  await promptAction(row, kind, 'void', '作废', '请填写作废原因（草稿可留空）', row.status === 'DRAFT')
+}
+async function terminateDoc(row, kind) {
+  await promptAction(row, kind, 'terminate', '终止', '请填写终止原因（必填，将通知发起人）')
 }
 
 const approvalVisible = ref(false)

@@ -429,7 +429,7 @@ const LOW_VALUE_REQUISITION = lowValueDoc('low-value-requisition', '低值资产
   receiver: f.str(),
   requisitionDate: f.date(),
   purpose: f.str()
-}, { reservedField: 'reserved', reserveOn: 'PROCESSING', releaseOn: ['REJECTED', 'REVOKED'] })
+}, { reservedField: 'reserved', reserveOn: 'PROCESSING', releaseOn: ['DRAFT', 'REJECTED', 'REVOKED'] })
 
 // 退库单：入库方向，审批中不动物品，通过后回补库存
 const LOW_VALUE_RETURN = lowValueDoc('low-value-return', '低值资产退库单', 'in', {

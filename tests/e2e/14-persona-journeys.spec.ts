@@ -187,7 +187,7 @@ async function filterByDocNo(page: import('@playwright/test').Page, docNo: strin
 async function actFromRow(
   page: import('@playwright/test').Page,
   docNo: string,
-  action: '提交审批' | '通过'
+  action: '提交' | '通过'
 ) {
   await filterByDocNo(page, docNo)
   const row = page.locator('.el-table__row').filter({ hasText: docNo }).first()
@@ -284,15 +284,15 @@ test('[P5-01] 资产使用人领用：建单 → 主管审批 → 仓管出库 �
 
 // ---------------------------------------------------------------- 旅程二：派发
 
-test('[P5-02] 部门主管派发：建单 → 确认 → 资产管理员登记 → 台账联动', async ({ context, page }, testInfo) => {
+test('[P5-02] 资产管理员派发：建单 → 主管确认 → 资产管理员登记 → 台账联动', async ({ context, page }, testInfo) => {
   const asset = await createAsset()
   const leader = principalOf('ROLE_LEADER')
   const assetAdmin = principalOf('ROLE_ASSET')
   expect((await assetRow(asset.id)).status).toBe('IDLE')
   const guards = installGuards(page)
 
-  // 1) 部门主管建派发单
-  await seedSession(context, leader.session)
+  // 1) 资产管理员建派发单（部门主管按职责分离口径收敛为只读，不再有建单权）
+  await seedSession(context, assetAdmin.session)
   await page.goto('/fixed-assets?tab=dispatch&sub=alloc')
   await waitSettled(page)
 
@@ -317,11 +317,14 @@ test('[P5-02] 部门主管派发：建单 → 确认 → 资产管理员登记 �
   const docId = String(createdBody.data.id)
   const docNo = String(createdBody.data.code)
   docs.push({ collection: 'fixed-asset-doc-lists-alloc', id: docId, docNo })
-  await shot(page, testInfo, 1, '部门主管已建派发单')
+  await shot(page, testInfo, 1, '资产管理员已建派发单')
 
-  // 2) 提交 → 部门主管确认（s1）
-  const submitted = await actFromRow(page, docNo, '提交审批')
+  // 2) 创建人提交 → 切到部门主管确认（s1）
+  const submitted = await actFromRow(page, docNo, '提交')
   expect(submitted.status).toBe('PROCESSING')
+  await seedSession(context, leader.session)
+  await page.goto('/fixed-assets?tab=dispatch&sub=alloc')
+  await waitSettled(page)
   const confirmed = await actFromRow(page, docNo, '通过')
   expect(confirmed.status).toBe('PROCESSING')
   await shot(page, testInfo, 2, '部门主管确认完成')
@@ -334,10 +337,10 @@ test('[P5-02] 部门主管派发：建单 → 确认 → 资产管理员登记 �
   expect(registered.status).toBe('DONE')
   await shot(page, testInfo, 3, '资产管理员登记完成')
 
-  // 4) 台账联动：使用人 = 单据创建人（部门主管），状态使用中
+  // 4) 台账联动：使用人 = 单据创建人（资产管理员），状态使用中
   const row = await assetRow(asset.id)
   expect(row.status).toBe('IN_USE')
-  expect(row.userId).toBe(leader.user.id)
+  expect(row.userId).toBe(assetAdmin.user.id)
 
   guards.assertClean()
 })

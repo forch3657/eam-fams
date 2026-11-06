@@ -47,10 +47,11 @@
               <span :class="{ 'wb-overdue': row.overdue }">{{ row.stayDays }}天</span>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="126" fixed="right">
+          <el-table-column label="操作" width="170" fixed="right">
             <template #default="{ row }">
               <el-button link type="success" size="small" @click="openApproval(row)">通过</el-button>
               <el-button link type="danger" size="small" @click="reject(row)">驳回</el-button>
+              <el-button link type="danger" size="small" @click="terminate(row)">终止</el-button>
               <el-button link type="primary" size="small" @click="goProcess(row)">去处理</el-button>
             </template>
           </el-table-column>
@@ -72,10 +73,11 @@
           <el-table-column label="提交时间" width="146">
             <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="126" fixed="right">
+          <el-table-column label="操作" width="210" fixed="right">
             <template #default="{ row }">
-              <el-button v-if="row.status === 'DRAFT'" link type="primary" size="small" @click="submitDoc(row)">提交</el-button>
-              <el-button v-if="row.status === 'REJECTED'" link type="warning" size="small" @click="goProcess(row)">重新提交</el-button>
+              <el-button v-if="row.status === 'DRAFT' || row.status === 'REJECTED'" link type="primary" size="small" @click="submitDoc(row)">{{ row.status === 'REJECTED' ? '重新提交' : '提交' }}</el-button>
+              <el-button v-if="row.status === 'PROCESSING'" link type="info" size="small" @click="withdrawDoc(row)">撤回</el-button>
+              <el-button v-if="['DRAFT', 'PROCESSING', 'REJECTED'].includes(row.status)" link type="warning" size="small" @click="voidDoc(row)">作废</el-button>
               <el-button link type="primary" size="small" @click="goProcess(row)">去处理</el-button>
             </template>
           </el-table-column>
@@ -222,7 +224,10 @@ async function runAction(item, action, comment = '', targetUserId = '') {
 async function notifyResult(item, action, comment) {
   const creator = orgStore.users.find(u => u.id === item.doc?.creatorId)
   const target = creator?.companyId ? orgStore.companyName(creator.companyId) : 'all'
-  const resultText = { approve: '通过', reject: '驳回', revoke: '撤销', submit: '提交' }[action] || action
+  const resultText = {
+    approve: '通过', reject: '驳回', revoke: '撤销', submit: '提交',
+    withdraw: '撤回', void: '作废', terminate: '终止'
+  }[action] || action
   await notifyStore.sendByTemplate('approval_result', {
     billNo: item.code,
     bizType: item.bizName,
@@ -247,9 +252,30 @@ async function reject(item) {
   }
 }
 
-/** 我发起的：提交（草稿 → 审批中） */
+/** 我发起的：提交（草稿 / 已驳回 → 审批中） */
 async function submitDoc(item) {
   await runAction(item, 'submit', '提交审批申请')
+}
+
+/** 需要留痕的动作统一走意见输入：撤回/终止必填，草稿作废可留空 */
+async function promptAction(item, action, title, tip, allowEmpty = false) {
+  try {
+    const { value } = await ElMessageBox.prompt(tip, title, {
+      inputValidator: v => (allowEmpty || (v && v.trim())) ? true : `${title}必须填写意见`
+    })
+    return await runAction(item, action, (value || '').trim())
+  } catch (e) {
+    // 取消输入
+  }
+}
+async function terminate(item) {
+  await promptAction(item, 'terminate', '终止', '请填写终止原因（必填，将通知发起人）')
+}
+async function withdrawDoc(item) {
+  await promptAction(item, 'withdraw', '撤回', '请填写撤回原因（必填）')
+}
+async function voidDoc(item) {
+  await promptAction(item, 'void', '作废', '请填写作废原因（草稿可留空）', item.status === 'DRAFT')
 }
 
 async function onAct({ action, comment, targetUserId }) {

@@ -203,7 +203,10 @@ INSERT INTO `system_dict_items` (`id`, `label`, `value`, `sort`, `status`, `rema
 ('DI_approve_result_SUBMIT', '提交', 'SUBMIT', 1, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_result'),
 ('DI_approve_result_AGREE', '通过', 'AGREE', 2, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_result'),
 ('DI_approve_result_REJECT', '驳回', 'REJECT', 3, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_result'),
-('DI_approve_result_REVOKE', '撤销', 'REVOKE', 4, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_result');
+('DI_approve_result_REVOKE', '撤销', 'REVOKE', 4, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_result'),
+('DI_approve_result_WITHDRAW', '撤回', 'WITHDRAW', 5, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_result'),
+('DI_approve_result_VOID', '作废', 'VOID', 6, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_result'),
+('DI_approve_result_TERMINATE', '终止', 'TERMINATE', 7, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_result');
 
 INSERT INTO `system_dict_items` (`id`, `label`, `value`, `sort`, `status`, `remark`, `create_by`, `create_time`, `update_by`, `update_time`, `version`, `dict_code`) VALUES
 ('DI_message_level_NORMAL', '普通', 'NORMAL', 1, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'message_level'),

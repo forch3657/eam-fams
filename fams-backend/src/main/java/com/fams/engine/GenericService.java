@@ -269,7 +269,7 @@ public class GenericService {
         // 乐观锁比对必须最先执行
         assertVersionMatch(meta, previous, body);
         // 审批中的固资单据禁止通过通用 CRUD 改写（审批动作走 updateQuietly）
-        assertDocMutable(key, previous);
+        assertDocMutable(key, previous, false);
 
         Map<String, Object> next = codec.toDbRow(meta, body == null ? Collections.emptyMap() : body, true);
         next.put(meta.getPkField(), id);
@@ -311,8 +311,18 @@ public class GenericService {
      * <p>盘点单同样受守卫约束：盘点明细就是审批对象，审批期间还能改明细、
      * 甚至把单据删掉，审批结论就失去意义了。</p>
      */
-    private static void assertDocMutable(String key, Map<String, Object> row) {
+    private void assertDocMutable(String key, Map<String, Object> row, boolean deleting) {
         if (key == null) {
+            return;
+        }
+        // 作废 / 终止后的单据是审计凭证：内容与轨迹不得被通用 CRUD 改写。
+        // 删除只留管理员做数据回收（前端不提供作废单删除入口），避免普通账号抹掉历史。
+        if ("REVOKED".equalsIgnoreCase(text(row.get("status")))) {
+            String me = AuthContext.currentUserId();
+            boolean admin = me != null && !me.isEmpty() && userHasRole(me, "R1");
+            if (!deleting || !admin) {
+                throw new ApiException(ErrorCode.CONFLICT, "已作废的单据不能修改或删除，请另开新单");
+            }
             return;
         }
         boolean guarded = key.startsWith("fixed-asset-doc-lists-") || "fixed-asset-inventory-docs".equals(key);
@@ -342,7 +352,7 @@ public class GenericService {
             throw new ApiException(ErrorCode.NOT_FOUND, "数据不存在");
         }
         // 0) 审批中的固资单据禁止删除
-        assertDocMutable(key, row);
+        assertDocMutable(key, row, true);
         // 1) 删除保护：必须先于库存回退，否则会出现「报了 1003 但库存已回退」
         rules.checkProtect(meta, row);
         for (ResourceHook hook : hooks.forCollection(key)) {
@@ -823,7 +833,11 @@ public class GenericService {
             applyStock(meta, previous, true);
         } else if (stock.getReserveOn() != null && stock.getReserveOn().equals(newStatus)) {
             reserveStock(meta, next);
-        } else if (stock.getReleaseOn() != null && stock.getReleaseOn().contains(newStatus)) {
+        } else if (stock.getReleaseOn() != null && stock.getReleaseOn().contains(newStatus)
+                && stock.getReserveOn() != null && stock.getReserveOn().equals(oldStatus)) {
+            // 只有「离开审批中」才释放一次预占：被驳回的单据已释放过，
+            // 再作废（REJECTED→REVOKED）或草稿直接作废（DRAFT→REVOKED）不能重复扣减，
+            // 否则会吃掉同一物品上其他审批中单据的占用量，造成超领。
             releaseStock(meta, next);
         }
     }

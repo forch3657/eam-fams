@@ -240,6 +240,41 @@ ok(!canApprove(s1, { id: 'U8' }, org, [], disposeProbe, mockAssets), '其他部�
 ok(!canApprove(s1, { id: 'U4' }, org, [], disposeProbe, mockAssets), '资产使用人不应可审批第一环节')
 ok(!canApprove(s1, { id: 'U16' }, org, [], disposeProbe, mockAssets), '已停用账号不应可审批')
 
+// ---------------------------------------------------------------- 9. 六动作：撤回 / 作废 / 终止
+// 独立单据验证 mock 引擎与后端同口径：状态迁移、意见必填、发起人不能终止、终态只读
+await login('wangqiang') // U4：单据创建人，不是审批人
+const doc3 = await dataService.create('fixed-asset-doc-lists-borrow', {
+  code: 'JCTEST9003', name: '六动作测试借出单', companyId: 'C1', assetId: 'A01',
+  creatorId: 'U4', createTime: new Date().toISOString(), finishTime: '', remark: '', status: 'DRAFT'
+})
+currentDoc = doc3
+const ctx3 = { amount: 100, hasDiff: false }
+const act3 = (action, comment = 'E2E 六动作') => runApproval({
+  doc: doc3, docKey: 'borrow', bizType: 'BORROW', action, comment, ctx: ctx3,
+  flows: approval.flows, approvals, saveDoc, saveApproval, assets: mockAssets
+})
+
+res = await act3('submit')
+ok(res.ok, '六动作：提交失败 ' + res.message)
+res = await act3('withdraw', '')
+ok(!res.ok, '六动作：撤回未填意见应失败')
+res = await act3('withdraw')
+ok(res.ok, '六动作：撤回失败 ' + res.message)
+eq(doc3.status, 'DRAFT', '六动作：撤回后应回到待提交')
+ok(approvalsOfDoc('borrow', doc3.id).some(a => a.result === 'WITHDRAW'), '六动作：应留 WITHDRAW 轨迹')
+res = await act3('submit')
+ok(res.ok, '六动作：撤回后应可再次提交')
+res = await act3('terminate')
+ok(!res.ok, '六动作：发起人不应能终止')
+res = await act3('void', '')
+ok(!res.ok, '六动作：作废未填意见应失败')
+res = await act3('void')
+ok(res.ok, '六动作：作废失败 ' + res.message)
+eq(doc3.status, 'REVOKED', '六动作：作废后应为终态')
+ok(approvalsOfDoc('borrow', doc3.id).some(a => a.result === 'VOID'), '六动作：应留 VOID 轨迹')
+res = await act3('submit')
+ok(!res.ok, '六动作：作废后不应能再提交')
+
 // ---------------------------------------------------------------- 输出
 console.log(`\n审批链测试：通过 ${pass} 项，失败 ${fails.length} 项`)
 if (fails.length) {

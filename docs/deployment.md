@@ -223,6 +223,12 @@ Remove-Item Env:MYSQL_PWD
 | `09-borrow-return.sql` | 仅 `fixed_asset_doc_lists_borrow` 加归还日期/备注/登记人/是否已归还 4 列 | 2026-11-04 已执行 |
 | `10-asset-source-tag.sql` | `fixed_assets` 加 `source_tag`，承载「期初导入」标注 | 2026-11-04 已执行 |
 | `11-role-permissions.sql` | 8 个内置角色权限基线校准：新增 `fa:repair`、收回部门主管执行权、补齐财务/审计/仓管审批权；等价管理员在角色管理页配置 | 2026-11-05 已通过管理员 API 落生产库，脚本供重部署复跑 |
+| `12-approve-result-dict.sql` | 审批结果字典补 `WITHDRAW` / `VOID` / `TERMINATE` 三项，供「系统管理 → 数据字典」展示与维护 | 2026-11-06 已在生产库执行（`INSERT IGNORE` 幂等） |
+
+> `12-approve-result-dict.sql` 只补运行期字典项：`EnumCatalog.allowed()` = 内置 `contract/enums.json` ∪ 运行期字典，
+> `label()` 只查内置，因此功能不依赖字典项；三个新结果码已由
+> `npm run export:contract` 写入 `enums.json`。但本轮同时改了 `schema.js` 的 `releaseOn`，
+> 属于**契约语义变更**，必须按 §3.4 顺序导出并重建生产栈。
 
 > `11-role-permissions.sql` 是纯 DML 校准，不改表结构、不需重建 jar；
 > 但 `fa:repair` 权限码来自 `fams-frontend/src/config/permissions.js`，

@@ -354,7 +354,7 @@ export function stepInfo(step, org) {
  * @param {object} p.doc          单据（会被更新 status/finishTime）
  * @param {string} p.docKey       单据类型（inbound/dispose/…）
  * @param {string} p.bizType      审批业务类型
- * @param {string} p.action       submit | approve | reject | revoke | addSign | transfer | cc
+ * @param {string} p.action       submit | withdraw | void | approve | reject | terminate | revoke | addSign | transfer | cc
  * @param {string} [p.comment]    审批意见
  * @param {string} [p.targetUserId] 加签 / 转办 / 抄送的目标人员 ID
  * @param {object} [p.ctx]        条件上下文：{ amount, hasDiff }
@@ -431,6 +431,44 @@ export async function runApproval(p) {
     return { ok: true, status: 'PROCESSING', message: '已提交审批' }
   }
 
+  if (action === 'withdraw') {
+    if (doc.status !== 'PROCESSING') return { ok: false, message: '只有审批中的单据可以撤回' }
+    if (!canSubmit(doc, flow, me, org)) return { ok: false, message: '只有单据创建人或流程发起人角色可以撤回' }
+    if (!comment.trim()) return { ok: false, message: '撤回必须填写意见' }
+    await pushRecord({ ...base, stepKey: '', stepName: '撤回申请', result: 'WITHDRAW', comment })
+    const next = { ...doc, status: 'DRAFT', finishTime: '' }
+    if (saveDoc) await saveDoc(next)
+    return { ok: true, status: 'DRAFT', message: '已撤回，单据回到待提交，可再次提交' }
+  }
+
+  if (action === 'void') {
+    if (!['DRAFT', 'PROCESSING', 'REJECTED'].includes(doc.status)) {
+      return { ok: false, message: '只有待提交、审批中或已驳回的单据可以作废' }
+    }
+    if (!canSubmit(doc, flow, me, org)) return { ok: false, message: '只有单据创建人或流程发起人角色可以作废' }
+    if (doc.status !== 'DRAFT' && !comment.trim()) return { ok: false, message: '作废必须填写意见' }
+    await pushRecord({ ...base, stepKey: '', stepName: '作废单据', result: 'VOID', comment })
+    const next = { ...doc, status: 'REVOKED', finishTime: new Date().toISOString() }
+    if (saveDoc) await saveDoc(next)
+    return { ok: true, status: 'REVOKED', message: '单据已作废' }
+  }
+
+  if (action === 'terminate') {
+    if (doc.status !== 'PROCESSING') return { ok: false, message: '只有审批中的单据可以终止' }
+    if (!cur || !canApprove(cur.step, me, org, docApprovals, doc, assets)) {
+      return { ok: false, message: '只有当前环节的审批人可以终止' }
+    }
+    if (!comment.trim()) return { ok: false, message: '终止必须填写意见' }
+    await pushRecord({
+      ...base, stepKey: cur.step.key, stepName: cur.step.name,
+      result: 'TERMINATE', comment
+    })
+    const next = { ...doc, status: 'REVOKED', finishTime: new Date().toISOString() }
+    if (saveDoc) await saveDoc(next)
+    return { ok: true, status: 'REVOKED', message: '审批已终止，单据作废' }
+  }
+
+  // 兼容旧动作：界面已改为「撤回 / 作废」，保留以免影响历史调用与回归用例
   if (action === 'revoke') {
     if (doc.status !== 'PROCESSING') return { ok: false, message: '只有审批中的单据可以撤销' }
     if (!canSubmit(doc, flow, me, org)) return { ok: false, message: '只有单据创建人或流程发起人角色可以撤销' }

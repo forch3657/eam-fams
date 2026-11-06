@@ -172,7 +172,9 @@ export function applyStockOnStatusChange(ctx, contract, oldRow, newRow) {
     applyStock(ctx, contract, newRow, 'delete')
   } else if (rule.reserveOn && newStatus === rule.reserveOn) {
     reserveStock(ctx, contract, newRow)
-  } else if (Array.isArray(rule.releaseOn) && rule.releaseOn.includes(newStatus)) {
+  } else if (Array.isArray(rule.releaseOn) && rule.releaseOn.includes(newStatus)
+             && rule.reserveOn && oldStatus === rule.reserveOn) {
+    // 与后端 GenericService 同口径：仅「离开审批中」释放一次，避免 REJECTED→REVOKED 重复扣减
     releaseStock(ctx, contract, newRow)
   }
 }

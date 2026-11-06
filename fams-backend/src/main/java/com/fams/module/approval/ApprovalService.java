@@ -167,7 +167,35 @@ public class ApprovalService {
             step = null;
             stepName = "提交申请";
             nextStatus = "PROCESSING";
+        } else if ("withdraw".equals(action)) {
+            // 发起人撤回：审批中 → 草稿，单据编号保留，可再次提交
+            if (!"PROCESSING".equals(oldStatus)) {
+                throw new ApiException(ErrorCode.CONFLICT, "只有审批中的单据可以撤回");
+            }
+            requireInitiator(previous, flow);
+            if (comment.isEmpty()) {
+                throw new ApiException(ErrorCode.VALIDATION, "撤回必须填写意见");
+            }
+            result = "WITHDRAW";
+            step = null;
+            stepName = "撤回申请";
+            nextStatus = "DRAFT";
+        } else if ("void".equals(action)) {
+            // 发起人作废：终态 REVOKED，编号与轨迹保留，不可再提交
+            if (!"DRAFT".equals(oldStatus) && !"PROCESSING".equals(oldStatus)
+                    && !"REJECTED".equals(oldStatus)) {
+                throw new ApiException(ErrorCode.CONFLICT, "只有待提交、审批中或已驳回的单据可以作废");
+            }
+            requireInitiator(previous, flow);
+            if (!"DRAFT".equals(oldStatus) && comment.isEmpty()) {
+                throw new ApiException(ErrorCode.VALIDATION, "作废必须填写意见");
+            }
+            result = "VOID";
+            step = null;
+            stepName = "作废单据";
+            nextStatus = "REVOKED";
         } else if ("revoke".equals(action)) {
+            // 兼容旧入口：前端已改为「撤回 / 作废」，保留以免历史调用与回归用例失效
             if (!"PROCESSING".equals(oldStatus)) {
                 throw new ApiException(ErrorCode.CONFLICT, "只有审批中的单据可以撤销");
             }
@@ -208,13 +236,31 @@ public class ApprovalService {
                 stepName = text(current.get("name"));
                 nextStatus = isLastStep(steps, current) ? "DONE" : "PROCESSING";
             }
+        } else if ("terminate".equals(action)) {
+            // 审批人终止：只限当前环节审批人，必填意见并留下带环节名的轨迹
+            if (!"PROCESSING".equals(oldStatus)) {
+                throw new ApiException(ErrorCode.CONFLICT, "只有审批中的单据可以终止");
+            }
+            if (current == null) {
+                throw new ApiException(ErrorCode.CONFLICT, "该单据已无待审环节，不能终止");
+            }
+            requireApprover(current, approvals, deptId);
+            if (comment.isEmpty()) {
+                throw new ApiException(ErrorCode.VALIDATION, "终止必须填写意见");
+            }
+            result = "TERMINATE";
+            step = current;
+            stepName = text(current.get("name"));
+            nextStatus = "REVOKED";
         } else {
             throw new ApiException(ErrorCode.BAD_REQUEST, "不支持的审批动作：" + action);
         }
 
         Map<String, Object> next = new LinkedHashMap<>(previous);
         next.put("status", nextStatus);
-        LocalDateTime finishedAt = "PROCESSING".equals(nextStatus) ? null : LocalDateTime.now();
+        // 撤回后回到草稿，不能留下完结时间；只有终态才写
+        LocalDateTime finishedAt = ("PROCESSING".equals(nextStatus) || "DRAFT".equals(nextStatus))
+                ? null : LocalDateTime.now();
         next.put("finishTime", finishedAt);
         // 低值单据契约用 settleTime（表中无 finishTime 列），审批完结时同步写入
         if (collection.startsWith("low-value-")) {
@@ -253,6 +299,15 @@ public class ApprovalService {
     }
 
     private static String messageOf(String action, String status, String stepName) {
+        if ("withdraw".equals(action)) {
+            return "已撤回，单据回到待提交，可再次提交";
+        }
+        if ("void".equals(action)) {
+            return "单据已作废";
+        }
+        if ("terminate".equals(action)) {
+            return "审批已终止，单据作废";
+        }
         if ("submit".equals(action) || "revoke".equals(action)) {
             return "submit".equals(action) ? "已提交审批" : "单据已撤销";
         }

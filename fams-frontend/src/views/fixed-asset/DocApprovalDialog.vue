@@ -67,7 +67,7 @@
       <el-form v-if="needComment" label-width="80px" class="mt12">
         <el-form-item label="审批意见">
           <el-input v-model="comment" type="textarea" :rows="2" maxlength="200" show-word-limit
-            :placeholder="rejectMode ? '驳回必须填写意见' : '可填写审批意见'" />
+            :placeholder="rejectMode ? '该动作必须填写意见' : '可填写审批意见'" />
         </el-form-item>
       </el-form>
     </template>
@@ -77,10 +77,12 @@
       <el-button v-if="showApprove" @click="openCollab('addSign')">加签</el-button>
       <el-button v-if="showApprove" @click="openCollab('transfer')">转办</el-button>
       <el-button v-if="showCc" @click="openCollab('cc')">抄送</el-button>
-      <el-button v-if="showSubmit" type="primary" @click="act('submit')">提交审批</el-button>
+      <el-button v-if="showSubmit" type="primary" @click="act('submit')">提交</el-button>
+      <el-button v-if="showWithdraw" @click="act('withdraw')">撤回</el-button>
+      <el-button v-if="showVoid" type="warning" @click="act('void')">作废</el-button>
       <el-button v-if="showApprove" type="primary" @click="act('approve')">通过</el-button>
       <el-button v-if="showReject" type="danger" @click="act('reject')">驳回</el-button>
-      <el-button v-if="showRevoke" type="warning" @click="act('revoke')">撤销</el-button>
+      <el-button v-if="showTerminate" type="danger" @click="act('terminate')">终止</el-button>
     </template>
   </el-dialog>
 
@@ -192,7 +194,10 @@ const userName = id => {
   const u = orgStore.users.find(x => x.id === id)
   return u ? `${u.name}（${u.username}）` : id
 }
-const timelineType = result => ({ AGREE: 'success', REJECT: 'danger', REVOKE: 'info', SUBMIT: 'primary' }[result] || 'info')
+const timelineType = result => ({
+  AGREE: 'success', REJECT: 'danger', REVOKE: 'info', SUBMIT: 'primary',
+  WITHDRAW: 'warning', VOID: 'info', TERMINATE: 'danger'
+}[result] || 'info')
 const statusType = status => ({ DONE: 'success', PROCESSING: 'primary', DRAFT: 'warning', REJECTED: 'danger', REVOKED: 'info' }[status] || 'info')
 
 const showSubmit = computed(() => {
@@ -207,14 +212,20 @@ const showApprove = computed(() => {
   return canApprove(current.value.step, userStore.user, orgStore, records.value, props.doc, props.assets)
 })
 const showReject = computed(() => showApprove.value)
-const showRevoke = computed(() => {
+/** 发起人三动作与审批人三动作：与业务列表、工作台保持同一套判定 */
+const isInitiator = computed(() => {
   const d = props.doc
-  if (!d || d.status !== 'PROCESSING' || !flow.value) return false
-  return canSubmit(d, flow.value, userStore.user, orgStore)
+  return !!d && !!flow.value && canSubmit(d, flow.value, userStore.user, orgStore)
 })
+const showWithdraw = computed(() => props.doc?.status === 'PROCESSING' && isInitiator.value)
+const showVoid = computed(() =>
+  ['DRAFT', 'PROCESSING', 'REJECTED'].includes(props.doc?.status) && isInitiator.value)
+const showTerminate = computed(() => showApprove.value)
 
 const rejectMode = ref(false)
-const needComment = computed(() => showApprove.value || showReject.value || showSubmit.value || showRevoke.value)
+const needComment = computed(() =>
+  showApprove.value || showReject.value || showSubmit.value ||
+  showWithdraw.value || showVoid.value || showTerminate.value)
 
 // ---------------------------------------------------------------- 加签 / 转办 / 抄送
 const COLLAB_TITLES = { addSign: '加签', transfer: '转办', cc: '抄送' }
@@ -284,7 +295,7 @@ const hint = computed(() => {
 })
 
 function act(action) {
-  rejectMode.value = action === 'reject'
+  rejectMode.value = ['reject', 'withdraw', 'void', 'terminate'].includes(action)
   emit('act', { action, comment: comment.value, doc: props.doc, bizType: bizType.value })
 }
 </script>

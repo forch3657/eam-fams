@@ -292,7 +292,11 @@ test('[P7-03] 固资派发状态机矩阵：未提交不可审批，完结后不
     for (const action of ACTIONS) {
       const asset = await createAsset(admin, units, { name: `E2E_派发资产_${suffix()}` })
       assets.push(asset.id)
-      const doc = await createDoc(leader.session, units, 'alloc', { assetId: asset.id })
+      // 由 admin 代建（ROLE_LEADER 已收敛为只读、无建单权），但把 creatorId 设为主管，
+      // 这样矩阵里的提交 / 撤销仍由主管按「创建人」身份执行，口径与用例原本一致。
+      const doc = await createDoc(admin, units, 'alloc', {
+        assetId: asset.id, creatorId: leader.user.id
+      })
       // 矩阵里的每张单据都要登记到清理数组：否则 afterAll 删不到单据，
       // 资产又因「被单据引用」删不掉，每跑一次全量就留一批 E2E_ 资产
       docs.push({ collection: 'fixed-asset-doc-lists-alloc', id: doc.id })

@@ -208,9 +208,12 @@ export const APPROVE_CONDITION = {
 /** 审批动作结果 */
 export const APPROVE_RESULT = {
   SUBMIT: '提交',
+  WITHDRAW: '撤回',
   AGREE: '通过',
   REJECT: '驳回',
   REVOKE: '撤销',
+  VOID: '作废',
+  TERMINATE: '终止',
   ADD_SIGN: '加签',
   TRANSFER: '转办',
   CC: '抄送'

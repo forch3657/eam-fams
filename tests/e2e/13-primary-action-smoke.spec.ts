@@ -120,7 +120,7 @@ const ACTIONS: PrimaryAction[] = [
   {
     id: 'FA-ALLOC',
     title: '固资新增派发单弹窗可正常打开',
-    role: 'ROLE_LEADER',
+    role: 'ROLE_ASSET',
     path: '/fixed-assets?tab=dispatch&sub=alloc',
     button: /新增单据/,
     dialogTitle: '新增单据',
@@ -132,7 +132,7 @@ const ACTIONS: PrimaryAction[] = [
   {
     id: 'FA-BORROW',
     title: '固资新增借出单弹窗可正常打开',
-    role: 'ROLE_LEADER',
+    role: 'ROLE_ASSET',
     path: '/fixed-assets?tab=borrow',
     button: /新增单据/,
     dialogTitle: '新增单据',
@@ -149,7 +149,7 @@ const principals = new Map<string, Principal>()
 test.beforeAll(async () => {
   admin = await loginViaApi()
 
-  const roles = ['ROLE_USER', 'ROLE_LEADER', 'ROLE_WAREHOUSE']
+  const roles = ['ROLE_USER', 'ROLE_LEADER', 'ROLE_WAREHOUSE', 'ROLE_ASSET']
   const api = await apiAs(admin.token)
   try {
     const res = await api.get('/api/org-roles?pageSize=200')

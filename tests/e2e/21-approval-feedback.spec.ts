@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { loginViaApi, seedSession, type Session } from './fixtures/auth'
 import { apiList, apiPost, withApi } from './fixtures/p5'
 import { REAL_ORG_DEPTS } from './fixtures/realOrg'
@@ -29,12 +29,16 @@ test.beforeAll(async () => {
 })
 
 test.afterAll(async () => {
-  // 只删本轮新建的单据；处理中的先撤销再删，避免预占库存残留。真实账号一律不动。
+  // 作废单是审计凭证、只有管理员可删除：先由发起人撤销释放预占，再由 admin 回收测试数据。
+  // 只删本轮新建的单据，真实账号一律不动。
+  const admin = await loginViaApi({ username: 'admin', password: 'Fzidt@123' })
   for (const id of created) {
     await withApi(chen, async api => {
       await api.post('/api/approvals/action', {
         data: { docKey: 'requisition', docId: id, bizType: 'REQUISITION', action: 'revoke', comment: 'E2E 清理' }
       }).catch(() => null)
+    })
+    await withApi(admin, async api => {
       await api.delete(`/api/low-value-requisition/${id}`).catch(() => null)
     })
   }
@@ -65,7 +69,8 @@ test('[AF-01] 表格行「提交」成功：提示可见、行内按钮刷新、
   await row.getByRole('button', { name: '提交', exact: true }).click()
   await expect(page.locator('.el-message--success').last()).toContainText('已提交审批')
   await expect(row.getByRole('button', { name: '提交', exact: true }), '提交后按钮应消失').toHaveCount(0)
-  await expect(row.getByRole('button', { name: '撤销' })).toBeVisible()
+  await expect(row.getByRole('button', { name: '撤回' }), '审批中应可撤回').toBeVisible()
+  await expect(row.getByRole('button', { name: '作废' }), '审批中应可作废').toBeVisible()
 
   const detail = await withApi(chen, async api => (await api.get(`/api/low-value-requisition/${draft.id}`)).json())
   expect(detail.data.status, '后端状态应推进到审批中').toBe('PROCESSING')
@@ -122,22 +127,25 @@ test('[AF-03] 新增领用自动提交后，列表不再残留草稿态「提交
   await expect(row).toBeVisible()
   await expect(row.getByRole('button', { name: '提交', exact: true }),
     '自动提交成功后不应再显示提交按钮（否则用户会重复点击并收到 409）').toHaveCount(0)
-  await expect(row.getByRole('button', { name: '撤销' })).toBeVisible()
+  await expect(row.getByRole('button', { name: '撤回' })).toBeVisible()
+  await expect(row.getByRole('button', { name: '作废' })).toBeVisible()
 })
 
-test('[AF-04] 撤销后再新增领用，已撤销单据不得被改回「进行中」', async ({ context, page }) => {
-  const a = await createDraft('rev')
+test('[AF-04] 作废后再新增领用，已作废单据不得被改回「进行中」', async ({ context, page }) => {
+  const a = await createDraft('void')
   await seedSession(context, chen)
   await page.goto('/low-value-assets?tab=requisition')
 
   const rowA = page.locator('.el-table__row').filter({ hasText: a.docNo }).first()
   await expect(rowA).toBeVisible()
   await rowA.getByRole('button', { name: '提交', exact: true }).click()
-  await expect(rowA.getByRole('button', { name: '撤销' })).toBeVisible()
+  await expect(rowA.getByRole('button', { name: '作废' })).toBeVisible()
 
-  await rowA.getByRole('button', { name: '撤销' }).click()
-  await page.locator('.el-message-box:visible').getByRole('button', { name: '确定' }).click()
-  await expect(rowA.locator('.el-tag').filter({ hasText: '已撤销' }), '撤销后该行应显示已撤销').toBeVisible()
+  await rowA.getByRole('button', { name: '作废' }).click()
+  const box = page.locator('.el-message-box:visible')
+  await box.locator('input').fill('E2E 作废测试')
+  await box.getByRole('button', { name: '确定' }).click()
+  await expect(rowA.locator('.el-tag').filter({ hasText: '已撤销' }), '作废后该行应显示已撤销').toBeVisible()
 
   // 再走界面新增一张领用（会自动提交），观察已撤销的旧行是否被连带改状态
   await page.getByRole('button', { name: '新增领用' }).click()
@@ -206,4 +214,159 @@ test('[AF-05] 部门主管通过后，审批信息推进到下一环节且不再
     '已通过本环节的人不应再看到通过按钮').toHaveCount(0)
   await expect(second.locator('.el-timeline')).toContainText('石顺中')
   await expect(second.locator('.step-list li').first()).toContainText('已通过')
+})
+
+// ---------------------------------------------------------------- 六动作矩阵（2026-11-06）
+
+async function submitViaApi(id: string) {
+  await apiPost(chen, 'approvals/action', {
+    docKey: 'requisition', docId: id, bizType: 'REQUISITION',
+    action: 'submit', comment: '提交领用审批',
+    ctx: { amount: item.price, hasDiff: false }
+  })
+}
+async function reservedOf(): Promise<number> {
+  const r = await withApi(chen, async api => (await api.get(`/api/low-value-items/${item.id}`)).json())
+  return Number(r.data?.reserved || 0)
+}
+async function statusOf(id: string): Promise<string> {
+  const r = await withApi(chen, async api => (await api.get(`/api/low-value-requisition/${id}`)).json())
+  return String(r.data?.status || '')
+}
+async function trailResults(docNo: string): Promise<string[]> {
+  const r = await withApi(chen, async api =>
+    (await api.get('/api/fixed-asset-doc-approvals?pageSize=2000')).json())
+  return (r.data || []).filter((t: Record<string, unknown>) => t.docCode === docNo)
+    .map((t: Record<string, unknown>) => String(t.result))
+}
+async function fillReason(page: Page, text: string) {
+  const box = page.locator('.el-message-box:visible')
+  await box.locator('input').fill(text)
+  await box.getByRole('button', { name: '确定' }).click()
+}
+
+test('[AF-06] 发起人撤回：回到待提交、释放预占、可再次提交并留下 WITHDRAW 轨迹', async ({ context, page }) => {
+  const d = await createDraft('withdraw')
+  const base = await reservedOf()
+  await submitViaApi(d.id)
+  expect(await statusOf(d.id)).toBe('PROCESSING')
+  expect(await reservedOf(), '提交应预占可用量').toBe(base + 1)
+
+  await seedSession(context, chen)
+  await page.goto('/low-value-assets?tab=requisition')
+  const row = page.locator('.el-table__row').filter({ hasText: d.docNo }).first()
+  await expect(row).toBeVisible()
+  await expect(row.getByRole('button', { name: '撤回' })).toBeVisible()
+  await row.getByRole('button', { name: '撤回' }).click()
+  await fillReason(page, 'E2E 撤回原因')
+
+  await expect(row.locator('.el-tag').filter({ hasText: '待提交' }), '撤回后应回到待提交').toBeVisible()
+  expect(await statusOf(d.id)).toBe('DRAFT')
+  expect(await reservedOf(), '撤回必须释放预占').toBe(base)
+  expect(await trailResults(d.docNo)).toContain('WITHDRAW')
+  // 同单号可再次提交
+  await submitViaApi(d.id)
+  expect(await statusOf(d.id)).toBe('PROCESSING')
+})
+
+test('[AF-07] 被驳回后作废：终态留痕、预占不重复释放、作废单禁止普通账号删除', async ({ context, page }) => {
+  const d = await createDraft('void-rejected')
+  const base = await reservedOf()
+  await submitViaApi(d.id)
+  expect(await reservedOf(), '提交应预占').toBe(base + 1)
+
+  const leader = REAL_ORG_DEPTS.find(x => x.deptName === '产品研发一部')!.actors.deptLeader
+  const boss = await loginViaApi({ username: leader.username, password: leader.password })
+  await withApi(boss, async api => {
+    const r = await api.post('/api/approvals/action', {
+      data: {
+        docKey: 'requisition', docId: d.id, bizType: 'REQUISITION',
+        action: 'reject', comment: 'E2E 驳回'
+      }
+    })
+    expect((await r.json()).code, '主管驳回应成功').toBe(0)
+  })
+  expect(await statusOf(d.id)).toBe('REJECTED')
+  const afterReject = await reservedOf()
+  expect(afterReject, '驳回释放一次预占').toBe(base)
+
+  await seedSession(context, chen)
+  await page.goto('/low-value-assets?tab=requisition')
+  const row = page.locator('.el-table__row').filter({ hasText: d.docNo }).first()
+  await expect(row).toBeVisible()
+  await expect(row.getByRole('button', { name: '提交', exact: true }), '被驳回后可重新提交').toBeVisible()
+  await expect(row.getByRole('button', { name: '作废' }), '被驳回后可作废').toBeVisible()
+  await row.getByRole('button', { name: '作废' }).click()
+  await fillReason(page, 'E2E 不再领用')
+
+  await expect(row.locator('.el-tag').filter({ hasText: '已撤销' }), '作废后界面应显示已撤销').toBeVisible()
+  expect(await statusOf(d.id)).toBe('REVOKED')
+  expect(await reservedOf(), 'REJECTED→REVOKED 不得重复释放预占').toBe(afterReject)
+  expect(await trailResults(d.docNo)).toContain('VOID')
+
+  const del = await withApi(chen, async api => {
+    const r = await api.delete(`/api/low-value-requisition/${d.id}`)
+    return r.json()
+  })
+  expect(del.code, '普通账号不得删除作废单').not.toBe(0)
+})
+
+test('[AF-08] 审批人终止：必填意见、留下 TERMINATE 轨迹，跨部门主管被拒', async ({ context, page }) => {
+  const d = await createDraft('terminate')
+  await submitViaApi(d.id)
+
+  const other = REAL_ORG_DEPTS.find(x => x.deptName !== '产品研发一部' && x.actors.deptLeader)!
+  const outsider = await loginViaApi({
+    username: other.actors.deptLeader.username, password: other.actors.deptLeader.password
+  })
+  const denied = await withApi(outsider, async api => {
+    const r = await api.post('/api/approvals/action', {
+      data: {
+        docKey: 'requisition', docId: d.id, bizType: 'REQUISITION',
+        action: 'terminate', comment: '越权终止'
+      }
+    })
+    return r.json()
+  })
+  expect(denied.code, '非本环节审批人不得终止').not.toBe(0)
+  expect(await statusOf(d.id), '越权终止不得改变单据状态').toBe('PROCESSING')
+
+  const leader = REAL_ORG_DEPTS.find(x => x.deptName === '产品研发一部')!.actors.deptLeader
+  const boss = await loginViaApi({ username: leader.username, password: leader.password })
+  await seedSession(context, boss)
+  await page.goto('/low-value-assets?tab=requisition')
+  const row = page.locator('.el-table__row').filter({ hasText: d.docNo }).first()
+  await expect(row).toBeVisible()
+  await expect(row.getByRole('button', { name: '通过', exact: true })).toBeVisible()
+  await expect(row.getByRole('button', { name: '驳回' })).toBeVisible()
+  await expect(row.getByRole('button', { name: '终止' })).toBeVisible()
+  await row.getByRole('button', { name: '终止' }).click()
+  await fillReason(page, 'E2E 重复申请，予以终止')
+
+  await expect(row.locator('.el-tag').filter({ hasText: '已撤销' }), '终止后界面应显示已撤销').toBeVisible()
+  expect(await statusOf(d.id)).toBe('REVOKED')
+  expect(await trailResults(d.docNo)).toContain('TERMINATE')
+})
+
+test('[AF-09] 按状态的按钮矩阵：发起人三动作不与审批人三动作串台', async ({ context, page }) => {
+  const d = await createDraft('matrix')
+  await seedSession(context, chen)
+  await page.goto('/low-value-assets?tab=requisition')
+  const row = page.locator('.el-table__row').filter({ hasText: d.docNo }).first()
+  await expect(row).toBeVisible()
+  await expect(row.getByRole('button', { name: '提交', exact: true }), '草稿应可提交').toBeVisible()
+  await expect(row.getByRole('button', { name: '作废' }), '草稿应可作废').toBeVisible()
+  for (const name of ['撤回', '通过', '驳回', '终止']) {
+    await expect(row.getByRole('button', { name, exact: true }), `草稿不应显示「${name}」`).toHaveCount(0)
+  }
+
+  await submitViaApi(d.id)
+  await page.reload()
+  const row2 = page.locator('.el-table__row').filter({ hasText: d.docNo }).first()
+  await expect(row2).toBeVisible()
+  await expect(row2.getByRole('button', { name: '撤回' }), '审批中应可撤回').toBeVisible()
+  await expect(row2.getByRole('button', { name: '作废' }), '审批中应可作废').toBeVisible()
+  for (const name of ['提交', '通过', '驳回', '终止']) {
+    await expect(row2.getByRole('button', { name, exact: true }), `发起人不应看到「${name}」`).toHaveCount(0)
+  }
 })

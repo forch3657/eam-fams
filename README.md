@@ -469,7 +469,7 @@ npm run e2e:report               # 查看 HTML 报告
 npm run e2e:p10                  # 只跑盘点专项（tests/e2e/18-inventory-flow.spec.ts）
 npm run e2e:real-org             # 真实组织回归（tests/e2e/19-real-org-flow.spec.ts，8 部门真人审批链）
 npm run e2e:perm-audit           # 全角色权限审计（tests/e2e/20-role-permission-audit.spec.ts，6 条，生产库 org_roles 逐项比对 + 真账号界面复核）
-npm run e2e:approval-feedback    # 审批反馈专项（tests/e2e/21-approval-feedback.spec.ts，5 条，真账号点「提交/通过/撤销」的成功、失败与界面状态一致性）
+npm run e2e:approval-feedback    # 审批反馈专项（tests/e2e/21-approval-feedback.spec.ts，9 条，真账号验六动作、按钮矩阵、库存幂等与界面状态一致性）
 ```
 
 E2E 可通过环境变量切换目标，便于在 CI 的非 nginx 环境下运行：
