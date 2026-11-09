@@ -433,13 +433,27 @@ test('[P5-07] 位置/部门/使用人统计可筛选', async ({ context, page },
   await expect(page.locator('.el-tab-pane:visible .el-table__row').first()).toContainText(location)
 
   await page.locator('.el-tabs__item').filter({ hasText: '部门统计' }).click()
-  await expect(page.locator('.el-tab-pane:visible .el-table__row').filter({ hasText: deptName }).first()).toBeVisible()
+  const deptRow = page.locator('.el-tab-pane:visible .el-table__row').filter({ hasText: deptName }).first()
+  await expect(deptRow).toBeVisible()
+  // 部门统计下钻：弹窗明细应包含本用例新建的 E2E_ 资产
+  await deptRow.getByRole('button', { name: '查看明细' }).click()
+  const deptDialog = page.getByRole('dialog')
+  await expect(deptDialog).toBeVisible()
+  await expect(deptDialog.locator('.el-table__row').filter({ hasText: `E2E_统计资产_${suffix}` })).toBeVisible()
+  await deptDialog.getByRole('button', { name: '关闭' }).click()
 
   await page.locator('.el-tabs__item').filter({ hasText: '使用人统计' }).click()
   const userTab = page.locator('.el-tab-pane:visible')
   await userTab.getByPlaceholder('请输入').first().fill(String(admin.user.name))
   await userTab.getByRole('button', { name: '查询' }).click()
-  await expect(userTab.locator('.el-table__row').filter({ hasText: `E2E_统计资产_${suffix}` })).toBeVisible()
+  const userRow = userTab.locator('.el-table__row').filter({ hasText: `E2E_统计资产_${suffix}` }).first()
+  await expect(userRow).toBeVisible()
+  // 使用人统计下钻：弹窗同样取同一份资产台账
+  await userRow.getByRole('button', { name: '查看明细' }).click()
+  const userDialog = page.getByRole('dialog')
+  await expect(userDialog).toBeVisible()
+  await expect(userDialog.locator('.el-table__row').filter({ hasText: `E2E_统计资产_${suffix}` })).toBeVisible()
+  await userDialog.getByRole('button', { name: '关闭' }).click()
   await userTab.getByRole('button', { name: '重置' }).click()
   await expect(userTab.getByPlaceholder('请输入').first()).toHaveValue('')
   await shot(page, testInfo, 1, '三个统计页签与使用人筛选')
@@ -535,6 +549,28 @@ test('[P5-10] 低值出入库汇总：入库 - 领用 + 退库 = 当前库存', 
   await expect(cells.nth(6)).toHaveText('0') // 退库数量
   await expect(cells.nth(7)).toHaveText('5') // 当前库存
   await shot(page, testInfo, 1, '出入库汇总余额关系')
+  guards.assertClean()
+})
+
+test('[P5-21] 低值报表使用人领用统计与明细下钻', async ({ context, page }, testInfo) => {
+  const guards = installGuards(page)
+  await seedSession(context, admin)
+  await page.goto('/low-value-asset-reports')
+  await waitSettled(page)
+  await page.locator('.el-tabs__item').filter({ hasText: '使用人领用统计' }).click()
+
+  const pane = page.locator('.el-tab-pane:visible')
+  await expect(pane.locator('.el-table__header')).toContainText('领用人')
+  // 有已生效领用单时才下钻；无数据的空态由 P5-20 覆盖
+  const row = pane.locator('.el-table__row').first()
+  if (await row.count()) {
+    await row.getByRole('button', { name: '查看明细' }).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await expect(dialog.locator('.el-table__header')).toContainText('单据编号')
+    await dialog.getByRole('button', { name: '关闭' }).click()
+  }
+  await shot(page, testInfo, 1, '使用人领用统计与下钻')
   guards.assertClean()
 })
 

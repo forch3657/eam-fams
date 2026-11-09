@@ -536,7 +536,9 @@ public class GenericService {
      *
      * <p>同名字段由服务端覆盖，调用方无法通过 query 参数绕过。
      * 审计字段不在契约 fields 中，必须用 {@code getAllColumns()} 判断列是否存在。
-     * DEPT / DEPT_ONLY 当前按 deptId 精确匹配（系统为单公司、部门树两层以内）。</p>
+     * DEPT 按 deptId 精确匹配（系统为单公司、部门树两层以内），即「看本部门全部」；
+     * DEPT_ONLY 是「只看本人」：固定资产台账按使用人 userId、各类单据按经办人 creatorId，
+     * 低值物品台账没有归属列，作为主数据保持全局可见（否则个人连领用物品都选不到）。</p>
      */
     private Map<String, String[]> scopedRaw(String key, ResourceMeta meta, Map<String, String[]> raw) {
         UserPrincipal principal = AuthContext.current();
@@ -547,8 +549,14 @@ public class GenericService {
         String scope = principal.getDataScope();
         if ("SELF".equalsIgnoreCase(scope)) {
             putScopeFilter(out, meta, "createBy", principal.getUsername());
-        } else if ("DEPT".equalsIgnoreCase(scope) || "DEPT_ONLY".equalsIgnoreCase(scope)) {
+        } else if ("DEPT".equalsIgnoreCase(scope)) {
             putScopeFilter(out, meta, "deptId", principal.getDeptId());
+        } else if ("DEPT_ONLY".equalsIgnoreCase(scope)) {
+            if ("fixed-assets".equals(key)) {
+                putScopeFilter(out, meta, "userId", principal.getId());
+            } else if (meta.getAllColumns().contains("creatorId")) {
+                putScopeFilter(out, meta, "creatorId", principal.getId());
+            }
         } else if ("COMPANY".equalsIgnoreCase(scope)) {
             putScopeFilter(out, meta, "companyId", principal.getCompanyId());
         }

@@ -321,14 +321,15 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 |---|---|---|
 | R1 系统管理员 | 全部模块 | 全集团（ALL） |
 | R2 资产管理员 | `fa:*` 除 `fa:delete`；`lv:*` 出入库与维护 | 本公司（COMPANY） |
-| R3 资产使用人 | `fa:view`、`lv:view`、`lv:requisition`、`lv:return` | 本部门（DEPT_ONLY） |
+| R3 资产使用人 | `fa:view`、`lv:view`、`lv:inbound`、`lv:requisition`、`lv:return`（无 `lv:edit`，低值台账只查看/办理单据，界面不出现编辑、删除按钮） | 本人名下 / 本人经办（DEPT_ONLY） |
 | R4 财务管理员 | `fa:view/export/depreciation/report`、`sys:log` | 本公司（COMPANY） |
-| R5 部门主管 | `fa:view/edit/dispatch/borrow/inventory`、`fa:report`、`lv:requisition` | 本部门（DEPT） |
+| R5 部门主管 | `fa:view/edit/dispatch/borrow/inventory`、`fa:report`、`lv:requisition` | 本部门全部（DEPT） |
 | R6 审计员 | 只读：`fa:view/report`、`lv:view/report`、`sys:log`；`wm:todo`（盘点「审计抽查确认」环节的审批人，需有待办才能处理） | 全集团（ALL） |
 | R7 分管副总 | `fa:view/edit/dispose/report`（大额处置审批环节） | 全集团（ALL） |
 | R8 仓管员 | `fa:view`、`lv:inbound/requisition/return` | 本公司（COMPANY） |
+| 领导班子（ROLE_LEADERSHIP，自定义） | `wm:*`、`fa:view/export/report`、`lv:view/export/report` | 全部（ALL，2026-11-09 起） |
 
-> **数据范围**说明：`ALL/GROUP`=全集团可见；`COMPANY`=仅本公司数据；`DEPT/DEPT_ONLY`=仅本人所在部门。
+> **数据范围**说明：`ALL/GROUP`=全部可见；`COMPANY`=仅本公司数据；`DEPT`=本人所在部门全部；`DEPT_ONLY`=仅本人名下固定资产与本人经办单据。
 > ✅ **当前状态（2026-11-02）**：行级数据过滤已在后端生效——`GenericService.list/page` 按当前账号的 `dataScope` 强制注入条件，并覆盖调用方传入的同名字段；菜单/按钮权限与行级范围同时受控，细节见第 7 节。
 
 ---
@@ -356,29 +357,34 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 
 ## 7. 数据范围过滤（跨公司 / 跨部门）—— 已实现
 
-> **结论（2026-11-02）**：行级隔离已落地。`UserPrincipal` 携带 `dataScope`（多角色取最宽松：`ALL > COMPANY > DEPT > DEPT_ONLY > SELF`），`GenericService.list/page` 对业务集合强制注入过滤条件，并覆盖调用方传入的同名字段（无法用 query 参数绕过）。
+> **结论（2026-11-02，2026-11-09 修订）**：行级隔离已落地。`UserPrincipal` 携带 `dataScope`（多角色取最宽松：`ALL > COMPANY > DEPT > DEPT_ONLY > SELF`），`GenericService.list/page` 对业务集合强制注入过滤条件，并覆盖调用方传入的同名字段（无法用 query 参数绕过）。
 
 ### 实现口径
 
-- `SELF` → `create_by = 当前登录账号`；`DEPT` / `DEPT_ONLY` → `dept_id = 本人部门`；`COMPANY` → `company_id = 本人公司`；`ALL` / 未配置 → 不过滤。
+- `SELF` → `create_by = 当前登录账号`；`DEPT` → `dept_id = 本人部门`（看本部门全部）；`DEPT_ONLY` → 固定资产按 `user_id = 本人`、单据按 `creator_id = 本人`（只看本人）；`COMPANY` → `company_id = 本人公司`；`ALL` / 未配置 → 不过滤。
+- 三层可见范围：**领导班子** `ALL`（看全部）、**部门主管** `DEPT`（看本部门全部）、**资产使用人** `DEPT_ONLY`（看本人）；固定资产与低值资产的台账/单据/报表统计统一适用。
+- 固定资产报表「部门统计」「使用人统计」、低值资产报表「部门领用统计」「使用人领用统计」都支持点击行下钻明细；明细取自同一批已被后端过滤的数据，因此不同角色看到的下钻明细自动与其数据范围一致，无需前端二次判断。
 - 受约束集合：`fixed-assets`、`fixed-asset-doc-lists-*`、`low-value-items`、`low-value-inbound` / `low-value-requisition` / `low-value-return`。
-- **降级规则**：集合缺少对应列时（如单据没有 `deptId`）不做过滤，而不是退化为 `createBy`——否则审批人会把「本部门可见」误收紧成「只看自己创建」，工作台待办会变空（P3-14 回归时暴露）。
-- 已知边界：`DEPT` / `DEPT_ONLY` 目前按 `deptId` 精确匹配，不含子部门（当前部门树两层以内）；跨公司隔离需真实多公司数据再验证。
+- **降级规则**：集合缺少对应列时（如单据没有 `deptId`）不做过滤，而不是退化为 `createBy`——否则审批人会把「本部门可见」误收紧成「只看自己创建」，工作台待办会变空（P3-14 回归时暴露）。`low-value-items` 是物品目录主数据、无归属列，个人仍可查看（否则连领用物品都选不到），但入库/领用/退库单据只看本人经办。
+- 已知边界：`DEPT` 按 `deptId` 精确匹配，不含子部门（当前部门树两层以内）；`get/{id}` 详情接口未做范围校验；跨公司隔离需真实多公司数据再验证。
 
 ### 预期行为
 
 | 数据范围 | 含义 | 过滤字段 |
 |---|---|---|
-| `ALL` / `GROUP` | 全集团可见 | 不过滤 |
+| `ALL` / `GROUP` | 全部可见 | 不过滤 |
 | `COMPANY` | 仅本公司 | `company_id` |
-| `DEPT` / `DEPT_ONLY` | 仅本人所在部门 | `dept_id` |
+| `DEPT` | 本人所在部门全部 | `dept_id` |
+| `DEPT_ONLY` | 仅本人名下 / 本人经办 | 固定资产 `user_id`、单据 `creator_id` |
 
 ### 验收测试用例（实现后据此回归）
 
 | 测试账号（角色 / 范围 / 所属） | 操作 | 预期结果 |
 |---|---|---|
 | `zhoujing`（R2 / COMPANY / C2 云顶） | 资产管理台账 | 只看到 C2 资产，看不到 C1/C3/C4/C5 |
-| `wangqiang`（R3 / DEPT_ONLY / C1·D3 行政部） | 固定资产台账 | 只看到 D3 名下资产；跨部门资产不可见 |
+| `wangqiang`（R3 / DEPT_ONLY / C1·D3 行政部） | 固定资产台账、部门统计下钻 | 只看到本人名下资产；同部门他人资产不可见 |
+| `chengang`（R5 / DEPT / C1·D1） | 固定资产台账、部门统计下钻 | 看本部门全部资产，跨部门不可见 |
+| 领导班子（ROLE_LEADERSHIP / ALL） | 两类报表 + 下钻明细 | 全部部门、全部使用人的统计与明细可见 |
 | `admin`（R1 / ALL / C1） | 任意台账 + 导出 | 全公司全部门可见、可导出 |
 | `chenjing`（R6 / ALL / C3） | 资产报表导出 | 全量数据可导出 |
 

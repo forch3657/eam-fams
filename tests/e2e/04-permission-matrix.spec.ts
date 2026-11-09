@@ -399,7 +399,8 @@ test('[P4-19] dataScope=SELF 只应看到本人数据', async () => {
     const res = await api.get('/api/fixed-assets?pageSize=500')
     expect(res.status()).toBe(200)
     const rows = (await res.json()).data as Array<Record<string, unknown>>
-    // 资产台账没有「使用人」字段时至少应校验创建人；当前后端未按 dataScope 过滤
+    // SELF 按 createBy 过滤；DEPT_ONLY 已改为按 userId（固定资产）/ creatorId（单据）过滤，
+    // 不再与 DEPT 共用 deptId 条件
     for (const row of rows) {
       expect(String(row.createBy ?? row.userId ?? '')).toBe(user.username)
     }

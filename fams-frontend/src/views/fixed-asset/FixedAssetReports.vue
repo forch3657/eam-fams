@@ -77,8 +77,10 @@
 
         <!-- 部门统计 -->
         <el-tab-pane label="部门统计" name="department">
-          <el-table :data="pagedDepartmentStats" style="width: 100%">
-            <el-table-column prop="department" label="部门名称" min-width="150" />
+          <el-table :data="pagedDepartmentStats" class="clickable-table" style="width: 100%" @row-click="openDeptDetail">
+            <el-table-column prop="department" label="部门名称" min-width="150">
+              <template #default="{ row }"><el-link type="primary" :underline="false">{{ row.department }}</el-link></template>
+            </el-table-column>
             <el-table-column prop="assetCount" label="资产数量" width="120" />
             <el-table-column prop="assetAmount" label="资产总值" width="150" align="right">
               <template #default="{ row }"><span class="num">¥{{ row.assetAmount.toLocaleString() }}</span></template>
@@ -90,6 +92,11 @@
             <el-table-column label="占比" min-width="200">
               <template #default="{ row }">
                 <el-progress :percentage="row.percentage" :stroke-width="14" />
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="100" fixed="right">
+              <template #default="{ row }">
+                <el-button link type="primary" size="small" @click.stop="openDeptDetail(row)">查看明细</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -120,8 +127,10 @@
             </el-form-item>
           </el-form>
 
-          <el-table :data="displayUserStats" style="width: 100%">
-            <el-table-column prop="name" label="使用人" width="100" />
+          <el-table :data="displayUserStats" class="clickable-table" style="width: 100%" @row-click="openUserDetail">
+            <el-table-column prop="name" label="使用人" width="100">
+              <template #default="{ row }"><el-link type="primary" :underline="false">{{ row.name }}</el-link></template>
+            </el-table-column>
             <el-table-column prop="department" label="所属部门" width="120" />
             <el-table-column prop="position" label="职位" width="100" />
             <el-table-column prop="assetCount" label="持有资产数" width="120" />
@@ -129,6 +138,11 @@
               <template #default="{ row }"><span class="num">¥{{ row.assetAmount.toLocaleString() }}</span></template>
             </el-table-column>
             <el-table-column prop="assetDetail" label="资产明细" min-width="200" show-overflow-tooltip />
+            <el-table-column label="操作" width="100" fixed="right">
+              <template #default="{ row }">
+                <el-button link type="primary" size="small" @click.stop="openUserDetail(row)">查看明细</el-button>
+              </template>
+            </el-table-column>
           </el-table>
 
           <div class="pager">
@@ -265,6 +279,35 @@
         </el-tab-pane>
       </el-tabs>
     </el-card>
+
+    <!-- 部门 / 使用人统计下钻：明细取自同一份资产台账，口径与统计行完全一致 -->
+    <el-dialog v-model="detailVisible" :title="detailTitle" width="1080px" top="6vh">
+      <div class="detail-toolbar">
+        <span>共 {{ detailRows.length }} 条资产</span>
+        <el-button v-if="can('fa:export')" size="small" type="primary" plain @click="exportDetail">
+          <el-icon><Download /></el-icon>
+          导出明细
+        </el-button>
+      </div>
+      <el-table :data="detailRows" max-height="480" style="width: 100%">
+        <el-table-column prop="code" label="资产编号" width="130" />
+        <el-table-column prop="name" label="资产名称" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="type" label="资产分类" width="120" />
+        <el-table-column prop="dept" label="所属部门" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="user" label="使用人" width="100" />
+        <el-table-column prop="location" label="存放位置" min-width="140" show-overflow-tooltip />
+        <el-table-column label="资产原值(元)" width="140" align="right">
+          <template #default="{ row }"><span class="num">¥{{ Number(row.original || 0).toLocaleString() }}</span></template>
+        </el-table-column>
+        <el-table-column label="资产净值(元)" width="140" align="right">
+          <template #default="{ row }"><span class="num">¥{{ Number(row.net || 0).toLocaleString() }}</span></template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="100" />
+      </el-table>
+      <template #footer>
+        <el-button @click="detailVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -423,6 +466,42 @@ const getDepreciationColor = (percentage) => {
   if (percentage >= 80) return '#f56c6c'
   if (percentage >= 50) return '#e6a23c'
   return '#67c23a'
+}
+
+/**
+ * 统计行下钻明细。
+ * 明细取自与统计同一份 assetLedger（已由后端按 dataScope 过滤），
+ * 因此领导班子看到全部、部门主管看到本部门、使用人只看到本人名下，无需前端再做角色判断。
+ */
+const detailVisible = ref(false)
+const detailTitle = ref('')
+const detailRows = ref([])
+
+function openDeptDetail(row) {
+  const key = row.department || '未分配'
+  detailRows.value = fixedAssetStore.assetLedger.filter(a => (a.dept || '未分配') === key)
+  detailTitle.value = `${key} · 资产明细`
+  detailVisible.value = true
+}
+
+function openUserDetail(row) {
+  const key = row.name || '未分配'
+  detailRows.value = fixedAssetStore.assetLedger.filter(a => (a.user || '未分配') === key)
+  detailTitle.value = `${key} · 资产明细`
+  detailVisible.value = true
+}
+
+function exportDetail() {
+  const headers = ['资产编号', '资产名称', '资产分类', '所属部门', '使用人', '存放位置', '资产原值(元)', '资产净值(元)', '状态']
+  const rows = detailRows.value.map(r => [r.code, r.name, r.type, r.dept, r.user, r.location, r.original, r.net, r.status])
+  const csv = '\uFEFF' + [headers.join(','), ...rows.map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(','))].join('\n')
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `导出_${detailTitle.value.replace(/[\s·]/g, '')}_${new Date().toISOString().slice(0, 10)}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+  ElMessage.success('导出明细成功')
 }
 
 const handleUserSearch = () => { userPage.value = 1 }
@@ -585,6 +664,17 @@ const handleDetailExport = () => {
 
 .search-form {
   margin-bottom: 20px;
+}
+
+.clickable-table {
+  cursor: pointer;
+}
+
+.detail-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
 }
 
 .stat-cards {

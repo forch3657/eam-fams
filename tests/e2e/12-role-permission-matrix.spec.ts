@@ -193,6 +193,27 @@ const BUTTON_CASES = [
     button: /新增资产/,
     visible: false,
     reason: '部门主管没有 fa:add（只有 fa:edit）'
+  },
+  {
+    code: 'ROLE_USER',
+    path: '/low-value-assets?tab=item',
+    button: /编辑/,
+    visible: false,
+    reason: 'BUG-033：资产使用人没有 lv:edit，低值台账不得出现编辑按钮'
+  },
+  {
+    code: 'ROLE_USER',
+    path: '/low-value-assets?tab=item',
+    button: /删除/,
+    visible: false,
+    reason: 'BUG-033：资产使用人没有 lv:edit，低值台账不得出现删除按钮'
+  },
+  {
+    code: 'ROLE_USER',
+    path: '/low-value-assets?tab=inbound',
+    button: /新增入库/,
+    visible: true,
+    reason: '资产使用人已补 lv:inbound，可办理低值入库（领用/退库职责不变）'
   }
 ] as const
 

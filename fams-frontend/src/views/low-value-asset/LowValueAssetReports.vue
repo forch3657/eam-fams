@@ -95,8 +95,10 @@
             </el-form-item>
           </el-form>
 
-          <el-table :data="pagedDeptStats" style="width: 100%">
-            <el-table-column prop="dept" label="领用部门" min-width="160" />
+          <el-table :data="pagedDeptStats" class="clickable-table" style="width: 100%" @row-click="openDeptDetail">
+            <el-table-column prop="dept" label="领用部门" min-width="160">
+              <template #default="{ row }"><el-link type="primary" :underline="false">{{ row.dept }}</el-link></template>
+            </el-table-column>
             <el-table-column prop="times" label="领用次数" width="110" align="right" />
             <el-table-column prop="quantity" label="领用数量" width="120" align="right">
               <template #default="{ row }"><span class="num">{{ row.quantity }}</span></template>
@@ -112,6 +114,11 @@
                 <el-progress :percentage="row.percentage" :stroke-width="16" :text-inside="true" />
               </template>
             </el-table-column>
+            <el-table-column label="操作" width="100" fixed="right">
+              <template #default="{ row }">
+                <el-button link type="primary" size="small" @click.stop="openDeptDetail(row)">查看明细</el-button>
+              </template>
+            </el-table-column>
           </el-table>
 
           <div class="pager">
@@ -120,6 +127,55 @@
               v-model:page-size="deptPageSize"
               :page-sizes="[10, 20, 50, 100]"
               :total="filteredDeptStats.length"
+              layout="total, sizes, prev, pager, next, jumper"
+            />
+          </div>
+        </el-tab-pane>
+
+        <!-- 使用人领用统计 -->
+        <el-tab-pane label="使用人领用统计" name="receiver">
+          <el-form :inline="true" class="search-form">
+            <el-form-item label="领用人">
+              <el-input v-model="receiverSearch.name" placeholder="请输入领用人" clearable style="width: 200px" />
+            </el-form-item>
+            <el-form-item label="部门">
+              <el-input v-model="receiverSearch.department" placeholder="请输入部门" clearable style="width: 200px" />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="receiverPage = 1">
+                <el-icon><Search /></el-icon>
+                搜索
+              </el-button>
+              <el-button @click="resetReceiverSearch">重置</el-button>
+            </el-form-item>
+          </el-form>
+
+          <el-table :data="pagedReceiverStats" class="clickable-table" style="width: 100%" @row-click="openReceiverDetail">
+            <el-table-column prop="receiver" label="领用人" min-width="120">
+              <template #default="{ row }"><el-link type="primary" :underline="false">{{ row.receiver }}</el-link></template>
+            </el-table-column>
+            <el-table-column prop="department" label="所属部门" min-width="160" />
+            <el-table-column prop="times" label="领用次数" width="110" align="right" />
+            <el-table-column prop="quantity" label="领用数量" width="120" align="right" />
+            <el-table-column label="领用金额(元)" width="150" align="right">
+              <template #default="{ row }"><span class="num">¥{{ Number(row.amount || 0).toLocaleString() }}</span></template>
+            </el-table-column>
+            <el-table-column prop="percentage" label="占比" width="100">
+              <template #default="{ row }">{{ row.percentage }}%</template>
+            </el-table-column>
+            <el-table-column label="操作" width="100" fixed="right">
+              <template #default="{ row }">
+                <el-button link type="primary" size="small" @click.stop="openReceiverDetail(row)">查看明细</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <div class="pager">
+            <el-pagination
+              v-model:current-page="receiverPage"
+              v-model:page-size="receiverPageSize"
+              :page-sizes="[10, 20, 50, 100]"
+              :total="filteredReceiverStats.length"
               layout="total, sizes, prev, pager, next, jumper"
             />
           </div>
@@ -176,6 +232,32 @@
         </el-tab-pane>
       </el-tabs>
     </el-card>
+
+    <!-- 部门 / 使用人领用统计下钻：明细取自同一批已生效领用单，口径与统计行一致 -->
+    <el-dialog v-model="detailVisible" :title="detailTitle" width="1080px" top="6vh">
+      <div class="detail-toolbar">
+        <span>共 {{ detailRows.length }} 条领用单</span>
+        <el-button v-if="can('lv:export')" size="small" type="primary" plain @click="exportDetail">
+          <el-icon><Download /></el-icon>
+          导出明细
+        </el-button>
+      </div>
+      <el-table :data="detailRows" max-height="480" style="width: 100%">
+        <el-table-column prop="docNo" label="单据编号" width="140" />
+        <el-table-column prop="itemName" label="物品名称" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="receiver" label="领用人" width="100" />
+        <el-table-column prop="deptName" label="领用部门" min-width="160" show-overflow-tooltip />
+        <el-table-column prop="quantity" label="领用数量" width="110" align="right" />
+        <el-table-column label="领用金额(元)" width="140" align="right">
+          <template #default="{ row }"><span class="num">¥{{ Number(row.amount || 0).toLocaleString() }}</span></template>
+        </el-table-column>
+        <el-table-column prop="requisitionDate" label="领用日期" width="120" />
+        <el-table-column prop="purpose" label="用途" min-width="160" show-overflow-tooltip />
+      </el-table>
+      <template #footer>
+        <el-button @click="detailVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -184,9 +266,11 @@ import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Download, Search } from '@element-plus/icons-vue'
 import { useLowValueAssetStore } from '../../store/lowValueAsset'
+import { useOrgStore } from '../../store/org'
 import { useUserStore } from '../../store/user'
 
 const store = useLowValueAssetStore()
+const orgStore = useOrgStore()
 const userStore = useUserStore()
 // 报表由 store 现算，进入页面时重新拉取，避免统计口径落后于导入/审批结果
 onMounted(() => { if (userStore.can('lv:view')) store.loadAll().catch(() => {}) })
@@ -194,7 +278,7 @@ const activeTab = ref('category')
 /** 类别选项取自数据字典（系统管理 > 数据字典 > 低值资产类别） */
 const categoryOptions = computed(() => store.categoryOptions)
 
-const tabNames = { category: '类别统计', dept: '部门领用统计', flow: '出入库汇总' }
+const tabNames = { category: '类别统计', dept: '部门领用统计', receiver: '使用人领用统计', flow: '出入库汇总' }
 
 // 类别统计
 const catPage = ref(1)
@@ -219,6 +303,81 @@ const pagedDeptStats = computed(() => {
   const start = (deptPage.value - 1) * deptPageSize.value
   return filteredDeptStats.value.slice(start, start + deptPageSize.value)
 })
+
+// 使用人领用统计：按领用人聚合已生效领用单，与部门统计共用同一批单据
+const settledRequisitions = computed(() => store.requisitionRecords.filter(r => r.status === 'DONE'))
+const deptNameOf = r => (r.deptId ? (orgStore.deptName(r.deptId) || r.deptId) : '未指定')
+const receiverStats = computed(() => {
+  const map = new Map()
+  settledRequisitions.value.forEach(r => {
+    const key = r.receiver || '未指定'
+    const cur = map.get(key) || { receiver: key, department: '', times: 0, quantity: 0, amount: 0 }
+    cur.times += 1
+    cur.quantity += Number(r.quantity) || 0
+    cur.amount += Number(r.amount) || 0
+    if (!cur.department) cur.department = deptNameOf(r)
+    map.set(key, cur)
+  })
+  const total = [...map.values()].reduce((s, x) => s + x.amount, 0)
+  return [...map.values()]
+    .map(x => ({ ...x, amount: Math.round(x.amount * 100) / 100, percentage: total ? Math.round(x.amount / total * 1000) / 10 : 0 }))
+    .sort((a, b) => b.amount - a.amount)
+})
+
+const receiverSearch = reactive({ name: '', department: '' })
+watch(receiverSearch, () => { receiverPage.value = 1 }, { deep: true })
+const receiverPage = ref(1)
+const receiverPageSize = ref(15)
+
+const filteredReceiverStats = computed(() => {
+  const name = receiverSearch.name.trim()
+  const dept = receiverSearch.department.trim()
+  return receiverStats.value.filter(r => (!name || r.receiver.includes(name)) && (!dept || r.department.includes(dept)))
+})
+
+const pagedReceiverStats = computed(() => {
+  const start = (receiverPage.value - 1) * receiverPageSize.value
+  return filteredReceiverStats.value.slice(start, start + receiverPageSize.value)
+})
+
+function resetReceiverSearch() {
+  receiverSearch.name = ''
+  receiverSearch.department = ''
+  receiverPage.value = 1
+}
+
+/**
+ * 统计行下钻明细：明细取自同一批已生效领用单。
+ * 领用单已由后端按 dataScope 过滤，故领导班子看全部、部门主管看本部门、使用人看本人办理的单据。
+ */
+const detailVisible = ref(false)
+const detailTitle = ref('')
+const detailRows = ref([])
+
+function withDeptName(rows) {
+  return rows.map(r => ({ ...r, deptName: deptNameOf(r) }))
+}
+
+function openDeptDetail(row) {
+  const key = row.dept || '未指定'
+  detailRows.value = withDeptName(settledRequisitions.value.filter(r => deptNameOf(r) === key))
+  detailTitle.value = `${key} · 领用明细`
+  detailVisible.value = true
+}
+
+function openReceiverDetail(row) {
+  const key = row.receiver || '未指定'
+  detailRows.value = withDeptName(settledRequisitions.value.filter(r => (r.receiver || '未指定') === key))
+  detailTitle.value = `${key} · 领用明细`
+  detailVisible.value = true
+}
+
+function exportDetail() {
+  const headers = ['单据编号', '物品名称', '领用人', '领用部门', '领用数量', '领用金额(元)', '领用日期', '用途']
+  const rows = detailRows.value.map(r => [r.docNo, r.itemName, r.receiver, r.deptName, r.quantity, r.amount, r.requisitionDate, r.purpose])
+  const date = new Date().toISOString().slice(0, 10)
+  downloadCsv(headers, rows, `导出_${detailTitle.value.replace(/[\s·]/g, '')}_${date}.csv`, '导出领用明细成功')
+}
 
 // 出入库汇总
 const flowSearch = reactive({ name: '', category: '' })
@@ -248,7 +407,7 @@ function resetFlowSearch() {
 /** 权限判定：报表导出受 lv:export 控制 */
 const can = code => userStore.can(code)
 
-function downloadCsv(headers, rows, filename) {
+function downloadCsv(headers, rows, filename, tip) {
   const csv = '\uFEFF' + [headers.join(','), ...rows.map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(','))].join('\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
@@ -257,7 +416,7 @@ function downloadCsv(headers, rows, filename) {
   link.download = filename
   link.click()
   URL.revokeObjectURL(url)
-  ElMessage.success(`导出${tabNames[activeTab.value]}报表成功`)
+  ElMessage.success(tip || `导出${tabNames[activeTab.value]}报表成功`)
 }
 
 function handleExport() {
@@ -270,7 +429,11 @@ function handleExport() {
     const headers = ['领用部门', '领用次数', '领用数量', '领用金额(元)', '占比(%)']
     const rows = filteredDeptStats.value.map(r => [r.dept, r.times, r.quantity, r.amount, r.percentage])
     downloadCsv(headers, rows, `导出_${tabNames.dept}_${date}.csv`)
-  } else {
+  } else if (activeTab.value === 'receiver') {
+    const headers = ['领用人', '所属部门', '领用次数', '领用数量', '领用金额(元)', '占比(%)']
+    const rows = filteredReceiverStats.value.map(r => [r.receiver, r.department, r.times, r.quantity, r.amount, r.percentage])
+    downloadCsv(headers, rows, `导出_${tabNames.receiver}_${date}.csv`)
+  } else if (activeTab.value === 'flow') {
     const headers = ['物品名称', '物品类别', '规格型号', '单位', '入库数量', '领用数量', '退库数量', '当前库存']
     const rows = filteredFlowSummary.value.map(r => [r.name, r.categoryName, r.spec, r.unit, r.inbound, r.requisition, r.return, r.stock])
     downloadCsv(headers, rows, `导出_${tabNames.flow}_${date}.csv`)
@@ -281,6 +444,17 @@ function handleExport() {
 <style scoped>
 .search-form {
   margin-bottom: 16px;
+}
+
+.clickable-table {
+  cursor: pointer;
+}
+
+.detail-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
 }
 
 .stat-cards {

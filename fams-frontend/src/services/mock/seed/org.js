@@ -65,8 +65,8 @@ const SEED_ROLES = [
   },
   {
     id: 'R3', code: 'ROLE_USER', name: '资产使用人', orgScope: 'DEPT', dataScope: 'DEPT_ONLY', status: 'ENABLED', sort: 3,
-    remark: '查看台账，发起借出/变更/报修与低值领用退库，处理本人待办',
-    permissions: ['fa:view', 'fa:borrow', 'fa:change', 'fa:repair', 'lv:view', 'lv:requisition', 'lv:return', 'wm:view', 'wm:todo', 'wm:message'],
+    remark: '查看台账，发起借出/变更/报修与低值入库/领用/退库，处理本人待办',
+    permissions: ['fa:view', 'fa:borrow', 'fa:change', 'fa:repair', 'lv:view', 'lv:inbound', 'lv:requisition', 'lv:return', 'wm:view', 'wm:todo', 'wm:message'],
     createTime: '2024-01-05T09:10:00', updateTime: '2026-09-16T09:05:44', version: 1
   },
   {

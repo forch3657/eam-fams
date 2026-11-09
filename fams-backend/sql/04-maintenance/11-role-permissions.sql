@@ -11,7 +11,8 @@
 --   - 新增专用权限码 fa:repair（由 fams-frontend/src/config/permissions.js 导出契约），
 --     fixed-asset-doc-lists-repair 的 write/delete 规则已同步 contract 与 PermissionPolicy；
 --   - 重置 8 个内置角色（R1~R8）权限；R7（分管副总，生产库为 DISABLED）只收敛权限、
---     不改 status；ROLE_LEADERSHIP（领导班子，自定义角色）完全不动。
+--     不改 status；ROLE_LEADERSHIP（领导班子，自定义角色）权限完全不动，
+--     仅按 2026-11-09 口径把 data_scope 校准为 ALL（领导班子看全部）。
 --
 -- 幂等：WHERE permissions <> 目标值，重复执行不会重复 bump version。
 -- 执行（root，DDL/DML 管理员账号）：
@@ -31,12 +32,14 @@ UPDATE `org_roles` SET `permissions` = '["fa:view","fa:add","fa:edit","fa:export
   `version` = `version` + 1, `update_by` = 'migration-11', `update_time` = NOW(3)
 WHERE `id` = 'R2' AND `permissions` <> '["fa:view","fa:add","fa:edit","fa:export","fa:inbound","fa:dispatch","fa:borrow","fa:change","fa:dispose","fa:repair","fa:inventory","fa:depreciation","fa:report","fa:settings","lv:view","lv:edit","lv:export","lv:inbound","lv:requisition","lv:return","lv:report","lv:settings","wm:view","wm:todo","wm:alert","wm:overview","wm:message"]';
 
--- R3 资产使用人【本次反馈主角】：只读台账 + 发起借出 / 变更 / 报修 + 低值领用退库 + 工作台。
+-- R3 资产使用人【本次反馈主角】：只读台账 + 发起借出 / 变更 / 报修 + 低值入库 / 领用 / 退库 + 工作台。
 -- 不给 fa:dispose（资产处置）、fa:edit（改台账）、fa:inventory（发起盘点）等管理权。
-UPDATE `org_roles` SET `permissions` = '["fa:view","fa:borrow","fa:change","fa:repair","lv:view","lv:requisition","lv:return","wm:view","wm:todo","wm:message"]',
-  `remark` = '资产使用人：查看台账，发起借出/变更/报修与低值领用退库，处理本人待办',
+-- 2026-11-09 用户确认：低值台账的「编辑 / 删除」按钮不得出现（前端已按 lv:edit 显隐，R3 仍无 lv:edit），
+-- 低值入库权可以有、领用退库职责不变，因此只补 lv:inbound，不收回 lv:requisition / lv:return。
+UPDATE `org_roles` SET `permissions` = '["fa:view","fa:borrow","fa:change","fa:repair","lv:view","lv:inbound","lv:requisition","lv:return","wm:view","wm:todo","wm:message"]',
+  `remark` = '资产使用人：查看台账，发起借出/变更/报修与低值入库/领用/退库，处理本人待办',
   `version` = `version` + 1, `update_by` = 'migration-11', `update_time` = NOW(3)
-WHERE `id` = 'R3' AND `permissions` <> '["fa:view","fa:borrow","fa:change","fa:repair","lv:view","lv:requisition","lv:return","wm:view","wm:todo","wm:message"]';
+WHERE `id` = 'R3' AND `permissions` <> '["fa:view","fa:borrow","fa:change","fa:repair","lv:view","lv:inbound","lv:requisition","lv:return","wm:view","wm:todo","wm:message"]';
 
 -- R4 财务管理员：WF8 大额处置的「财务管理员复核」审批人，必须有 wm:todo 才能在工作台看到待办
 UPDATE `org_roles` SET `permissions` = '["fa:view","fa:export","fa:depreciation","fa:report","lv:view","lv:report","sys:log","wm:view","wm:todo","wm:overview","wm:message"]',
@@ -66,6 +69,14 @@ WHERE `id` = 'R8' AND `permissions` <> '["fa:view","fa:inbound","fa:report","lv:
 UPDATE `org_roles` SET `permissions` = '["fa:view","fa:report","lv:view","lv:report","wm:view","wm:todo","wm:overview","wm:message"]',
   `version` = `version` + 1, `update_by` = 'migration-11', `update_time` = NOW(3)
 WHERE `id` = 'R7' AND `permissions` <> '["fa:view","fa:report","lv:view","lv:report","wm:view","wm:todo","wm:overview","wm:message"]';
+
+-- 领导班子（自定义角色 ROLE_LEADERSHIP）：2026-11-09 用户确认「领导班子可以查看所有的」。
+-- 权限数组保持不动，只把 data_scope 从 COMPANY 放宽为 ALL；幂等可复跑。
+-- 同时 R3（DEPT_ONLY）由后端 GenericService 改为「只看本人名下/本人经办」，
+-- R5（DEPT）仍是「看本部门全部」，二者不再混用同一过滤条件。
+UPDATE `org_roles` SET `data_scope` = 'ALL',
+  `version` = `version` + 1, `update_by` = 'migration-11', `update_time` = NOW(3)
+WHERE `id` = 'mvu9z81n35' AND `data_scope` <> 'ALL';
 
 -- 复核：应返回 40 个权限码内的合法值，且 9 个角色权限无越权残留
 SELECT `id`, `code`, `status`, JSON_LENGTH(`permissions`) AS perm_count, `version`

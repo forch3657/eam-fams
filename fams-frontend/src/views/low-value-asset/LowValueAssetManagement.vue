@@ -2,24 +2,6 @@
   <div class="page-container">
     <div class="page-header">
       <h2>低值资产管理</h2>
-      <div>
-        <el-button v-if="activeTab === 'item' && can('lv:edit')" type="primary" @click="openItemDialog()">
-          <el-icon><Plus /></el-icon>
-          新增物品
-        </el-button>
-        <el-button v-if="activeTab === 'inbound' && can('lv:inbound')" type="primary" @click="openInboundDialog">
-          <el-icon><Plus /></el-icon>
-          新增入库
-        </el-button>
-        <el-button v-if="activeTab === 'requisition' && can('lv:requisition')" type="primary" @click="openRequisitionDialog">
-          <el-icon><Plus /></el-icon>
-          新增领用
-        </el-button>
-        <el-button v-if="activeTab === 'return' && can('lv:return')" type="primary" @click="openReturnDialog">
-          <el-icon><Plus /></el-icon>
-          新增退库
-        </el-button>
-      </div>
     </div>
 
     <el-card class="fill">
@@ -42,6 +24,10 @@
                 搜索
               </el-button>
               <el-button @click="resetItemSearch">重置</el-button>
+              <el-button v-if="can('lv:edit')" type="primary" @click="openItemDialog()">
+                <el-icon><Plus /></el-icon>
+                新增物品
+              </el-button>
               <el-button v-if="can('lv:export')" type="primary" plain @click="exportItems">
                 <el-icon><Download /></el-icon>
                 导出
@@ -78,10 +64,10 @@
             </el-table-column>
             <el-table-column prop="location" label="存放位置" width="140" show-overflow-tooltip />
             <el-table-column prop="statusText" label="状态" width="90" />
-            <el-table-column label="操作" width="150" fixed="right">
+            <el-table-column v-if="can('lv:edit')" label="操作" width="150" fixed="right">
               <template #default="{ row }">
-                <el-button link type="primary" size="small" @click="openItemDialog(row)">编辑</el-button>
-                <el-button link type="danger" size="small" @click="handleDeleteItem(row)">删除</el-button>
+                <el-button v-if="can('lv:edit')" link type="primary" size="small" @click="openItemDialog(row)">编辑</el-button>
+                <el-button v-if="can('lv:edit')" link type="danger" size="small" @click="handleDeleteItem(row)">删除</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -112,6 +98,10 @@
                 搜索
               </el-button>
               <el-button @click="resetInboundSearch">重置</el-button>
+              <el-button v-if="can('lv:inbound')" type="primary" @click="openInboundDialog">
+                <el-icon><Plus /></el-icon>
+                新增入库
+              </el-button>
               <el-button v-if="can('lv:export')" type="primary" plain @click="exportDocs('inbound')">
                 <el-icon><Download /></el-icon>
                 导出
@@ -170,6 +160,10 @@
                 搜索
               </el-button>
               <el-button @click="resetRequisitionSearch">重置</el-button>
+              <el-button v-if="can('lv:requisition')" type="primary" @click="openRequisitionDialog">
+                <el-icon><Plus /></el-icon>
+                新增领用
+              </el-button>
               <el-button v-if="can('lv:export')" type="primary" plain @click="exportDocs('requisition')">
                 <el-icon><Download /></el-icon>
                 导出
@@ -241,6 +235,10 @@
                 搜索
               </el-button>
               <el-button @click="resetReturnSearch">重置</el-button>
+              <el-button v-if="can('lv:return')" type="primary" @click="openReturnDialog">
+                <el-icon><Plus /></el-icon>
+                新增退库
+              </el-button>
               <el-button v-if="can('lv:export')" type="primary" plain @click="exportDocs('return')">
                 <el-icon><Download /></el-icon>
                 导出

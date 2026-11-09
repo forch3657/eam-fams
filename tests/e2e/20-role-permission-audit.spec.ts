@@ -38,8 +38,8 @@ const TARGET_PERMISSIONS: Record<string, string[]> = {
     'wm:overview', 'wm:message'
   ],
   R3: [
-    'fa:view', 'fa:borrow', 'fa:change', 'fa:repair', 'lv:view', 'lv:requisition',
-    'lv:return', 'wm:view', 'wm:todo', 'wm:message'
+    'fa:view', 'fa:borrow', 'fa:change', 'fa:repair', 'lv:view', 'lv:inbound',
+    'lv:requisition', 'lv:return', 'wm:view', 'wm:todo', 'wm:message'
   ],
   R4: [
     'fa:view', 'fa:export', 'fa:depreciation', 'fa:report', 'lv:view', 'lv:report',
