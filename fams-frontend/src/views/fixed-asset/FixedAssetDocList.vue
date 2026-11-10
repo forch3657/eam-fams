@@ -34,7 +34,9 @@
         </template>
       </el-table-column>
       <el-table-column prop="name" label="单据名称" min-width="180" show-overflow-tooltip />
-      <el-table-column prop="companyName" label="所属公司" min-width="160" show-overflow-tooltip />
+      <el-table-column label="所属公司" min-width="160" show-overflow-tooltip>
+        <template #default="{ row }">{{ orgStore.companyName(row.companyId) || row.companyId || '' }}</template>
+      </el-table-column>
       <el-table-column label="审批流程" min-width="150" show-overflow-tooltip>
         <template #default="{ row }">
           <span v-if="flowOf(row)">{{ flowOf(row).name }}</span>
@@ -74,7 +76,7 @@
           <el-button v-if="canReturnRow(row)" link type="primary" size="small" @click="openReturnDialog(row)">发起归还退库</el-button>
           <el-button link type="primary" size="small" @click="openApproval(row)">审批信息</el-button>
           <el-button v-if="perm && isDocEditable(row)" link type="primary" size="small" @click="openDialog(row)">修改</el-button>
-          <el-button v-if="perm" link type="danger" size="small" :disabled="row.status === 'PROCESSING'" @click="removeRow(row)">删除</el-button>
+          <el-button v-if="canDeleteRow(row)" link type="danger" size="small" @click="removeRow(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -296,10 +298,9 @@ const filteredRows = computed(() => items.value.filter(d =>
 const total = computed(() => filteredRows.value.length)
 const pagedRows = computed(() => {
   const start = (page.value - 1) * pageSize.value
-  return filteredRows.value.slice(start, start + pageSize.value).map(r => ({
-    ...r,
-    companyName: r.companyId ? (orgStore.companyName(r.companyId) || r.companyId) : ''
-  }))
+  // 表格 row 必须是 items 里的原对象：删除按引用定位、审批动作直接改 row.status。
+  // 造副本会出现「审批完结了列表还是旧状态 / 删除后行还在」；公司名改由列模板解析。
+  return filteredRows.value.slice(start, start + pageSize.value)
 })
 
 function statusText(status) {
@@ -427,8 +428,23 @@ async function submit() {
   }
 }
 
+/**
+ * 删除入口与后端 GenericService.assertDocMutable 同源：
+ * 审批中不可删；已完结 / 已作废是审计凭证，只有系统管理员（R1）能删。
+ * 资产管理员看得到单、办得了审批，但不应在完结单上看到一个点了必失败的「删除」。
+ */
+function canDeleteRow(row) {
+  if (!props.perm) return false
+  if (row.status === 'PROCESSING') return false
+  if (['DONE', 'REVOKED'].includes(row.status)) return (userStore.user?.roleIds || []).includes('R1')
+  return true
+}
+
 async function removeRow(row) {
-  if (row.status === 'PROCESSING') { ElMessage.warning('单据审批中，不可删除'); return }
+  if (!canDeleteRow(row)) {
+    ElMessage.warning('审批中的单据不可删除；已完结或已作废的单据仅系统管理员可删')
+    return
+  }
   try {
     await ElMessageBox.confirm(`确认删除单据"${row.code}"？`, '删除确认', { type: 'warning' })
   } catch (e) {
@@ -436,8 +452,11 @@ async function removeRow(row) {
   }
   try {
     await col.remove(row)
+    // remove 先本地移除再调后端，无论成败都重拉，避免「提示已删除但行还在」
+    await col.load()
     ElMessage.success('单据已删除')
   } catch (e) {
+    await col.load()
     ElMessage.error(e?.message || '删除失败')
   }
 }
@@ -555,8 +574,13 @@ async function doApproval(doc, action, comment = '', targetUserId = '') {
     },
     saveApproval: row => approvalStore.addApproval(row)
   })
-  if (res.ok) ElMessage.success(res.message)
-  else ElMessage.error(res.message)
+  if (res.ok) {
+    ElMessage.success(res.message)
+    // 服务端完结会回写台账（入库 PENDING_INBOUND→IDLE、派发→IN_USE、维修→IN_USE 等），
+    // 撤回 / 作废也会恢复资产状态；本地 store 不重拉就一直是旧值，必须刷新网页才看得到。
+    // 台账由 runApproval 在通用层统一重拉，这里只刷本单据列表
+    await col.load()
+  } else ElMessage.error(res.message)
   return res
 }
 

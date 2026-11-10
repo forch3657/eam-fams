@@ -112,6 +112,7 @@
       :doc-key="current.docKey || ''"
       :biz-type="current.bizType || ''"
       :ctx="currentCtx"
+      :assets="workbench.assets"
       @act="onAct"
     />
   </div>
@@ -173,7 +174,7 @@ const globalSteps = computed(() => workbench.overview.approval.pendingByStep || 
 
 const dlgVisible = ref(false)
 const current = ref({})
-const currentCtx = computed(() => docCtx(current.value.doc, workbench.assets))
+const currentCtx = computed(() => docCtx(current.value.doc, workbench.assets, current.value.bizType))
 
 /** 供工作台指标卡联动切换页签 */
 defineExpose({ setTab: (name) => { tab.value = name } })
@@ -200,7 +201,7 @@ async function runAction(item, action, comment = '', targetUserId = '') {
     action,
     comment,
     targetUserId,
-    ctx: docCtx(item.doc, workbench.assets),
+    ctx: docCtx(item.doc, workbench.assets, item.bizType),
     flows: approvalStore.flows,
     approvals: approvalStore.approvals,
     // 固资单据没有 dept_id，归属部门要由关联资产推导（纵向审批按部门解析审批人）

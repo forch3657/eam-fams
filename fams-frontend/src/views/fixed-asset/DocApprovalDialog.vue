@@ -176,14 +176,18 @@ const comment = ref('')
 onMounted(() => { if (userStore.can('wm:todo')) approvalStore.load() })
 
 /**
- * 审批对象：固资单据按 assetId 解析出资产编号与名称。
- * 优先用父组件传入的台账，缺省时回退到全局固资 store（工作台待办等入口也能显示）。
+ * 资产台账池：父组件没传时回退到全局固资 store。
+ *
+ * 不只是展示资产编号要用：纵向审批的「部门负责人 / 分管领导」按资产归属部门解析审批人，
+ * 空台账会让 docDeptId 退回创建人部门，出现「待办里看得到、点开却没有通过按钮」。
  */
+const assetPool = computed(() => props.assets?.length ? props.assets : (fixedAssetStore.assets || []))
+
+/** 审批对象：固资单据按 assetId 解析出资产编号与名称 */
 const assetInfo = computed(() => {
   const d = props.doc || {}
   if (!d.assetId) return null
-  const pool = props.assets?.length ? props.assets : (fixedAssetStore.assets || [])
-  const a = pool.find(x => x.id === d.assetId)
+  const a = assetPool.value.find(x => x.id === d.assetId)
   return a || { code: d.assetCode || d.assetNo || '', name: d.assetName || '' }
 })
 
@@ -191,7 +195,7 @@ const bizType = computed(() => props.bizType || DOC_BIZ_TYPE[props.docKey] || pr
 const flow = computed(() => getFlow(bizType.value, approvalStore.flows))
 const steps = computed(() => effectiveSteps(flow.value, props.ctx))
 const records = computed(() => props.doc ? approvalsOf(approvalStore.approvals, props.docKey, props.doc.id) : [])
-const current = computed(() => currentStep(steps.value, records.value, orgStore, props.doc, props.assets))
+const current = computed(() => currentStep(steps.value, records.value, orgStore, props.doc, assetPool.value))
 
 const timeline = computed(() => [...records.value].sort((a, b) => String(a.time || '').localeCompare(String(b.time || ''))))
 const activeIndex = computed(() => (current.value ? current.value.index : steps.value.length))
@@ -209,7 +213,7 @@ const stepDesc = step => {
   const info = stepInfo(step)
   return `${info.roleName} · ${info.modeText}${info.conditionText ? ' · ' + info.conditionText : ''}`
 }
-const stepAccounts = step => stepApproverAccounts(step, orgStore, records.value, props.doc, props.assets)
+const stepAccounts = step => stepApproverAccounts(step, orgStore, records.value, props.doc, assetPool.value)
 /** 环节状态：已通过 / 已驳回 / 待审批 / 未开始 */
 const stateOf = step => stepState(step, records.value, orgStore, current.value)
 const stateText = state => ({ DONE: '已通过', PENDING: '待审批', REJECTED: '已驳回', WAITING: '未开始' }[state] || '未开始')
@@ -230,7 +234,7 @@ const showSubmit = computed(() => {
 const showApprove = computed(() => {
   const d = props.doc
   if (!d || d.status !== 'PROCESSING' || !current.value) return false
-  return canApprove(current.value.step, userStore.user, orgStore, records.value, props.doc, props.assets)
+  return canApprove(current.value.step, userStore.user, orgStore, records.value, props.doc, assetPool.value)
 })
 const showReject = computed(() => showApprove.value)
 /** 发起人三动作与审批人三动作：与业务列表、工作台保持同一套判定 */

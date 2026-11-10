@@ -35,16 +35,22 @@ export function daysUntil(date, now = new Date()) {
 }
 
 /**
- * 单据的条件上下文
- * - 金额：固资单据取关联资产原值，低值单据取单据金额（金额门槛类环节据此生效）
- * - 差异：盘点单存在盘盈/盘亏/异常明细
+ * 单据的条件上下文：与后端 ApprovalService.effectiveCtx 同口径。
+ *
+ * - 金额：单据 amount 优先，其次处置单 disposalAmount，最后关联资产原值；
+ * - 处置方式：处置流程的「财务复核 / 审计备案」条件环节据此生效，缺了它工作台
+ *   算出的生效环节会与服务端不一致，点「通过」就被按另一个环节拒绝；
+ * - 差异：盘点单存在盘盈/盘亏/异常明细（兼容 itemStatus 与 result 两种字段名）。
  */
-export function docCtx(doc, assets = []) {
+export function docCtx(doc, assets = [], bizType = '') {
   const asset = assets.find(a => a.id === doc?.assetId)
-  const amount = Number(doc?.amount || asset?.original || 0)
+  const amount = Number(doc?.amount || doc?.disposalAmount || asset?.original || 0)
   const items = doc?.items || []
-  const hasDiff = items.some(i => i.itemStatus === 'LOSS' || i.itemStatus === 'SURPLUS' || i.itemStatus === 'ABNORMAL')
-  return { amount, hasDiff }
+  const DIFF = ['LOSS', 'SURPLUS', 'ABNORMAL']
+  const hasDiff = items.some(i => DIFF.includes(i.itemStatus) || DIFF.includes(i.result))
+  const ctx = { amount, hasDiff }
+  if (bizType === 'DISPOSE' || doc?.disposeType) ctx.disposeType = doc?.disposeType || ''
+  return ctx
 }
 
 /** 单据展示名：固资单据用 name，低值单据用 itemName */
@@ -83,7 +89,7 @@ export function myTodos(p = {}) {
     const reg = BIZ_DOC_REGISTRY[bizType]
     const rows = docs[bizType] || []
     for (const doc of rows) {
-      const ctx = docCtx(doc, assets)
+      const ctx = docCtx(doc, assets, bizType)
       const flow = getFlow(bizType, flows)
       const steps = flow ? effectiveSteps(flow, ctx) : []
       const records = approvalsOf(approvals, reg.docKey, doc.id)
@@ -239,7 +245,7 @@ export function buildAlerts(p = {}) {
   for (const bizType of ALL_BIZ_TYPES) {
     const reg = BIZ_DOC_REGISTRY[bizType]
     for (const doc of docs[bizType] || []) {
-      const ctx = docCtx(doc, assets)
+      const ctx = docCtx(doc, assets, bizType)
       const flow = getFlow(bizType, flows)
       const steps = flow ? effectiveSteps(flow, ctx) : []
       const records = approvalsOf(approvals, reg.docKey, doc.id)

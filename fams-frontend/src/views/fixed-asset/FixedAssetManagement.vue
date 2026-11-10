@@ -229,7 +229,9 @@
                 </template>
               </el-table-column>
               <el-table-column prop="name" label="盘点名称" min-width="160" show-overflow-tooltip />
-              <el-table-column prop="company" label="所属公司" min-width="180" show-overflow-tooltip />
+              <el-table-column label="所属公司" min-width="180" show-overflow-tooltip>
+                <template #default="{ row }">{{ orgStore.companyName(row.companyId) || row.companyId || '' }}</template>
+              </el-table-column>
               <el-table-column label="创建时间" width="160" ><template #default="{ row }">{{ formatDateTime(row.createTime) }}</template></el-table-column>
               <el-table-column label="完结时间" width="160">
                 <template #default="{ row }">{{ row.finishTime ? formatDateTime(row.finishTime) : '-' }}</template>
@@ -807,17 +809,24 @@
         <el-form-item label="名称" required>
           <el-input v-model="wizardForm.name" maxlength="50" show-word-limit placeholder="请输入盘点名称" />
         </el-form-item>
-        <el-form-item label="盘点范围">
+        <el-form-item label="盘点范围" required>
           <el-radio-group v-model="wizardForm.scope">
             <el-radio value="全部资产">全部资产</el-radio>
             <el-radio value="按资产类型">按资产类型</el-radio>
             <el-radio value="按存放地点">按存放地点</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="资产类型">
+        <el-form-item v-if="wizardForm.scope === '按资产类型'" label="资产类型" required>
           <el-select v-model="wizardForm.assetTypes" multiple placeholder="请选择资产类型" style="width:100%">
             <el-option v-for="t in categoryOptions" :key="t" :label="t" :value="t" />
           </el-select>
+          <span class="muted hint">仅纳入所选分类的资产；不选请改用「全部资产」</span>
+        </el-form-item>
+        <el-form-item v-if="wizardForm.scope === '按存放地点'" label="存放地点" required>
+          <el-select v-model="wizardForm.locations" multiple filterable placeholder="请选择存放地点" style="width:100%">
+            <el-option v-for="l in wizardLocationOptions" :key="l" :label="l" :value="l" />
+          </el-select>
+          <span class="muted hint">选项取自资产台账中已登记的存放地点</span>
         </el-form-item>
       </el-form>
       <div v-show="wizardStep === 1">
@@ -840,8 +849,8 @@
           <el-descriptions-item label="所属公司">{{ wizardForm.company ? (orgStore.companyName(wizardForm.company) || wizardForm.company) : '-' }}</el-descriptions-item>
           <el-descriptions-item label="申请人">{{ wizardForm.applicant || '-' }}</el-descriptions-item>
           <el-descriptions-item label="盘点名称">{{ wizardForm.name || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="盘点范围">{{ wizardForm.scope }}</el-descriptions-item>
-          <el-descriptions-item label="资产类型">{{ wizardForm.assetTypes.length ? wizardForm.assetTypes.join('、') : '全部' }}</el-descriptions-item>
+          <el-descriptions-item label="盘点范围">{{ wizardScopeLabel }}</el-descriptions-item>
+          <el-descriptions-item label="资产类型">{{ wizardForm.scope === '按资产类型' ? wizardForm.assetTypes.join('、') : '全部' }}</el-descriptions-item>
           <el-descriptions-item label="盘点员">{{ wizardForm.counterIds.length ? wizardForm.counterIds.join('、') : '-' }}</el-descriptions-item>
         </el-descriptions>
         <el-form label-width="110px" style="margin-top:16px">
@@ -978,7 +987,15 @@
           </el-select>
         </el-form-item>
         <el-form-item label="存放位置" required>
-          <el-input v-model="profitForm.location" placeholder="如：总部办公楼2层" maxlength="60" />
+          <el-autocomplete
+            v-model="profitForm.location"
+            :fetch-suggestions="queryProfitLocations"
+            :trigger-on-focus="true"
+            clearable
+            placeholder="选择已有地点，或直接输入新地点"
+            style="width:100%"
+          />
+          <span class="muted hint">可下拉选择、输入关键词搜索；输入新地点即自动新建并记住</span>
         </el-form-item>
         <el-form-item label="数量" required>
           <el-input-number v-model="profitForm.qty" :min="1" :max="99" :precision="0" controls-position="right" />
@@ -1270,7 +1287,8 @@ const categoryCodeOptions = computed(() => optionsOf('ASSET_CATEGORY'))
 const docStatusOptions = computed(() => optionsOf('DOC_STATUS'))
 const depreciationMethodOptions = computed(() => optionsOf('DEPRECIATION_METHOD'))
 const counterOptions = ['张三', '李四', '王五', '赵会计', '钱助理', '孙主管']
-const departmentOptions = computed(() => [...new Set(assetLedger.value.map(a => a.department))])
+/** 台账视图模型里部门字段是 dept（department 不存在），旧写法让部门下拉恒为空 */
+const departmentOptions = computed(() => [...new Set(assetLedger.value.map(a => a.dept).filter(Boolean))])
 
 /**
  * 统一 ISO 8601。
@@ -1518,10 +1536,11 @@ const profitForm = reactive({
 })
 const planForm = reactive({ planName: '', scopeType: '全部', scopeValue: '', counter: '', planDate: '', methods: ['小程序扫码'] })
 
+/** 预览口径必须与 buildPlanItems 一致：分类下拉存中文标签（a.type），部门字段是 a.dept */
 const planPreviewCount = computed(() => {
   return assetLedger.value.filter(a =>
     planForm.scopeType === '全部' ||
-    (planForm.scopeType === '分类' ? a.category === planForm.scopeValue : a.department === planForm.scopeValue)
+    (planForm.scopeType === '分类' ? a.type === planForm.scopeValue : a.dept === planForm.scopeValue)
   ).length
 })
 
@@ -1806,9 +1825,10 @@ const filteredInvDocs = computed(() => {
 
 const pagedInvDocs = computed(() => {
   const start = (invPage.value - 1) * invPageSize.value
-  // 补出公司名称供表格展示（库里只存 companyId）
+  // 表格 row 必须是 inventoryDocs 里的原对象：删除按引用定位、审批动作直接改 row.status。
+  // 之前 .map 造副本会让 useCollection.remove 找不到索引，作废状态也只落到副本上，
+  // 表现为「点了删除/作废，列表还停在旧状态」。公司名称改由列模板按 companyId 解析。
   return filteredInvDocs.value.slice(start, start + invPageSize.value)
-    .map(d => ({ ...d, company: d.companyId ? (orgStore.companyName(d.companyId) || d.companyId) : '' }))
 })
 
 const invTotal = computed(() => filteredInvDocs.value.length)
@@ -1865,22 +1885,35 @@ async function deleteAsset(row) {
   }
 }
 
-/** 已完结盘点单只有系统管理员（R1）可删；审批中 / 已作废一律不可删 */
+/**
+ * 审批中的盘点单不可删；已完结 / 已作废是审计凭证，只有系统管理员（R1）能删。
+ * 与后端 GenericService.assertDocMutable 同源：DONE 与 REVOKED 的删除都要求 R1。
+ */
 function canDeleteInvDoc(row) {
-  if (['PROCESSING', 'REVOKED'].includes(row.status)) return false
-  if (row.status === 'DONE') return (userStore.user?.roleIds || []).includes('R1')
+  if (row.status === 'PROCESSING') return false
+  if (['DONE', 'REVOKED'].includes(row.status)) return (userStore.user?.roleIds || []).includes('R1')
   return true
 }
 
-function deleteInvDoc(row) {
+async function deleteInvDoc(row) {
   if (!canDeleteInvDoc(row)) {
-    ElMessage.warning('审批中或已作废的盘点单不可删除；已完结的单据仅系统管理员可删')
+    ElMessage.warning('审批中的盘点单不可删除；已完结或已作废的单据仅系统管理员可删')
     return
   }
-  ElMessageBox.confirm(`确认删除盘点单"${row.docNo}"？`, '删除确认', { type: 'warning' }).then(() => {
-    inventoryDocCol.remove(row)
+  try {
+    await ElMessageBox.confirm(`确认删除盘点单"${row.docNo}"？`, '删除确认', { type: 'warning' })
+  } catch (e) {
+    return
+  }
+  try {
+    await inventoryDocCol.remove(row)
+    // remove 先本地移除再调后端；无论成败都重拉一次，避免「提示已删除但列表还在」
+    await inventoryDocCol.load()
     ElMessage.success('盘点单已删除')
-  }).catch(() => {})
+  } catch (e) {
+    await inventoryDocCol.load()
+    ElMessage.error(e?.message || '盘点单删除失败')
+  }
 }
 
 const checkListVisible = ref(false)
@@ -1973,8 +2006,13 @@ function submitProfitItem() {
     ElMessage.warning('请选择资产分类')
     return
   }
-  if (!profitForm.location.trim()) {
+  const location = profitForm.location.trim()
+  if (!location) {
     ElMessage.warning('请填写存放位置')
+    return
+  }
+  if (location.length > 60) {
+    ElMessage.warning('存放位置不能超过 60 个字符')
     return
   }
   const qty = Number(profitForm.qty)
@@ -1987,6 +2025,8 @@ function submitProfitItem() {
     ElMessage.warning('购置金额须为不小于 0 的数字')
     return
   }
+  // 输入的新地点累加进候选，下次不必再手打
+  rememberLocation(location)
   const me = userStore.user || {}
   const now = new Date().toISOString()
   checkItems.value.unshift({
@@ -1998,7 +2038,7 @@ function submitProfitItem() {
     dept: profitForm.dept,
     userId: profitForm.userId,
     userName: userNameOf(profitForm.userId),
-    location: profitForm.location.trim(),
+    location,
     qty,
     price,
     itemStatus: 'SURPLUS',
@@ -2110,7 +2150,23 @@ function openCounters(row) {
 
 const wizardVisible = ref(false)
 const wizardStep = ref(0)
-const wizardForm = reactive({ company: '', applicant: '', name: '', scope: '全部资产', assetTypes: [], counterIds: [], startDate: '' })
+const wizardForm = reactive({ company: '', applicant: '', name: '', scope: '全部资产', assetTypes: [], locations: [], counterIds: [], startDate: '' })
+
+/** 地点选项取台账实际值：硬编码列表与真实台账对不上，选了也筛不出东西 */
+const wizardLocationOptions = computed(() =>
+  [...new Set(fixedAssetStore.assetLedger.map(a => a.location).filter(Boolean))].sort()
+)
+
+/** 落库与确认页共用的范围描述：只写「按资产类型」看不出到底选了哪些分类 */
+const wizardScopeLabel = computed(() => {
+  if (wizardForm.scope === '按资产类型' && wizardForm.assetTypes.length) {
+    return `按资产类型：${wizardForm.assetTypes.join('、')}`
+  }
+  if (wizardForm.scope === '按存放地点' && wizardForm.locations.length) {
+    return `按存放地点：${wizardForm.locations.join('、')}`
+  }
+  return '全部资产'
+})
 
 // 换公司后人员范围变了：已选的申请人与盘点员都作废，避免留到不属于该公司的旧选择
 watch(() => wizardForm.company, () => {
@@ -2118,8 +2174,14 @@ watch(() => wizardForm.company, () => {
   wizardForm.counterIds = []
 })
 
+// 切换范围时清掉不适用的选项，避免残留的 assetTypes 把「全部资产」悄悄过滤掉
+watch(() => wizardForm.scope, scope => {
+  if (scope !== '按资产类型') wizardForm.assetTypes = []
+  if (scope !== '按存放地点') wizardForm.locations = []
+})
+
 function openWizard() {
-  Object.assign(wizardForm, { company: '', applicant: '', name: '', scope: '全部资产', assetTypes: [], counterIds: [], startDate: '' })
+  Object.assign(wizardForm, { company: '', applicant: '', name: '', scope: '全部资产', assetTypes: [], locations: [], counterIds: [], startDate: '' })
   wizardStep.value = 0
   wizardVisible.value = true
 }
@@ -2127,6 +2189,14 @@ function openWizard() {
 function wizardNext() {
   if (wizardStep.value === 0 && (!wizardForm.company || !wizardForm.applicant || !wizardForm.name)) {
     ElMessage.warning('请填写所属公司、申请人与盘点名称')
+    return
+  }
+  if (wizardStep.value === 0 && wizardForm.scope === '按资产类型' && !wizardForm.assetTypes.length) {
+    ElMessage.warning('请至少选择一个资产类型，或把盘点范围改回「全部资产」')
+    return
+  }
+  if (wizardStep.value === 0 && wizardForm.scope === '按存放地点' && !wizardForm.locations.length) {
+    ElMessage.warning('请至少选择一个存放地点，或把盘点范围改回「全部资产」')
     return
   }
   if (wizardStep.value === 1 && wizardForm.counterIds.length === 0) {
@@ -2137,7 +2207,7 @@ function wizardNext() {
 }
 
 /**
- * 按「所属公司 + 资产类型」从资产台账取真实资产生成盘点明细。
+ * 按「所属公司 + 盘点范围」从资产台账取真实资产生成盘点明细。
  *
  * 明细带资产快照（编号/名称/状态/部门/使用人/位置），
  * 单据脱离主数据后仍可追溯，也能与台账逐项对账。
@@ -2145,10 +2215,14 @@ function wizardNext() {
 function buildInventoryItems() {
   const companyId = wizardForm.company
   const types = wizardForm.assetTypes || []
+  const locations = wizardForm.locations || []
+  const byType = wizardForm.scope === '按资产类型'
+  const byLocation = wizardForm.scope === '按存放地点'
   // 用 store 的完整视图模型：带 id / companyId / 状态编码，明细才能与台账逐项对账
   const list = fixedAssetStore.assetLedger.filter(a => {
     if (companyId && a.companyId !== companyId) return false
-    if (wizardForm.scope === '按资产类型' && types.length && !types.includes(a.type)) return false
+    if (byType && types.length && !types.includes(a.type)) return false
+    if (byLocation && locations.length && !locations.includes(a.location)) return false
     return true
   })
   const now = new Date().toISOString()
@@ -2194,12 +2268,19 @@ async function submitWizard() {
     ElMessage.warning('请至少选择一名盘点员')
     return
   }
-  const n = wizardForm.counterIds.length
-  const seq = inventoryDocs.value.length + 6
+  // 提交前再兜一次范围：分步校验可能在改完选项后被跳过
+  if (wizardForm.scope === '按资产类型' && !wizardForm.assetTypes.length) {
+    ElMessage.warning('请至少选择一个资产类型，或把盘点范围改回「全部资产」')
+    return
+  }
+  if (wizardForm.scope === '按存放地点' && !wizardForm.locations.length) {
+    ElMessage.warning('请至少选择一个存放地点，或把盘点范围改回「全部资产」')
+    return
+  }
   try {
     const items = buildInventoryItems()
     if (!items.length) {
-      ElMessage.warning('所选公司 / 资产类型下没有可盘点的资产，请调整盘点范围')
+      ElMessage.warning('所选范围下没有可盘点的资产，请调整公司 / 分类 / 存放地点')
       return
     }
     // empPool 是 computed ref，脚本里必须取 .value 再 find（模板中才是自动解包）
@@ -2213,7 +2294,7 @@ async function submitWizard() {
       companyId: wizardForm.company,
       applicant: wizardForm.applicant,
       creatorId: userStore.user?.id || '',
-      scope: wizardForm.scope,
+      scope: wizardScopeLabel.value,
       assetTypes: [...wizardForm.assetTypes],
       createTime: new Date().toISOString(),
       finishTime: '',
@@ -2328,8 +2409,14 @@ async function runInvApproval(doc, action, comment = '', targetUserId = '') {
     },
     saveApproval: row => approvalStore.addApproval(row)
   })
-  if (res.ok) ElMessage.success(res.message)
-  else ElMessage.error(res.message)
+  if (res.ok) {
+    ElMessage.success(res.message)
+    // 状态由服务端推进，必须重拉业务单据：否则作废/撤回后列表仍是旧状态，
+    // 会出现「作废单忽隐忽现、按旧状态显示提交/删除按钮」。
+    // 盘点完结还会盘盈建账 / 盘亏置待核销，台账也要一起重拉。
+    // 台账由 runApproval 在通用层统一重拉，这里只刷盘点单列表
+    await inventoryDocCol.load()
+  } else ElMessage.error(res.message)
   return res
 }
 
@@ -2362,6 +2449,27 @@ async function onApprovalAct({ action, comment, targetUserId }) {
 }
 
 const locationOptions = ref(['总部办公楼1层', '总部办公楼2层', '总部办公楼3层', '仓库A区', '仓库B区', '车库', '数据中心机房'])
+
+/**
+ * 盘盈登记的地点候选：台账里真实存在的地点 ∪ 资产表单维护的地点（含手工新增）。
+ * 只给硬编码的 7 个旧地点会和真实台账对不上，用户只能盲输，容易写错。
+ */
+const profitLocationOptions = computed(() =>
+  [...new Set([...wizardLocationOptions.value, ...locationOptions.value])].filter(Boolean).sort()
+)
+
+/** el-autocomplete 建议列表：聚焦列全部，输入时按关键词过滤 */
+function queryProfitLocations(queryString, cb) {
+  const q = String(queryString || '').trim().toLowerCase()
+  const all = profitLocationOptions.value.map(value => ({ value }))
+  cb(q ? all.filter(o => o.value.toLowerCase().includes(q)) : all)
+}
+
+/** 新地点记入本地选项：下次登记账外资产 / 资产建档时可直接选到 */
+function rememberLocation(value) {
+  const v = String(value || '').trim()
+  if (v && !profitLocationOptions.value.includes(v)) locationOptions.value.push(v)
+}
 
 /** 台账取 store 的视图模型：外键已解析为名称、状态已解析为文案 */
 const assetList = computed(() => fixedAssetStore.assetLedger)

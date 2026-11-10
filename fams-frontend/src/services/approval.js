@@ -17,6 +17,7 @@ import { httpService } from './http'
 import { useOrgStore } from '../store/org'
 import { useUserStore } from '../store/user'
 import { useApprovalStore } from '../store/approval'
+import { useFixedAssetStore } from '../store/fixedAsset'
 import { APPROVE_RESULT } from '../constants/enums'
 
 /** 只写轨迹、不推进单据状态的协作动作 */
@@ -386,7 +387,12 @@ export async function runApproval(p) {
     // 服务端每次动作都会落一条审批轨迹（提交/通过/驳回/撤销/协作），必须强制重拉。
     // 原来只在协作动作刷新：部门主管点「通过」后弹窗仍停在上一环节「待审批」，
     // 用户再点一次就被后端按真实进度拒绝「当前环节需要由仓管员审批」。
-    await useApprovalStore().load(true).catch(() => {})
+    // 固资审批完结会回写台账（入库转空闲、派发转使用中、维修转回使用中、盘点盘亏待核销等），
+    // 任何入口审批成功后都要重拉，否则切到台账页还是旧状态、必须刷新网页才看得见。
+    await Promise.all([
+      useApprovalStore().load(true).catch(() => {}),
+      useFixedAssetStore().loadAll().catch(() => {})
+    ])
     return { ok: true, status: data?.status || doc.status, message: data?.message || '操作成功' }
   }
 
