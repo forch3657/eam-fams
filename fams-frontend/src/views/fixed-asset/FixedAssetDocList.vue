@@ -73,7 +73,7 @@
         <template #default="{ row }">
           <el-button v-if="canReturnRow(row)" link type="primary" size="small" @click="openReturnDialog(row)">发起归还退库</el-button>
           <el-button link type="primary" size="small" @click="openApproval(row)">审批信息</el-button>
-          <el-button v-if="perm" link type="primary" size="small" :disabled="row.status === 'PROCESSING'" @click="openDialog(row)">修改</el-button>
+          <el-button v-if="perm && isDocEditable(row)" link type="primary" size="small" @click="openDialog(row)">修改</el-button>
           <el-button v-if="perm" link type="danger" size="small" :disabled="row.status === 'PROCESSING'" @click="removeRow(row)">删除</el-button>
         </template>
       </el-table-column>
@@ -103,6 +103,17 @@
           <el-select v-model="form.assetId" placeholder="请选择在册资产（已按业务前置状态过滤）" clearable filterable style="width:100%">
             <el-option v-for="a in assetOptions" :key="a.id" :label="`${a.code} ${a.name}`" :value="a.id" />
           </el-select>
+          <!-- 新增资产登记与入库验收是两件事：登记直接入账为「空闲」，WF1 只处理盘盈/账外的待入库资产 -->
+          <div v-if="props.docKey === 'inbound' && !assetOptions.length" class="asset-empty-hint">
+            暂无「待入库」资产。入库验收只面向盘盈 / 账外资产（由盘点完结自动建账并生成入库单）；通过「新增资产」登记的资产已直接入账为「空闲」并写入库日期，无需再办入库，可直接派发领用。
+          </div>
+        </el-form-item>
+
+        <el-form-item v-if="props.docKey === 'alloc'" label="使用部门">
+          <el-select v-model="form.deptId" placeholder="请选择使用部门" clearable filterable style="width:100%">
+            <el-option v-for="d in deptOptions" :key="d.id" :label="d.name" :value="d.id" />
+          </el-select>
+          <div class="form-hint">默认带出领用人账号所属部门，可调整；派发审批通过后写入资产台账。</div>
         </el-form-item>
 
         <template v-if="props.docKey === 'dispose'">
@@ -208,7 +219,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search } from '@element-plus/icons-vue'
 import { useCollection } from '../../composables/useCollection'
 import { COLLECTION, dataService } from '../../services'
-import { optionsOf, labelOf } from '../../constants/enums'
+import { optionsOf, labelOf, DOC_EDITABLE_STATUS } from '../../constants/enums'
 import { formatDateTime } from '../../utils/format'
 import { statusType } from '../../utils/status'
 import { genDocNo } from '../../utils/docNo'
@@ -221,6 +232,7 @@ import {
   DOC_BIZ_TYPE, getFlow, effectiveSteps, approvalsOf, currentStep,
   canSubmit, canApprove, runApproval, isCollabAction
 } from '../../services/approval'
+import { ALLOWED_ASSET_STATUS, DOC_WRITE_CODES, OWNER_INITIATED_DOC_KEYS } from '../../constants/assetActions'
 
 const props = defineProps({
   /** 单据类型：inbound / alloc / back / borrow / transfer / repair / change / dispose */
@@ -245,24 +257,30 @@ watch(search, () => { page.value = 1 }, { deep: true })
 
 const statusOptions = computed(() => optionsOf('DOC_STATUS'))
 const companyOptions = computed(() => orgStore.companies)
+const deptOptions = computed(() => orgStore.departments || [])
+/** 登录接口返回的 user 不带 deptId，需按 id 从组织用户主数据取「领用人」所属部门 */
+const defaultDeptId = computed(() => {
+  const me = userStore.user?.id
+  if (!me) return ''
+  const account = (orgStore.users || []).find(u => u.id === me)
+  return account?.deptId || userStore.user?.deptId || ''
+})
 const disposeTypeOptions = computed(() => optionsOf('DISPOSE_TYPE'))
 const changeTypeOptions = computed(() => optionsOf('CHANGE_TYPE'))
 
-/** 各单据允许发起的资产前置状态，与服务端 validateAssetPrecondition 保持一致 */
-const ALLOWED_ASSET_STATUS = {
-  inbound: ['PENDING_INBOUND'],
-  alloc: ['IDLE'],
-  back: ['IN_USE', 'BORROWED'],
-  borrow: ['IN_USE'],
-  transfer: ['IDLE', 'IN_USE', 'PENDING_WRITE_OFF'],
-  repair: ['IN_USE', 'BORROWED'],
-  change: ['IDLE', 'IN_USE', 'PENDING_WRITE_OFF'],
-  dispose: ['IDLE', 'IN_USE', 'PENDING_WRITE_OFF']
-}
+/** 仅凭「台账使用人本人」授权的用户：下拉只列自己名下资产，避免选到别人资产后保存 403 */
+const ownerOnly = computed(() =>
+  OWNER_INITIATED_DOC_KEYS.includes(props.docKey) &&
+  !userStore.can('fa:add') && !userStore.can('fa:edit') &&
+  !(DOC_WRITE_CODES[props.docKey] || []).some(code => userStore.can(code))
+)
+
+/** 各单据允许发起的资产前置状态：与台账行级入口共用 constants/assetActions.js */
 const assetOptions = computed(() => {
   const allowed = ALLOWED_ASSET_STATUS[props.docKey] || []
+  const me = userStore.user?.id || ''
   return assetStore.assets
-    .filter(a => allowed.includes(a.status))
+    .filter(a => allowed.includes(a.status) && (!ownerOnly.value || a.userId === me))
     .map(a => ({ id: a.id, code: a.code, name: a.name, status: a.status }))
 })
 
@@ -297,29 +315,46 @@ function resetSearch() {
 const dialogVisible = ref(false)
 const dialogMode = ref('add')
 const emptyForm = () => ({
-  id: '', name: '', companyId: '', assetId: '', remark: '',
+  id: '', name: '', companyId: '', assetId: '', remark: '', deptId: '',
   disposeType: '', buyer: '', voucherNo: '', disposalAmount: null, outLedgerBasis: '',
   changeType: '', beforeSnapshot: '', afterSnapshot: '',
   expectedReturnDate: '', borrowDocId: ''
 })
 const form = reactive(emptyForm())
 
+/** 只有草稿 / 已驳回可改；与后端 GenericService.assertDocMutable 同源，无状态的历史数据按草稿处理 */
+const isDocEditable = row => !row?.status || DOC_EDITABLE_STATUS.includes(row.status)
+
 function openDialog(row) {
-  if (row && row.status === 'PROCESSING') { ElMessage.warning('单据审批中，不可修改'); return }
+  if (row && !isDocEditable(row)) { ElMessage.warning('单据审批中或已完结，不可修改'); return }
   dialogMode.value = row ? 'edit' : 'add'
   Object.assign(form, emptyForm(), row
     ? {
         id: row.id, name: row.name || '', companyId: row.companyId || '',
-        assetId: row.assetId || '', remark: row.remark || '',
+        assetId: row.assetId || '', remark: row.remark || '', deptId: row.deptId || '',
         disposeType: row.disposeType || '', buyer: row.buyer || '',
         voucherNo: row.voucherNo || '', disposalAmount: row.disposalAmount ?? null,
         outLedgerBasis: row.outLedgerBasis || '', changeType: row.changeType || '',
         beforeSnapshot: row.beforeSnapshot || '', afterSnapshot: row.afterSnapshot || '',
         expectedReturnDate: row.expectedReturnDate || '', borrowDocId: row.borrowDocId || ''
       }
-    : { companyId: orgStore.companies[0]?.id || '' })
+    // 派发单的实际领用人按既有口径沿用单据创建人，默认带出其账号所属部门
+    : { companyId: orgStore.companies[0]?.id || '', deptId: defaultDeptId.value })
   dialogVisible.value = true
 }
+
+/**
+ * 从资产台账 / 详情的行级入口直接发起业务：预选资产并打开新增弹窗。
+ * 期初导入且无前置单据的资产同样走这里，不做来源标记判断。
+ */
+function openCreateWithAsset(assetId, companyId) {
+  if (!props.perm) return false
+  openDialog(null)
+  form.assetId = assetId || ''
+  if (companyId) form.companyId = companyId
+  return true
+}
+defineExpose({ openCreateWithAsset })
 
 /** 只把本单据类型在契约里声明的扩展字段带给后端 */
 function extraFields() {
@@ -338,6 +373,9 @@ function extraFields() {
   }
   if (props.docKey === 'borrow') {
     extra.expectedReturnDate = form.expectedReturnDate
+  }
+  if (props.docKey === 'alloc') {
+    extra.deptId = form.deptId
   }
   if (form.borrowDocId) {
     extra.borrowDocId = form.borrowDocId
@@ -360,6 +398,8 @@ async function submit() {
   try {
     if (dialogMode.value === 'edit') {
       const target = items.value.find(d => d.id === form.id)
+      // 弹窗打开期间单据可能已被审批推到终态，保存前按最新状态再挡一次
+      if (target && !isDocEditable(target)) { ElMessage.warning('单据已审批或完结，不可修改'); return }
       if (target) {
         Object.assign(target, { name: form.name, companyId: form.companyId, assetId: form.assetId, remark: form.remark }, extra)
         await col.update(target)
@@ -576,4 +616,20 @@ onUnmounted(() => window.removeEventListener('fams:doc-lists-changed', onDocsCha
 <style scoped>
 .doc-list { display: block; }
 .pager { display: flex; justify-content: flex-end; margin-top: 12px; }
+.asset-empty-hint {
+  margin-top: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--t-weak);
+  background: #f7f9fc;
+  border: 1px dashed #dcdfe6;
+  border-radius: var(--r-md);
+}
+.form-hint {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--t-weak);
+}
 </style>

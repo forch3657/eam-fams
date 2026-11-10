@@ -2,6 +2,7 @@ package com.fams.module.approval;
 
 import com.fams.common.ApiException;
 import com.fams.common.ErrorCode;
+import com.fams.contract.EnumCatalog;
 import com.fams.engine.DateTimes;
 import com.fams.engine.GenericService;
 import com.fams.security.AuthContext;
@@ -11,8 +12,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -82,6 +86,12 @@ public class ApprovalService {
     /** 资产状态：已核销（处置审批完结） */
     private static final String STATUS_DISPOSED = "DISPOSED";
 
+    /** 单条盘盈明细最多登记件数：逐件建台账 + 入库单，避免一条明细刷出海量资产 */
+    private static final int MAX_SURPLUS_QTY = 99;
+
+    /** 盘点单集合：完结删除限系统管理员；盘盈派生失败时失败说明也写回这里 */
+    private static final String INVENTORY_DOCS = "fixed-asset-inventory-docs";
+
     /** 盘点计划集合：盘点单完结后回写来源计划的状态 */
     private static final String INVENTORY_PLANS = "fixed-asset-inventory-plans";
 
@@ -96,6 +106,9 @@ public class ApprovalService {
     private final GenericService genericService;
 
     private final ApprovalTrailWriter trailWriter;
+
+    /** 枚举白名单（由前端 enums.js 导出）：盘盈送审前校验资产分类是否是可落库的枚举码 */
+    private final EnumCatalog enumCatalog;
 
     /**
      * 执行审批动作。
@@ -165,6 +178,19 @@ public class ApprovalService {
                 if (unresolved > 0) {
                     throw new ApiException(ErrorCode.BAD_REQUEST,
                             "还有 " + unresolved + " 项异常资产未选择处理去向，请在「盘点清单」登记（转维修单 / 转变更单 / 已说明）");
+                }
+                // 盘盈明细是完结时的建账依据。建账走独立事务、失败只记日志、不回滚审批结论，
+                // 若等完结才发现要素不全，就成了「已完结却没入账」的无痕盘盈。
+                // 因此按用户裁决在送审这一环一次性点名拦下，完结阶段仍不阻断。
+                List<String> surplusErrors = validateInventorySurplusForSubmit(previous);
+                if (!surplusErrors.isEmpty()) {
+                    int shown = Math.min(surplusErrors.size(), 5);
+                    String detail = String.join("；", surplusErrors.subList(0, shown));
+                    if (surplusErrors.size() > shown) {
+                        detail += "；另有 " + (surplusErrors.size() - shown) + " 项待补齐";
+                    }
+                    throw new ApiException(ErrorCode.BAD_REQUEST,
+                            "盘盈明细不符合建账要求，请到「盘点清单」补齐后重新提交：" + detail);
                 }
             }
             // 固定资产单据：必须挂具体资产、状态前置合法、同资产不得并发审批，
@@ -806,6 +832,93 @@ public class ApprovalService {
     }
 
     /**
+     * 盘盈送审前置预检：完结时按明细逐件建台账（PENDING_INBOUND）并生成入库单，
+     * 建账走的是 ASSETS 契约校验（分类枚举码、部门/使用人引用、金额、位置）。
+     *
+     * <p>派生动作在独立事务里执行，失败只记日志、不会让审批回滚（避免终审 500），
+     * 所以必须在送审前把不合格明细挡住；否则会出现「盘点单已完结、盘盈却没入账」
+     * 且页面上没有任何痕迹。错误点名到明细项，盘点员可直接定位补齐。</p>
+     *
+     * @return 每条盘盈明细的缺项说明；为空表示可以送审
+     */
+    private List<String> validateInventorySurplusForSubmit(Map<String, Object> doc) {
+        List<String> errors = new ArrayList<>();
+        Object itemsObj = doc.get("items");
+        if (!(itemsObj instanceof List)) {
+            return errors;
+        }
+        // 引用字段必须是主数据 id：历史明细里存中文部门名，建账时会被引用校验直接拒绝
+        Set<String> deptIds = refIds("org-departments");
+        Set<String> userIds = refIds("org-users");
+        int index = 0;
+        for (Object itemObj : (List<?>) itemsObj) {
+            index++;
+            if (!(itemObj instanceof Map)) {
+                continue;
+            }
+            Map<?, ?> item = (Map<?, ?>) itemObj;
+            if (!"SURPLUS".equals(resultOf(item))) {
+                continue;
+            }
+            String name = text(item.get("assetName")).trim();
+            String label = "第 " + index + " 项" + (name.isEmpty() ? "" : "「" + cut(name, 20) + "」");
+            List<String> missing = new ArrayList<>();
+            if (name.isEmpty()) {
+                missing.add("缺资产名称");
+            }
+            String category = text(item.get("assetType"));
+            if (category.isEmpty() || !validAssetCategory(category)) {
+                missing.add("资产分类须从下拉选择（不能填中文名称）");
+            }
+            if (cut(text(item.get("location")), 120).isEmpty()) {
+                missing.add("缺存放位置");
+            }
+            if (surplusQty(item.get("qty")) < 0) {
+                missing.add("数量须为 1~" + MAX_SURPLUS_QTY + " 的整数");
+            }
+            if (surplusPrice(item.get("price")) == null) {
+                missing.add("购置金额须为不小于 0 的数字");
+            }
+            String dept = text(item.get("dept"));
+            if (!dept.isEmpty() && deptIds != null && !deptIds.contains(dept)) {
+                missing.add("使用部门不是有效的部门，请从下拉重新选择");
+            }
+            String userId = text(item.get("userId"));
+            if (!userId.isEmpty() && userIds != null && !userIds.contains(userId)) {
+                missing.add("使用人不是有效账号，请从下拉重新选择");
+            }
+            if (!missing.isEmpty()) {
+                errors.add(label + "：" + String.join("、", missing));
+            }
+        }
+        return errors;
+    }
+
+    /** 分类必须是 ASSET_CATEGORY 白名单里的枚举码，与台账建卡时的枚举校验同源 */
+    private boolean validAssetCategory(String code) {
+        if (enumCatalog == null) {
+            // 降级场景没有注入枚举目录时退回格式校验，仍不放行中文标签
+            return code.matches("[A-Z_]+");
+        }
+        Set<String> allowed = enumCatalog.allowed("ASSET_CATEGORY");
+        return !allowed.isEmpty() && allowed.contains(code);
+    }
+
+    /** 引用主数据的 id 集合；读取失败返回 null 表示跳过该项校验，避免误挡正常送审 */
+    private Set<String> refIds(String collection) {
+        try {
+            Set<String> ids = new HashSet<>();
+            for (Map<String, Object> row : genericService.listInternal(collection, new LinkedHashMap<>())) {
+                ids.add(text(row.get("id")));
+            }
+            return ids;
+        } catch (RuntimeException e) {
+            log.warn("盘盈送审预检读取 {} 失败，跳过引用校验", collection, e);
+            return null;
+        }
+    }
+
+    /**
      * 盘点异常结论落地：按登记去向生成待审维修单 / 变更单。
      *
      * <p>复用已有 repair / change 集合与 WF6 / WF7，不新增集合与资产状态。
@@ -956,6 +1069,8 @@ public class ApprovalService {
         String stamp = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS").format(LocalDateTime.now());
         String salt = java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 4);
         int seq = 0;
+        int failed = 0;
+        String failureReason = "";
         for (Object itemObj : (List<?>) itemsObj) {
             if (!(itemObj instanceof Map)) {
                 continue;
@@ -965,13 +1080,17 @@ public class ApprovalService {
                 continue;
             }
             String assetName = cut(text(item.get("assetName")), 120);
-            if (assetName.isEmpty()) {
-                // 没有名称没法建账，等盘点员补齐明细再重新提交
-                log.warn("盘点盘盈明细缺少资产名称，跳过建账 doc={}", docNo);
+            String location = cut(text(item.get("location")), 120);
+            int qty = surplusQty(item.get("qty"));
+            BigDecimal price = surplusPrice(item.get("price"));
+            // 送审预检已挡住新数据；这里兜住绕过预检的历史单，避免「完结了却没有任何痕迹」
+            if (assetName.isEmpty() || location.isEmpty() || qty < 0 || price == null) {
+                failed += Math.max(1, qty);
+                failureReason = "建账要素不完整（名称/分类/数量/金额/位置）";
+                log.warn("盘点盘盈明细建账要素不完整，跳过建账 doc={} name={}", docNo, assetName);
                 continue;
             }
             seq++;
-            int qty = Math.max(1, numberOf(item.get("qty")));
             for (int i = 0; i < qty; i++) {
                 // 单号带件序：同一明细登记多件时，每件一个资产、一个入库单
                 String unit = String.format("%02d", seq) + String.format("%02d", i + 1);
@@ -983,8 +1102,7 @@ public class ApprovalService {
                 putIfPresent(asset, "companyId", companyId);
                 putIfPresent(asset, "deptId", text(item.get("dept")));
                 putIfPresent(asset, "userId", text(item.get("userId")));
-                asset.put("location", cut(text(item.get("location")), 120));
-                Object price = item.get("price");
+                asset.put("location", location);
                 asset.put("amount", price);
                 asset.put("original", price);
                 asset.put("net", price);
@@ -997,10 +1115,14 @@ public class ApprovalService {
                     Map<String, Object> created = genericService.createIndependent(ASSETS, asset);
                     assetId = text(created.get("id"));
                 } catch (RuntimeException e) {
+                    failed++;
+                    failureReason = rootMessage(e);
                     log.warn("盘点盘盈建账失败 assetName={} code={}", assetName, assetCode, e);
                     continue;
                 }
                 if (assetId.isEmpty()) {
+                    failed++;
+                    failureReason = "建账未返回资产主键";
                     continue;
                 }
                 Map<String, Object> inbound = new LinkedHashMap<>();
@@ -1021,6 +1143,40 @@ public class ApprovalService {
                 }
             }
         }
+        if (failed > 0) {
+            appendSurplusFailureRemark(doc, docNo, failed, failureReason);
+        }
+    }
+
+    /**
+     * 派生失败不回滚审批（用户裁决「完结不阻断」），但必须留痕：把失败件数与原因追加到
+     * 盘点单备注，否则列表里只显示「已完成」，管理员根本看不出盘盈没入账。
+     *
+     * <p>备注列是 VARCHAR(255)，按剩余空间截断；始终保留原备注前缀，
+     * 里面有「由盘点计划 xxx 生成」的关联标记，截断会破坏计划回写。</p>
+     */
+    private void appendSurplusFailureRemark(Map<String, Object> doc, String docNo, int failed, String reason) {
+        String mark = "【盘盈建账失败 " + failed + " 件】" + cut(reason, 80)
+                + "，请核对盘盈明细后手工补建台账与入库单";
+        String base = cut(text(doc.get("remark")), 180);
+        int room = 250 - base.length() - 1;
+        String merged = base.isEmpty() ? cut(mark, 250) : base + " " + (room > 0 ? cut(mark, room) : "");
+        try {
+            // 已完结单据受状态守卫保护，不能走通用 update；patchField 只改备注一列且不递增 version
+            genericService.patchField(INVENTORY_DOCS, text(doc.get("id")), "remark", merged);
+        } catch (RuntimeException e) {
+            log.warn("盘点盘盈失败备注写回失败 doc={}", docNo, e);
+        }
+    }
+
+    /** 取异常链最内层的原因，避免备注里只落一句「服务异常」 */
+    private static String rootMessage(RuntimeException e) {
+        Throwable cause = e;
+        while (cause.getCause() != null && cause.getCause() != cause) {
+            cause = cause.getCause();
+        }
+        String message = cause.getMessage();
+        return message == null || message.isEmpty() ? e.getClass().getSimpleName() : message;
     }
 
     /** 空值不写入：引用字段（公司/部门/用户）传空串会被引用校验判成「引用对象不存在」 */
@@ -1030,25 +1186,44 @@ public class ApprovalService {
         }
     }
 
-    /** 盘盈明细的资产分类：必须是 ASSET_CATEGORY 枚举码，否则台账校验不过 */
+    /**
+     * 盘盈明细的资产分类：送审预检已保证是 ASSET_CATEGORY 枚举码；
+     * 对历史中文标签仍退回 OTHER（「其他设备」），这类单据会在备注里留下失败痕迹。
+     */
     private static String categoryOf(Map<?, ?> item) {
         String category = text(item.get("assetType"));
         if (!category.isEmpty() && category.matches("[A-Z_]+")) {
             return category;
         }
-        // 老明细里存的是中文分类名，退回「其他设备」
         return "OTHER";
     }
 
-    /** 明细里的数量：非法值按 1 处理 */
-    private static int numberOf(Object value) {
+    /** 盘盈明细件数：非法、小于 1 或超过上限返回 -1，不再静默兜底成 1 */
+    private static int surplusQty(Object value) {
+        int qty;
         if (value instanceof Number) {
-            return ((Number) value).intValue();
+            qty = ((Number) value).intValue();
+        } else {
+            try {
+                qty = Integer.parseInt(text(value));
+            } catch (NumberFormatException e) {
+                return -1;
+            }
+        }
+        return qty >= 1 && qty <= MAX_SURPLUS_QTY ? qty : -1;
+    }
+
+    /** 盘盈明细金额：空值、非数字或负数返回 null；规整成 BigDecimal，避免空串写入数值列 */
+    private static BigDecimal surplusPrice(Object value) {
+        String raw = text(value);
+        if (raw.isEmpty()) {
+            return null;
         }
         try {
-            return Integer.parseInt(text(value));
+            BigDecimal price = new BigDecimal(raw);
+            return price.signum() >= 0 ? price : null;
         } catch (NumberFormatException e) {
-            return 1;
+            return null;
         }
     }
 

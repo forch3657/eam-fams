@@ -59,7 +59,14 @@ export const useFixedAssetStore = defineStore('fixedAsset', () => {
   async function updateAsset(id, data) {
     const idx = assets.value.findIndex(a => a.id === id)
     if (idx === -1) return null
-    const next = { ...assets.value[idx], ...data }
+    const prev = assets.value[idx]
+    const next = { ...prev, ...data }
+    // 原值调整时保持累计折旧不变：净值 = 新原值 - (旧原值 - 旧净值)。
+    // 只补原值而不动净值，会让「先建空卡再补金额」的资产停留在「原值 1000 / 净值 0」。
+    if (data.original !== undefined && Number(data.original) !== Number(prev.original || 0)) {
+      const depreciated = Number(prev.original || 0) - Number(prev.net || 0)
+      next.net = Math.max(0, Number(data.original || 0) - depreciated)
+    }
     // 服务端确认后才更新本地：乐观锁冲突时界面不会残留与服务端不一致的数据
     const saved = await dataService.update(COLLECTION.assets, id, next)
     if (saved) assets.value[idx] = saved

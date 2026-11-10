@@ -18,9 +18,12 @@
 
       <el-tabs v-model="activeTab">
         <el-tab-pane v-if="tabVisible('fa:view')" label="固定资产" name="asset">
-          <el-form :inline="true" class="search-form">
+          <el-form :inline="true" class="search-form asset-search-form">
             <el-form-item label="关键字">
               <el-input v-model="assetSearch.keyword" placeholder="资产编号/资产名称" clearable style="width: 180px" />
+            </el-form-item>
+            <el-form-item label="使用人员">
+              <el-input v-model="assetSearch.user" placeholder="按姓名筛选" clearable style="width: 120px" />
             </el-form-item>
             <el-form-item label="资产类型">
               <el-select v-model="assetSearch.type" placeholder="请选择" clearable style="width: 130px">
@@ -31,6 +34,9 @@
               <el-select v-model="assetSearch.status" placeholder="请选择" clearable style="width: 120px">
                 <el-option v-for="s in assetStatusOptions" :key="s.value" :label="s.label" :value="s.value" />
               </el-select>
+            </el-form-item>
+            <el-form-item>
+              <el-checkbox v-model="assetSearch.mineOnly" border class="mine-only">只看我的资产（{{ myAssetCount }}）</el-checkbox>
             </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="assetPage = 1">
@@ -70,13 +76,28 @@
                 <el-tag :type="assetStatusType(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="230" fixed="right">
+            <el-table-column label="操作" width="330" fixed="right">
               <template #default="{ row }">
-                <el-button v-if="can('fa:edit')" link type="primary" size="small" @click="openAssetDialog(row)">修改</el-button>
-                <el-button link type="primary" size="small" @click="downloadAssetQr(row)">下载二维码</el-button>
-                <!-- fa:delete 此前定义了却无任何消费点。删除安全性由契约保护：
-                     存在任意一类业务单据的资产由服务端拒绝，前端无需重复校验 -->
-                <el-button v-if="can('fa:delete')" link type="danger" size="small" @click="deleteAsset(row)">删除</el-button>
+                <div class="row-actions">
+                  <el-button v-if="can('fa:edit')" link type="primary" size="small" @click="openAssetDialog(row)">修改</el-button>
+                  <el-button link type="primary" size="small" @click="downloadAssetQr(row)">下载二维码</el-button>
+                  <!-- 台账行级业务入口：期初导入、无前置单据的资产同样按状态直接发起，避免成为死数据 -->
+                  <el-dropdown v-if="assetActionsOf(row).length" trigger="click" @command="cmd => startAssetAction(cmd, row)">
+                    <el-button link type="primary" size="small">
+                      发起业务<el-icon class="action-caret"><ArrowDown /></el-icon>
+                    </el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item v-for="act in assetActionsOf(row)" :key="act.docKey" :command="act.docKey">
+                          {{ act.label }}
+                        </el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                  <!-- fa:delete 此前定义了却无任何消费点。删除安全性由契约保护：
+                       存在任意一类业务单据的资产由服务端拒绝，前端无需重复校验 -->
+                  <el-button v-if="can('fa:delete')" link type="danger" size="small" @click="deleteAsset(row)">删除</el-button>
+                </div>
               </template>
             </el-table-column>
           </el-table>
@@ -94,21 +115,31 @@
 
         <!-- 入库/验收 -->
         <el-tab-pane v-if="tabVisible('fa:inbound')" label="入库/验收" name="inbound">
-          <FixedAssetDocList doc-key="inbound" prefix="RK" :perm="can('fa:inbound')" />
+          <FixedAssetDocList
+            doc-key="inbound" prefix="RK" :perm="canCreateDoc('inbound')"
+            :ref="el => bindDocList('inbound', el)"
+          />
         </el-tab-pane>
 
-        <!-- 派发/退库 -->
+        <!-- 派发/退库：key 必须随子签变化，否则 useCollection 仍绑定初始集合，退库单会写进派发单 -->
         <el-tab-pane v-if="tabVisible('fa:dispatch')" label="派发/退库" name="dispatch">
           <el-tabs v-model="dispatchSub" type="card" class="sub-tabs">
             <el-tab-pane label="分配" name="alloc" />
             <el-tab-pane label="退库" name="back" />
           </el-tabs>
-          <FixedAssetDocList :doc-key="dispatchSub" :prefix="dispatchPrefix[dispatchSub]" :perm="can('fa:dispatch')" />
+          <FixedAssetDocList
+            :key="'dispatch-' + dispatchSub"
+            :doc-key="dispatchSub" :prefix="dispatchPrefix[dispatchSub]" :perm="canCreateDoc(dispatchSub)"
+            :ref="el => bindDocList(dispatchSub, el)"
+          />
         </el-tab-pane>
 
         <!-- 借出使用 -->
         <el-tab-pane v-if="tabVisible('fa:borrow')" label="借出使用" name="borrow">
-          <FixedAssetDocList doc-key="borrow" prefix="JC" :perm="can('fa:borrow')" />
+          <FixedAssetDocList
+            doc-key="borrow" prefix="JC" :perm="canCreateDoc('borrow')"
+            :ref="el => bindDocList('borrow', el)"
+          />
         </el-tab-pane>
 
         <!-- 资产变更：调拨 / 维修 / 信息更正三类，同属「在册继续使用」 -->
@@ -119,15 +150,20 @@
             <el-tab-pane v-if="tabVisible('fa:change')" label="信息更正" name="change" />
           </el-tabs>
           <FixedAssetDocList
+            :key="'change-' + changeSub"
             :doc-key="changeSub"
             :prefix="changePrefix[changeSub]"
-            :perm="can('fa:dispose') || can('fa:change') || (changeSub === 'repair' && can('fa:repair'))"
+            :perm="canCreateDoc(changeSub)"
+            :ref="el => bindDocList(changeSub, el)"
           />
         </el-tab-pane>
 
         <!-- 资产处置：报废 / 变卖 / 捐赠 / 转让，四类方式在单据表单里选择 -->
         <el-tab-pane v-if="tabVisible('fa:dispose')" label="资产处置" name="dispose">
-          <FixedAssetDocList doc-key="dispose" prefix="CZ" :perm="can('fa:dispose')" />
+          <FixedAssetDocList
+            doc-key="dispose" prefix="CZ" :perm="canCreateDoc('dispose')"
+            :ref="el => bindDocList('dispose', el)"
+          />
         </el-tab-pane>
 
         <!-- 资产盘点 -->
@@ -232,8 +268,8 @@
                   <el-button v-if="canSubmitInvDoc(row)" link type="primary" size="small" @click="submitInvDoc(row)">提交</el-button>
                   <el-button v-if="canApproveInvDoc(row)" link type="success" size="small" @click="approveInvDoc(row)">通过</el-button>
                   <el-button v-if="canApproveInvDoc(row)" link type="danger" size="small" @click="rejectInvDoc(row)">驳回</el-button>
-                  <el-button v-if="can('fa:inventory')" link type="primary" size="small" :disabled="row.status === 'PROCESSING'" @click="openDocDialog(row)">修改</el-button>
-                  <el-button v-if="can('fa:inventory')" link type="danger" size="small" :disabled="row.status === 'PROCESSING'" @click="deleteInvDoc(row)">删除</el-button>
+                  <el-button v-if="can('fa:inventory') && isDocEditable(row)" link type="primary" size="small" @click="openDocDialog(row)">修改</el-button>
+                  <el-button v-if="can('fa:inventory') && canDeleteInvDoc(row)" link type="danger" size="small" @click="deleteInvDoc(row)">删除</el-button>
                 </template>
               </el-table-column>
             </el-table>
@@ -565,6 +601,22 @@
           </el-button>
           <span class="drawer-title">{{ currentAsset.name }}</span>
           <el-tag :type="assetStatusType(currentAsset.status)" size="small">{{ currentAsset.status }}</el-tag>
+          <el-dropdown
+            v-if="assetActionsOf(currentAsset).length"
+            trigger="click" class="drawer-actions"
+            @command="cmd => startAssetAction(cmd, currentAsset)"
+          >
+            <el-button type="primary" size="small">
+              发起业务<el-icon class="action-caret"><ArrowDown /></el-icon>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item v-for="act in assetActionsOf(currentAsset)" :key="act.docKey" :command="act.docKey">
+                  {{ act.label }}
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
         <div class="drawer-sub">最后更新时间：{{ currentAsset.updateTime }}</div>
         <div class="qr-box">
@@ -607,7 +659,12 @@
           </el-tab-pane>
           <el-tab-pane label="派发退库" name="dispatch">
             <el-table :data="assetRecordData.dispatch" size="small" style="width:100%">
-              <el-table-column prop="docNo" label="单据编号" width="140" />
+              <el-table-column label="单据编号" width="140">
+                <template #default="{ row }">
+                  <el-link v-if="row.docKey" type="primary" :underline="false" @click="openRecordDoc(row)">{{ row.docNo || '-' }}</el-link>
+                  <span v-else>{{ row.docNo || '-' }}</span>
+                </template>
+              </el-table-column>
               <el-table-column prop="kind" label="类型" width="90" />
               <el-table-column prop="person" label="领用/退库人" width="110" />
               <el-table-column prop="dept" label="部门" width="110" />
@@ -616,7 +673,12 @@
           </el-tab-pane>
           <el-tab-pane label="借出使用" name="borrow">
             <el-table :data="assetRecordData.borrow" size="small" style="width:100%">
-              <el-table-column prop="docNo" label="单据编号" width="140" />
+              <el-table-column label="单据编号" width="140">
+                <template #default="{ row }">
+                  <el-link v-if="row.docKey" type="primary" :underline="false" @click="openRecordDoc(row)">{{ row.docNo || '-' }}</el-link>
+                  <span v-else>{{ row.docNo || '-' }}</span>
+                </template>
+              </el-table-column>
               <el-table-column prop="borrower" label="借用人" width="100" />
               <el-table-column prop="borrowTime" label="借出时间" width="120" />
               <el-table-column prop="returnTime" label="归还时间" width="120" />
@@ -625,7 +687,12 @@
           </el-tab-pane>
           <el-tab-pane label="资产维修" name="repair">
             <el-table :data="assetRecordData.repair" size="small" style="width:100%">
-              <el-table-column prop="docNo" label="单据编号" width="140" />
+              <el-table-column label="单据编号" width="140">
+                <template #default="{ row }">
+                  <el-link v-if="row.docKey" type="primary" :underline="false" @click="openRecordDoc(row)">{{ row.docNo || '-' }}</el-link>
+                  <span v-else>{{ row.docNo || '-' }}</span>
+                </template>
+              </el-table-column>
               <el-table-column prop="fault" label="故障描述" min-width="150" show-overflow-tooltip />
               <el-table-column prop="vendor" label="维修商" width="120" />
               <el-table-column prop="cost" label="维修费用(元)" width="110" />
@@ -634,7 +701,12 @@
           </el-tab-pane>
           <el-tab-pane label="资产调拨" name="transfer">
             <el-table :data="assetRecordData.transfer" size="small" style="width:100%">
-              <el-table-column prop="docNo" label="单据编号" width="140" />
+              <el-table-column label="单据编号" width="140">
+                <template #default="{ row }">
+                  <el-link v-if="row.docKey" type="primary" :underline="false" @click="openRecordDoc(row)">{{ row.docNo || '-' }}</el-link>
+                  <span v-else>{{ row.docNo || '-' }}</span>
+                </template>
+              </el-table-column>
               <el-table-column prop="from" label="调出公司" min-width="170" show-overflow-tooltip />
               <el-table-column prop="to" label="调入公司" min-width="170" show-overflow-tooltip />
               <el-table-column prop="time" label="调拨时间" width="160" />
@@ -643,7 +715,12 @@
           </el-tab-pane>
           <el-tab-pane label="资产变更" name="change">
             <el-table :data="assetRecordData.change" size="small" style="width:100%">
-              <el-table-column prop="docNo" label="单据编号" width="140" />
+              <el-table-column label="单据编号" width="140">
+                <template #default="{ row }">
+                  <el-link v-if="row.docKey" type="primary" :underline="false" @click="openRecordDoc(row)">{{ row.docNo || '-' }}</el-link>
+                  <span v-else>{{ row.docNo || '-' }}</span>
+                </template>
+              </el-table-column>
               <el-table-column prop="content" label="变更内容" min-width="200" show-overflow-tooltip />
               <el-table-column prop="person" label="操作人" width="100" />
               <el-table-column prop="time" label="变更时间" width="120" />
@@ -651,7 +728,12 @@
           </el-tab-pane>
           <el-tab-pane label="资产处置" name="dispose">
             <el-table :data="assetRecordData.dispose" size="small" style="width:100%">
-              <el-table-column prop="docNo" label="单据编号" width="140" />
+              <el-table-column label="单据编号" width="140">
+                <template #default="{ row }">
+                  <el-link v-if="row.docKey" type="primary" :underline="false" @click="openRecordDoc(row)">{{ row.docNo || '-' }}</el-link>
+                  <span v-else>{{ row.docNo || '-' }}</span>
+                </template>
+              </el-table-column>
               <el-table-column prop="mode" label="处置方式" width="100" />
               <el-table-column prop="amount" label="处置金额(元)" width="120" />
               <el-table-column prop="time" label="处置时间" width="120" />
@@ -688,6 +770,15 @@
       doc-key="inventory"
       :ctx="approvalCtx"
       @act="onApprovalAct"
+    />
+
+    <!-- 资产详情「操作记录」的单据编号链接：只读查看，审批动作仍在对应业务页签办理 -->
+    <DocApprovalDialog
+      v-model="recordApprovalVisible"
+      :doc="recordApprovalDoc"
+      :doc-key="recordApprovalDocKey"
+      :assets="fixedAssetStore.assets"
+      readonly
     />
 
     <el-dialog v-model="wizardVisible" title="新增盘点" width="760px" top="6vh">
@@ -794,7 +885,8 @@
         差异 {{ checkCounts.SURPLUS + checkCounts.LOSS + checkCounts.ABNORMAL }} 项
         （盘盈 {{ checkCounts.SURPLUS }} / 盘亏 {{ checkCounts.LOSS }} / 异常 {{ checkCounts.ABNORMAL }}）；
         盘盈、盘亏、异常必须填写原因，异常还要选「处理去向」。
-        可先保存已登记部分，下次接着盘；提交审批仍需全部明细登记完毕。
+        可先保存已登记部分，下次接着盘；提交审批仍需全部明细登记完毕，
+        且会校验盘盈明细的建账要素（分类枚举码、数量 1~99、金额、位置、部门/使用人）。
         审批通过后：盘盈自动建账并生成入库单（待入库 → 验收后可用），盘亏在台账置「待核销」并生成处置单，
         异常按去向生成待审维修单 / 变更单（选「已说明」只留痕）。
       </div>
@@ -863,7 +955,7 @@
         type="info"
         show-icon
         :closable="false"
-        title="账外资产：现场有、台账上没有。盘点审批通过后自动建档（待入库）并生成入库单，走入库验收流程后转正式可用。"
+        title="账外资产：现场有、台账上没有。盘点审批通过后自动建档（待入库）并生成入库单，走入库验收流程后转正式可用。提交审批前会校验建账要素，缺项或填了中文分类/部门名会被拦下。"
         style="margin-bottom:12px"
       />
       <el-form :model="profitForm" label-width="100px">
@@ -885,14 +977,14 @@
             <el-option v-for="u in orgStore.users" :key="u.id" :label="u.name" :value="u.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="存放位置">
+        <el-form-item label="存放位置" required>
           <el-input v-model="profitForm.location" placeholder="如：总部办公楼2层" maxlength="60" />
         </el-form-item>
-        <el-form-item label="数量">
-          <el-input-number v-model="profitForm.qty" :min="1" :max="999" :precision="0" controls-position="right" />
-          <span class="muted hint" style="margin-left:8px">每件单独建一条台账</span>
+        <el-form-item label="数量" required>
+          <el-input-number v-model="profitForm.qty" :min="1" :max="99" :precision="0" controls-position="right" />
+          <span class="muted hint" style="margin-left:8px">1~99 件，每件单独建一条台账；超出请分多条登记</span>
         </el-form-item>
-        <el-form-item label="购置金额">
+        <el-form-item label="购置金额" required>
           <el-input-number v-model="profitForm.price" :min="0" :precision="2" :controls="false" style="width:200px" />
         </el-form-item>
       </el-form>
@@ -928,7 +1020,7 @@
 <script setup>
 import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, ArrowLeft, Picture } from '@element-plus/icons-vue'
+import { Plus, Search, ArrowLeft, ArrowDown, Picture } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
 import QRCode from 'qrcode'
 import FixedAssetDocList from './FixedAssetDocList.vue'
@@ -940,7 +1032,8 @@ import { useOrgStore } from '../../store/org'
 import { useUserStore } from '../../store/user'
 import { useApprovalStore } from '../../store/approval'
 import { useMock } from '../../services'
-import { optionsOf, labelOf } from '../../constants/enums'
+import { optionsOf, labelOf, DOC_EDITABLE_STATUS } from '../../constants/enums'
+import { ASSET_ACTION_DEFS, DOC_WRITE_CODES, OWNER_INITIATED_DOC_KEYS } from '../../constants/assetActions'
 import { formatDateTime } from '../../utils/format'
 import {
   getFlow, effectiveSteps, approvalsOf, currentStep,
@@ -1003,6 +1096,77 @@ const dispatchSub = ref('alloc')
 // 只有报修权的使用人默认落在「维修」子签，否则会停在无权的「调拨」上看到空壳列表
 const changeSub = ref(tabVisible('fa:dispose') || tabVisible('fa:change') ? 'transfer' : 'repair')
 const inventorySub = ref('docs')
+
+/** 当前登录人是否是台账上登记的资产使用人（至少有一台资产在自己名下） */
+const hasOwnedAssets = computed(() => {
+  const me = userStore.user?.id
+  return !!me && fixedAssetStore.assets.some(a => a.userId === me)
+})
+
+/** 页签级历史口径：一个 perm 管住对应页签（资产变更下三个子签共用一套） */
+function hasTabPerm(docKey) {
+  if (docKey === 'inbound') return can('fa:inbound')
+  if (docKey === 'alloc' || docKey === 'back') return can('fa:dispatch')
+  if (docKey === 'borrow') return can('fa:borrow')
+  if (docKey === 'dispose') return can('fa:dispose')
+  if (docKey === 'repair') return can('fa:dispose') || can('fa:change') || can('fa:repair')
+  return can('fa:dispose') || can('fa:change')
+}
+
+/** 页签「新增单据」权限：权限码，或「台账使用人本人发起自己名下资产业务」的兜底授权 */
+function canCreateDoc(docKey) {
+  return hasTabPerm(docKey) ||
+    (OWNER_INITIATED_DOC_KEYS.includes(docKey) && hasOwnedAssets.value)
+}
+
+/**
+ * 台账行级入口的写权限：与后端 PermissionPolicy.WRITE + AssetOwnerPolicy 同源。
+ * 传 row 时按「该资产是否登记在当前用户名下」判定；不传 row 时按「是否有名下资产」判定。
+ */
+function canWriteDoc(docKey, row) {
+  if (can('fa:add') || can('fa:edit')) return true
+  if ((DOC_WRITE_CODES[docKey] || []).some(code => can(code))) return true
+  if (!OWNER_INITIATED_DOC_KEYS.includes(docKey)) return false
+  const me = userStore.user?.id
+  if (!me) return false
+  return row ? row.userId === me : hasOwnedAssets.value
+}
+
+/** 各单据面板实例：供台账行级入口直接打开新增弹窗 */
+const docListRefs = {}
+function bindDocList(docKey, el) {
+  if (el) docListRefs[docKey] = el
+}
+
+/** 按资产状态 + 权限列出可办业务；状态编码取自 assetLedger.statusCode */
+function assetActionsOf(row) {
+  if (!row) return []
+  return ASSET_ACTION_DEFS.filter(def =>
+    // 传 row：无 fa:* 写权限码的使用人只对「本人名下」资产显示入口，与服务端 AssetOwnerPolicy 同源
+    def.statuses.includes(row.statusCode) && canWriteDoc(def.docKey, row))
+}
+
+/**
+ * 从资产台账直接发起业务：切到对应页签 / 子签，预选资产并打开新增单据弹窗。
+ * 期初导入、无前置单据的资产不做任何来源排除——服务端只校验资产状态与审批互斥。
+ */
+function startAssetAction(docKey, row) {
+  const def = ASSET_ACTION_DEFS.find(d => d.docKey === docKey)
+  if (!def || !assetActionsOf(row).some(d => d.docKey === docKey)) return
+  assetDrawerVisible.value = false
+  activeTab.value = def.tab
+  if (def.tab === 'dispatch') dispatchSub.value = def.sub
+  if (def.tab === 'change') changeSub.value = def.sub
+  // 子签切换会按 :key 重建单据面板，待新实例注册 ref 后再打开弹窗
+  nextTick(() => nextTick(() => {
+    const panel = docListRefs[docKey]
+    if (!panel || typeof panel.openCreateWithAsset !== 'function') {
+      ElMessage.warning('业务单据面板尚未就绪，请稍后重试')
+      return
+    }
+    panel.openCreateWithAsset(row.id, row.companyId)
+  }))
+}
 
 /**
  * 深链定位：工作台「去处理」按 ?tab=&sub= 直接落到对应页签
@@ -1701,7 +1865,18 @@ async function deleteAsset(row) {
   }
 }
 
+/** 已完结盘点单只有系统管理员（R1）可删；审批中 / 已作废一律不可删 */
+function canDeleteInvDoc(row) {
+  if (['PROCESSING', 'REVOKED'].includes(row.status)) return false
+  if (row.status === 'DONE') return (userStore.user?.roleIds || []).includes('R1')
+  return true
+}
+
 function deleteInvDoc(row) {
+  if (!canDeleteInvDoc(row)) {
+    ElMessage.warning('审批中或已作废的盘点单不可删除；已完结的单据仅系统管理员可删')
+    return
+  }
   ElMessageBox.confirm(`确认删除盘点单"${row.docNo}"？`, '删除确认', { type: 'warning' }).then(() => {
     inventoryDocCol.remove(row)
     ElMessage.success('盘点单已删除')
@@ -1786,7 +1961,8 @@ function addProfitItem() {
  * 提交账外资产登记。
  *
  * <p>要素必须齐：盘点审批完结后，后端按这些字段建台账（待入库）并生成入库单，
- * 分类要落枚举码（不是中文名），否则台账的枚举校验会拒绝这条资产。</p>
+ * 分类要落枚举码（不是中文名），部门/使用人要是主数据 id，否则台账的枚举 / 引用校验会拒绝这条资产。
+ * 单条明细最多 99 件，与后端「送审前置预检」同源；这里先拦一遍，避免用户到送审时才发现。</p>
  */
 function submitProfitItem() {
   if (!profitForm.assetName.trim()) {
@@ -1795,6 +1971,20 @@ function submitProfitItem() {
   }
   if (!profitForm.assetType) {
     ElMessage.warning('请选择资产分类')
+    return
+  }
+  if (!profitForm.location.trim()) {
+    ElMessage.warning('请填写存放位置')
+    return
+  }
+  const qty = Number(profitForm.qty)
+  if (!Number.isInteger(qty) || qty < 1 || qty > 99) {
+    ElMessage.warning('盘盈数量须为 1~99 的整数，超出请分多条登记')
+    return
+  }
+  const price = Number(profitForm.price)
+  if (!Number.isFinite(price) || price < 0) {
+    ElMessage.warning('购置金额须为不小于 0 的数字')
     return
   }
   const me = userStore.user || {}
@@ -1809,8 +1999,8 @@ function submitProfitItem() {
     userId: profitForm.userId,
     userName: userNameOf(profitForm.userId),
     location: profitForm.location.trim(),
-    qty: profitForm.qty,
-    price: profitForm.price,
+    qty,
+    price,
     itemStatus: 'SURPLUS',
     result: 'SURPLUS',
     remark: '账外资产，盘点完结后建账并补录入库单',
@@ -2047,8 +2237,12 @@ const docDialogMode = ref('add')
 const docForm = reactive({ id: '', name: '', company: '', remark: '' })
 const docDialogTitle = computed(() => (docDialogMode.value === 'edit' ? '修改单据' : '新增单据'))
 
+/** 只有草稿 / 已驳回可改；与后端 GenericService.assertDocMutable 同源，无状态的历史数据按草稿处理 */
+const isDocEditable = row => !row?.status || DOC_EDITABLE_STATUS.includes(row.status)
+
 /** 盘点单据的新增/修改（其它单据由 FixedAssetDocList 组件自行处理） */
 function openDocDialog(row) {
+  if (row && !isDocEditable(row)) { ElMessage.warning('单据审批中或已完结，不可修改'); return }
   docDialogMode.value = row ? 'edit' : 'add'
   Object.assign(docForm, row
     ? { id: row.id, name: row.name || '', company: row.companyId || '', remark: row.remark || '' }
@@ -2062,6 +2256,7 @@ async function submitDocDialog() {
     return
   }
   const target = inventoryDocs.value.find(d => d.id === docForm.id)
+  if (target && !isDocEditable(target)) { ElMessage.warning('单据已审批或完结，不可修改'); return }
   if (target) {
     Object.assign(target, { name: docForm.name, companyId: docForm.company, remark: docForm.remark })
     await inventoryDocCol.update(target)
@@ -2171,16 +2366,29 @@ const locationOptions = ref(['总部办公楼1层', '总部办公楼2层', '总�
 /** 台账取 store 的视图模型：外键已解析为名称、状态已解析为文案 */
 const assetList = computed(() => fixedAssetStore.assetLedger)
 
-const assetSearch = reactive({ keyword: '', type: '', status: '' })
+const assetSearch = reactive({ keyword: '', user: '', type: '', status: '', mineOnly: false })
 const assetPage = ref(1)
 const assetPageSize = ref(15)
 watch(assetSearch, () => { assetPage.value = 1 }, { deep: true })
 
-const filteredAssetList = computed(() => assetList.value.filter(a =>
-  (!assetSearch.keyword || a.code.includes(assetSearch.keyword) || a.name.includes(assetSearch.keyword)) &&
-  (!assetSearch.type || a.type === assetSearch.type) &&
-  (!assetSearch.status || a.statusCode === assetSearch.status || matchStatus(a, assetSearch.status))
-))
+/** 当前登录人名下的资产台数，直接按台账 userId 统计，不依赖 org-users 主数据权限 */
+const myAssetCount = computed(() => {
+  const me = userStore.user?.id
+  return me ? assetList.value.filter(a => a.userId === me).length : 0
+})
+
+const filteredAssetList = computed(() => {
+  const name = (assetSearch.user || '').trim()
+  const me = userStore.user?.id
+  return assetList.value.filter(a =>
+    (!assetSearch.keyword || a.code.includes(assetSearch.keyword) || a.name.includes(assetSearch.keyword)) &&
+    // user 是台账视图解析出的姓名；若 org-users 不可读导致姓名为空，退化为按使用人 ID 匹配
+    (!name || String(a.user || '').includes(name) || String(a.userId || '').includes(name)) &&
+    (!assetSearch.mineOnly || (!!me && a.userId === me)) &&
+    (!assetSearch.type || a.type === assetSearch.type) &&
+    (!assetSearch.status || a.statusCode === assetSearch.status || matchStatus(a, assetSearch.status))
+  )
+})
 
 const pagedAssetList = computed(() => {
   const start = (assetPage.value - 1) * assetPageSize.value
@@ -2190,7 +2398,7 @@ const pagedAssetList = computed(() => {
 const assetTotal = computed(() => filteredAssetList.value.length)
 
 function resetAssetSearch() {
-  Object.assign(assetSearch, { keyword: '', type: '', status: '' })
+  Object.assign(assetSearch, { keyword: '', user: '', type: '', status: '', mineOnly: false })
   assetPage.value = 1
 }
 
@@ -2335,6 +2543,18 @@ const recordCount = computed(() =>
   Object.values(assetRecordData.value).reduce((sum, rows) => sum + rows.length, 0)
 )
 
+/** 操作记录里的单据编号链接：只读打开该单据的审批信息（资产编号/名称 + 环节 + 轨迹） */
+const recordApprovalVisible = ref(false)
+const recordApprovalDoc = ref(null)
+const recordApprovalDocKey = ref('repair')
+
+function openRecordDoc(row) {
+  if (!row?.raw || !row?.docKey) return
+  recordApprovalDoc.value = row.raw
+  recordApprovalDocKey.value = row.docKey
+  recordApprovalVisible.value = true
+}
+
 const RECORD_SOURCES = [
   { tab: 'dispatch', biz: 'alloc' },
   { tab: 'dispatch', biz: 'back' },
@@ -2374,7 +2594,10 @@ async function loadAssetRecords(asset) {
           docNo: row.code || row.docNo || '',
           person: userNameOf(row.creatorId) || row.operator || '',
           time: formatDateTime(row.createTime || row.finishTime || ''),
-          status: row.status
+          status: row.status,
+          // 保留原始单据与业务类型：编号链接据此打开该单据的审批信息
+          docKey: biz,
+          raw: row
         }
         if (tab === 'dispatch') {
           // 归还型退库单关联原借出单，在操作记录里显式标注，形成「借出 → 归还退库」闭环
@@ -2442,6 +2665,45 @@ async function loadAssetRecords(asset) {
 
 .search-form {
   margin-bottom: 20px;
+}
+
+/* 台账搜索区：控件换行时保持同一基线，姓名与「我的资产」不与按钮互相挤压 */
+.asset-search-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.asset-search-form :deep(.el-form-item) {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 16px;
+  margin-bottom: 8px;
+}
+.asset-search-form .mine-only {
+  height: 32px;
+  margin-right: 8px;
+  background: #fff;
+}
+
+/* 操作列：el-dropdown 会打断 .el-button + .el-button 的间距链，统一交给 flex 排版 */
+.row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+.row-actions :deep(.el-button),
+.row-actions :deep(.el-dropdown) {
+  margin: 0;
+  height: 24px;
+}
+.row-actions :deep(.el-button.is-link) {
+  padding: 0;
+}
+.action-caret {
+  margin-left: 2px;
+  font-size: 12px;
 }
 
 .record-empty {
@@ -2539,7 +2801,14 @@ async function loadAssetRecords(asset) {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-height: 32px;
   margin-bottom: 4px;
+}
+
+.drawer-actions {
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
 }
 
 .drawer-title {

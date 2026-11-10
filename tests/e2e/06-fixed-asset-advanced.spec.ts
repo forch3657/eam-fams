@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { loginViaApi, type Session } from './fixtures/auth'
+import { loginViaApi, seedSession, type Session } from './fixtures/auth'
 import { cleanupTemp, createTempUser, findRoleIdByCode, pickOrgUnit, type TempUser } from './fixtures/data'
 import {
   act,
@@ -358,4 +358,171 @@ test('[P1-31] 折旧执行同期间幂等，且与试算/台账一致', async ()
     expect(Number(plan.periodDepreciation)).toBe(Number(run1.periodDepreciation))
     expect(Array.isArray(plan.rows)).toBe(true)
   })
+})
+
+/**
+ * 期初导入的存量资产：状态 IN_USE、无 sourceTag、无入库/派发/借出等前置单据。
+ * 服务端只校验资产状态与审批互斥，不得因「没有历史单据」把台账挡在业务之外。
+ */
+test('[P1-33] 期初形态资产（无前置单据、无来源标记）可提交退库单与维修单', async () => {
+  const backAsset = await trackAsset({ status: 'IN_USE' })
+  const repairAsset = await trackAsset({ status: 'IN_USE' })
+
+  // 普通退库单：不带 borrowDocId，不应要求先有历史借出单
+  const back = await trackDoc('back', backAsset.id)
+  const backRes = await act(admin.token, { docKey: 'back', docId: back.id, action: 'submit' })
+  expect(backRes.status, JSON.stringify(backRes.body)).toBe(200)
+
+  // 维修单：提交后资产进入维修中，修毕验收后回使用中
+  const repair = await trackDoc('repair', repairAsset.id)
+  const repairRes = await act(admin.token, { docKey: 'repair', docId: repair.id, action: 'submit' })
+  expect(repairRes.status, JSON.stringify(repairRes.body)).toBe(200)
+
+  const after = await withApi(admin.token, async api => {
+    const res = await api.get(`/api/fixed-assets/${repairAsset.id}`)
+    return (await res.json()).data as Record<string, unknown>
+  })
+  expect(String(after.status)).toBe('REPAIRING')
+})
+
+/**
+ * 台账行级入口：从资产直接发起退库，验证两件事——
+ * 1) 期初形态资产有可见入口且新增弹窗预选资产；
+ * 2) 子签切换后单据落在 back 集合（旧实现复用组件导致写进 alloc 集合）。
+ */
+test('[P1-34] 资产台账行级入口：期初资产可直接发起退库且单据落在退库集合', async ({ context, page }) => {
+  await seedSession(context, await loginViaApi())
+  const asset = await trackAsset({ status: 'IN_USE' })
+  await page.goto('/fixed-assets?tab=asset')
+  await page.getByPlaceholder('资产编号/资产名称').fill(asset.code)
+  await page.getByRole('button', { name: '查询' }).click()
+
+  const row = page.locator('tr').filter({ hasText: asset.code }).last()
+  await row.getByRole('button', { name: /发起业务/ }).click()
+  await page.locator('.el-dropdown-menu__item').filter({ hasText: '退库' }).first().click()
+
+  const dialog = page.getByRole('dialog').last()
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByText(new RegExp(asset.code))).toBeVisible()
+
+  const docName = `E2E_台账发起退库_${asset.code}`
+  await dialog.getByPlaceholder('请输入单据名称').fill(docName)
+  await dialog.getByRole('button', { name: '确定' }).click()
+  await expect(dialog).toBeHidden()
+
+  const created = await withApi(admin.token, async api => {
+    const res = await api.get('/api/fixed-asset-doc-lists-back')
+    const body = await res.json()
+    return (body.data || []).find(d => d.name === docName) as Record<string, unknown> | undefined
+  })
+  expect(created, '退库单必须落在 back 集合，不能被复用的 alloc 集合吞掉').toBeTruthy()
+  expect(String(created!.assetId)).toBe(asset.id)
+  docs.push({ key: 'back', id: String(created!.id), code: String(created!.code) })
+
+  const leakedToAlloc = await withApi(admin.token, async api => {
+    const res = await api.get('/api/fixed-asset-doc-lists-alloc')
+    const body = await res.json()
+    return (body.data || []).some(d => d.name === docName)
+  })
+  expect(leakedToAlloc, '子签切换不应把退库单写进派发单集合').toBe(false)
+})
+
+/** 构造一张 DRAFT 固资单据；creatorId 故意可传他人，用于验证服务端强制改写 */
+async function postDocAs(token: string, bizKey: string, assetId: string, code: string, creatorId: string) {
+  return withApi(token, async api => {
+    const res = await api.post(`/api/fixed-asset-doc-lists-${bizKey}`, {
+      data: {
+        code, name: `E2E_${code}`, companyId: units.companyId,
+        assetId, creatorId, createTime: new Date().toISOString(),
+        finishTime: '', remark: 'E2E 台账使用人本人授权', status: 'DRAFT'
+      }
+    })
+    return { status: res.status(), body: await res.json() }
+  })
+}
+
+/**
+ * 用户裁决：台账登记的资产使用人本来就该发起相关流程，与角色是否持有 fa:* 权限码无关。
+ * R5 部门主管没有任何固资发起权限码，但只要资产 userId 指向本人即可发起 WF3/4/6/7 四类单据。
+ */
+test('[P1-35] 台账使用人本人授权：无固资权限码也能发起自己名下资产的业务', async () => {
+  const leader = await userWithRole('ROLE_LEADER')
+  const tag = Date.now().toString(36)
+  const mine = await trackAsset({ status: 'IN_USE', userId: leader.user.id })
+  const others = await trackAsset({ status: 'IN_USE', userId: admin.user.id })
+
+  // 四类由资产使用人发起的单据：放行；且服务端把伪造的 creatorId 改写为登录人
+  for (const key of ['back', 'borrow', 'repair', 'change']) {
+    const res = await postDocAs(leader.token, key, mine.id, `E2E_OWNER_${key}_${tag}`, admin.user.id)
+    expect(res.status, `${key} 应放行：${JSON.stringify(res.body)}`).toBe(200)
+    expect(String(res.body.data.creatorId), 'creatorId 必须以登录人为准').toBe(leader.user.id)
+    docs.push({ key, id: String(res.body.data.id), code: String(res.body.data.code) })
+  }
+
+  // 别人名下资产不放行
+  const foreign = await postDocAs(leader.token, 'back', others.id, `E2E_FOREIGN_${tag}`, leader.user.id)
+  expect(foreign.status, JSON.stringify(foreign.body)).toBe(403)
+
+  // 入库 / 派发 / 调拨 / 处置由资产管理员发起，使用人不能越权
+  for (const key of ['inbound', 'alloc', 'transfer', 'dispose']) {
+    const res = await postDocAs(leader.token, key, mine.id, `E2E_DENY_${key}_${tag}`, leader.user.id)
+    expect(res.status, `${key} 不应放行`).toBe(403)
+  }
+})
+
+test('[P1-36] 台账使用人本人授权边界：只维护本人单据，可正常提交审批', async () => {
+  const leader = await userWithRole('ROLE_LEADER')
+  const tag = Date.now().toString(36)
+  const mine = await trackAsset({ status: 'IN_USE', userId: leader.user.id })
+
+  const own = await postDocAs(leader.token, 'back', mine.id, `E2E_OWN_SUBMIT_${tag}`, leader.user.id)
+  expect(own.status, JSON.stringify(own.body)).toBe(200)
+  const ownId = String(own.body.data.id)
+  docs.push({ key: 'back', id: ownId, code: String(own.body.data.code) })
+
+  // 资产挂在本人名下、但单据由管理员创建：使用人不得改删
+  const adminDoc = await createDoc(admin, units, 'back', { assetId: mine.id })
+  docs.push({ key: 'back', id: adminDoc.id, code: adminDoc.code })
+  const putOther = await withApi(leader.token, async api => {
+    const res = await api.put(`/api/fixed-asset-doc-lists-back/${adminDoc.id}`, {
+      data: { ...(await (await api.get(`/api/fixed-asset-doc-lists-back/${adminDoc.id}`)).json()).data, remark: '越权修改' }
+    })
+    return res.status()
+  })
+  expect(putOther).toBe(403)
+  const delOther = await withApi(leader.token, async api =>
+    (await api.delete(`/api/fixed-asset-doc-lists-back/${adminDoc.id}`)).status())
+  expect(delOther).toBe(403)
+
+  // 本人单据可提交审批，且审批链能正常解析
+  const submitted = await act(leader.token, { docKey: 'back', docId: ownId, action: 'submit' })
+  expect(submitted.status, JSON.stringify(submitted.body)).toBe(200)
+
+  // 撤回成可删除状态，避免把 PROCESSING 单据留给 afterAll（审批中单据禁止删除，会连带残留资产与账号）
+  const revoked = await act(leader.token, { docKey: 'back', docId: ownId, action: 'revoke' })
+  expect(revoked.status, JSON.stringify(revoked.body)).toBe(200)
+})
+
+test('[P1-37] 台账使用人本人：页面有行级入口，资产下拉只列自己名下资产', async ({ context, page }) => {
+  const leader = await userWithRole('ROLE_LEADER')
+  const mine = await trackAsset({ status: 'IN_USE', userId: leader.user.id })
+  const others = await trackAsset({ status: 'IN_USE', userId: admin.user.id })
+  const session = await loginViaApi({ username: leader.user.username, password: leader.user.password })
+  await seedSession(context, session)
+
+  await page.goto('/fixed-assets?tab=asset')
+  await page.getByPlaceholder('资产编号/资产名称').fill(mine.code)
+  await page.getByRole('button', { name: '查询' }).click()
+  const row = page.locator('tr').filter({ hasText: mine.code }).last()
+  await expect(row.getByRole('button', { name: /发起业务/ }), '本人名下资产应有业务入口').toBeVisible()
+  await row.getByRole('button', { name: /发起业务/ }).click()
+  await page.locator('.el-dropdown-menu__item').filter({ hasText: '退库' }).first().click()
+
+  const dialog = page.getByRole('dialog').last()
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByText(new RegExp(mine.code))).toBeVisible()
+  // 资产已预选，placeholder 不再显示；从「关联资产」表单项点开下拉
+  await dialog.locator('.el-form-item').filter({ hasText: '关联资产' }).locator('.el-select').click()
+  await expect(page.locator('.el-select-dropdown__item').filter({ hasText: others.code }),
+    '不能选到别人名下资产').toHaveCount(0)
 })

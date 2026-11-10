@@ -666,6 +666,7 @@ CREATE TABLE `fixed_asset_doc_lists_alloc` (
   `company_id` VARCHAR(255) COMMENT '→org-companies',
   `asset_id` VARCHAR(255) COMMENT '→fixed-assets',
   `creator_id` VARCHAR(255) COMMENT '→org-users',
+  `dept_id` VARCHAR(255) COMMENT '→org-departments 使用部门，派发完结回写台账',
   `finish_time` DATETIME(3),
   `remark` VARCHAR(255),
   `status` VARCHAR(64) COMMENT 'DOC_STATUS 必填',

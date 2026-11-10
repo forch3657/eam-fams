@@ -115,6 +115,13 @@ export const DOC_STATUS = {
   DONE: '已完结'
 }
 
+/**
+ * 允许用通用表单改写的单据状态：只有草稿与被驳回可改。
+ * 与后端 GenericService.assertDocMutable 同源：PROCESSING / REVOKED / DONE 一律拒绝改写，
+ * 其中 DONE 仅保留删除给管理员做数据回收（状态机矩阵 P7-03）。
+ */
+export const DOC_EDITABLE_STATUS = ['DRAFT', 'REJECTED']
+
 /** 低值物品状态 */
 export const LOW_VALUE_ITEM_STATUS = {
   NORMAL: '正常',

@@ -39,6 +39,9 @@ public class GenericController {
 
     private final PermissionPolicy permissionPolicy;
 
+    /** 台账使用人本人发起自己名下资产业务的兜底授权 */
+    private final AssetOwnerPolicy assetOwnerPolicy;
+
     /** 列表查询（不分页，带上限保护） */
     @GetMapping
     public R<List<Map<String, Object>>> list(@PathVariable("key") String key, HttpServletRequest request) {
@@ -64,7 +67,7 @@ public class GenericController {
     @PostMapping
     public R<Map<String, Object>> create(@PathVariable("key") String key,
                                         @RequestBody(required = false) Map<String, Object> body) {
-        require(key, "POST");
+        require(key, "POST", body, null);
         return R.ok(genericService.create(key, body));
     }
 
@@ -72,14 +75,14 @@ public class GenericController {
     @PutMapping("/{id}")
     public R<Map<String, Object>> update(@PathVariable("key") String key, @PathVariable("id") String id,
                                          @RequestBody(required = false) Map<String, Object> body) {
-        require(key, "PUT");
+        require(key, "PUT", body, id);
         return R.ok(genericService.update(key, id, body));
     }
 
     /** 删除（含删除保护与库存回退） */
     @DeleteMapping("/{id}")
     public R<Boolean> remove(@PathVariable("key") String key, @PathVariable("id") String id) {
-        require(key, "DELETE");
+        require(key, "DELETE", null, id);
         return R.ok(genericService.remove(key, id));
     }
 
@@ -100,8 +103,21 @@ public class GenericController {
 
     /** 按钮级权限：与前端 36 个权限码对齐 */
     private void require(String key, String method) {
-        if (!permissionPolicy.matches(key, method, AuthContext.granted())) {
-            throw new ApiException(ErrorCode.FORBIDDEN, "无权限访问该数据：" + key);
+        require(key, method, null, null);
+    }
+
+    /**
+     * 权限码之外再叠一层「台账使用人本人」授权：资产使用人可以对自己名下资产
+     * 发起退库 / 借出 / 维修 / 信息更正，不必依赖 fa:* 权限码。
+     * GET、批量写、清空集合没有单据上下文，仍只按权限码判定。
+     */
+    private void require(String key, String method, Map<String, Object> payload, String docId) {
+        if (permissionPolicy.matches(key, method, AuthContext.granted())) {
+            return;
         }
+        if (assetOwnerPolicy.allows(key, method, payload, docId)) {
+            return;
+        }
+        throw new ApiException(ErrorCode.FORBIDDEN, "无权限访问该数据：" + key);
     }
 }

@@ -9,6 +9,11 @@
       <el-descriptions :column="2" border size="small">
         <el-descriptions-item label="单据编号">{{ doc.code || doc.docNo || '-' }}</el-descriptions-item>
         <el-descriptions-item label="单据名称">{{ doc.name || doc.itemName || '-' }}</el-descriptions-item>
+        <!-- 固定资产单据的审批对象是具体资产：编号与名称是审批时必须能核对的基础信息。
+             低值/盘点单据没有 assetId，不渲染这两项。
+             这里不用 <template v-if> 包裹，避免 el-descriptions 收集不到 Fragment 里的 item。 -->
+        <el-descriptions-item v-if="assetInfo" label="资产编号">{{ assetInfo.code || '-' }}</el-descriptions-item>
+        <el-descriptions-item v-if="assetInfo" label="资产名称">{{ assetInfo.name || '-' }}</el-descriptions-item>
         <el-descriptions-item label="单据状态">
           <el-tag :type="statusType(doc.status)" size="small">{{ labelOf('DOC_STATUS', doc.status) }}</el-tag>
         </el-descriptions-item>
@@ -62,9 +67,9 @@
         </el-timeline-item>
       </el-timeline>
 
-      <el-alert v-if="hint" type="info" :closable="false" show-icon :title="hint" class="mt12" />
+      <el-alert v-if="hint && !readonly" type="info" :closable="false" show-icon :title="hint" class="mt12" />
 
-      <el-form v-if="needComment" label-width="80px" class="mt12">
+      <el-form v-if="needComment && !readonly" label-width="80px" class="mt12">
         <el-form-item label="审批意见">
           <el-input v-model="comment" type="textarea" :rows="2" maxlength="200" show-word-limit
             :placeholder="rejectMode ? '该动作必须填写意见' : '可填写审批意见'" />
@@ -74,15 +79,18 @@
 
     <template #footer>
       <el-button @click="emit('update:modelValue', false)">关闭</el-button>
-      <el-button v-if="showApprove" @click="openCollab('addSign')">加签</el-button>
-      <el-button v-if="showApprove" @click="openCollab('transfer')">转办</el-button>
-      <el-button v-if="showCc" @click="openCollab('cc')">抄送</el-button>
-      <el-button v-if="showSubmit" type="primary" @click="act('submit')">提交</el-button>
-      <el-button v-if="showWithdraw" @click="act('withdraw')">撤回</el-button>
-      <el-button v-if="showVoid" type="warning" @click="act('void')">作废</el-button>
-      <el-button v-if="showApprove" type="primary" @click="act('approve')">通过</el-button>
-      <el-button v-if="showReject" type="danger" @click="act('reject')">驳回</el-button>
-      <el-button v-if="showTerminate" type="danger" @click="act('terminate')">终止</el-button>
+      <!-- 从资产详情「操作记录」点进来的只读查看：只看结论与轨迹，不在这里执行审批动作 -->
+      <template v-if="!readonly">
+        <el-button v-if="showApprove" @click="openCollab('addSign')">加签</el-button>
+        <el-button v-if="showApprove" @click="openCollab('transfer')">转办</el-button>
+        <el-button v-if="showCc" @click="openCollab('cc')">抄送</el-button>
+        <el-button v-if="showSubmit" type="primary" @click="act('submit')">提交</el-button>
+        <el-button v-if="showWithdraw" @click="act('withdraw')">撤回</el-button>
+        <el-button v-if="showVoid" type="warning" @click="act('void')">作废</el-button>
+        <el-button v-if="showApprove" type="primary" @click="act('approve')">通过</el-button>
+        <el-button v-if="showReject" type="danger" @click="act('reject')">驳回</el-button>
+        <el-button v-if="showTerminate" type="danger" @click="act('terminate')">终止</el-button>
+      </template>
     </template>
   </el-dialog>
 
@@ -136,6 +144,7 @@ import { statusType, approveResultType as timelineType } from '../../utils/statu
 import { useOrgStore } from '../../store/org'
 import { useUserStore } from '../../store/user'
 import { useApprovalStore } from '../../store/approval'
+import { useFixedAssetStore } from '../../store/fixedAsset'
 import {
   DOC_BIZ_TYPE, getFlow, effectiveSteps, approvalsOf, currentStep,
   canSubmit, canApprove, stepInfo, stepState, stepApproverAccounts
@@ -151,17 +160,32 @@ const props = defineProps({
   /** 条件上下文：{ amount, hasDiff }，决定哪些环节在本单据上生效 */
   ctx: { type: Object, default: () => ({}) },
   /** 资产台账：固资单据没有 dept_id，需要按 assetId 找资产所属部门来定位审批人 */
-  assets: { type: Array, default: () => [] }
+  assets: { type: Array, default: () => [] },
+  /** 只读查看（资产详情「操作记录」入口）：不显示意见框与审批动作 */
+  readonly: { type: Boolean, default: false }
 })
 const emit = defineEmits(['update:modelValue', 'act'])
 
 const orgStore = useOrgStore()
 const userStore = useUserStore()
 const approvalStore = useApprovalStore()
+const fixedAssetStore = useFixedAssetStore()
 const comment = ref('')
 
 // 看流程需要 wm:todo；只读账号打开「审批信息」时跳过，避免 403
 onMounted(() => { if (userStore.can('wm:todo')) approvalStore.load() })
+
+/**
+ * 审批对象：固资单据按 assetId 解析出资产编号与名称。
+ * 优先用父组件传入的台账，缺省时回退到全局固资 store（工作台待办等入口也能显示）。
+ */
+const assetInfo = computed(() => {
+  const d = props.doc || {}
+  if (!d.assetId) return null
+  const pool = props.assets?.length ? props.assets : (fixedAssetStore.assets || [])
+  const a = pool.find(x => x.id === d.assetId)
+  return a || { code: d.assetCode || d.assetNo || '', name: d.assetName || '' }
+})
 
 const bizType = computed(() => props.bizType || DOC_BIZ_TYPE[props.docKey] || props.docKey.toUpperCase())
 const flow = computed(() => getFlow(bizType.value, approvalStore.flows))
@@ -273,9 +297,16 @@ function confirmCollab() {
 }
 
 // 弹窗关闭时收起协作子弹窗；重新打开时清空审批意见
-watch(() => props.modelValue, v => {
-  if (v) comment.value = ''
-  else collabVisible.value = false
+watch(() => props.modelValue, async v => {
+  if (v) {
+    comment.value = ''
+    // 工作台待办等入口没有预载固资台账：按需补一次，避免资产编号/名称显示成空值
+    if (props.doc?.assetId && !assetInfo.value?.code && !fixedAssetStore.loaded) {
+      await fixedAssetStore.loadAll().catch(() => {})
+    }
+  } else {
+    collabVisible.value = false
+  }
 })
 
 /** 提示：当前登录人为什么不能审（便于换账号测试） */

@@ -958,31 +958,38 @@ export const CONTRACT_PATTERNS = [
       && !STATIC_DOC_BIZ.some(b => key === `fixed-asset-doc-lists-${b}`),
     make: key => {
       const biz = key.replace('fixed-asset-doc-lists-', '')
+      const fields = {
+        code: f.str({ required: true, unique: true }),
+        name: f.str({ required: true }),
+        companyId: f.ref('org-companies'),
+        assetId: f.ref('fixed-assets'),
+        creatorId: f.ref('org-users'),
+        createTime: f.date(),
+        finishTime: f.date(),
+        remark: f.str(),
+        status: f.enum('DOC_STATUS', { required: true })
+      }
+      const refs = [
+        { field: 'companyId', collection: 'org-companies' },
+        { field: 'assetId', collection: 'fixed-assets' },
+        { field: 'creatorId', collection: 'org-users' }
+      ]
+      // 只给派发单加使用部门：审批完结由 ApprovalService.syncAssetLedger 回写资产台账 dept_id
+      if (biz === 'alloc') {
+        fields.deptId = f.ref('org-departments')
+        refs.push({ field: 'deptId', collection: 'org-departments' })
+      }
       return {
         key,
         label: DOC_LIST_LABELS[biz] || `单据列表(${biz})`,
         idField: 'id',
         audit: true,
-        fields: {
-          code: f.str({ required: true, unique: true }),
-          name: f.str({ required: true }),
-          companyId: f.ref('org-companies'),
-          assetId: f.ref('fixed-assets'),
-          creatorId: f.ref('org-users'),
-          createTime: f.date(),
-          finishTime: f.date(),
-          remark: f.str(),
-          status: f.enum('DOC_STATUS', { required: true })
-        },
+        fields,
         query: { keyword: ['code', 'name'], filters: ['status', 'companyId'], sort: ['createTime'], page: true },
         rules: {
           // 字段名是 code 不是 docNo：写成 docNo 时 checkUnique 取到 undefined，唯一性校验会静默失效
           unique: ['code'],
-          refs: [
-            { field: 'companyId', collection: 'org-companies' },
-            { field: 'assetId', collection: 'fixed-assets' },
-            { field: 'creatorId', collection: 'org-users' }
-          ]
+          refs
         }
       }
     }

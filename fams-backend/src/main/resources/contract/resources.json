@@ -4947,6 +4947,14 @@
           "unique": false,
           "enumName": "DOC_STATUS",
           "refCollection": null
+        },
+        {
+          "name": "deptId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-departments"
         }
       ],
       "uniqueFields": [
@@ -4964,6 +4972,10 @@
         {
           "field": "creatorId",
           "collection": "org-users"
+        },
+        {
+          "field": "deptId",
+          "collection": "org-departments"
         }
       ],
       "protect": [],

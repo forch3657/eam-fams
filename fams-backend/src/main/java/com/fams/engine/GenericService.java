@@ -305,11 +305,16 @@ public class GenericService {
     }
 
     /**
-     * 单据状态守卫：审批中（PROCESSING）只能通过审批端点流转，
-     * 通用 CRUD 的改写/删除一律 409，避免绕过状态机篡改单据或抹掉审批上下文。
+     * 单据状态守卫：已进入审批（PROCESSING）或已完结（DONE）的单据只能通过审批端点流转，
+     * 通用 CRUD 的改写一律 409，避免绕过状态机篡改单据或抹掉审批上下文。
      *
      * <p>盘点单同样受守卫约束：盘点明细就是审批对象，审批期间还能改明细、
      * 甚至把单据删掉，审批结论就失去意义了。</p>
+     *
+     * <p>维修验收、派发退库、盘点结论等单据完结时服务端已按结论回写资产台账，
+     * 再改单据内容会让台账与审批轨迹对不上。删除仍保留给管理员做数据回收
+     * （状态机矩阵 P7-03 依赖 DONE 可删）；但已完结盘点单是审计凭证，
+     * 只有系统管理员 R1 能删，普通账号即使绕过前端直接调接口也要挡住。</p>
      */
     private void assertDocMutable(String key, Map<String, Object> row, boolean deleting) {
         if (key == null) {
@@ -318,9 +323,7 @@ public class GenericService {
         // 作废 / 终止后的单据是审计凭证：内容与轨迹不得被通用 CRUD 改写。
         // 删除只留管理员做数据回收（前端不提供作废单删除入口），避免普通账号抹掉历史。
         if ("REVOKED".equalsIgnoreCase(text(row.get("status")))) {
-            String me = AuthContext.currentUserId();
-            boolean admin = me != null && !me.isEmpty() && userHasRole(me, "R1");
-            if (!deleting || !admin) {
+            if (!deleting || !isSystemAdmin()) {
                 throw new ApiException(ErrorCode.CONFLICT, "已作废的单据不能修改或删除，请另开新单");
             }
             return;
@@ -329,9 +332,24 @@ public class GenericService {
         if (!guarded) {
             return;
         }
-        if ("PROCESSING".equalsIgnoreCase(text(row.get("status")))) {
+        String status = text(row.get("status"));
+        if ("PROCESSING".equalsIgnoreCase(status)) {
             throw new ApiException(ErrorCode.CONFLICT, "审批中的单据不能修改或删除，请先撤销审批");
         }
+        if ("DONE".equalsIgnoreCase(status)) {
+            if (!deleting) {
+                throw new ApiException(ErrorCode.CONFLICT, "已完结的单据不能修改，请另开新单");
+            }
+            if ("fixed-asset-inventory-docs".equals(key) && !isSystemAdmin()) {
+                throw new ApiException(ErrorCode.FORBIDDEN, "已完结的盘点单仅系统管理员可删除");
+            }
+        }
+    }
+
+    /** 当前登录人是否为系统管理员（R1）：以主数据角色为准，不信客户端传值 */
+    private boolean isSystemAdmin() {
+        String me = AuthContext.currentUserId();
+        return me != null && !me.isEmpty() && userHasRole(me, "R1");
     }
 
     /** 校验 → 库存状态流转 → 审计 → 落库 */
