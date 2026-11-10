@@ -71,7 +71,7 @@
       </el-table-column>
       <el-table-column label="操作" width="240" fixed="right">
         <template #default="{ row }">
-          <el-button v-if="canReturnRow(row)" link type="primary" size="small" @click="openReturnDialog(row)">归还登记</el-button>
+          <el-button v-if="canReturnRow(row)" link type="primary" size="small" @click="openReturnDialog(row)">发起归还退库</el-button>
           <el-button link type="primary" size="small" @click="openApproval(row)">审批信息</el-button>
           <el-button v-if="perm" link type="primary" size="small" :disabled="row.status === 'PROCESSING'" @click="openDialog(row)">修改</el-button>
           <el-button v-if="perm" link type="danger" size="small" :disabled="row.status === 'PROCESSING'" @click="removeRow(row)">删除</el-button>
@@ -99,11 +99,53 @@
             <el-option v-for="c in companyOptions" :key="c.id" :label="c.name" :value="c.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="关联资产">
-          <el-select v-model="form.assetId" placeholder="可选，关联在册资产" clearable filterable style="width:100%">
+        <el-form-item label="关联资产" required>
+          <el-select v-model="form.assetId" placeholder="请选择在册资产（已按业务前置状态过滤）" clearable filterable style="width:100%">
             <el-option v-for="a in assetOptions" :key="a.id" :label="`${a.code} ${a.name}`" :value="a.id" />
           </el-select>
         </el-form-item>
+
+        <template v-if="props.docKey === 'dispose'">
+          <el-form-item label="处置方式" required>
+            <el-select v-model="form.disposeType" placeholder="请选择处置方式" style="width:100%">
+              <el-option v-for="o in disposeTypeOptions" :key="o.value" :label="o.label" :value="o.value" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="受让方">
+            <el-input v-model="form.buyer" maxlength="100" placeholder="变卖 / 捐赠 / 转让时填写" />
+          </el-form-item>
+          <el-form-item label="凭证号">
+            <el-input v-model="form.voucherNo" maxlength="100" placeholder="财务凭证或协议编号" />
+          </el-form-item>
+          <el-form-item label="处置金额">
+            <el-input-number v-model="form.disposalAmount" :min="0" :precision="2" style="width:100%" />
+          </el-form-item>
+          <el-form-item label="出账依据">
+            <el-input v-model="form.outLedgerBasis" maxlength="200" placeholder="转让出公司时填写" />
+          </el-form-item>
+        </template>
+
+        <template v-if="props.docKey === 'change'">
+          <el-form-item label="变更类型" required>
+            <el-select v-model="form.changeType" placeholder="请选择变更类型" style="width:100%">
+              <el-option v-for="o in changeTypeOptions" :key="o.value" :label="o.label" :value="o.value" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="更正前">
+            <el-input v-model="form.beforeSnapshot" type="textarea" :rows="2" maxlength="500" placeholder="信息更正时填写" />
+          </el-form-item>
+          <el-form-item label="更正后">
+            <el-input v-model="form.afterSnapshot" type="textarea" :rows="2" maxlength="500" placeholder="信息更正时填写" />
+          </el-form-item>
+        </template>
+
+        <el-form-item v-if="props.docKey === 'borrow'" label="预计归还日">
+          <el-date-picker v-model="form.expectedReturnDate" type="date" value-format="YYYY-MM-DD" placeholder="请选择预计归还日" style="width:100%" />
+        </el-form-item>
+        <el-form-item v-if="props.docKey === 'back' && form.borrowDocId" label="关联借出单">
+          <span>归还型退库单（关联 {{ form.borrowDocId }}）</span>
+        </el-form-item>
+
         <el-form-item label="备注">
           <el-input v-model="form.remark" type="textarea" :rows="3" maxlength="250" show-word-limit placeholder="请输入备注" />
         </el-form-item>
@@ -114,18 +156,21 @@
       </template>
     </el-dialog>
 
-    <!-- 借出归还登记：只在已完结且未归还的借出单上出现，不推进审批状态 -->
-    <el-dialog v-model="returnVisible" title="借出归还登记" width="460px">
+    <!-- 归还 = 关联原借出单的退库单（WF3），经仓管验收后闭环 -->
+    <el-dialog v-model="returnVisible" title="发起归还退库" width="480px">
       <el-alert
         type="info"
         show-icon
         :closable="false"
-        title="登记后资产状态由「借出中」恢复为「使用中」，单据保持已完结；归还人、时间与备注留痕。"
+        title="将生成一张关联本借出单的退库单，经部门主管确认与仓管验收后完结；完结时资产回仓库（空闲、清空使用人），归还标记由服务端回写。"
         style="margin-bottom:12px"
       />
       <el-form :model="returnForm" label-width="90px">
-        <el-form-item label="单据编号">
+        <el-form-item label="借出单编号">
           <span>{{ returnForm.code || '-' }}</span>
+        </el-form-item>
+        <el-form-item label="关联资产">
+          <span>{{ returnForm.assetLabel || '-' }}</span>
         </el-form-item>
         <el-form-item label="归还备注">
           <el-input v-model="returnForm.comment" type="textarea" :rows="3" maxlength="250" show-word-limit placeholder="如：实物已归还、外观完好" />
@@ -133,7 +178,7 @@
       </el-form>
       <template #footer>
         <el-button @click="returnVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitReturn">确认归还</el-button>
+        <el-button type="primary" @click="submitReturn">生成退库单</el-button>
       </template>
     </el-dialog>
 
@@ -162,7 +207,7 @@ import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search } from '@element-plus/icons-vue'
 import { useCollection } from '../../composables/useCollection'
-import { COLLECTION } from '../../services'
+import { COLLECTION, dataService } from '../../services'
 import { optionsOf, labelOf } from '../../constants/enums'
 import { formatDateTime } from '../../utils/format'
 import { statusType } from '../../utils/status'
@@ -174,7 +219,7 @@ import { useFixedAssetStore } from '../../store/fixedAsset'
 import DocApprovalDialog from './DocApprovalDialog.vue'
 import {
   DOC_BIZ_TYPE, getFlow, effectiveSteps, approvalsOf, currentStep,
-  canSubmit, canApprove, runApproval, isCollabAction, registerBorrowReturn
+  canSubmit, canApprove, runApproval, isCollabAction
 } from '../../services/approval'
 
 const props = defineProps({
@@ -200,7 +245,30 @@ watch(search, () => { page.value = 1 }, { deep: true })
 
 const statusOptions = computed(() => optionsOf('DOC_STATUS'))
 const companyOptions = computed(() => orgStore.companies)
-const assetOptions = computed(() => assetStore.assets.map(a => ({ id: a.id, code: a.code, name: a.name })))
+const disposeTypeOptions = computed(() => optionsOf('DISPOSE_TYPE'))
+const changeTypeOptions = computed(() => optionsOf('CHANGE_TYPE'))
+
+/** 各单据允许发起的资产前置状态，与服务端 validateAssetPrecondition 保持一致 */
+const ALLOWED_ASSET_STATUS = {
+  inbound: ['PENDING_INBOUND'],
+  alloc: ['IDLE'],
+  back: ['IN_USE', 'BORROWED'],
+  borrow: ['IN_USE'],
+  transfer: ['IDLE', 'IN_USE', 'PENDING_WRITE_OFF'],
+  repair: ['IN_USE', 'BORROWED'],
+  change: ['IDLE', 'IN_USE', 'PENDING_WRITE_OFF'],
+  dispose: ['IDLE', 'IN_USE', 'PENDING_WRITE_OFF']
+}
+const assetOptions = computed(() => {
+  const allowed = ALLOWED_ASSET_STATUS[props.docKey] || []
+  return assetStore.assets
+    .filter(a => allowed.includes(a.status))
+    .map(a => ({ id: a.id, code: a.code, name: a.name, status: a.status }))
+})
+
+/** 退库单集合：发起归还退库时生成草稿，并检查同一借出单是否已归还 */
+const backCol = useCollection(`${COLLECTION.docListPrefix}-back`, { immediate: false })
+const backItems = backCol.items
 
 const filteredRows = computed(() => items.value.filter(d =>
   (!search.docNo || (d.code || '').includes(search.docNo)) &&
@@ -228,15 +296,53 @@ function resetSearch() {
 // ---------------- 新增 / 修改 ----------------
 const dialogVisible = ref(false)
 const dialogMode = ref('add')
-const form = reactive({ id: '', name: '', companyId: '', assetId: '', remark: '' })
+const emptyForm = () => ({
+  id: '', name: '', companyId: '', assetId: '', remark: '',
+  disposeType: '', buyer: '', voucherNo: '', disposalAmount: null, outLedgerBasis: '',
+  changeType: '', beforeSnapshot: '', afterSnapshot: '',
+  expectedReturnDate: '', borrowDocId: ''
+})
+const form = reactive(emptyForm())
 
 function openDialog(row) {
   if (row && row.status === 'PROCESSING') { ElMessage.warning('单据审批中，不可修改'); return }
   dialogMode.value = row ? 'edit' : 'add'
-  Object.assign(form, row
-    ? { id: row.id, name: row.name || '', companyId: row.companyId || '', assetId: row.assetId || '', remark: row.remark || '' }
-    : { id: '', name: '', companyId: orgStore.companies[0]?.id || '', assetId: '', remark: '' })
+  Object.assign(form, emptyForm(), row
+    ? {
+        id: row.id, name: row.name || '', companyId: row.companyId || '',
+        assetId: row.assetId || '', remark: row.remark || '',
+        disposeType: row.disposeType || '', buyer: row.buyer || '',
+        voucherNo: row.voucherNo || '', disposalAmount: row.disposalAmount ?? null,
+        outLedgerBasis: row.outLedgerBasis || '', changeType: row.changeType || '',
+        beforeSnapshot: row.beforeSnapshot || '', afterSnapshot: row.afterSnapshot || '',
+        expectedReturnDate: row.expectedReturnDate || '', borrowDocId: row.borrowDocId || ''
+      }
+    : { companyId: orgStore.companies[0]?.id || '' })
   dialogVisible.value = true
+}
+
+/** 只把本单据类型在契约里声明的扩展字段带给后端 */
+function extraFields() {
+  const extra = {}
+  if (props.docKey === 'dispose') {
+    Object.assign(extra, {
+      disposeType: form.disposeType, buyer: form.buyer, voucherNo: form.voucherNo,
+      disposalAmount: form.disposalAmount, outLedgerBasis: form.outLedgerBasis
+    })
+  }
+  if (props.docKey === 'change') {
+    Object.assign(extra, {
+      changeType: form.changeType, beforeSnapshot: form.beforeSnapshot,
+      afterSnapshot: form.afterSnapshot
+    })
+  }
+  if (props.docKey === 'borrow') {
+    extra.expectedReturnDate = form.expectedReturnDate
+  }
+  if (form.borrowDocId) {
+    extra.borrowDocId = form.borrowDocId
+  }
+  return extra
 }
 
 /** 单号：前缀 + 年份 + 序号（种子占用 100~900 段，新增从 1000 起，避免撞号） */
@@ -247,11 +353,15 @@ function nextCode() {
 async function submit() {
   if (!form.name) { ElMessage.warning('请填写单据名称'); return }
   if (!form.companyId) { ElMessage.warning('请选择所属公司'); return }
+  if (!form.assetId) { ElMessage.warning('请选择关联资产'); return }
+  if (props.docKey === 'dispose' && !form.disposeType) { ElMessage.warning('请选择处置方式'); return }
+  if (props.docKey === 'change' && !form.changeType) { ElMessage.warning('请选择变更类型'); return }
+  const extra = extraFields()
   try {
     if (dialogMode.value === 'edit') {
       const target = items.value.find(d => d.id === form.id)
       if (target) {
-        Object.assign(target, { name: form.name, companyId: form.companyId, assetId: form.assetId, remark: form.remark })
+        Object.assign(target, { name: form.name, companyId: form.companyId, assetId: form.assetId, remark: form.remark }, extra)
         await col.update(target)
       }
       ElMessage.success('单据已保存')
@@ -265,7 +375,8 @@ async function submit() {
         createTime: new Date().toISOString(),
         finishTime: '',
         remark: form.remark,
-        status: 'DRAFT'
+        status: 'DRAFT',
+        ...extra
       })
       page.value = 1
       ElMessage.success('单据已创建')
@@ -291,32 +402,50 @@ async function removeRow(row) {
   }
 }
 
-// ---------------- 借出归还（4B） ----------------
+// ---------------- 借出归还 = 关联原借出单的退库单（WF3） ----------------
 const returnVisible = ref(false)
-const returnForm = reactive({ docId: '', code: '', comment: '' })
+const returnForm = reactive({ docId: '', code: '', comment: '', assetLabel: '' })
 
-/** 只有已完结、未归还的借出单能登记；其余七类单据不显示这个入口 */
+/** 已完结、未归还，且尚未生成归还型退库单的借出单才能发起 */
 function canReturnRow(doc) {
-  return props.docKey === 'borrow' && doc.status === 'DONE' && !doc.returned
+  if (props.docKey !== 'borrow' || doc.status !== 'DONE' || doc.returned) return false
+  return !backItems.value.some(b => b.borrowDocId === doc.id
+    && !['REVOKED', 'REJECTED'].includes(b.status))
 }
 
-function openReturnDialog(row) {
-  Object.assign(returnForm, { docId: row.id, code: row.code || '', comment: '' })
+async function openReturnDialog(row) {
+  await backCol.load().catch(() => null)
+  const asset = assetStore.assets.find(a => a.id === row.assetId)
+  Object.assign(returnForm, {
+    docId: row.id, code: row.code || '', comment: '',
+    assetLabel: asset ? `${asset.code} ${asset.name}` : (row.assetId || '')
+  })
   returnVisible.value = true
 }
 
 async function submitReturn() {
   const target = items.value.find(d => d.id === returnForm.docId)
   if (!target) { ElMessage.warning('单据不存在，请刷新后重试'); return }
+  if (!target.assetId) { ElMessage.warning('借出单缺少关联资产，无法发起归还退库'); return }
   try {
-    const res = await registerBorrowReturn(target, returnForm.comment.trim())
-    ElMessage.success(res?.message || '归还已登记')
+    await backCol.load().catch(() => null)
+    await dataService.create(`${COLLECTION.docListPrefix}-back`, {
+      name: `归还退库-${target.code || ''}`,
+      code: genDocNo('TK', backItems.value.map(d => d.code)),
+      companyId: target.companyId || '',
+      assetId: target.assetId,
+      borrowDocId: target.id,
+      creatorId: userStore.user?.id || '',
+      createTime: new Date().toISOString(),
+      finishTime: '',
+      remark: returnForm.comment.trim() || `归还借出单 ${target.code || ''}`,
+      status: 'DRAFT'
+    })
+    ElMessage.success('归还退库单已生成，请在「资产退库」页签提交审批')
     returnVisible.value = false
-    // 服务端一次改了单据归还字段与台账状态，两处都要刷新
-    await col.load().catch(() => null)
-    await assetStore.loadAll().catch(() => null)
+    await backCol.load().catch(() => null)
   } catch (e) {
-    ElMessage.error(e?.message || '归还登记失败')
+    ElMessage.error(e?.message || '发起归还退库失败')
   }
 }
 
@@ -326,7 +455,12 @@ const bizType = computed(() => DOC_BIZ_TYPE[props.docKey] || props.docKey.toUppe
 /** 条件上下文：金额取关联资产原值（金额门槛环节据此生效） */
 function ctxOf(doc) {
   const asset = assetStore.assets.find(a => a.id === doc?.assetId)
-  return { amount: Number(asset?.original || doc?.amount || 0), hasDiff: false }
+  return {
+    amount: Number(doc?.disposalAmount || asset?.original || doc?.amount || 0),
+    hasDiff: false,
+    // 与服务端 effectiveCtx 一致：处置方式取单据字段，不能由客户端 ctx 谎报
+    disposeType: doc?.disposeType || ''
+  }
 }
 
 function flowOf(doc) {

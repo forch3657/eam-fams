@@ -27,16 +27,27 @@ import {
  * - 逐单断言台账状态、派生单据、审批轨迹命中真人；
  * - 部门配置、真实账号、用户手工草稿盘点单前后一致。
  *
+ * 固定资产目标口径（docs/fixed-asset-business-rules.md）：
+ * - 归还 = 关联原借出单的退库单（WF3），仓管验收后 BORROWED→IDLE 且清空使用人；
+ * - 维修提交进入 REPAIRING，WF6 新增「修毕验收」环节后资产回 IN_USE；
+ * - 变卖/捐赠/转让按处置方式强制财务 R4 + 审计 R6，服务端不采信客户端 ctx；
+ * - 变更收敛为调拨/维修/信息更正，信息更正留更正前后快照。
+ *
  * 只写 `E2E_ORG_` 前缀单据，afterAll 按基线差集逆序清理，绝不删真实账号。
  */
 
 let ctx: RealOrgContext
 
-/** 普通流程；非盘点流程的环节条件由客户端 ctx 决定，submit 与各次 approve 必须一致 */
+/**
+ * 环节条件上下文：金额门槛在单据未带金额字段时仍由客户端 ctx 兜底，
+ * 但 disposeType / hasDiff 由服务端按单据事实覆盖，客户端无法伪造跳过环节。
+ * submit 与各次 approve 必须传同一份 ctx，避免条件环节在中途漂移。
+ */
 const CTX_BASE = { amount: 0, hasDiff: false }
-/** 触发 WF6「大额维修 > 5 万」/ WF8「财务 > 5 万、分管 + 审计 > 20 万」 */
+/** 触发 WF6「大额维修 > 5 万」分管副总环节 */
 const CTX_LARGE_VP = { amount: 60000, hasDiff: false }
-const CTX_LARGE_ALL = { amount: 300000, hasDiff: false }
+/** 伪造上下文：把转让谎报成报废、金额压到 0，服务端必须按单据事实覆盖 */
+const CTX_FORGED_DISPOSE = { amount: 0, hasDiff: false, disposeType: 'SCRAP' }
 /** 盘点差异由服务端按明细重算，此处仅保持一致 */
 const CTX_DIFF = { amount: 0, hasDiff: true }
 
@@ -89,7 +100,7 @@ async function readDoc(key: string, id: string): Promise<Row> {
 }
 
 /** 单据由 admin 代建（R3 无固资单据写权限），但落在真人名下：creatorId = 真实使用人 */
-async function makeDoc(d: RealOrgDept, bizKey: string, creator: RealOrgActor) {
+async function makeDoc(d: RealOrgDept, bizKey: string, creator: RealOrgActor, extra: Row = {}) {
   const asset = assetOf(d)
   const code = `${DOC_PREFIX}${bizKey}_${suffix()}`
   const created = await apiPost<Row>(ctx.admin, `fixed-asset-doc-lists-${bizKey}`, {
@@ -101,9 +112,28 @@ async function makeDoc(d: RealOrgDept, bizKey: string, creator: RealOrgActor) {
     createTime: new Date().toISOString(),
     finishTime: '',
     remark: `${DOC_PREFIX}真实组织回归_${d.deptName}_${bizKey}`,
-    status: 'DRAFT'
+    status: 'DRAFT',
+    ...extra
   })
   return { id: String(created.id), code, asset, creator }
+}
+
+/** 归还型退库单：复用原借出单的资产，borrowDocId 指向 DONE 且未归还的借出单 */
+async function makeBackDoc(d: RealOrgDept, borrowDoc: { id: string; asset: Row }, creator: RealOrgActor) {
+  const code = `${DOC_PREFIX}back_${suffix()}`
+  const created = await apiPost<Row>(ctx.admin, 'fixed-asset-doc-lists-back', {
+    code,
+    name: `${DOC_PREFIX}真实组织回归_${d.deptName}_归还退库`,
+    companyId: COMPANY_ID,
+    assetId: String(borrowDoc.asset.id),
+    borrowDocId: borrowDoc.id,
+    creatorId: creator.id,
+    createTime: new Date().toISOString(),
+    finishTime: '',
+    remark: `${DOC_PREFIX}真实组织回归_${d.deptName}_归还退库`,
+    status: 'DRAFT'
+  })
+  return { id: String(created.id), code }
 }
 
 async function submit(a: RealOrgActor, docKey: string, docId: string, chainCtx = CTX_BASE) {
@@ -166,6 +196,26 @@ test('[FZ-00] 真实组织矩阵自检：8 部门、真人账号、部门配置�
   }
   await assertDeptConfigUnchanged(ctx)
   expect(String(ctx.handDraft.status), `手工草稿盘点单 ${HAND_DRAFT_DOC_NO} 必须保持草稿`).toBe('DRAFT')
+
+  // 目标口径迁移必须已在生产库生效，否则后续断言会退化成旧口径还不自知
+  const flows = await apiList(ctx.admin, 'system-workflow-flows')
+  // 接口可能返回已解析的步骤数组，也可能返回 JSON 字符串，统一转成文本再断言
+  const stepsText = (id: string) => {
+    const raw = flows.find(f => String(f.id) === id)?.steps
+    return typeof raw === 'string' ? raw : JSON.stringify(raw ?? '')
+  }
+  const wf6 = stepsText('WF6')
+  const wf8 = stepsText('WF8')
+  expect(wf6, 'WF6 应含修毕验收环节').toContain('修毕验收')
+  expect(wf8, 'WF8 财务环节应按处置方式强制').toContain('DISPOSE_FINANCE')
+  expect(wf8, 'WF8 审计环节应按处置方式强制').toContain('DISPOSE_AUDIT')
+  const enabledValues = async (code: string) =>
+    (await apiList(ctx.admin, `system-dict-types-${code}-items`))
+      .filter(i => String(i.status) === 'ENABLED').map(i => String(i.value))
+  expect(await enabledValues('dispose_type')).toEqual(expect.arrayContaining(['SCRAP', 'SALE', 'DONATE', 'TRANSFER_OUT']))
+  expect(await enabledValues('change_type')).toEqual(expect.arrayContaining(['TRANSFER', 'REPAIR', 'CORRECTION']))
+  const params = await apiList(ctx.admin, 'system-params')
+  expect(params.some(p => String(p.key) === 'sys.asset.legacy.cutoff'), '期初切换日参数 SP11 应存在').toBe(true)
 })
 
 test('[FZ-01] 产品研发一部｜WF2 派发：石顺中→资产管理员，台账落使用人', async () => {
@@ -188,9 +238,10 @@ test('[FZ-01] 产品研发一部｜WF2 派发：石顺中→资产管理员，�
     ['提交申请', '使用部门确认（部门主管）', '资产管理员登记（R2）'], { before, after: String(after.status) })
 })
 
-test('[FZ-02] 综合管理部｜WF4 借出+归还：台账 BORROWED→IN_USE，归还留痕', async () => {
+test('[FZ-02] 综合管理部｜WF4 借出 + WF3 归还退库：BORROWED→IDLE 且清空使用人', async () => {
   const d = dept('综合管理部（党群工作部）')
   const doc = await makeDoc(d, 'borrow', d.actors.user)
+  await putAsset(String(doc.asset.id), { status: 'IN_USE' })
   const before = String((await readAsset(String(doc.asset.id))).status)
 
   await submit(d.actors.user, 'borrow', doc.id)
@@ -198,85 +249,140 @@ test('[FZ-02] 综合管理部｜WF4 借出+归还：台账 BORROWED→IN_USE，�
   expect(await approve(POOL.assetManager, 'borrow', doc.id)).toBe('DONE')
   expect(String((await readAsset(String(doc.asset.id))).status)).toBe('BORROWED')
 
-  const returned = await act(sessionOf(ctx, d.actors.user).token, {
+  // 旧口径的免审批归还登记必须被拒绝：归还只能走关联原借出单的 WF3 退库单
+  const legacy = await act(sessionOf(ctx, d.actors.user).token, {
     docKey: 'borrow', docId: doc.id, action: 'return', comment: `${DOC_PREFIX}${d.deptName}实物已归还，外观完好`
   })
-  expect(returned.status, JSON.stringify(returned.body)).toBe(200)
-  expect(returned.body.data.status, '归还不应推进审批状态').toBe('DONE')
-  const saved = await readDoc('fixed-asset-doc-lists-borrow', doc.id)
-  expect(['true', '1']).toContain(String(saved.returned))
-  expect(String(saved.returnBy)).toBe(d.actors.user.id)
-  expect(String(saved.returnRemark)).toContain('实物已归还')
-  const after = String((await readAsset(String(doc.asset.id))).status)
-  expect(after).toBe('IN_USE')
+  expect(legacy.status, JSON.stringify(legacy.body)).toBe(400)
+  expect(String(legacy.body.message)).toContain('归还登记已停用')
 
-  expectTrail(await trailsOf(doc.id), [d.actors.user, d.actors.deptLeader, POOL.assetManager])
-  record('FZ-02', d, 'WF4 资产借出 + 原单归还登记', [d.actors.user, d.actors.deptLeader, POOL.assetManager],
-    ['提交申请', '部门主管审批（DEPT_LEADER）', '资产管理员审核（R2）', '归还登记（非推进型动作）'],
-    { before, after }, ['原借出单 returned/returnBy/returnRemark 留痕'])
+  const back = await makeBackDoc(d, doc, d.actors.user)
+  const savedBack = await readDoc('fixed-asset-doc-lists-back', back.id)
+  expect(String(savedBack.borrowDocId), '归还退库单必须关联原借出单').toBe(doc.id)
+
+  await submit(d.actors.user, 'back', back.id)
+  expect(await approve(d.actors.deptLeader, 'back', back.id)).toBe('PROCESSING')
+  expect(await approve(d.actors.warehouse, 'back', back.id)).toBe('DONE')
+
+  const assetAfter = await readAsset(String(doc.asset.id))
+  expect(String(assetAfter.status), '仓管验收后资产回仓库').toBe('IDLE')
+  expect(String(assetAfter.userId ?? ''), '归还后清空使用人，继续使用须重新派发').toBe('')
+  const borrowAfter = await readDoc('fixed-asset-doc-lists-borrow', doc.id)
+  expect(['true', '1']).toContain(String(borrowAfter.returned))
+  expect(String(borrowAfter.returnBy), '归还留痕落在最终验收的仓管员').toBe(d.actors.warehouse.id)
+  expect(String(borrowAfter.returnDate ?? '')).not.toBe('')
+
+  // 同一借出单不能重复归还
+  const duplicate = await makeBackDoc(d, doc, d.actors.user)
+  const blocked = await act(sessionOf(ctx, d.actors.user).token, {
+    docKey: 'back', docId: duplicate.id, action: 'submit'
+  })
+  expect(blocked.status, JSON.stringify(blocked.body)).toBe(409)
+  expect(String(blocked.body.message)).toContain('已归还')
+
+  const trail = await trailsOf(back.id)
+  expectTrail(trail, [d.actors.user, d.actors.deptLeader, d.actors.warehouse])
+  expect(trail.map(r => String(r.stepName))).toContain('仓管员验收入库')
+  record('FZ-02', d, 'WF4 借出 + WF3 归还退库', [d.actors.user, d.actors.deptLeader, POOL.assetManager, d.actors.warehouse],
+    ['提交借出申请', '部门主管审批（DEPT_LEADER）', '资产管理员审核（R2）',
+      '发起归还退库（borrowDocId 关联原借出单）', '部门主管确认（DEPT_LEADER）', '仓管员验收入库（R8）'],
+    { before, after: String(assetAfter.status) },
+    [`退库单 ${back.code}（DONE，关联借出单 ${doc.id}）；借出单 returned/returnBy/returnDate 留痕；重复归还被 409 拦截`])
 })
 
-test('[FZ-03] 财务资金部｜WF6 大额维修：陈宇→资产管理员→郭晓雅（DEPT_VP）', async () => {
+test('[FZ-03] 财务资金部｜WF6 大额维修：REPAIRING + 修毕验收，台账回 IN_USE', async () => {
   const d = dept('财务资金部')
   const doc = await makeDoc(d, 'repair', d.actors.user)
+  await putAsset(String(doc.asset.id), { status: 'IN_USE' })
   const before = String((await readAsset(String(doc.asset.id))).status)
 
   await submit(d.actors.user, 'repair', doc.id, CTX_LARGE_VP)
+  expect(String((await readAsset(String(doc.asset.id))).status), '提交送修即进入维修中').toBe('REPAIRING')
   expect(await approve(d.actors.deptLeader, 'repair', doc.id, CTX_LARGE_VP)).toBe('PROCESSING')
   expect(await approve(POOL.assetManager, 'repair', doc.id, CTX_LARGE_VP)).toBe('PROCESSING')
-  expect(await approve(d.actors.vp, 'repair', doc.id, CTX_LARGE_VP)).toBe('DONE')
+  expect(await approve(d.actors.vp, 'repair', doc.id, CTX_LARGE_VP)).toBe('PROCESSING')
+  expect(String((await readAsset(String(doc.asset.id))).status), '修毕验收前仍为维修中').toBe('REPAIRING')
+  expect(await approve(POOL.assetManager, 'repair', doc.id, CTX_LARGE_VP), '修毕验收为最后一个环节').toBe('DONE')
 
   const after = String((await readAsset(String(doc.asset.id))).status)
-  expect(after, '维修流程按业务口径不改变资产在用状态').toBe(before)
+  expect(after, '修毕验收完结后资产恢复使用中').toBe('IN_USE')
   const trail = await trailsOf(doc.id)
   expectTrail(trail, [d.actors.user, d.actors.deptLeader, POOL.assetManager, d.actors.vp])
-  expect(trail.map(r => String(r.stepName))).toContain('大额维修分管副总审批')
-  record('FZ-03', d, 'WF6 大额维修（>5 万）', [d.actors.user, d.actors.deptLeader, POOL.assetManager, d.actors.vp],
-    ['提交申请', '部门主管审批（DEPT_LEADER）', '资产管理员审核（R2）', '大额维修分管副总审批（DEPT_VP）'],
+  const stepNames = trail.map(r => String(r.stepName))
+  expect(stepNames).toContain('大额维修分管副总审批')
+  expect(stepNames, 'WF6 应新增修毕验收环节').toContain('修毕验收')
+  record('FZ-03', d, 'WF6 大额维修（>5 万 + 修毕验收）', [d.actors.user, d.actors.deptLeader, POOL.assetManager, d.actors.vp],
+    ['提交申请（资产转维修中）', '部门主管审批（DEPT_LEADER）', '资产管理员审核（R2）',
+      '大额维修分管副总审批（DEPT_VP，AMOUNT_GT 5 万）', '修毕验收（R2，资产回使用中）'],
     { before, after })
 })
 
-test('[FZ-04] 产品研发二部｜WF7 变更：陈福沨→资产管理员，台账状态保持', async () => {
+test('[FZ-04] 产品研发二部｜WF7 信息更正：更正前后快照留痕，台账状态与使用人不变', async () => {
   const d = dept('产品研发二部')
-  const doc = await makeDoc(d, 'change', d.actors.user)
-  const before = String((await readAsset(String(doc.asset.id))).status)
+  const doc = await makeDoc(d, 'change', d.actors.user, {
+    changeType: 'CORRECTION',
+    beforeSnapshot: JSON.stringify({ location: 'E2E_ORG_旧存放位置', custodian: '原责任人' }),
+    afterSnapshot: JSON.stringify({ location: 'E2E_ORG_新存放位置', custodian: '现责任人' })
+  })
+  await putAsset(String(doc.asset.id), { status: 'IN_USE' })
+  const before = await readAsset(String(doc.asset.id))
 
   await submit(d.actors.user, 'change', doc.id)
   expect(await approve(d.actors.deptLeader, 'change', doc.id)).toBe('PROCESSING')
   expect(await approve(POOL.assetManager, 'change', doc.id)).toBe('DONE')
 
-  const after = String((await readAsset(String(doc.asset.id))).status)
-  expect(after).toBe(before)
+  const after = await readAsset(String(doc.asset.id))
+  expect(String(after.status), '信息更正不改台账状态').toBe(String(before.status))
+  expect(String(after.userId ?? ''), '信息更正不改使用人').toBe(String(before.userId ?? ''))
+  const saved = await readDoc('fixed-asset-doc-lists-change', doc.id)
+  expect(String(saved.changeType)).toBe('CORRECTION')
+  expect(String(saved.beforeSnapshot), '更正前快照须落库').toContain('旧存放位置')
+  expect(String(saved.afterSnapshot), '更正后快照须落库').toContain('新存放位置')
   expectTrail(await trailsOf(doc.id), [d.actors.user, d.actors.deptLeader, POOL.assetManager])
-  record('FZ-04', d, 'WF7 资产变更', [d.actors.user, d.actors.deptLeader, POOL.assetManager],
-    ['提交申请', '调出部门主管审批（DEPT_LEADER）', '资产管理员确认（R2）'], { before, after })
+  record('FZ-04', d, 'WF7 信息更正（CORRECTION）', [d.actors.user, d.actors.deptLeader, POOL.assetManager],
+    ['提交申请（附更正前后快照）', '调出部门主管审批（DEPT_LEADER）', '资产管理员确认（R2）'],
+    { before: String(before.status), after: String(after.status) },
+    [`变更单 ${doc.code} 保存 beforeSnapshot / afterSnapshot`])
 })
 
-test('[FZ-05] 科技创新部｜WF8 大额处置：陈阳红→李弥贤→郭晓雅→陈容源，台账转已核销', async () => {
+test('[FZ-05] 科技创新部｜WF8 转让处置：按处置方式强制财务+审计，伪造 ctx 无效', async () => {
   const d = dept('科技创新部')
-  const doc = await makeDoc(d, 'dispose', d.actors.user)
+  const voucher = `${DOC_PREFIX}CZ_${suffix()}`
+  const doc = await makeDoc(d, 'dispose', d.actors.user, {
+    disposeType: 'TRANSFER_OUT',
+    buyer: '集团内独立核算主体',
+    voucherNo: voucher,
+    disposalAmount: 1000,
+    outLedgerBasis: '出公司即出账：集团内独立核算主体间转让'
+  })
   // 期初「待核销」资产补走处置审批，是真实会用到的核销路径
   await putAsset(String(doc.asset.id), { status: 'PENDING_WRITE_OFF' })
   const before = String((await readAsset(String(doc.asset.id))).status)
+  const saved = await readDoc('fixed-asset-doc-lists-dispose', doc.id)
+  expect(String(saved.disposeType), '转让方式须随单据落库').toBe('TRANSFER_OUT')
+  expect(String(saved.outLedgerBasis)).toContain('出公司即出账')
+  expect(String(saved.voucherNo)).toBe(voucher)
 
-  await submit(POOL.admin, 'dispose', doc.id, CTX_LARGE_ALL)
-  expect(await approve(d.actors.deptLeader, 'dispose', doc.id, CTX_LARGE_ALL)).toBe('PROCESSING')
-  expect(await approve(d.actors.finance, 'dispose', doc.id, CTX_LARGE_ALL)).toBe('PROCESSING')
-  expect(await approve(d.actors.vp, 'dispose', doc.id, CTX_LARGE_ALL)).toBe('PROCESSING')
-  expect(await approve(d.actors.auditor, 'dispose', doc.id, CTX_LARGE_ALL)).toBe('DONE')
+  // 客户端谎报「报废 + 金额 0」试图跳过财务/审计；服务端 effectiveCtx 按单据事实覆盖
+  await submit(POOL.admin, 'dispose', doc.id, CTX_FORGED_DISPOSE)
+  expect(await approve(d.actors.deptLeader, 'dispose', doc.id, CTX_FORGED_DISPOSE)).toBe('PROCESSING')
+  expect(await approve(d.actors.finance, 'dispose', doc.id, CTX_FORGED_DISPOSE), '财务复核必须强制生效').toBe('PROCESSING')
+  expect(await approve(d.actors.auditor, 'dispose', doc.id, CTX_FORGED_DISPOSE)).toBe('DONE')
 
   const after = String((await readAsset(String(doc.asset.id))).status)
   expect(after, '处置审批通过后台账应转已核销').toBe('DISPOSED')
   const trail = await trailsOf(doc.id)
-  expectTrail(trail, [POOL.admin, d.actors.deptLeader, d.actors.finance, d.actors.vp, d.actors.auditor])
+  expectTrail(trail, [POOL.admin, d.actors.deptLeader, d.actors.finance, d.actors.auditor])
   const stepNames = trail.map(r => String(r.stepName))
-  expect(stepNames).toContain('财务管理员复核')
-  expect(stepNames).toContain('分管副总审批')
-  expect(stepNames).toContain('审计员备案')
-  record('FZ-05', d, 'WF8 大额处置（>20 万）',
-    [POOL.admin, d.actors.deptLeader, d.actors.finance, d.actors.vp, d.actors.auditor],
-    ['提交申请', '部门主管审批（DEPT_LEADER）', '财务管理员复核（R4）', '分管副总审批（DEPT_VP）', '审计员备案（R6）'],
-    { before, after })
+  expect(stepNames, '低额转让仍须财务复核').toContain('财务管理员复核')
+  expect(stepNames, '低额转让仍须审计备案').toContain('审计员备案')
+  expect(stepNames, '分管副总仍按金额门槛，不因转让强制触发').not.toContain('分管副总审批')
+  record('FZ-05', d, 'WF8 转让处置（财务+审计强制）',
+    [POOL.admin, d.actors.deptLeader, d.actors.finance, d.actors.auditor],
+    ['提交申请（伪造 ctx 报废/0 元）', '部门主管审批（DEPT_LEADER）',
+      '财务管理员复核（R4，DISPOSE_FINANCE 强制）', '审计员备案（R6，DISPOSE_AUDIT 强制）'],
+    { before, after },
+    [`处置单 ${doc.code} 记录 disposeType/受让方/凭证号/出账依据；台账转已核销`])
 })
 
 test('[FZ-06] 项目管理部｜WF1 入库：仓管角色池例外，台账待入库→空闲', async () => {
@@ -364,24 +470,30 @@ test('[FZ-07] 市场营销部｜WF9 盘点：跨部门角色池、审计抽查�
     { before, after }, [`处置单 ${String(derived[0].code)}（DRAFT，来源盘点单 ${docId}）`])
 })
 
-test('[FZ-08] 公司领导｜层级例外：leader 为 R7 账号、vp 与 leader 不同人仍可完成 DEPT_VP', async () => {
+test('[FZ-08] 公司领导｜层级例外：leader 为 R7 账号，DEPT_VP 与修毕验收均可完成', async () => {
   const d = dept('公司领导')
   const doc = await makeDoc(d, 'repair', d.actors.user)
+  await putAsset(String(doc.asset.id), { status: 'IN_USE' })
   const before = String((await readAsset(String(doc.asset.id))).status)
   expect(d.actors.user.id).toBe(d.actors.deptLeader.id)
   expect(d.actors.deptLeader.id).not.toBe(d.actors.vp.id)
 
   await submit(d.actors.user, 'repair', doc.id, CTX_LARGE_VP)
+  expect(String((await readAsset(String(doc.asset.id))).status)).toBe('REPAIRING')
   // DEPT_LEADER 解析到的是 leader_id（严坤斌，R7 + 领导班子），不因角色停用而卡单
   expect(await approve(d.actors.deptLeader, 'repair', doc.id, CTX_LARGE_VP)).toBe('PROCESSING')
   expect(await approve(POOL.assetManager, 'repair', doc.id, CTX_LARGE_VP)).toBe('PROCESSING')
-  expect(await approve(d.actors.vp, 'repair', doc.id, CTX_LARGE_VP)).toBe('DONE')
+  expect(await approve(d.actors.vp, 'repair', doc.id, CTX_LARGE_VP)).toBe('PROCESSING')
+  expect(await approve(POOL.assetManager, 'repair', doc.id, CTX_LARGE_VP)).toBe('DONE')
 
   const after = String((await readAsset(String(doc.asset.id))).status)
-  expect(after).toBe(before)
-  expectTrail(await trailsOf(doc.id), [d.actors.user, POOL.assetManager, d.actors.vp])
-  record('FZ-08', d, 'WF6 大额维修（部门层级例外）', [d.actors.user, POOL.assetManager, d.actors.vp],
-    ['提交申请', '部门主管审批（leader=R7 账号）', '资产管理员审核（R2）', '大额维修分管副总审批（DEPT_VP）'],
+  expect(after, '修毕验收后恢复使用中').toBe('IN_USE')
+  const trail = await trailsOf(doc.id)
+  expectTrail(trail, [d.actors.user, POOL.assetManager, d.actors.vp])
+  expect(trail.map(r => String(r.stepName))).toContain('修毕验收')
+  record('FZ-08', d, 'WF6 大额维修（部门层级例外 + 修毕验收）', [d.actors.user, POOL.assetManager, d.actors.vp],
+    ['提交申请（资产转维修中）', '部门主管审批（leader=R7 账号）', '资产管理员审核（R2）',
+      '大额维修分管副总审批（DEPT_VP）', '修毕验收（R2）'],
     { before, after })
 })
 
@@ -389,6 +501,8 @@ test('[FZ-09] 越权防护：其他部门主管审批被 403 且点名到本部�
   const d = dept('产品研发一部')
   const other = dept('综合管理部（党群工作部）')
   const doc = await makeDoc(d, 'alloc', d.actors.user)
+  // 派发要求资产处于空闲；FZ-01 已把同一在册资产派成「使用中」，这里显式回到空闲
+  await putAsset(String(doc.asset.id), { status: 'IDLE' })
   await submit(POOL.admin, 'alloc', doc.id)
 
   const blocked = await act(sessionOf(ctx, other.actors.deptLeader).token, {

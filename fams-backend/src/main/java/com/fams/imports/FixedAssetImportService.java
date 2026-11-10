@@ -56,8 +56,8 @@ public class FixedAssetImportService {
 
     /**
      * 期初导入时这些状态通常应由业务单据产生。
-     * BUG-003 已定「期初允许无单据，状态以台账为准」，因此这里不阻断导入，
-     * 只做行级告警并在资产上标注来源，便于上线后补录单据。
+     * 目标口径（2026-11-09）：切换日前的历史数据整体保留例外，不阻断导入、
+     * 不倒补单据，只做行级告警、标注来源与批次；切换日后由 requireLegacyWindow 硬拦截。
      */
     private static final Set<String> LEGACY_STATES = new HashSet<>(Arrays.asList(
             "DISPATCHING", "BORROWED", "REPAIRING", "DISPOSING"));
@@ -72,6 +72,9 @@ public class FixedAssetImportService {
     }
 
     private static final String SOURCE_TAG_LEGACY = "期初导入";
+
+    /** 期初切换日系统参数：由管理员在系统设置中指定，留空表示尚未指定 */
+    private static final String LEGACY_CUTOFF_PARAM = "sys.asset.legacy.cutoff";
 
     // ---------------------------------------------------------------- 单表列定义
 
@@ -191,6 +194,12 @@ public class FixedAssetImportService {
             }
         }
 
+        // 期初硬边界：本批只要含期初状态行，就必须已指定切换日且尚未过期。
+        // 在写入前统一判定，避免整批模式回滚一半、逐行模式部分放行。
+        if (parsed.stream().anyMatch(r -> r.legacyState && !r.invalid)) {
+            requireLegacyWindow(index);
+        }
+
         if (abortOnError && !result.failures.isEmpty()) {
             result.status = Status.REJECTED_INVALID;
             return result;
@@ -284,7 +293,7 @@ public class FixedAssetImportService {
         body.put("purchaseMode", row.purchaseMode);
         body.put("status", row.status);
         if (row.legacyState) {
-            // 保留「这批状态从哪来」的线索，后续补录单据时可直接按 sourceTag 筛
+            // 保留「这批状态从哪来」的线索：期初历史例外不倒补单据，只留来源标记
             body.put("sourceTag", SOURCE_TAG_LEGACY);
         }
         body.put("depreciate", row.depreciate);
@@ -297,8 +306,10 @@ public class FixedAssetImportService {
             if (row.legacyState) {
                 String label = LEGACY_STATE_LABELS.getOrDefault(row.status, row.status);
                 result.warnings.add(new FixedAssetImportResult.Warning(row.line,
-                        "状态「" + label + "」通常应有对应业务单据；已按期初数据放行并标注「" + SOURCE_TAG_LEGACY + "」，请后续补录单据"));
-                log.warn("固定资产导入：第 {} 行状态 {} 无来源单据，已标注期初导入 code={}", row.line, row.status, code);
+                        "状态「" + label + "」属期初历史数据，已保留例外并标注「" + SOURCE_TAG_LEGACY
+                                + "」，批次 " + index.importBatch + "；不倒补单据，审计可单独筛出"));
+                log.info("固定资产导入：期初历史状态 {} 已放行 code={} batch={} cutoff={}",
+                        row.status, code, index.importBatch, index.legacyCutoff);
             }
         } catch (ApiException e) {
             fail(row, "新建资产失败：" + e.getMessage(), result, abort);
@@ -575,7 +586,43 @@ public class FixedAssetImportService {
             }
         }
         index.codePrefix = assetCodePrefix();
+        index.legacyCutoff = legacyCutoff();
+        index.importBatch = "LEGACY-" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE)
+                + "-" + System.currentTimeMillis();
         return index;
+    }
+
+    /** 期初切换日：管理员手工指定；未指定时为空，导入期初状态会被拒绝 */
+    private String legacyCutoff() {
+        try {
+            for (Map<String, Object> row : genericService.list("system-params", new HashMap<String, String[]>())) {
+                if (LEGACY_CUTOFF_PARAM.equals(str(row.get("key")))) {
+                    return str(row.get("value")).trim();
+                }
+            }
+        } catch (RuntimeException e) {
+            log.debug("读取期初切换日失败，按期初口子未开放处理", e);
+        }
+        return "";
+    }
+
+    /** 期初状态硬边界：未指定切换日或已过切换日，一律不再放行期初状态直写 */
+    private static void requireLegacyWindow(Index index) {
+        if (index.legacyCutoff.isEmpty()) {
+            throw new ApiException(ErrorCode.BAD_REQUEST,
+                    "管理员尚未指定期初数据切换日，不能导入期初状态；请先在「系统设置」中配置");
+        }
+        LocalDate cutoff;
+        try {
+            cutoff = LocalDate.parse(index.legacyCutoff);
+        } catch (RuntimeException e) {
+            throw new ApiException(ErrorCode.BAD_REQUEST, "期初数据切换日格式不正确，应为 yyyy-MM-dd");
+        }
+        if (LocalDate.now().isAfter(cutoff)) {
+            throw new ApiException(ErrorCode.BAD_REQUEST,
+                    "已超过期初数据切换日 " + index.legacyCutoff
+                            + "，此后新增资产一律走登记，不能再直写期初状态");
+        }
     }
 
     /** 资产编号前缀取自系统参数 sys.asset.code.prefix（与界面新增资产一致） */
@@ -693,6 +740,10 @@ public class FixedAssetImportService {
         final Set<String> locationNames = new LinkedHashSet<>();
         final Set<String> locationCodes = new LinkedHashSet<>();
         String codePrefix = DEFAULT_PREFIX;
+        /** 管理员指定的期初切换日；空表示尚未指定 */
+        String legacyCutoff = "";
+        /** 本批导入的批次号，写进告警与日志供审计追溯 */
+        String importBatch = "";
     }
 
     /** 整批模式的内部回滚信号 */

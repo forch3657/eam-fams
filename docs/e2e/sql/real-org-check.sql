@@ -10,6 +10,9 @@
 -- 约定：本文件只有 SELECT，可任意反复执行；不自动清库、不删真实账号、不改部门配置。
 -- 期望值以 2026-11-04 生产库基线为准（46 台资产 / 8 个有资产部门 / 81 个启用账号含 admin）。
 -- 若期间发生正常业务，第 2、8 节的数字可能变化，需人工甄别而非直接判失败。
+-- 2026-11-09 固定资产目标口径复跑后实测：残留 4 项均为 0、手工草稿单 1、
+--   E2E_ 测试资产 0、46 台真实资产全部 IN_USE、81 个启用账号；新增第 11 节核对迁移结果。
+--   详见 docs/e2e/real-org-verification.md §9.3。
 -- =============================================================================
 
 SET @company = 'mvsv021s37';
@@ -145,3 +148,17 @@ FROM org_departments d
 LEFT JOIN org_users lu ON lu.id = d.leader_id
 LEFT JOIN org_users vu ON vu.id = d.vp_id
 WHERE d.code = 'BM-0001' AND d.company_id = @company;
+
+-- 11. 目标口径迁移复核（2026-11-09）：归还退库关联、WF6/WF8 环节、字典与期初切换日
+--     11.1 本轮归还型退库单必须已清理，且不允许出现「已归还借出单仍被关联」的残留
+SELECT COUNT(1) AS back_link_residue FROM fixed_asset_doc_lists_back
+WHERE borrow_doc_id IS NOT NULL AND borrow_doc_id <> ''
+  AND (code LIKE 'E2E\_ORG\_%' OR name LIKE 'E2E\_ORG\_%' OR remark LIKE 'E2E\_ORG\_%');
+--     11.2 WF6 应为 4 步且含「修毕验收」；WF8 应含 DISPOSE_FINANCE / DISPOSE_AUDIT
+SELECT id, name, JSON_LENGTH(steps) AS step_count, steps
+FROM system_workflow_flows WHERE id IN ('WF6', 'WF8');
+--     11.3 处置四类启用 / 变更三类启用，旧值只停用不删除
+SELECT dict_code, value, label, status FROM system_dict_items
+WHERE dict_code IN ('dispose_type', 'change_type') ORDER BY dict_code, sort;
+--     11.4 期初切换日参数：留空表示管理员尚未指定（此时拒绝期初状态直写）
+SELECT id, `key`, `value`, remark FROM system_params WHERE `key` = 'sys.asset.legacy.cutoff';

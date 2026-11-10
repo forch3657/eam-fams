@@ -53,13 +53,13 @@
     "DISPOSE_TYPE": {
       "SCRAP": "报废",
       "SALE": "变卖",
-      "TRANSFER": "调拨",
-      "OTHER": "其他"
+      "DONATE": "捐赠",
+      "TRANSFER_OUT": "转让"
     },
     "CHANGE_TYPE": {
       "TRANSFER": "调拨",
       "REPAIR": "维修",
-      "OTHER": "其他"
+      "CORRECTION": "信息更正"
     },
     "DOC_STATUS": {
       "DRAFT": "待提交",

@@ -27,23 +27,10 @@ export function isCollabAction(action) {
 }
 
 /**
- * 借出归还登记（4B）。
- *
- * <p>不是审批推进动作：服务端在已完结且未归还的借出单上记录归还人/时间/备注，
- * 并把台账资产状态从 BORROWED 回写为 IN_USE；单据状态保持 DONE，不新增审批轨迹。
- * 权限由服务端判定（创建人 / 资产管理员 / 仓管员）。</p>
+ * 借出归还已不再走免审批登记（action=return 后端已停用）。
+ * 由 FixedAssetDocList 生成带 borrowDocId 的退库单草稿走 WF3 审批，
+ * 完结时服务端回写借出单归还标记，并把资产从 BORROWED 回写为 IDLE。
  */
-export const BORROW_RETURN_ACTION = 'return'
-
-export async function registerBorrowReturn(doc, comment = '') {
-  return httpService.approvalAction({
-    docKey: 'borrow',
-    docId: doc.id,
-    bizType: 'BORROW',
-    action: BORROW_RETURN_ACTION,
-    comment
-  })
-}
 
 /** 单据类型 -> 审批业务类型 */
 export const DOC_BIZ_TYPE = {
@@ -89,7 +76,13 @@ export const ALL_BIZ_TYPES = Object.keys(BIZ_DOC_REGISTRY)
 export const MODE_TEXT = { ANY: '或签', SEQUENCE: '依次', ALL: '会签' }
 
 /** 环节触发条件类型 -> 中文 */
-export const CONDITION_TEXT = { NONE: '无条件', AMOUNT_GT: '单据金额大于', HAS_DIFF: '存在盘点差异' }
+export const CONDITION_TEXT = {
+  NONE: '无条件',
+  AMOUNT_GT: '单据金额大于',
+  HAS_DIFF: '存在盘点差异',
+  DISPOSE_FINANCE: '财务按处置方式强制参与（报废按金额）',
+  DISPOSE_AUDIT: '审计按处置方式强制参与（报废按金额）'
+}
 
 export { APPROVE_RESULT }
 
@@ -250,12 +243,19 @@ export function stepApproversWithRecords(step, org, records = [], doc = null, as
   return [...result.values()]
 }
 
-/** 环节是否在当前单据上生效（按触发条件过滤） */
+/** 环节是否在当前单据上生效（与后端 ApprovalSupport.stepApplies 同口径） */
 export function stepApplies(step, ctx = {}) {
   const type = step.conditionType || 'NONE'
-  if (type === 'AMOUNT_GT') {
+  const amountGt = () => {
     const threshold = Number(step.conditionValue != null ? step.conditionValue : (step.amountLimit || 0))
-    return Number(ctx.amount || 0) > threshold
+    const amount = Number(ctx.amount)
+    return Number.isFinite(amount) && Number.isFinite(threshold) && amount > threshold
+  }
+  if (type === 'AMOUNT_GT') return amountGt()
+  if (type === 'DISPOSE_FINANCE' || type === 'DISPOSE_AUDIT') {
+    // 变卖 / 捐赠 / 转让一律强制参与，不设金额门槛；报废沿用金额门槛
+    if (['SALE', 'DONATE', 'TRANSFER_OUT'].includes(String(ctx.disposeType || ''))) return true
+    return amountGt()
   }
   if (type === 'HAS_DIFF') return !!ctx.hasDiff
   return true
@@ -344,7 +344,8 @@ export function stepInfo(step, org) {
     modeText: MODE_TEXT[step.mode] || step.mode || '或签',
     conditionText: step.conditionType && step.conditionType !== 'NONE'
       ? (CONDITION_TEXT[step.conditionType] || step.conditionType) +
-        (step.conditionType === 'AMOUNT_GT' ? ' ' + Number(step.conditionValue || 0) + ' 元' : '')
+        (['AMOUNT_GT', 'DISPOSE_FINANCE', 'DISPOSE_AUDIT'].includes(step.conditionType)
+          ? ' ' + Number(step.conditionValue || 0) + ' 元' : '')
       : ''
   }
 }

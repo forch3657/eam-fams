@@ -878,43 +878,46 @@ class P5InventoryDepreciationTest {
     }
 
     /**
-     * 借出归还：已完结且未归还的借出单可登记归还，单据留痕、状态保持 DONE，
-     * 台账资产从 BORROWED 回写 IN_USE；重复登记与越权登记都要被拒。
+     * 借出归还已并入退库单（WF3）：旧的免审批 action=return 停用；
+     * 归还型退库单必须关联已完结且未归还的借出单，且同一借出单不能重复归还。
+     * 完结后的台账回写（BORROWED → IDLE、清空使用人）由真实组织 E2E 走完整审批链验证。
      */
     @Test
-    @DisplayName("借出归还：状态回写、留痕、重复与越权防护")
-    void borrowReturnRestoresAssetStatus() throws Exception {
-        String suffix = String.valueOf(System.nanoTime());
-        String code = "BR-RET-" + suffix;
+    @DisplayName("借出归还：免审批登记停用，归还退库单校验关联借出单并防重复")
+    void borrowReturnRequiresApprovedBackDoc() throws Exception {
+        String code = "BR-RET-" + System.nanoTime();
         String assetId = createAsset(testAsset(code, "借出归还资产"));
         genericService.patchField(ASSETS, assetId, "status", "BORROWED", null);
-
         String borrowId = createBorrowDoc(code, assetId);
-        String returnBody = "{\"docKey\":\"borrow\",\"docId\":\"" + borrowId
-                + "\",\"action\":\"return\",\"comment\":\"实物已归还，外观完好\"}";
+
+        // 旧口径：action=return 免审批登记，现已停用，资产不能被悄悄改回 IN_USE
+        String legacyReturn = "{\"docKey\":\"borrow\",\"docId\":\"" + borrowId
+                + "\",\"action\":\"return\",\"comment\":\"实物已归还\"}";
         mockMvc.perform(auth(post("/api/approvals/action"))
-                        .contentType(MediaType.APPLICATION_JSON).content(returnBody))
+                        .contentType(MediaType.APPLICATION_JSON).content(legacyReturn))
+                .andExpect(status().isBadRequest());
+        assertThat(String.valueOf(genericService.get(ASSETS, assetId).get("status"))).isEqualTo("BORROWED");
+
+        // 新口径：生成关联借出单的退库单草稿，提交时通过资产与关联校验
+        String backId = createBackDoc(code + "-BACK", assetId, borrowId);
+        mockMvc.perform(auth(post("/api/approvals/action"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"docKey\":\"back\",\"docId\":\"" + backId + "\",\"action\":\"submit\"}"))
                 .andExpect(status().isOk());
 
-        Map<String, Object> updated = genericService.get("fixed-asset-doc-lists-borrow", borrowId);
-        assertThat(String.valueOf(updated.get("returned"))).isIn("true", "1");
-        assertThat(String.valueOf(updated.get("returnBy"))).isEqualTo("U1");
-        assertThat(String.valueOf(updated.get("returnRemark"))).contains("实物已归还");
-        assertThat(String.valueOf(updated.get("status"))).isEqualTo("DONE");
-        assertThat(String.valueOf(genericService.get(ASSETS, assetId).get("status"))).isEqualTo("IN_USE");
-
-        // 重复登记：同一张借出单不能还两次
+        // 同一借出单重复归还：资产互斥锁 / 关联校验都必须拒绝
+        String dupId = createBackDoc(code + "-DUP", assetId, borrowId);
         mockMvc.perform(auth(post("/api/approvals/action"))
-                        .contentType(MediaType.APPLICATION_JSON).content(returnBody))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"docKey\":\"back\",\"docId\":\"" + dupId + "\",\"action\":\"submit\"}"))
                 .andExpect(status().isConflict());
 
-        // 越权：普通使用人既不是创建人也不是资产管理员/仓管员
-        genericService.patchField("fixed-asset-doc-lists-borrow", borrowId, "returned", false, null);
-        String outsider = ensureApprover("borrow_outsider_" + suffix, "R3");
-        mockMvc.perform(post("/api/approvals/action")
-                        .header("Authorization", "Bearer " + outsider)
-                        .contentType(MediaType.APPLICATION_JSON).content(returnBody))
-                .andExpect(status().isForbidden());
+        // 关联不存在的借出单：提交被拒
+        String badId = createBackDoc(code + "-BAD", assetId, "NO-SUCH-BORROW-DOC");
+        mockMvc.perform(auth(post("/api/approvals/action"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"docKey\":\"back\",\"docId\":\"" + badId + "\",\"action\":\"submit\"}"))
+                .andExpect(status().isBadRequest());
     }
 
     /** 造一张已完结、未归还的借出单（跳过审批链，只测归还动作本身） */
@@ -930,6 +933,24 @@ class P5InventoryDepreciationTest {
         String created = mockMvc.perform(auth(post("/api/fixed-asset-doc-lists-borrow"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(borrow)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        return objectMapper.readTree(created).path("data").path("id").asText();
+    }
+
+    /** 造一张关联借出单的退库单草稿 */
+    private String createBackDoc(String code, String assetId, String borrowDocId) throws Exception {
+        Map<String, Object> back = new HashMap<>();
+        back.put("code", code);
+        back.put("name", "归还退库测试单据");
+        back.put("companyId", "C1");
+        back.put("assetId", assetId);
+        back.put("borrowDocId", borrowDocId);
+        back.put("creatorId", "U1");
+        back.put("status", "DRAFT");
+        String created = mockMvc.perform(auth(post("/api/fixed-asset-doc-lists-back"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(back)))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
         return objectMapper.readTree(created).path("data").path("id").asText();

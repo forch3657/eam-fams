@@ -121,7 +121,10 @@ public final class ApprovalSupport {
         return Collections.emptyList();
     }
 
-    /** 环节触发条件：AMOUNT_GT 金额门槛 / HAS_DIFF 存在盘点差异 */
+    /**
+     * 环节触发条件：AMOUNT_GT 金额门槛 / HAS_DIFF 盘点差异 /
+     * DISPOSE_FINANCE、DISPOSE_AUDIT 按处置方式强制财务与审计参与。
+     */
     public static boolean stepApplies(Map<String, Object> step, Map<String, Object> ctx) {
         String type = text(step.get("conditionType"));
         if (type.isEmpty() || "NONE".equals(type)) {
@@ -130,18 +133,33 @@ public final class ApprovalSupport {
         if (ctx == null) {
             return false;
         }
-        if ("AMOUNT_GT".equals(type)) {
-            BigDecimal threshold = RowCodec.toBigDecimal(step.get("conditionValue"));
-            if (threshold == null) {
-                threshold = RowCodec.toBigDecimal(step.get("amountLimit"));
-            }
-            BigDecimal amount = RowCodec.toBigDecimal(ctx.get("amount"));
-            if (threshold == null || amount == null) {
+        if ("DISPOSE_FINANCE".equals(type) || "DISPOSE_AUDIT".equals(type)) {
+            // 变卖 / 捐赠 / 转让一律强制参与，不设金额门槛；报废沿用原金额门槛
+            String disposeType = text(ctx.get("disposeType"));
+            boolean forced = "SALE".equals(disposeType) || "DONATE".equals(disposeType)
+                    || "TRANSFER_OUT".equals(disposeType);
+            if (forced) {
                 return true;
             }
-            return amount.compareTo(threshold) > 0;
+            return amountExceeds(step, ctx);
+        }
+        if ("AMOUNT_GT".equals(type)) {
+            return amountExceeds(step, ctx);
         }
         return "HAS_DIFF".equals(type) && truthy(ctx.get("hasDiff"));
+    }
+
+    /** 金额门槛：阈值或金额缺失一律不触发（fail-closed，不再静默判定条件成立） */
+    private static boolean amountExceeds(Map<String, Object> step, Map<String, Object> ctx) {
+        BigDecimal threshold = RowCodec.toBigDecimal(step.get("conditionValue"));
+        if (threshold == null) {
+            threshold = RowCodec.toBigDecimal(step.get("amountLimit"));
+        }
+        BigDecimal amount = RowCodec.toBigDecimal(ctx.get("amount"));
+        if (threshold == null || amount == null) {
+            return false;
+        }
+        return amount.compareTo(threshold) > 0;
     }
 
     /** 当前待审环节；全部通过时返回 null。deptId 用于按部门解析审批人。 */

@@ -43,6 +43,18 @@ public class ApprovalService {
     /** 台账集合：固资单据完结后回写使用人/状态 */
     private static final String ASSETS = "fixed-assets";
 
+    /** 借出单 / 退库单集合：归还型退库单通过 borrowDocId 关联借出单 */
+    private static final String BORROW_DOCS = "fixed-asset-doc-lists-borrow";
+    private static final String BACK_DOCS = "fixed-asset-doc-lists-back";
+
+    /** 固定资产单据集合：状态前置校验与「同资产审批中互斥」的扫描范围 */
+    private static final String[] FIXED_ASSET_DOC_COLLECTIONS = {
+            "fixed-asset-doc-lists-inbound", "fixed-asset-doc-lists-alloc",
+            BACK_DOCS, BORROW_DOCS,
+            "fixed-asset-doc-lists-transfer", "fixed-asset-doc-lists-repair",
+            "fixed-asset-doc-lists-change", "fixed-asset-doc-lists-dispose"
+    };
+
     /** 处置单集合：盘点盘亏核销生成待审处置单 */
     private static final String DISPOSE_DOCS = "fixed-asset-doc-lists-dispose";
 
@@ -107,9 +119,10 @@ public class ApprovalService {
         }
         Map<String, Object> previous = genericService.get(collection, docId);
         String oldStatus = text(previous.get("status"));
-        // 借出归还登记不是审批推进动作：尽早返回，避免为已完结单据解析流程与写轨迹
+        // 归还已并入退库单（WF3）走正式审批：不再有免审批的 action=return 登记
         if ("return".equals(action)) {
-            return registerBorrowReturn(request, docKey, docId, collection, previous, oldStatus);
+            throw new ApiException(ErrorCode.BAD_REQUEST,
+                    "归还登记已停用，请发起关联原借出单的退库单，经仓管验收后完结");
         }
         String bizType = text(request.getBizType()).isEmpty()
                 ? ApprovalSupport.bizTypeOf(docKey)
@@ -154,6 +167,11 @@ public class ApprovalService {
                             "还有 " + unresolved + " 项异常资产未选择处理去向，请在「盘点清单」登记（转维修单 / 转变更单 / 已说明）");
                 }
             }
+            // 固定资产单据：必须挂具体资产、状态前置合法、同资产不得并发审批，
+            // 归还型退库单还要校验关联的借出单（防止重复归还或无单归还）
+            // 先校验归还单关联（错误信息更精确），再做资产状态与互斥校验
+            validateBorrowReturnLink(docKey, docId, previous);
+            validateAssetPrecondition(collection, bizType, docId, previous);
             if (steps.isEmpty()) {
                 throw new ApiException(ErrorCode.BAD_REQUEST, "该流程没有可用环节，请检查流程配置");
             }
@@ -268,7 +286,21 @@ public class ApprovalService {
         }
         genericService.updateQuietly(collection, docId, next);
 
-        // 固资单据完结后联动台账（派发/退库/借出/入库/处置）
+        // 维修单：提交送修即进入「维修中」；完结由 syncAssetLedger 在修毕验收后回「使用中」；
+        // 撤回 / 驳回 / 作废 / 终止等回退动作要恢复，否则资产会被锁死在 REPAIRING
+        if ("REPAIR".equals(bizType) && collection.startsWith("fixed-asset-doc-lists-")) {
+            String repairAssetId = text(previous.get("assetId"));
+            if (!repairAssetId.isEmpty()) {
+                if ("submit".equals(action)) {
+                    genericService.patchField(ASSETS, repairAssetId, "status", "REPAIRING", null);
+                } else if (!"DONE".equals(nextStatus) && !"PROCESSING".equals(nextStatus)
+                        && "REPAIRING".equals(assetStatus(repairAssetId))) {
+                    genericService.patchField(ASSETS, repairAssetId, "status", "IN_USE", null);
+                }
+            }
+        }
+
+        // 固资单据完结后联动台账（派发/退库/借出/入库/处置/变更）
         if ("DONE".equals(nextStatus)) {
             syncAssetLedger(bizType, previous);
             if ("INVENTORY".equals(bizType)) {
@@ -317,58 +349,6 @@ public class ApprovalService {
         return "DONE".equals(status)
                 ? "审批已全部通过，单据完结"
                 : "已通过「" + stepName + "」，等待下一环节审批";
-    }
-
-    /**
-     * 借出归还登记：只在已完结且未归还的借出单上登记，不推进审批状态。
-     *
-     * <p>归还不是一次审批动作，因此不写审批轨迹、不改单据状态；归还人/时间/备注
-     * 留在单据上，同时把台账资产状态从 BORROWED 回写为 IN_USE。
-     * 只有借出单创建人、资产管理员(R2)、仓管员(R8)能登记，避免任意使用人私自改状态。</p>
-     */
-    private Map<String, Object> registerBorrowReturn(ApprovalRequest request, String docKey, String docId,
-                                                     String collection, Map<String, Object> previous,
-                                                     String oldStatus) {
-        if (!"borrow".equals(docKey)) {
-            throw new ApiException(ErrorCode.BAD_REQUEST, "归还登记只适用于借出单");
-        }
-        if (!"DONE".equals(oldStatus)) {
-            throw new ApiException(ErrorCode.CONFLICT, "只有审批通过的借出单可以登记归还");
-        }
-        // MySQL 的 TINYINT(1) 可能读成 Boolean / Integer / 字符串，统一兼容
-        Object returned = previous.get("returned");
-        String returnedText = String.valueOf(returned);
-        if (Boolean.TRUE.equals(returned) || "1".equals(returnedText)
-                || "true".equalsIgnoreCase(returnedText)) {
-            throw new ApiException(ErrorCode.CONFLICT, "该借出单已登记归还，不能重复登记");
-        }
-        String me = AuthContext.currentUserId();
-        if (me == null || me.isEmpty()) {
-            throw new ApiException(ErrorCode.UNAUTHORIZED, "未登录，无法登记归还");
-        }
-        if (!me.equals(text(previous.get("creatorId")))
-                && !genericService.userHasRole(me, "R2")
-                && !genericService.userHasRole(me, "R8")) {
-            throw new ApiException(ErrorCode.FORBIDDEN, "只有借出单创建人、资产管理员或仓管员可以登记归还");
-        }
-        String assetId = text(previous.get("assetId"));
-        if (assetId.isEmpty()) {
-            throw new ApiException(ErrorCode.BAD_REQUEST, "借出单缺少资产主键，无法登记归还");
-        }
-
-        // 基于原整行打补丁：updateQuietly 会按整行做必填校验，只传几个字段会被拒
-        Map<String, Object> patch = new LinkedHashMap<>(previous);
-        patch.put("returned", true);
-        patch.put("returnDate", DateTimes.format(LocalDateTime.now()));
-        patch.put("returnBy", me);
-        patch.put("returnRemark", cut(text(request.getComment()), 255));
-        genericService.updateQuietly(collection, docId, patch);
-
-        if ("BORROWED".equals(assetStatus(assetId))) {
-            genericService.patchField(ASSETS, assetId, "status", "IN_USE", null);
-        }
-        log.info("借出归还已登记 assetId={} docId={} by={}", assetId, docId, me);
-        return result(oldStatus, "归还已登记，资产恢复使用中", null);
     }
 
     private void requireInitiator(Map<String, Object> doc, Map<String, Object> flow) {
@@ -488,11 +468,10 @@ public class ApprovalService {
     /**
      * 固资单据完结后联动资产台账（P1-D2）。
      *
-     * <p>派发：使用人取单据创建人（alloc 契约暂无独立使用人字段），资产置为使用中；
-     * 退库：清空使用人并回到空闲；借出：置为借出中；
-     * 入库：待入库 → 空闲（盘点盘盈建账后的验收通过）；
-     * 处置：待核销 → 已核销（盘点盘亏的核销完成）。
-     * 其余单据（调拨/维修/变更）只留痕，不动台账字段。</p>
+     * <p>派发：资产置为使用中；退库：清空使用人并回到空闲（归还型退库单同时回写借出单）；
+     * 借出：置为借出中；入库：待入库 → 空闲；处置：待核销 → 已核销；
+     * 调拨：更新归属字段、状态不变；维修：修毕验收后 维修中 → 使用中；
+     * 信息更正：前后快照随单据落库，台账状态与归属不变。</p>
      */
     private void syncAssetLedger(String bizType, Map<String, Object> doc) {
         String assetId = text(doc.get("assetId"));
@@ -501,12 +480,22 @@ public class ApprovalService {
         }
         switch (bizType) {
             case "DISPATCH":
-                genericService.patchField(ASSETS, assetId, "userId", text(doc.get("creatorId")), null);
+                // 实际领用人字段来源仍待产品裁决（§7.3）：有 receiverId 时优先，否则沿用创建人
+                String receiver = text(doc.get("receiverId"));
+                if (receiver.isEmpty()) {
+                    receiver = text(doc.get("userId"));
+                }
+                if (receiver.isEmpty()) {
+                    receiver = text(doc.get("creatorId"));
+                }
+                genericService.patchField(ASSETS, assetId, "userId", receiver, null);
+                patchIfPresent(doc, assetId, "deptId");
                 genericService.patchField(ASSETS, assetId, "status", "IN_USE", null);
                 break;
             case "RETURN":
                 genericService.patchField(ASSETS, assetId, "userId", null, null);
                 genericService.patchField(ASSETS, assetId, "status", "IDLE", null);
+                markBorrowReturned(doc);
                 break;
             case "BORROW":
                 genericService.patchField(ASSETS, assetId, "status", "BORROWED", null);
@@ -526,9 +515,49 @@ public class ApprovalService {
                     genericService.patchField(ASSETS, assetId, "status", STATUS_DISPOSED, null);
                 }
                 break;
+            case "TRANSFER":
+                // 调拨属于「在册继续使用」：只更新归属字段，不改资产状态
+                patchIfPresent(doc, assetId, "deptId");
+                patchIfPresent(doc, assetId, "userId");
+                patchIfPresent(doc, assetId, "location");
+                log.info("资产调拨完结 assetId={}", assetId);
+                break;
+            case "REPAIR":
+                // 修毕验收完结：维修中 → 使用中
+                if ("REPAIRING".equals(assetStatus(assetId))) {
+                    genericService.patchField(ASSETS, assetId, "status", "IN_USE", null);
+                    log.info("维修验收完成，资产恢复使用中 assetId={}", assetId);
+                }
+                break;
+            case "CHANGE":
+                // 信息更正的前后快照已随单据落库，台账状态 / 使用人不变
+                log.info("资产变更单完结 assetId={} changeType={}", assetId, text(doc.get("changeType")));
+                break;
             default:
                 break;
         }
+    }
+
+    /** 单据上有该字段时才回写台账，兼容仍走动态模板、尚无该字段的单据集合 */
+    private void patchIfPresent(Map<String, Object> doc, String assetId, String field) {
+        Object value = doc.get(field);
+        if (value != null && !text(value).isEmpty()) {
+            genericService.patchField(ASSETS, assetId, field, value, null);
+        }
+    }
+
+    /** 归还型退库单完结：把关联借出单标记为已归还，保留历史列的语义 */
+    private void markBorrowReturned(Map<String, Object> returnDoc) {
+        String borrowDocId = text(returnDoc.get("borrowDocId"));
+        if (borrowDocId.isEmpty()) {
+            return;
+        }
+        Map<String, Object> patch = new LinkedHashMap<>(genericService.get(BORROW_DOCS, borrowDocId));
+        patch.put("returned", true);
+        patch.put("returnDate", DateTimes.format(LocalDateTime.now()));
+        patch.put("returnBy", AuthContext.currentUserId());
+        genericService.updateQuietly(BORROW_DOCS, borrowDocId, patch);
+        log.info("借出归还退库单完结，借出单已标记归还 borrowDocId={}", borrowDocId);
     }
 
     /** 读资产当前状态（台账回写前先确认状态，避免覆盖别的流程改过的状态） */
@@ -543,25 +572,147 @@ public class ApprovalService {
     }
 
     /**
-     * 环节条件上下文：**盘点差异由服务端按单据事实判定**。
+     * 固定资产单据提交前置校验：assetId 必填、状态符合业务前置、同资产不得并发审批。
      *
-     * <p>{@code hasDiff} 决定「差异复核」「审计抽查」两个环节是否生效，
-     * 若完全采信客户端传值，调用方只要把 hasDiff 传成 false，
-     * 盘点单一个人点一下就能直接完结，差异复核与审计抽查形同虚设。
-     * 因此这里按盘点明细实际登记的结果重算，客户端传值只作参考。</p>
+     * <p>盘点单 / 低值单据没有 assetId，不走本校验。互斥扫描用 listInternal，
+     * 避免当前登录人的数据范围过滤让「别人正在审批的单据」漏检。</p>
+     */
+    private void validateAssetPrecondition(String collection, String bizType, String selfId,
+                                           Map<String, Object> doc) {
+        if (!collection.startsWith("fixed-asset-doc-lists-")) {
+            return;
+        }
+        String assetId = text(doc.get("assetId"));
+        if (assetId.isEmpty()) {
+            throw new ApiException(ErrorCode.BAD_REQUEST, "固定资产单据必须关联具体资产");
+        }
+        String status = assetStatus(assetId);
+        if (status.isEmpty()) {
+            throw new ApiException(ErrorCode.BAD_REQUEST, "关联资产不存在或状态不可读");
+        }
+        switch (bizType) {
+            case "DISPATCH":
+                requireStatus(status, "资产不在空闲状态，不能派发", "IDLE");
+                break;
+            case "BORROW":
+                requireStatus(status, "只有使用中的资产可以借出", "IN_USE");
+                break;
+            case "RETURN":
+                requireStatus(status, "只有使用中或借出中的资产可以退库", "IN_USE", "BORROWED");
+                break;
+            case "REPAIR":
+                requireStatus(status, "只有使用中或借出中的资产可以送修", "IN_USE", "BORROWED");
+                break;
+            case "TRANSFER":
+            case "CHANGE":
+            case "DISPOSE":
+                requireStatus(status, "资产处于不可用状态，不能发起该业务",
+                        "IDLE", "IN_USE", "PENDING_WRITE_OFF");
+                break;
+            case "INBOUND":
+                requireStatus(status, "只有待入库资产可以办理入库验收", "PENDING_INBOUND");
+                break;
+            default:
+                break;
+        }
+        // 互斥：同一资产同一时刻只允许一张 PROCESSING 单据
+        Map<String, String[]> raw = new LinkedHashMap<>();
+        raw.put("status", new String[]{"PROCESSING"});
+        for (String key : FIXED_ASSET_DOC_COLLECTIONS) {
+            for (Map<String, Object> row : genericService.listInternal(key, raw)) {
+                if (!"PROCESSING".equals(text(row.get("status")))
+                        || !assetId.equals(text(row.get("assetId")))
+                        || selfId.equals(text(row.get("id")))) {
+                    continue;
+                }
+                throw new ApiException(ErrorCode.CONFLICT,
+                        "该资产已有审批中的单据，请等待完结后再发起新业务");
+            }
+        }
+    }
+
+    private static void requireStatus(String actual, String message, String... allowed) {
+        for (String s : allowed) {
+            if (s.equals(actual)) {
+                return;
+            }
+        }
+        throw new ApiException(ErrorCode.CONFLICT, message + "（当前状态：" + actual + "）");
+    }
+
+    /** 归还型退库单：校验关联借出单合法且未归还，并防止重复归还 */
+    private void validateBorrowReturnLink(String docKey, String selfId, Map<String, Object> doc) {
+        if (!"back".equals(docKey)) {
+            return;
+        }
+        String borrowDocId = text(doc.get("borrowDocId"));
+        if (borrowDocId.isEmpty()) {
+            return;
+        }
+        Map<String, Object> borrow;
+        try {
+            borrow = genericService.get(BORROW_DOCS, borrowDocId);
+        } catch (RuntimeException e) {
+            throw new ApiException(ErrorCode.BAD_REQUEST, "关联的借出单不存在：" + borrowDocId);
+        }
+        if (!"DONE".equals(text(borrow.get("status")))) {
+            throw new ApiException(ErrorCode.CONFLICT, "只有审批通过的借出单可以发起归还退库");
+        }
+        if (isTruthy(borrow.get("returned"))) {
+            throw new ApiException(ErrorCode.CONFLICT, "该借出单已归还，不能重复归还");
+        }
+        if (!text(doc.get("assetId")).equals(text(borrow.get("assetId")))) {
+            throw new ApiException(ErrorCode.BAD_REQUEST, "归还退库单与借出单指向的资产不一致");
+        }
+        Map<String, String[]> raw = new LinkedHashMap<>();
+        raw.put("borrowDocId", new String[]{borrowDocId});
+        for (Map<String, Object> row : genericService.listInternal(BACK_DOCS, raw)) {
+            if (selfId.equals(text(row.get("id")))
+                    || !borrowDocId.equals(text(row.get("borrowDocId")))) {
+                continue;
+            }
+            String st = text(row.get("status"));
+            if (!"REVOKED".equals(st) && !"REJECTED".equals(st)) {
+                throw new ApiException(ErrorCode.CONFLICT,
+                        "该借出单已有归还中的退库单，不能重复归还");
+            }
+        }
+    }
+
+    /** MySQL TINYINT(1) 可能读成 Boolean / Integer / 字符串 */
+    private static boolean isTruthy(Object value) {
+        String s = String.valueOf(value);
+        return Boolean.TRUE.equals(value) || "1".equals(s) || "true".equalsIgnoreCase(s);
+    }
+
+    /**
+     * 环节生效条件上下文：一律由服务端按单据事实覆盖客户端传值。
      *
-     * <p>其余业务类型原样透传客户端 ctx：金额门槛（AMOUNT_GT）沿用既有口径，
-     * 避免把「客户端没传 ctx 时条件环节不生效」的历史行为悄悄改掉。</p>
+     * <p>盘点差异（{@code hasDiff}）按明细重算，防止把 false 传上来跳过差异复核；
+     * 处置方式（{@code disposeType}）与金额以单据字段为准，防止把变卖谎报成报废、
+     * 或压低金额跳过「财务复核 / 审计备案」这两个强制环节。
+     * 客户端 ctx 作为兜底：单据没有对应字段时仍沿用既有金额门槛口径。</p>
      */
     private static Map<String, Object> effectiveCtx(String bizType, Map<String, Object> doc, Map<String, Object> clientCtx) {
-        if (!"INVENTORY".equals(bizType)) {
-            return clientCtx;
-        }
         Map<String, Object> ctx = new LinkedHashMap<>();
         if (clientCtx != null) {
             ctx.putAll(clientCtx);
         }
-        ctx.put("hasDiff", hasInventoryDiff(doc));
+        if ("INVENTORY".equals(bizType)) {
+            ctx.put("hasDiff", hasInventoryDiff(doc));
+            return ctx;
+        }
+        if ("DISPOSE".equals(bizType)) {
+            ctx.put("disposeType", text(doc.get("disposeType")));
+            Object disposalAmount = doc.get("disposalAmount");
+            if (disposalAmount != null && !text(disposalAmount).isEmpty()) {
+                ctx.put("amount", disposalAmount);
+            }
+        }
+        Object docAmount = doc.get("amount");
+        if (docAmount != null && !text(docAmount).isEmpty()) {
+            ctx.put("amount", docAmount);
+        }
         return ctx;
     }
 

@@ -202,6 +202,8 @@ public class P8DataImportTest {
     @Test
     @DisplayName("固资导入：期初「借出中」告警但放行并标注来源，空闲不告警")
     public void fixedAssetImportWarnsLegacyState() throws Exception {
+        // 期初切换日由管理员指定；指定一个未来日期，让本测试落在期初窗口内
+        genericService.patchField("system-params", "SP11", "value", "2099-12-31", null);
         String suffix = String.valueOf(System.nanoTime());
         String borrowedCode = "BR-WARN-" + suffix;
         String idleCode = "IDLE-WARN-" + suffix;

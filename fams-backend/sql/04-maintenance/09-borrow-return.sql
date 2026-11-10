@@ -3,8 +3,10 @@
 --
 -- 8 类 `fixed-asset-doc-lists-*` 共用一套动态契约模板，借出单已改为独立静态契约，
 -- 因此归还字段不能加到其它 7 张表上。
--- 归还登记由 /api/approvals/action 的 action=return 完成：校验单据 DONE 且未归还，
--- 写归还人/时间/备注并把台账资产状态从 BORROWED 回写为 IN_USE。
+-- 历史上归还登记由 /api/approvals/action 的 action=return 完成（写归还人/时间/备注、
+-- 台账 BORROWED→IN_USE）。**2026-11-09 目标口径起该动作已停用并删除**，这 4 列改由
+-- WF3 归还型退库单（关联 borrowDocId）在仓管验收完结时回写，台账改为 BORROWED→IDLE
+-- 且清空使用人。本脚本只保留加列 DDL，供历史库结构对齐使用；不要据此复用旧动作。
 --
 -- 用法：mysql -h 127.0.0.1 -u root -p fams < 09-borrow-return.sql
 -- 幂等：逐列检查 information_schema，已存在则跳过，可重复执行

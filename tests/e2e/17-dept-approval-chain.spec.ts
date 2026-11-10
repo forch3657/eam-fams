@@ -230,52 +230,73 @@ test('[P9-04] 同部门其他主管也不是审批人（只有负责人本人）
   expect(ok.body.data.status).toBe('PROCESSING')
 })
 
-test('[P9-05] 借出归还：台账状态回写、留痕与越权防护', async () => {
+test('[P9-05] 借出归还：关联原借出单的退库单经仓管验收，台账回空闲并留痕', async () => {
   const creator = await principal('ROLE_USER', units.deptId)
+  const leader = await principal('ROLE_LEADER', units.deptId)
+  const warehouse = await principal('ROLE_WAREHOUSE', units.deptId)
   const asset = await createAsset(units.deptId, creator.user.id)
-  // 直接造一张已完结的借出单，只验证归还动作本身（审批链由其它用例覆盖）
-  const doc = await createDoc(admin, units, 'borrow', {
+  // 直接造一张已完结的借出单：借出审批链由其它用例覆盖，这里只验证归还
+  const borrow = await createDoc(admin, units, 'borrow', {
     assetId: String(asset.id),
     status: 'DONE'
   })
-  docs.push({ key: 'borrow', id: doc.id, code: doc.code })
+  docs.push({ key: 'borrow', id: borrow.id, code: borrow.code })
 
-  // 模拟借出审批完结后的台账状态
-  await withApi(admin, async api => {
-    const current = await api.get(`/api/fixed-assets/${asset.id}`)
-    const row = ((await current.json()).data ?? {}) as Row
-    const res = await api.put(`/api/fixed-assets/${asset.id}`, { data: { ...row, status: 'BORROWED' } })
-    expect(res.status(), '把资产置为借出中失败').toBe(200)
-  })
-
-  const readDoc = async () => withApi(admin, async api => {
-    const res = await api.get(`/api/fixed-asset-doc-lists-borrow/${doc.id}`)
-    return ((await res.json()).data ?? {}) as Row
-  })
   const readAsset = async () => withApi(admin, async api => {
     const res = await api.get(`/api/fixed-assets/${asset.id}`)
     return ((await res.json()).data ?? {}) as Row
   })
+  const readBorrow = async () => withApi(admin, async api => {
+    const res = await api.get(`/api/fixed-asset-doc-lists-borrow/${borrow.id}`)
+    return ((await res.json()).data ?? {}) as Row
+  })
+  const setStatus = async (status: string) => withApi(admin, async api => {
+    const current = await api.get(`/api/fixed-assets/${asset.id}`)
+    const row = ((await current.json()).data ?? {}) as Row
+    const res = await api.put(`/api/fixed-assets/${asset.id}`, { data: { ...row, status } })
+    expect(res.status(), `把资产置为 ${status} 失败`).toBe(200)
+  })
+  await setStatus('BORROWED')
 
-  // 普通使用人既不是创建人，也不是资产管理员 / 仓管员
-  const blocked = await act(creator.session, { docKey: 'borrow', docId: doc.id, action: 'return' })
+  // 旧口径的免审批归还登记已停用，归还必须走 WF3 退库单
+  const legacy = await act(creator.session, { docKey: 'borrow', docId: borrow.id, action: 'return' })
+  expect(legacy.status, JSON.stringify(legacy.body)).toBe(400)
+  expect(String(legacy.body.message)).toContain('归还登记已停用')
+
+  const back = await createDoc(admin, units, 'back', {
+    assetId: String(asset.id),
+    creatorId: creator.user.id
+  }, { borrowDocId: borrow.id })
+  docs.push({ key: 'back', id: back.id, code: back.code })
+
+  const submitted = await act(creator.session, { docKey: 'back', docId: back.id, action: 'submit' })
+  expect(submitted.status, JSON.stringify(submitted.body)).toBe(200)
+  expect(submitted.body.data.status).toBe('PROCESSING')
+
+  // 普通使用人既不是部门主管也不是仓管员，不能审批归还退库单
+  const blocked = await act(creator.session, { docKey: 'back', docId: back.id, action: 'approve' })
   expect(blocked.status, JSON.stringify(blocked.body)).toBe(403)
 
-  // 创建人（admin）登记归还：单据保持已完结，台账恢复使用中
-  const returned = await act(admin, {
-    docKey: 'borrow', docId: doc.id, action: 'return', comment: 'E2E 实物已归还，外观完好'
-  })
-  expect(returned.status, JSON.stringify(returned.body)).toBe(200)
-  expect(returned.body.data.status).toBe('DONE')
+  const s1 = await act(leader.session, { docKey: 'back', docId: back.id, action: 'approve' })
+  expect(s1.body.data.status).toBe('PROCESSING')
+  const done = await act(warehouse.session, { docKey: 'back', docId: back.id, action: 'approve' })
+  expect(done.body.data.status, '仓管验收完结').toBe('DONE')
 
-  const saved = await readDoc()
-  expect(['true', '1']).toContain(String(saved.returned))
-  expect(String(saved.returnBy)).toBe(String(admin.user.id))
-  expect(String(saved.returnRemark)).toContain('实物已归还')
-  expect(String(saved.status), '归还不应推进审批状态').toBe('DONE')
-  expect(String((await readAsset()).status)).toBe('IN_USE')
+  const savedBorrow = await readBorrow()
+  expect(['true', '1']).toContain(String(savedBorrow.returned))
+  expect(String(savedBorrow.returnBy)).toBe(String(warehouse.user.id))
+  expect(String(savedBorrow.returnDate ?? '')).not.toBe('')
+  const after = await readAsset()
+  expect(String(after.status), '归还验收后资产回仓库').toBe('IDLE')
+  expect(String(after.userId ?? ''), '归还后清空使用人').toBe('')
 
   // 同一张借出单不能重复归还
-  const again = await act(admin, { docKey: 'borrow', docId: doc.id, action: 'return' })
-  expect(again.status).toBe(409)
+  const again = await createDoc(admin, units, 'back', {
+    assetId: String(asset.id),
+    creatorId: creator.user.id
+  }, { borrowDocId: borrow.id })
+  docs.push({ key: 'back', id: again.id, code: again.code })
+  const blockedAgain = await act(creator.session, { docKey: 'back', docId: again.id, action: 'submit' })
+  expect(blockedAgain.status, JSON.stringify(blockedAgain.body)).toBe(409)
+  expect(String(blockedAgain.body.message)).toContain('已归还')
 })

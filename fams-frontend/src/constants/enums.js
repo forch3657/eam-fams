@@ -13,11 +13,12 @@ import { ref } from 'vue'
 export const ASSET_STATUS = {
   IDLE: '空闲',
   IN_USE: '使用中',
+  // 仅期初导入的历史状态：新流程不再写入，保留是为了兼容存量资产与导入文件
   DISPATCHING: '派发中',
   BORROWED: '借出中',
   REPAIRING: '维修中',
   DISPOSING: '处置中',
-  // 盘点闭环新增：盘盈建账后待入库验收、盘亏待核销、核销完成后留痕
+  // 盘点闭环：盘盈建账后待入库验收、盘亏待核销、核销完成后留痕
   PENDING_INBOUND: '待入库',
   PENDING_WRITE_OFF: '待核销',
   DISPOSED: '已核销'
@@ -86,19 +87,23 @@ export const DISPOSE_STATUS = {
   DONE: '已完成'
 }
 
-/** 处置方式 */
+/**
+ * 处置方式（目标口径：报废 / 变卖 / 捐赠 / 转让）。
+ * 转让只含集团内独立核算主体之间的权属转移，出公司即出账；
+ * 公司内部门之间的变化走「资产变更-调拨」，资产仍在账。
+ */
 export const DISPOSE_TYPE = {
   SCRAP: '报废',
   SALE: '变卖',
-  TRANSFER: '调拨',
-  OTHER: '其他'
+  DONATE: '捐赠',
+  TRANSFER_OUT: '转让'
 }
 
-/** 资产变更类型 */
+/** 资产变更类型（目标口径：调拨 / 维修 / 信息更正，三类同属「在册继续使用」） */
 export const CHANGE_TYPE = {
   TRANSFER: '调拨',
   REPAIR: '维修',
-  OTHER: '其他'
+  CORRECTION: '信息更正'
 }
 
 /** 单据流转状态（收敛原 docStatusOptions / docStatusPool 同值不同序） */

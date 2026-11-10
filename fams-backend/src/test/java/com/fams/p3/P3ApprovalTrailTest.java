@@ -121,7 +121,20 @@ class P3ApprovalTrailTest {
     @Test
     @DisplayName("审批动作端点：提交草稿单据成功并落一条轨迹")
     void endpointSubmitsDraft() throws Exception {
+        // 固定资产单据现在强制关联资产，且入库验收只接受「待入库」资产
+        Map<String, Object> asset = new HashMap<>();
+        asset.put("code", "P3-INBOUND-" + System.nanoTime());
+        asset.put("name", "待入库验收资产");
+        asset.put("category", "ELECTRONIC");
+        asset.put("companyId", "C1");
+        asset.put("deptId", "D1");
+        asset.put("status", "PENDING_INBOUND");
+        asset.put("original", 1000);
+        asset.put("net", 1000);
+        String assetId = String.valueOf(genericService.create("fixed-assets", asset).get("id"));
+
         Map<String, Object> doc = inboundDoc("ENDPOINT-SUBMIT", "DRAFT");
+        doc.put("assetId", assetId);
         String id = createDoc(doc);
         assertThat(trailsOf(id)).isEmpty();
 

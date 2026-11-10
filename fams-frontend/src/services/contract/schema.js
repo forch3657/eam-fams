@@ -34,6 +34,8 @@ function docFields(extra = {}) {
 // ---------------------------------------------------------------- 固定资产单据集合清单
 // 必须在下方 ASSETS 契约之前定义：ASSETS 的删除保护规则按此清单展开
 const DOC_LIST_KEYS = ['inbound', 'alloc', 'back', 'borrow', 'transfer', 'repair', 'change', 'dispose']
+/** 已有独立静态契约、不再命中动态模板的单据类型 */
+const STATIC_DOC_BIZ = ['borrow', 'back', 'dispose', 'change']
 const DOC_LIST_LABELS = {
   inbound: '入库单列表', alloc: '派发单列表', back: '退库单列表', borrow: '借出单列表',
   transfer: '调拨单列表', repair: '维修单列表', change: '资产变更单列表', dispose: '处置单列表'
@@ -820,11 +822,11 @@ const OPERATION_LOGS = {
 // ---------------------------------------------------------------- 契约表
 
 /**
- * 借出单：唯一需要额外字段（归还登记）的单据集合。
+ * 借出单：独立静态契约（归还留痕字段 + 预计归还日）。
  *
  * <p>`fixed-asset-doc-lists-*` 共用一套动态契约模板，往模板上加字段会连带
- * 8 张表；这里单独定义静态契约，并在 CONTRACT_PATTERNS / DYNAMIC_KEYS 里排除
- * borrow，让归还字段只落在 `fixed_asset_doc_lists_borrow` 一张表上。</p>
+ * 8 张表；borrow / back / dispose / change 单独定义静态契约，并在
+ * CONTRACT_PATTERNS / DYNAMIC_KEYS 里排除，让扩展字段只落在各自那张表上。</p>
  */
 const BORROW_DOCS = {
   key: 'fixed-asset-doc-lists-borrow',
@@ -841,11 +843,13 @@ const BORROW_DOCS = {
     finishTime: f.date(),
     remark: f.str(),
     status: f.enum('DOC_STATUS', { required: true }),
-    // 归还登记（4B）：已完结的借出单在这些字段上留痕，资产状态回 IN_USE
+    // 归还留痕由「关联本借出单的退库单」审批完结时回写；保留列以兼容历史单据
     returnDate: f.date(),
     returnRemark: f.str(),
     returnBy: f.ref('org-users'),
-    returned: f.bool()
+    returned: f.bool(),
+    // 借出时登记预计归还日，供逾期预警使用
+    expectedReturnDate: f.date()
   },
   query: { keyword: ['code', 'name'], filters: ['status', 'companyId', 'returned'], sort: ['createTime'], page: true },
   rules: {
@@ -859,9 +863,71 @@ const BORROW_DOCS = {
   }
 }
 
+/**
+ * 固定资产单据集合的静态契约工厂。
+ * 基础字段与 CONTRACT_PATTERNS 的动态模板一致，额外字段只落在本表上，
+ * 避免「给共用模板加字段连带 8 张表」。
+ */
+function staticDocList(key, label, extra = {}, extraFilters = []) {
+  return {
+    key,
+    label,
+    idField: 'id',
+    audit: true,
+    fields: {
+      code: f.str({ required: true, unique: true }),
+      name: f.str({ required: true }),
+      companyId: f.ref('org-companies'),
+      assetId: f.ref('fixed-assets'),
+      creatorId: f.ref('org-users'),
+      createTime: f.date(),
+      finishTime: f.date(),
+      remark: f.str(),
+      status: f.enum('DOC_STATUS', { required: true }),
+      ...extra
+    },
+    query: {
+      keyword: ['code', 'name'],
+      filters: ['status', 'companyId', ...extraFilters],
+      sort: ['createTime'],
+      page: true
+    },
+    rules: {
+      unique: ['code'],
+      refs: [
+        { field: 'companyId', collection: 'org-companies' },
+        { field: 'assetId', collection: 'fixed-assets' },
+        { field: 'creatorId', collection: 'org-users' }
+      ]
+    }
+  }
+}
+
+/** 退库单：borrowDocId 非空即「借出归还型退库单」，关联原借出单；普通退库为空 */
+const BACK_DOCS = staticDocList('fixed-asset-doc-lists-back', '退库单列表', {
+  borrowDocId: f.ref('fixed-asset-doc-lists-borrow')
+}, ['borrowDocId'])
+
+/** 处置单：四类处置方式 + 受让方 / 凭证号 / 金额 / 出账依据 */
+const DISPOSE_DOCS = staticDocList('fixed-asset-doc-lists-dispose', '处置单列表', {
+  disposeType: f.enum('DISPOSE_TYPE'),
+  buyer: f.str(),
+  voucherNo: f.str(),
+  disposalAmount: f.num(),
+  outLedgerBasis: f.str()
+}, ['disposeType'])
+
+/** 资产变更单：三类变更类型 + 信息更正前后快照 */
+const CHANGE_DOCS = staticDocList('fixed-asset-doc-lists-change', '资产变更单列表', {
+  changeType: f.enum('CHANGE_TYPE'),
+  beforeSnapshot: f.str(),
+  afterSnapshot: f.str()
+}, ['changeType'])
+
 const CONTRACT_LIST = [
   ASSETS,
   BORROW_DOCS,
+  BACK_DOCS, DISPOSE_DOCS, CHANGE_DOCS,
   INVENTORY_PLANS, INVENTORY_DOCS,
   DEPRECIATION_SCHEMES, DEPRECIATION_REPORTS,
   REPORT_DEPRECIATION_DETAILS, REPORT_DEPRECIATION_PLAN_DETAILS,
@@ -887,8 +953,9 @@ export const CONTRACTS = CONTRACT_LIST.reduce((acc, c) => {
  */
 export const CONTRACT_PATTERNS = [
   {
-    // borrow 有独立的归还登记字段，不走共用模板
-    test: key => key.startsWith('fixed-asset-doc-lists-') && key !== 'fixed-asset-doc-lists-borrow',
+    // borrow / back / dispose / change 有独立静态契约，不走共用模板
+    test: key => key.startsWith('fixed-asset-doc-lists-')
+      && !STATIC_DOC_BIZ.some(b => key === `fixed-asset-doc-lists-${b}`),
     make: key => {
       const biz = key.replace('fixed-asset-doc-lists-', '')
       return {
@@ -942,7 +1009,8 @@ export const CONTRACT_PATTERNS = [
 
 /** 已知的动态集合 key（供种子注册与文档生成使用） */
 export const DYNAMIC_KEYS = [
-  ...DOC_LIST_KEYS.filter(k => k !== 'borrow').map(k => `fixed-asset-doc-lists-${k}`),
+  ...DOC_LIST_KEYS.filter(k => !STATIC_DOC_BIZ.includes(k))
+    .map(k => `fixed-asset-doc-lists-${k}`),
   // 字典项集合由「数据字典」页动态创建：每个绑定枚举的字典类型一个集合
   ...ENUM_DICT_META.map(d => `system-dict-types-${d.code}-items`)
 ]

@@ -377,6 +377,14 @@
           "unique": false,
           "enumName": null,
           "refCollection": null
+        },
+        {
+          "name": "expectedReturnDate",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
         }
       ],
       "uniqueFields": [
@@ -414,6 +422,462 @@
         "status",
         "companyId",
         "returned"
+      ],
+      "sortFields": [
+        "createTime"
+      ],
+      "paged": true
+    },
+    {
+      "key": "fixed-asset-doc-lists-back",
+      "label": "退库单列表",
+      "table": "fixed_asset_doc_lists_back",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "code",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-companies"
+        },
+        {
+          "name": "assetId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "fixed-assets"
+        },
+        {
+          "name": "creatorId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-users"
+        },
+        {
+          "name": "createTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "finishTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "DOC_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "borrowDocId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "fixed-asset-doc-lists-borrow"
+        }
+      ],
+      "uniqueFields": [
+        "code"
+      ],
+      "refs": [
+        {
+          "field": "companyId",
+          "collection": "org-companies"
+        },
+        {
+          "field": "assetId",
+          "collection": "fixed-assets"
+        },
+        {
+          "field": "creatorId",
+          "collection": "org-users"
+        }
+      ],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "code",
+        "name"
+      ],
+      "filterFields": [
+        "status",
+        "companyId",
+        "borrowDocId"
+      ],
+      "sortFields": [
+        "createTime"
+      ],
+      "paged": true
+    },
+    {
+      "key": "fixed-asset-doc-lists-dispose",
+      "label": "处置单列表",
+      "table": "fixed_asset_doc_lists_dispose",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "code",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-companies"
+        },
+        {
+          "name": "assetId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "fixed-assets"
+        },
+        {
+          "name": "creatorId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-users"
+        },
+        {
+          "name": "createTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "finishTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "DOC_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "disposeType",
+          "type": "enum",
+          "required": false,
+          "unique": false,
+          "enumName": "DISPOSE_TYPE",
+          "refCollection": null
+        },
+        {
+          "name": "buyer",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "voucherNo",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "disposalAmount",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "outLedgerBasis",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "code"
+      ],
+      "refs": [
+        {
+          "field": "companyId",
+          "collection": "org-companies"
+        },
+        {
+          "field": "assetId",
+          "collection": "fixed-assets"
+        },
+        {
+          "field": "creatorId",
+          "collection": "org-users"
+        }
+      ],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "code",
+        "name"
+      ],
+      "filterFields": [
+        "status",
+        "companyId",
+        "disposeType"
+      ],
+      "sortFields": [
+        "createTime"
+      ],
+      "paged": true
+    },
+    {
+      "key": "fixed-asset-doc-lists-change",
+      "label": "资产变更单列表",
+      "table": "fixed_asset_doc_lists_change",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "code",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-companies"
+        },
+        {
+          "name": "assetId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "fixed-assets"
+        },
+        {
+          "name": "creatorId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-users"
+        },
+        {
+          "name": "createTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "finishTime",
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "remark",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "DOC_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "changeType",
+          "type": "enum",
+          "required": false,
+          "unique": false,
+          "enumName": "CHANGE_TYPE",
+          "refCollection": null
+        },
+        {
+          "name": "beforeSnapshot",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "afterSnapshot",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [
+        "code"
+      ],
+      "refs": [
+        {
+          "field": "companyId",
+          "collection": "org-companies"
+        },
+        {
+          "field": "assetId",
+          "collection": "fixed-assets"
+        },
+        {
+          "field": "creatorId",
+          "collection": "org-users"
+        }
+      ],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "code",
+        "name"
+      ],
+      "filterFields": [
+        "status",
+        "companyId",
+        "changeType"
       ],
       "sortFields": [
         "createTime"
@@ -4522,133 +4986,6 @@
       "paged": true
     },
     {
-      "key": "fixed-asset-doc-lists-back",
-      "label": "退库单列表",
-      "table": "fixed_asset_doc_lists_back",
-      "fixedFilters": {},
-      "pkField": "id",
-      "idGenerated": true,
-      "audit": true,
-      "dynamic": true,
-      "fields": [
-        {
-          "name": "id",
-          "type": "string",
-          "required": false,
-          "unique": true,
-          "enumName": null,
-          "refCollection": null
-        },
-        {
-          "name": "code",
-          "type": "string",
-          "required": true,
-          "unique": true,
-          "enumName": null,
-          "refCollection": null
-        },
-        {
-          "name": "name",
-          "type": "string",
-          "required": true,
-          "unique": false,
-          "enumName": null,
-          "refCollection": null
-        },
-        {
-          "name": "companyId",
-          "type": "string",
-          "required": false,
-          "unique": false,
-          "enumName": null,
-          "refCollection": "org-companies"
-        },
-        {
-          "name": "assetId",
-          "type": "string",
-          "required": false,
-          "unique": false,
-          "enumName": null,
-          "refCollection": "fixed-assets"
-        },
-        {
-          "name": "creatorId",
-          "type": "string",
-          "required": false,
-          "unique": false,
-          "enumName": null,
-          "refCollection": "org-users"
-        },
-        {
-          "name": "createTime",
-          "type": "date",
-          "required": false,
-          "unique": false,
-          "enumName": null,
-          "refCollection": null
-        },
-        {
-          "name": "finishTime",
-          "type": "date",
-          "required": false,
-          "unique": false,
-          "enumName": null,
-          "refCollection": null
-        },
-        {
-          "name": "remark",
-          "type": "string",
-          "required": false,
-          "unique": false,
-          "enumName": null,
-          "refCollection": null
-        },
-        {
-          "name": "status",
-          "type": "enum",
-          "required": true,
-          "unique": false,
-          "enumName": "DOC_STATUS",
-          "refCollection": null
-        }
-      ],
-      "uniqueFields": [
-        "code"
-      ],
-      "refs": [
-        {
-          "field": "companyId",
-          "collection": "org-companies"
-        },
-        {
-          "field": "assetId",
-          "collection": "fixed-assets"
-        },
-        {
-          "field": "creatorId",
-          "collection": "org-users"
-        }
-      ],
-      "protect": [],
-      "protectContains": [],
-      "protectSelf": null,
-      "stockGuard": [],
-      "stock": null,
-      "cascade": [],
-      "keywordFields": [
-        "code",
-        "name"
-      ],
-      "filterFields": [
-        "status",
-        "companyId"
-      ],
-      "sortFields": [
-        "createTime"
-      ],
-      "paged": true
-    },
-    {
       "key": "fixed-asset-doc-lists-transfer",
       "label": "调拨单列表",
       "table": "fixed_asset_doc_lists_transfer",
@@ -4779,260 +5116,6 @@
       "key": "fixed-asset-doc-lists-repair",
       "label": "维修单列表",
       "table": "fixed_asset_doc_lists_repair",
-      "fixedFilters": {},
-      "pkField": "id",
-      "idGenerated": true,
-      "audit": true,
-      "dynamic": true,
-      "fields": [
-        {
-          "name": "id",
-          "type": "string",
-          "required": false,
-          "unique": true,
-          "enumName": null,
-          "refCollection": null
-        },
-        {
-          "name": "code",
-          "type": "string",
-          "required": true,
-          "unique": true,
-          "enumName": null,
-          "refCollection": null
-        },
-        {
-          "name": "name",
-          "type": "string",
-          "required": true,
-          "unique": false,
-          "enumName": null,
-          "refCollection": null
-        },
-        {
-          "name": "companyId",
-          "type": "string",
-          "required": false,
-          "unique": false,
-          "enumName": null,
-          "refCollection": "org-companies"
-        },
-        {
-          "name": "assetId",
-          "type": "string",
-          "required": false,
-          "unique": false,
-          "enumName": null,
-          "refCollection": "fixed-assets"
-        },
-        {
-          "name": "creatorId",
-          "type": "string",
-          "required": false,
-          "unique": false,
-          "enumName": null,
-          "refCollection": "org-users"
-        },
-        {
-          "name": "createTime",
-          "type": "date",
-          "required": false,
-          "unique": false,
-          "enumName": null,
-          "refCollection": null
-        },
-        {
-          "name": "finishTime",
-          "type": "date",
-          "required": false,
-          "unique": false,
-          "enumName": null,
-          "refCollection": null
-        },
-        {
-          "name": "remark",
-          "type": "string",
-          "required": false,
-          "unique": false,
-          "enumName": null,
-          "refCollection": null
-        },
-        {
-          "name": "status",
-          "type": "enum",
-          "required": true,
-          "unique": false,
-          "enumName": "DOC_STATUS",
-          "refCollection": null
-        }
-      ],
-      "uniqueFields": [
-        "code"
-      ],
-      "refs": [
-        {
-          "field": "companyId",
-          "collection": "org-companies"
-        },
-        {
-          "field": "assetId",
-          "collection": "fixed-assets"
-        },
-        {
-          "field": "creatorId",
-          "collection": "org-users"
-        }
-      ],
-      "protect": [],
-      "protectContains": [],
-      "protectSelf": null,
-      "stockGuard": [],
-      "stock": null,
-      "cascade": [],
-      "keywordFields": [
-        "code",
-        "name"
-      ],
-      "filterFields": [
-        "status",
-        "companyId"
-      ],
-      "sortFields": [
-        "createTime"
-      ],
-      "paged": true
-    },
-    {
-      "key": "fixed-asset-doc-lists-change",
-      "label": "资产变更单列表",
-      "table": "fixed_asset_doc_lists_change",
-      "fixedFilters": {},
-      "pkField": "id",
-      "idGenerated": true,
-      "audit": true,
-      "dynamic": true,
-      "fields": [
-        {
-          "name": "id",
-          "type": "string",
-          "required": false,
-          "unique": true,
-          "enumName": null,
-          "refCollection": null
-        },
-        {
-          "name": "code",
-          "type": "string",
-          "required": true,
-          "unique": true,
-          "enumName": null,
-          "refCollection": null
-        },
-        {
-          "name": "name",
-          "type": "string",
-          "required": true,
-          "unique": false,
-          "enumName": null,
-          "refCollection": null
-        },
-        {
-          "name": "companyId",
-          "type": "string",
-          "required": false,
-          "unique": false,
-          "enumName": null,
-          "refCollection": "org-companies"
-        },
-        {
-          "name": "assetId",
-          "type": "string",
-          "required": false,
-          "unique": false,
-          "enumName": null,
-          "refCollection": "fixed-assets"
-        },
-        {
-          "name": "creatorId",
-          "type": "string",
-          "required": false,
-          "unique": false,
-          "enumName": null,
-          "refCollection": "org-users"
-        },
-        {
-          "name": "createTime",
-          "type": "date",
-          "required": false,
-          "unique": false,
-          "enumName": null,
-          "refCollection": null
-        },
-        {
-          "name": "finishTime",
-          "type": "date",
-          "required": false,
-          "unique": false,
-          "enumName": null,
-          "refCollection": null
-        },
-        {
-          "name": "remark",
-          "type": "string",
-          "required": false,
-          "unique": false,
-          "enumName": null,
-          "refCollection": null
-        },
-        {
-          "name": "status",
-          "type": "enum",
-          "required": true,
-          "unique": false,
-          "enumName": "DOC_STATUS",
-          "refCollection": null
-        }
-      ],
-      "uniqueFields": [
-        "code"
-      ],
-      "refs": [
-        {
-          "field": "companyId",
-          "collection": "org-companies"
-        },
-        {
-          "field": "assetId",
-          "collection": "fixed-assets"
-        },
-        {
-          "field": "creatorId",
-          "collection": "org-users"
-        }
-      ],
-      "protect": [],
-      "protectContains": [],
-      "protectSelf": null,
-      "stockGuard": [],
-      "stock": null,
-      "cascade": [],
-      "keywordFields": [
-        "code",
-        "name"
-      ],
-      "filterFields": [
-        "status",
-        "companyId"
-      ],
-      "sortFields": [
-        "createTime"
-      ],
-      "paged": true
-    },
-    {
-      "key": "fixed-asset-doc-lists-dispose",
-      "label": "处置单列表",
-      "table": "fixed_asset_doc_lists_dispose",
       "fixedFilters": {},
       "pkField": "id",
       "idGenerated": true,

@@ -16,13 +16,15 @@ import {
 /**
  * P1 固定资产第二批：其余单据类型与条件环节、盘点执行、折旧执行。
  *
- * 流程来自生产配置：
+ * 流程来自生产配置（固定资产目标口径 2026-11-09）：
  * - 借出 BORROW / 变更 CHANGE：R5 部门主管 → R2 资产管理员
- * - 退库 RETURN：R5 → R8 仓管（另见 P1-D2 联动缺口）
- * - 维修 REPAIR：R5 → R2，金额 > 5 万加 R7 分管副总
- * - 处置 DISPOSE：R5，金额 > 5 万加 R4 财务，> 20 万再加 R7/R6
+ * - 退库 RETURN：R5 → R8 仓管，完结后资产回空闲并清空使用人
+ * - 维修 REPAIR：提交即 REPAIRING；R5 → R2，金额 > 5 万加 R7，末环节「修毕验收」回 IN_USE
+ * - 处置 DISPOSE：R5；报废按金额加 R4/R7/R6，变卖/捐赠/转让强制 R4 + R6
  * - 盘点 INVENTORY：R2 确认，有差异加 R2 复核 + R6 审计
  * - 折旧 run：同 period 先清后写（幂等）
+ *
+ * 固定资产单据提交时服务端会校验资产状态前置，相关用例显式建「使用中」资产。
  */
 let admin: Session
 let units: OrgUnits
@@ -109,7 +111,7 @@ test('[P1-20] 派发通过后资产使用人随单据更新', async () => {
 
 test('[P1-21] 借出单走完部门主管与资产管理员两环节', async () => {
   const leader = await userWithRole('ROLE_LEADER')
-  const asset = await trackAsset()
+  const asset = await trackAsset({ status: 'IN_USE' })
   const doc = await trackDoc('borrow', asset.id)
 
   await act(admin.token, { docKey: 'borrow', docId: doc.id, action: 'submit' })
@@ -146,7 +148,7 @@ test('[P1-22] 变更单留痕：两环节轨迹完整', async () => {
 test('[P1-23] 退库单走完部门主管与仓管两环节', async () => {
   const leader = await userWithRole('ROLE_LEADER')
   const warehouse = await userWithRole('ROLE_WAREHOUSE')
-  const asset = await trackAsset()
+  const asset = await trackAsset({ status: 'IN_USE' })
   const doc = await trackDoc('back', asset.id)
 
   await act(admin.token, { docKey: 'back', docId: doc.id, action: 'submit' })
@@ -185,21 +187,27 @@ test('[P1-24] 并发修改资产返回 409 版本冲突', async () => {
 
 // ---------------------------------------------------------------- 条件环节
 
-test('[P1-25] 维修金额未超阈值只走两环节', async () => {
+test('[P1-25] 维修金额未超阈值走主管、资产管理员与修毕验收三环节', async () => {
   const leader = await userWithRole('ROLE_LEADER')
-  const asset = await trackAsset()
+  const asset = await trackAsset({ status: 'IN_USE' })
   const doc = await trackDoc('repair', asset.id)
   const ctx = { amount: 0 }
 
   await act(admin.token, { docKey: 'repair', docId: doc.id, action: 'submit', ctx })
-  await act(leader.token, { docKey: 'repair', docId: doc.id, action: 'approve', ctx })
+  const s1 = await act(leader.token, { docKey: 'repair', docId: doc.id, action: 'approve', ctx })
+  expect(s1.body.data.status).toBe('PROCESSING')
+  const s2 = await act(admin.token, { docKey: 'repair', docId: doc.id, action: 'approve', ctx })
+  expect(s2.body.data.status, '大额环节未触发，但修毕验收仍须执行').toBe('PROCESSING')
   const done = await act(admin.token, { docKey: 'repair', docId: doc.id, action: 'approve', ctx })
   expect(done.body.data.status).toBe('DONE')
+
+  const trails = (await trailsOf(doc.code)).filter(t => t.docId === doc.id)
+  expect(trails.map(t => t.stepName)).toContain('修毕验收')
 })
 
 test('[P1-26] 维修金额超 5 万触发分管副总环节', async () => {
   const leader = await userWithRole('ROLE_LEADER')
-  const asset = await trackAsset()
+  const asset = await trackAsset({ status: 'IN_USE' })
   const doc = await trackDoc('repair', asset.id)
   const ctx = { amount: 60000 }
 

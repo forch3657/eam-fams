@@ -440,7 +440,7 @@ test('[P5-07] 位置/部门/使用人统计可筛选', async ({ context, page },
   const deptDialog = page.getByRole('dialog')
   await expect(deptDialog).toBeVisible()
   await expect(deptDialog.locator('.el-table__row').filter({ hasText: `E2E_统计资产_${suffix}` })).toBeVisible()
-  await deptDialog.getByRole('button', { name: '关闭' }).click()
+  await deptDialog.getByRole('button', { name: '关闭', exact: true }).click()
 
   await page.locator('.el-tabs__item').filter({ hasText: '使用人统计' }).click()
   const userTab = page.locator('.el-tab-pane:visible')
@@ -453,7 +453,7 @@ test('[P5-07] 位置/部门/使用人统计可筛选', async ({ context, page },
   const userDialog = page.getByRole('dialog')
   await expect(userDialog).toBeVisible()
   await expect(userDialog.locator('.el-table__row').filter({ hasText: `E2E_统计资产_${suffix}` })).toBeVisible()
-  await userDialog.getByRole('button', { name: '关闭' }).click()
+  await userDialog.getByRole('button', { name: '关闭', exact: true }).click()
   await userTab.getByRole('button', { name: '重置' }).click()
   await expect(userTab.getByPlaceholder('请输入').first()).toHaveValue('')
   await shot(page, testInfo, 1, '三个统计页签与使用人筛选')
@@ -568,7 +568,7 @@ test('[P5-21] 低值报表使用人领用统计与明细下钻', async ({ contex
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
     await expect(dialog.locator('.el-table__header')).toContainText('单据编号')
-    await dialog.getByRole('button', { name: '关闭' }).click()
+    await dialog.getByRole('button', { name: '关闭', exact: true }).click()
   }
   await shot(page, testInfo, 1, '使用人领用统计与下钻')
   guards.assertClean()

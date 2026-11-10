@@ -61,7 +61,8 @@ export async function createDoc(
   session: Session,
   units: OrgUnits,
   bizKey: string,
-  options: { assetId: string; creatorId?: string; code?: string; status?: string; name?: string } = { assetId: '' }
+  options: { assetId: string; creatorId?: string; code?: string; status?: string; name?: string } = { assetId: '' },
+  extra: Record<string, unknown> = {}
 ): Promise<{ id: string; code: string }> {
   const code = options.code ?? `E2E_DOC_${suffix()}`
   const payload = {
@@ -73,7 +74,8 @@ export async function createDoc(
     createTime: new Date().toISOString(),
     finishTime: '',
     remark: 'E2E 自动创建，用后删除',
-    status: options.status ?? 'DRAFT'
+    status: options.status ?? 'DRAFT',
+    ...extra
   }
   return withApi(session.token, async api => {
     const created = await json<{ id: string }>(

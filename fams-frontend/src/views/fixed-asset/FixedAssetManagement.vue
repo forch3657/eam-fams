@@ -3,7 +3,7 @@
     <div class="page-header">
       <h2>固定资产管理</h2>
       <div>
-        <el-button type="primary" @click="openAssetDialog()" v-if="activeTab === 'asset' && can('fa:add')">
+        <el-button type="primary" title="资产登记建档：直接入账为「空闲」，不生成入库单；账外资产的实物入库请在「入库/验收」页签办理" @click="openAssetDialog()" v-if="activeTab === 'asset' && can('fa:add')">
           <el-icon><Plus /></el-icon>
           新增资产
         </el-button>
@@ -111,23 +111,23 @@
           <FixedAssetDocList doc-key="borrow" prefix="JC" :perm="can('fa:borrow')" />
         </el-tab-pane>
 
-        <!-- 资产变更 -->
-        <el-tab-pane v-if="tabVisible('fa:change')" label="资产变更" name="change">
-          <FixedAssetDocList doc-key="change" prefix="BG" :perm="can('fa:change')" />
-        </el-tab-pane>
-
-        <!-- 资产处置：调拨/处置要 fa:dispose；只持 fa:repair 的使用人只能看到「维修」子签 -->
-        <el-tab-pane v-if="tabVisible('fa:dispose') || tabVisible('fa:repair')" label="资产处置" name="dispose">
-          <el-tabs v-model="disposeSub" type="card" class="sub-tabs">
-            <el-tab-pane v-if="tabVisible('fa:dispose')" label="调拨" name="transfer" />
+        <!-- 资产变更：调拨 / 维修 / 信息更正三类，同属「在册继续使用」 -->
+        <el-tab-pane v-if="tabVisible('fa:change') || tabVisible('fa:dispose') || can('fa:repair')" label="资产变更" name="change">
+          <el-tabs v-model="changeSub" type="card" class="sub-tabs">
+            <el-tab-pane v-if="tabVisible('fa:dispose') || tabVisible('fa:change')" label="调拨" name="transfer" />
             <el-tab-pane v-if="tabVisible('fa:dispose') || can('fa:repair')" label="维修" name="repair" />
-            <el-tab-pane v-if="tabVisible('fa:dispose')" label="处置" name="dispose" />
+            <el-tab-pane v-if="tabVisible('fa:change')" label="信息更正" name="change" />
           </el-tabs>
           <FixedAssetDocList
-            :doc-key="disposeSub"
-            :prefix="disposePrefix[disposeSub]"
-            :perm="can('fa:dispose') || (disposeSub === 'repair' && can('fa:repair'))"
+            :doc-key="changeSub"
+            :prefix="changePrefix[changeSub]"
+            :perm="can('fa:dispose') || can('fa:change') || (changeSub === 'repair' && can('fa:repair'))"
           />
+        </el-tab-pane>
+
+        <!-- 资产处置：报废 / 变卖 / 捐赠 / 转让，四类方式在单据表单里选择 -->
+        <el-tab-pane v-if="tabVisible('fa:dispose')" label="资产处置" name="dispose">
+          <FixedAssetDocList doc-key="dispose" prefix="CZ" :perm="can('fa:dispose')" />
         </el-tab-pane>
 
         <!-- 资产盘点 -->
@@ -445,6 +445,14 @@
     </el-dialog>
 
     <el-dialog v-model="assetDialogVisible" :title="assetEditId ? '修改资产' : '新增资产'" width="960px" top="6vh">
+      <el-alert
+        v-if="!assetEditId"
+        type="info"
+        show-icon
+        :closable="false"
+        title="此处是「资产登记」：填完即在台账建卡并直接置为「空闲」可用，不生成入库单。账外 / 盘盈资产的实物入库请到「入库/验收」页签办理 WF1 验收。"
+        style="margin-bottom:12px"
+      />
       <el-form :model="assetForm" label-width="120px">
         <el-row :gutter="16">
           <el-col :span="8">
@@ -969,7 +977,7 @@ const fixedAssetStore = useFixedAssetStore()
 const userStore = useUserStore()
 /** 各单据类型的单号前缀 */
 const dispatchPrefix = { alloc: 'FP', back: 'TK' }
-const disposePrefix = { transfer: 'DB', repair: 'WX', dispose: 'CZ' }
+const changePrefix = { transfer: 'DB', repair: 'WX', change: 'BG' }
 /** 权限判定：按钮级鉴权 */
 const can = code => userStore.can(code)
 
@@ -993,23 +1001,27 @@ const route = useRoute()
 const activeTab = ref('asset')
 const dispatchSub = ref('alloc')
 // 只有报修权的使用人默认落在「维修」子签，否则会停在无权的「调拨」上看到空壳列表
-const disposeSub = ref(tabVisible('fa:dispose') ? 'transfer' : 'repair')
+const changeSub = ref(tabVisible('fa:dispose') || tabVisible('fa:change') ? 'transfer' : 'repair')
 const inventorySub = ref('docs')
 
 /**
  * 深链定位：工作台「去处理」按 ?tab=&sub= 直接落到对应页签
- * 例：/fixed-assets?tab=dispose&sub=repair
+ * 例：/fixed-assets?tab=change&sub=repair
+ * 兼容旧链接 ?tab=dispose&sub=repair|transfer：调拨与维修已迁到「资产变更」页签。
  */
 function applyDeepLink() {
   const q = route?.query || {}
   if (q.tab) activeTab.value = String(q.tab)
   if (q.sub) {
-    if (activeTab.value === 'dispatch') dispatchSub.value = String(q.sub)
-    if (activeTab.value === 'dispose') {
-      // 只有报修权的使用人不能被深链带进调拨/处置子签（后端会 403，这里避免空壳页面）
-      disposeSub.value = tabVisible('fa:dispose') ? String(q.sub) : 'repair'
+    const sub = String(q.sub)
+    if (activeTab.value === 'dispatch') dispatchSub.value = sub
+    if (activeTab.value === 'dispose' && ['repair', 'transfer', 'change'].includes(sub)) {
+      activeTab.value = 'change'
     }
-    if (activeTab.value === 'inventory') inventorySub.value = String(q.sub)
+    if (activeTab.value === 'change') {
+      changeSub.value = tabVisible('fa:dispose') || tabVisible('fa:change') ? sub : 'repair'
+    }
+    if (activeTab.value === 'inventory') inventorySub.value = sub
   }
 }
 onMounted(applyDeepLink)
@@ -2365,7 +2377,9 @@ async function loadAssetRecords(asset) {
           status: row.status
         }
         if (tab === 'dispatch') {
-          next.dispatch.push({ ...base, kind: biz === 'alloc' ? '派发' : '退库', dept: row.deptName || '' })
+          // 归还型退库单关联原借出单，在操作记录里显式标注，形成「借出 → 归还退库」闭环
+          const kind = biz === 'alloc' ? '派发' : (row.borrowDocId ? '归还退库' : '退库')
+          next.dispatch.push({ ...base, kind, dept: row.deptName || '' })
         } else if (tab === 'borrow') {
           next.borrow.push({
             ...base,
