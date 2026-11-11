@@ -558,10 +558,16 @@ public class GenericService {
      * DEPT 按 deptId 精确匹配（系统为单公司、部门树两层以内），即「看本部门全部」；
      * DEPT_ONLY 是「只看本人」：固定资产台账按使用人 userId、各类单据按经办人 creatorId，
      * 低值物品台账没有归属列，作为主数据保持全局可见（否则个人连领用物品都选不到）。</p>
+     *
+     * <p>例外见 {@link #approverNeedsUnscopedDocs}：DEPT_ONLY 的审批人必须能看到
+     * 别人提交、但当前环节点名到本人的待审单据。</p>
      */
     private Map<String, String[]> scopedRaw(String key, ResourceMeta meta, Map<String, String[]> raw) {
         UserPrincipal principal = AuthContext.current();
         if (principal == null || isAllScope(principal.getDataScope()) || !isDataScoped(key)) {
+            return raw;
+        }
+        if (approverNeedsUnscopedDocs(principal, key)) {
             return raw;
         }
         Map<String, String[]> out = raw == null ? new LinkedHashMap<>() : new LinkedHashMap<>(raw);
@@ -580,6 +586,21 @@ public class GenericService {
             putScopeFilter(out, meta, "companyId", principal.getCompanyId());
         }
         return out;
+    }
+
+    /**
+     * 审批人待办可见性：DEPT_ONLY 按 creatorId 只看本人，会漏掉「别人提交、当前环节点名到本人」
+     * 的待审单据。WF5「新使用人接收确认」的审批人是 R3 使用人（DEPT_ONLY），若不放行，
+     * 工作台待办恒空、业务页签 0 条，审批链会卡在中间没人能点。
+     *
+     * <p>审批动作本身由 ApprovalService.requireApprover 按流程点名到人复核，
+     * 列表可见不等于可审批；写 / 删仍由 PermissionPolicy + AssetOwnerPolicy 控制。</p>
+     */
+    public static boolean approverNeedsUnscopedDocs(UserPrincipal principal, String key) {
+        return principal != null
+                && "DEPT_ONLY".equalsIgnoreCase(principal.getDataScope())
+                && key != null && key.startsWith("fixed-asset-doc-lists-")
+                && principal.getAuthorities().stream().anyMatch(a -> "wm:todo".equals(a.getAuthority()));
     }
 
     private static boolean isDataScoped(String key) {

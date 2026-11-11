@@ -35,7 +35,7 @@ function docFields(extra = {}) {
 // 必须在下方 ASSETS 契约之前定义：ASSETS 的删除保护规则按此清单展开
 const DOC_LIST_KEYS = ['inbound', 'alloc', 'back', 'borrow', 'transfer', 'repair', 'change', 'dispose']
 /** 已有独立静态契约、不再命中动态模板的单据类型 */
-const STATIC_DOC_BIZ = ['borrow', 'back', 'dispose', 'change']
+const STATIC_DOC_BIZ = ['borrow', 'back', 'dispose', 'change', 'transfer']
 const DOC_LIST_LABELS = {
   inbound: '入库单列表', alloc: '派发单列表', back: '退库单列表', borrow: '借出单列表',
   transfer: '调拨单列表', repair: '维修单列表', change: '资产变更单列表', dispose: '处置单列表'
@@ -917,17 +917,36 @@ const DISPOSE_DOCS = staticDocList('fixed-asset-doc-lists-dispose', '处置单�
   outLedgerBasis: f.str()
 }, ['disposeType'])
 
-/** 资产变更单：三类变更类型 + 信息更正前后快照 */
+/** 资产变更单：页面入口已下架，契约保留供历史单据读写（含更正前后快照） */
 const CHANGE_DOCS = staticDocList('fixed-asset-doc-lists-change', '资产变更单列表', {
   changeType: f.enum('CHANGE_TYPE'),
   beforeSnapshot: f.str(),
   afterSnapshot: f.str()
 }, ['changeType'])
 
+/**
+ * 调拨单：目标字段统一用 to* 前缀，避免与 ApproverResolver.deptIdOf 的
+ * 「单据 deptId 优先」冲突（否则 WF5「调出部门主管」会被解析成调入部门主管）。
+ * before* 是提交时的调出前快照，既用于审计追溯，也供 ASSET_CURRENT_USER
+ * 审批人解析，避免审批期间资产被别的单据改掉导致换审批人。
+ */
+const TRANSFER_DOCS = staticDocList('fixed-asset-doc-lists-transfer', '调拨单列表', {
+  toDeptId: f.ref('org-departments'),
+  toUserId: f.ref('org-users'),
+  toLocation: f.str(),
+  beforeDeptId: f.str(),
+  beforeUserId: f.str(),
+  beforeLocation: f.str()
+})
+TRANSFER_DOCS.rules.refs.push(
+  { field: 'toDeptId', collection: 'org-departments' },
+  { field: 'toUserId', collection: 'org-users' }
+)
+
 const CONTRACT_LIST = [
   ASSETS,
   BORROW_DOCS,
-  BACK_DOCS, DISPOSE_DOCS, CHANGE_DOCS,
+  BACK_DOCS, DISPOSE_DOCS, CHANGE_DOCS, TRANSFER_DOCS,
   INVENTORY_PLANS, INVENTORY_DOCS,
   DEPRECIATION_SCHEMES, DEPRECIATION_REPORTS,
   REPORT_DEPRECIATION_DETAILS, REPORT_DEPRECIATION_PLAN_DETAILS,

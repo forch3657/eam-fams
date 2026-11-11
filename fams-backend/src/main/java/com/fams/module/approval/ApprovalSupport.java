@@ -123,7 +123,7 @@ public final class ApprovalSupport {
 
     /**
      * 环节触发条件：AMOUNT_GT 金额门槛 / HAS_DIFF 盘点差异 /
-     * DISPOSE_FINANCE、DISPOSE_AUDIT 按处置方式强制财务与审计参与。
+     * HAS_ASSET_USER 调拨存在现任使用人 / DISPOSE_FINANCE、DISPOSE_AUDIT 按处置方式强制财务与审计参与。
      */
     public static boolean stepApplies(Map<String, Object> step, Map<String, Object> ctx) {
         String type = text(step.get("conditionType"));
@@ -146,6 +146,10 @@ public final class ApprovalSupport {
         if ("AMOUNT_GT".equals(type)) {
             return amountExceeds(step, ctx);
         }
+        if ("HAS_ASSET_USER".equals(type)) {
+            // 调拨「现任使用人交出确认」：空闲资产没有使用人时不生效，避免提交被 fail-closed 拦死
+            return truthy(ctx.get("hasAssetUser"));
+        }
         return "HAS_DIFF".equals(type) && truthy(ctx.get("hasDiff"));
     }
 
@@ -162,11 +166,11 @@ public final class ApprovalSupport {
         return amount.compareTo(threshold) > 0;
     }
 
-    /** 当前待审环节；全部通过时返回 null。deptId 用于按部门解析审批人。 */
+    /** 当前待审环节；全部通过时返回 null。deptId 按部门解析，doc 供使用人类环节解析。 */
     public static Map<String, Object> currentStep(List<Map<String, Object>> steps,
                                                   List<Map<String, Object>> approvals,
                                                   GenericService service,
-                                                  String deptId) {
+                                                  String deptId, Map<String, Object> doc) {
         for (Map<String, Object> step : steps) {
             String key = text(step.get("key"));
             Set<String> agreedBy = new LinkedHashSet<>();
@@ -181,7 +185,7 @@ public final class ApprovalSupport {
                 return step;
             }
             if ("ALL".equals(text(step.get("mode")))) {
-                Set<String> approvers = approverIdsOf(step, approvals, service, deptId);
+                Set<String> approvers = approverIdsOf(step, approvals, service, deptId, doc);
                 if (!approvers.isEmpty() && !agreedBy.containsAll(approvers)) {
                     return step;
                 }
@@ -200,7 +204,7 @@ public final class ApprovalSupport {
      * DEPT_LEADER / DEPT_VP 等按单据归属部门解析到具体的人（唯一审批人）。</p>
      */
     public static Set<String> approverIdsOf(Map<String, Object> step, List<Map<String, Object>> approvals,
-                                            GenericService service, String deptId) {
+                                            GenericService service, String deptId, Map<String, Object> doc) {
         Set<String> ids = new LinkedHashSet<>();
         String key = text(step.get("key"));
         Map<String, Object> lastTransfer = null;
@@ -220,7 +224,7 @@ public final class ApprovalSupport {
                 ids.add(target);
             }
         } else {
-            ids.addAll(ApproverResolver.resolve(service, step, deptId));
+            ids.addAll(ApproverResolver.resolve(service, step, deptId, doc));
         }
         boolean afterTransfer = lastTransfer == null;
         for (Map<String, Object> record : stepRecords) {

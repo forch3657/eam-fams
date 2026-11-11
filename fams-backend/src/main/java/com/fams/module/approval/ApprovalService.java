@@ -140,15 +140,22 @@ public class ApprovalService {
         String bizType = text(request.getBizType()).isEmpty()
                 ? ApprovalSupport.bizTypeOf(docKey)
                 : text(request.getBizType());
+        // 调拨提交：先按服务端台账生成调出前快照，环节条件 / 审批人解析 / 落库共用一份事实
+        if ("TRANSFER".equals(bizType) && "submit".equals(action)) {
+            snapshotTransferSource(previous);
+        }
         Map<String, Object> flow = ApprovalSupport.flowOf(genericService, FLOWS, bizType);
         // 环节生效条件以服务端判定为准：客户端可以伪造 ctx 把条件环节跳过
         Map<String, Object> ctx = effectiveCtx(bizType, previous, request.getCtx());
+        if ("TRANSFER".equals(bizType)) {
+            ctx.put("hasAssetUser", !text(previous.get("beforeUserId")).isEmpty());
+        }
         List<Map<String, Object>> steps = ApprovalSupport.effectiveSteps(flow, ctx);
         List<Map<String, Object>> approvals =
                 ApprovalSupport.approvalsOf(genericService, APPROVALS, docKey, docId);
         // 单据归属部门：部门负责人 / 分管领导按这个部门解析
         String deptId = ApproverResolver.deptIdOf(genericService, previous);
-        Map<String, Object> current = ApprovalSupport.currentStep(steps, approvals, genericService, deptId);
+        Map<String, Object> current = ApprovalSupport.currentStep(steps, approvals, genericService, deptId, previous);
 
         // 加签 / 转办 / 抄送：只写轨迹，不推进单据状态
         if ("addSign".equals(action) || "transfer".equals(action) || "cc".equals(action)) {
@@ -202,7 +209,7 @@ public class ApprovalService {
                 throw new ApiException(ErrorCode.BAD_REQUEST, "该流程没有可用环节，请检查流程配置");
             }
             // 提交前预解析全部生效环节：没有审批人就不让提交，避免单据卡在中间没人能批
-            List<String> unresolved = ApproverResolver.unresolvedStepNames(genericService, steps, deptId);
+            List<String> unresolved = ApproverResolver.unresolvedStepNames(genericService, steps, deptId, previous);
             if (!unresolved.isEmpty()) {
                 throw new ApiException(ErrorCode.BAD_REQUEST,
                         "以下环节没有可用的审批人，请先在「组织架构」中指定：" + String.join("、", unresolved));
@@ -255,7 +262,7 @@ public class ApprovalService {
             if (current == null) {
                 throw new ApiException(ErrorCode.CONFLICT, "该单据已无待审环节");
             }
-            requireApprover(current, approvals, deptId);
+            requireApprover(current, approvals, deptId, previous);
             if (comment.isEmpty()) {
                 throw new ApiException(ErrorCode.VALIDATION, "驳回必须填写意见");
             }
@@ -274,7 +281,7 @@ public class ApprovalService {
                 stepName = "审批完成";
                 nextStatus = "DONE";
             } else {
-                requireApprover(current, approvals, deptId);
+                requireApprover(current, approvals, deptId, previous);
                 result = "AGREE";
                 step = current;
                 stepName = text(current.get("name"));
@@ -288,7 +295,7 @@ public class ApprovalService {
             if (current == null) {
                 throw new ApiException(ErrorCode.CONFLICT, "该单据已无待审环节，不能终止");
             }
-            requireApprover(current, approvals, deptId);
+            requireApprover(current, approvals, deptId, previous);
             if (comment.isEmpty()) {
                 throw new ApiException(ErrorCode.VALIDATION, "终止必须填写意见");
             }
@@ -392,12 +399,13 @@ public class ApprovalService {
         throw new ApiException(ErrorCode.FORBIDDEN, "只有单据创建人或流程发起人角色可以提交或撤销");
     }
 
-    private void requireApprover(Map<String, Object> step, List<Map<String, Object>> approvals, String deptId) {
+    private void requireApprover(Map<String, Object> step, List<Map<String, Object>> approvals,
+                                 String deptId, Map<String, Object> doc) {
         String me = AuthContext.currentUserId();
         if (me == null || me.isEmpty()) {
             throw new ApiException(ErrorCode.UNAUTHORIZED, "未登录，无法审批");
         }
-        Set<String> approvers = ApprovalSupport.approverIdsOf(step, approvals, genericService, deptId);
+        Set<String> approvers = ApprovalSupport.approverIdsOf(step, approvals, genericService, deptId, doc);
         if (approvers.contains(me)) {
             return;
         }
@@ -464,12 +472,12 @@ public class ApprovalService {
             throw new ApiException(ErrorCode.CONFLICT, "该单据已无待审环节，不能加签或转办");
         }
         boolean isApprover = current != null
-                && ApprovalSupport.approverIdsOf(current, approvals, genericService, deptId).contains(me);
+                && ApprovalSupport.approverIdsOf(current, approvals, genericService, deptId, previous).contains(me);
         if (!isApprover && !(cc && me.equals(text(previous.get("creatorId"))))) {
             throw new ApiException(ErrorCode.FORBIDDEN,
                     "只有当前环节的审批人可以执行该动作（抄送还允许单据创建人）");
         }
-        if (!cc && ApprovalSupport.approverIdsOf(current, approvals, genericService, deptId).contains(target)) {
+        if (!cc && ApprovalSupport.approverIdsOf(current, approvals, genericService, deptId, previous).contains(target)) {
             throw new ApiException(ErrorCode.CONFLICT, "该人员已是当前环节的审批人");
         }
         String result = "addSign".equals(action) ? "ADD_SIGN"
@@ -542,10 +550,12 @@ public class ApprovalService {
                 }
                 break;
             case "TRANSFER":
-                // 调拨属于「在册继续使用」：只更新归属字段，不改资产状态
-                patchIfPresent(doc, assetId, "deptId");
-                patchIfPresent(doc, assetId, "userId");
-                patchIfPresent(doc, assetId, "location");
+                // 调拨属于「在册继续使用」：只更新归属字段，不改资产状态、不跨公司。
+                // 目标字段用 to* 前缀，避免与 ApproverResolver.deptIdOf 的「单据 deptId 优先」冲突
+                // （否则 WF5「调出部门主管」会被解析成调入部门主管）。
+                patchFromTo(doc, assetId, "toDeptId", "deptId");
+                patchFromTo(doc, assetId, "toUserId", "userId");
+                patchFromTo(doc, assetId, "toLocation", "location");
                 log.info("资产调拨完结 assetId={}", assetId);
                 break;
             case "REPAIR":
@@ -569,6 +579,36 @@ public class ApprovalService {
         Object value = doc.get(field);
         if (value != null && !text(value).isEmpty()) {
             genericService.patchField(ASSETS, assetId, field, value, null);
+        }
+    }
+
+    /** 调拨：单据上的 to* 字段回写到台账对应列；目标为空则沿用原值 */
+    private void patchFromTo(Map<String, Object> doc, String assetId, String from, String to) {
+        Object value = doc.get(from);
+        if (value != null && !text(value).isEmpty()) {
+            genericService.patchField(ASSETS, assetId, to, value, null);
+        }
+    }
+
+    /**
+     * 调拨提交：由服务端按台账生成调出前快照，写进单据（next 复制后随状态一起落库）。
+     *
+     * <p>不采信客户端传值，避免伪造「现任使用人」绕过交出确认；审批期间资产被别的单据
+     * 改了归属，审批人仍按提交时的快照解析，不会中途换人。</p>
+     */
+    private void snapshotTransferSource(Map<String, Object> doc) {
+        String assetId = text(doc.get("assetId"));
+        if (assetId.isEmpty()) {
+            return;
+        }
+        try {
+            Map<String, Object> asset = genericService.get(ASSETS, assetId);
+            doc.put("beforeDeptId", text(asset.get("deptId")));
+            doc.put("beforeUserId", text(asset.get("userId")));
+            doc.put("beforeLocation", text(asset.get("location")));
+        } catch (RuntimeException e) {
+            // 资产不存在时由 validateAssetPrecondition 给出更准确的 400，不在这里提前抛
+            log.warn("调拨提交生成调出前快照失败 assetId={}", assetId, e);
         }
     }
 
@@ -630,6 +670,10 @@ public class ApprovalService {
                 requireStatus(status, "只有使用中或借出中的资产可以送修", "IN_USE", "BORROWED");
                 break;
             case "TRANSFER":
+                // 用户裁决（2026-11-11）：空闲资产可以派发、不能调拨，选了就明确提示
+                requireStatus(status, "空闲资产不能调拨，请先办理「派发领用」确定使用人",
+                        "IN_USE", "PENDING_WRITE_OFF");
+                break;
             case "CHANGE":
             case "DISPOSE":
                 requireStatus(status, "资产处于不可用状态，不能发起该业务",

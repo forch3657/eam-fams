@@ -99,7 +99,7 @@ export const DISPOSE_TYPE = {
   TRANSFER_OUT: '转让'
 }
 
-/** 资产变更类型（目标口径：调拨 / 维修 / 信息更正，三类同属「在册继续使用」） */
+/** 资产变更类型：信息更正入口已下架，CORRECTION 仅保留给历史单据的标签展示 */
 export const CHANGE_TYPE = {
   TRANSFER: '调拨',
   REPAIR: '维修',
@@ -214,7 +214,8 @@ export const APPROVE_MODE = {
 export const APPROVE_CONDITION = {
   NONE: '无条件',
   AMOUNT_GT: '单据金额大于',
-  HAS_DIFF: '存在盘点差异'
+  HAS_DIFF: '存在盘点差异',
+  HAS_ASSET_USER: '存在现任资产使用人'
 }
 
 /** 审批动作结果 */

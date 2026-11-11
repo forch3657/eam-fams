@@ -38,6 +38,12 @@ public final class ApproverResolver {
 
     public static final String TYPE_DEPT_LEADER = "DEPT_LEADER";
 
+    /** 调拨：按调出前快照的现任使用人解析（唯一审批人） */
+    public static final String TYPE_ASSET_CURRENT_USER = "ASSET_CURRENT_USER";
+
+    /** 调拨：按单据上的新使用人解析（唯一审批人） */
+    public static final String TYPE_DOC_TARGET_USER = "DOC_TARGET_USER";
+
     /** 父部门链最大深度，防止组织数据成环时死循环 */
     private static final int MAX_DEPT_DEPTH = 12;
 
@@ -48,7 +54,8 @@ public final class ApproverResolver {
     public static boolean isPersonScoped(Map<String, Object> step) {
         String type = typeOf(step);
         return TYPE_DEPT_LEADER.equals(type) || "PARENT_DEPT_LEADER".equals(type)
-                || "DEPT_VP".equals(type) || "USER".equals(type);
+                || "DEPT_VP".equals(type) || "USER".equals(type)
+                || TYPE_ASSET_CURRENT_USER.equals(type) || TYPE_DOC_TARGET_USER.equals(type);
     }
 
     /**
@@ -72,8 +79,13 @@ public final class ApproverResolver {
         return text(read(service, USERS, text(doc.get("creatorId"))).get("deptId"));
     }
 
-    /** 按环节配置解析审批人集合；解析不到返回空集合（由调用方决定报错还是放行） */
-    public static Set<String> resolve(GenericService service, Map<String, Object> step, String deptId) {
+    /**
+     * 按环节配置解析审批人集合；解析不到返回空集合（由调用方决定报错还是放行）。
+     *
+     * @param doc 单据，供「现任使用人 / 新使用人」两类环节读取快照与目标字段
+     */
+    public static Set<String> resolve(GenericService service, Map<String, Object> step,
+                                      String deptId, Map<String, Object> doc) {
         Set<String> ids = new LinkedHashSet<>();
         if (step == null) {
             return ids;
@@ -91,6 +103,12 @@ public final class ApproverResolver {
             case "USER":
                 addUser(service, ids, text(step.get("approverId")));
                 break;
+            case TYPE_ASSET_CURRENT_USER:
+                addUser(service, ids, text(doc == null ? "" : doc.get("beforeUserId")));
+                break;
+            case TYPE_DOC_TARGET_USER:
+                addUser(service, ids, text(doc == null ? "" : doc.get("toUserId")));
+                break;
             case TYPE_ROLE:
             default:
                 ids.addAll(service.userIdsOfRole(text(step.get("approverRoleId"))));
@@ -101,10 +119,11 @@ public final class ApproverResolver {
 
     /** 解析不到审批人的环节名称，用于提交时一次性提示 */
     public static List<String> unresolvedStepNames(GenericService service,
-                                                   List<Map<String, Object>> steps, String deptId) {
+                                                   List<Map<String, Object>> steps, String deptId,
+                                                   Map<String, Object> doc) {
         List<String> names = new ArrayList<>();
         for (Map<String, Object> step : steps) {
-            if (resolve(service, step, deptId).isEmpty()) {
+            if (resolve(service, step, deptId, doc).isEmpty()) {
                 names.add(text(step.get("name")) + "（" + personLabel(step.get("approverType")) + "）");
             }
         }
@@ -126,6 +145,10 @@ public final class ApproverResolver {
                 return "分管领导";
             case "USER":
                 return "指定审批人";
+            case TYPE_ASSET_CURRENT_USER:
+                return "现任资产使用人";
+            case TYPE_DOC_TARGET_USER:
+                return "调拨后新使用人";
             default:
                 return "角色成员";
         }

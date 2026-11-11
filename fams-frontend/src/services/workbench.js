@@ -50,6 +50,8 @@ export function docCtx(doc, assets = [], bizType = '') {
   const hasDiff = items.some(i => DIFF.includes(i.itemStatus) || DIFF.includes(i.result))
   const ctx = { amount, hasDiff }
   if (bizType === 'DISPOSE' || doc?.disposeType) ctx.disposeType = doc?.disposeType || ''
+  // 调拨「现任使用人交出确认」按是否有使用人决定生效，口径与服务端 effectiveCtx 一致
+  if (bizType === 'TRANSFER') ctx.hasAssetUser = !!(doc?.beforeUserId || asset?.userId)
   return ctx
 }
 

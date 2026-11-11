@@ -289,6 +289,51 @@ IN_USE / BORROWED --维修--> REPAIRING --验收--> IN_USE
 
 历史单 `PD20261104001` **不做自动补录**：明细关联的是台账已有资产且缺建账要素，凭空造一条「客用电梯」会形成重复台账。已在该单备注留痕，由业务核实是否应按「登记账外资产」重新盘点。
 
+### 7.1e 追加裁决（2026-11-11）：信息更正（WF7 / `change`）下架
+
+用户裁决：「资产变更的信息更正没有必要，已经在固定资产的操作那边可以修改。把信息更正删除。」
+
+**口径**：台账字段（名称 / 分类 / 原值 / 存放地点等）直接在固定资产列表的「修改」里改，不再另开信息更正审批单留更正前后快照。「资产变更」页签从此只收纳**调拨、维修**两类。
+
+**已下架（用户可见入口）**：
+
+- 「固定资产 → 资产变更 → 信息更正」子页签；
+- 台账行级「发起业务」下拉里的「信息更正」动作（`ASSET_ACTION_DEFS`）；
+- `BG` 单号前缀、深链 `?tab=change&sub=change`（旧链接一律回落到「维修」，避免渲染不存在的面板）、`FixedAssetDocList` 的变更类型 / 更正前后快照表单；
+- E2E `[RP-05]` 断言改为「信息更正子签不可见」。
+
+**刻意保留（不做破坏性删除）**：
+
+- `fixed-asset-doc-lists-change` 契约 / 数据表、WF7 流程、`CHANGE_TYPE.CORRECTION` 字典与 `fa:change` 权限码：生产库已有历史单据与可能在途的审批，删契约会让历史数据读不出来、删流程会让在途单卡死；
+- `BIZ_DOC_REGISTRY.CHANGE` 与 `OWNER_INITIATED_DOC_KEYS.change`：工作台仍要能处理历史在途单，且后者与后端 `AssetOwnerPolicy` 同源；
+- 资产详情「资产变更」操作记录：`assetRecordData.change` 仍按 `assetId` 聚合历史单据，留痕不抹。
+
+**遗留决策点（本轮未擅自改动）**：
+
+1. 盘点异常去向 `INVENTORY_DISPOSAL.CHANGE`「转变更单」仍会派生 `fixed-asset-doc-lists-change` 单据，而该单据已无业务页签。是否停用该去向（只留「转维修单 / 已说明」），需用户裁决；停用会牵动运行期字典、后端白名单与 `18-inventory-flow` E2E。
+2. 历史在途信息更正单：建议先在工作台走完审批或由管理员作废，再考虑清理 `fixed-asset-doc-lists-change` 表与 WF7 流程配置。
+3. `README.md` / `docs/e2e/*` 中的「三类变更」是当时的分析记录，本轮未逐条改写，口径以本节为准。
+
+### 7.1f 追加裁决（2026-11-11）：调拨单据闭环与 WF5 审批链优化
+
+用户裁决：「调拨不用跨公司」「三个目标字段中新使用人必填」「保留调出前快照」「空闲资产可以派发、不能调拨，报提示即可」「大额分管副总前移到办理调拨之前做事前批准」「正常也要经手当前资产使用人和调拨后的资产使用人」。
+
+**字段口径**（`fixed-asset-doc-lists-transfer` 拆为独立静态契约，6 个新列见 `sql/04-maintenance/15-transfer-fields.sql`）：
+
+- `toDeptId` / `toUserId` / `toLocation`：目标归属，`toUserId` 必填且须为在职账号；**不回写** `companyId`（跨公司走转让处置）；
+- `beforeDeptId` / `beforeUserId` / `beforeLocation`：提交时由服务端 `ApprovalService.snapshotTransferSource` 按台账生成，客户端不得伪造；既用于审计留痕，也供 `ASSET_CURRENT_USER` 审批人解析，审批期间资产被改不换审批人；
+- 目标字段统一 `to*` 前缀，避免 `ApproverResolver.deptIdOf` 的「单据 `deptId` 优先」把「调出部门主管」解析成「调入部门主管」。
+
+**空闲资产**：`validateAssetPrecondition` 的 `TRANSFER` 分支只允许 `IN_USE` / `PENDING_WRITE_OFF`，`IDLE` 返回「空闲资产不能调拨，请先办理『派发领用』确定使用人」；前端 `FixedAssetDocList` 同步提示。
+
+**WF5 新审批链**（生产库迁移 `sql/04-maintenance/16-wf5-transfer-chain.sql`）：
+
+`R2 发起 →〔有使用人〕现任使用人交出确认（ASSET_CURRENT_USER + HAS_ASSET_USER）→ 调出部门主管（DEPT_LEADER）→ 新使用人接收确认（DOC_TARGET_USER）→〔>20 万〕分管副总（DEPT_VP）→ 资产管理员办理调拨（R2，DONE 回写台账）`。
+
+新增 `ASSET_CURRENT_USER` / `DOC_TARGET_USER` 两类唯一审批人与 `HAS_ASSET_USER` 触发条件；空闲资产因条件不成立跳过交出确认，避免提交被 fail-closed 预解析拦死。分管副总由原来的末环节「事后备案」前移为事前批准，详见 `docs/dept-approval.md`。
+
+**回归**：新增 `P13TransferApprovalTest`（后端）与前端 `approval.test.mjs` 断言同步；`mvn test` 137 项、前端 4 组单测全绿，jacoco 门禁通过。
+
 ### 7.2 已裁决：登记 / 入库语义边界、期初过渡与归还载体（2026-11-09）
 
 **6a 概念澄清（用户口径）**：「新增资产是登记，入库是实际资产入库」。二者是**不同性质的动作**，不是同一流程的两个阶段：

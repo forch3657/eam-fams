@@ -142,12 +142,11 @@
           />
         </el-tab-pane>
 
-        <!-- 资产变更：调拨 / 维修 / 信息更正三类，同属「在册继续使用」 -->
+        <!-- 资产变更：调拨 / 维修两类，同属「在册继续使用」；台账字段直接改，不再设信息更正单 -->
         <el-tab-pane v-if="tabVisible('fa:change') || tabVisible('fa:dispose') || can('fa:repair')" label="资产变更" name="change">
           <el-tabs v-model="changeSub" type="card" class="sub-tabs">
             <el-tab-pane v-if="tabVisible('fa:dispose') || tabVisible('fa:change')" label="调拨" name="transfer" />
             <el-tab-pane v-if="tabVisible('fa:dispose') || can('fa:repair')" label="维修" name="repair" />
-            <el-tab-pane v-if="tabVisible('fa:change')" label="信息更正" name="change" />
           </el-tabs>
           <FixedAssetDocList
             :key="'change-' + changeSub"
@@ -1096,7 +1095,8 @@ const fixedAssetStore = useFixedAssetStore()
 const userStore = useUserStore()
 /** 各单据类型的单号前缀 */
 const dispatchPrefix = { alloc: 'FP', back: 'TK' }
-const changePrefix = { transfer: 'DB', repair: 'WX', change: 'BG' }
+/** 信息更正（BG）子签已下架：台账字段直接在固定资产列表「修改」里改 */
+const changePrefix = { transfer: 'DB', repair: 'WX' }
 /** 权限判定：按钮级鉴权 */
 const can = code => userStore.can(code)
 
@@ -1205,11 +1205,13 @@ function applyDeepLink() {
   if (q.sub) {
     const sub = String(q.sub)
     if (activeTab.value === 'dispatch') dispatchSub.value = sub
-    if (activeTab.value === 'dispose' && ['repair', 'transfer', 'change'].includes(sub)) {
+    if (activeTab.value === 'dispose' && ['repair', 'transfer'].includes(sub)) {
       activeTab.value = 'change'
     }
     if (activeTab.value === 'change') {
-      changeSub.value = tabVisible('fa:dispose') || tabVisible('fa:change') ? sub : 'repair'
+      // 信息更正子签已下架：旧链接 / 工作台深链 ?sub=change 一律回落到维修，
+      // 避免把 changeSub 设成不存在的子签，渲染出没有入口的变更单面板。
+      changeSub.value = ['transfer', 'repair'].includes(sub) ? sub : 'repair'
     }
     if (activeTab.value === 'inventory') inventorySub.value = sub
   }

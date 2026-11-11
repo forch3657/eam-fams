@@ -250,14 +250,18 @@ const approverTypeOptions = [
   { value: 'DEPT_LEADER', label: '本部门负责人（唯一）' },
   { value: 'PARENT_DEPT_LEADER', label: '上级部门负责人（唯一）' },
   { value: 'DEPT_VP', label: '本部门分管领导（唯一）' },
-  { value: 'USER', label: '指定审批人（唯一）' }
+  { value: 'USER', label: '指定审批人（唯一）' },
+  { value: 'ASSET_CURRENT_USER', label: '现任资产使用人（调拨快照，唯一）' },
+  { value: 'DOC_TARGET_USER', label: '调拨后新使用人（单据字段，唯一）' }
 ]
 
 const PERSON_TYPE_TEXT = {
   DEPT_LEADER: '部门负责人',
   PARENT_DEPT_LEADER: '上级部门负责人',
   DEPT_VP: '分管领导',
-  USER: '指定审批人'
+  USER: '指定审批人',
+  ASSET_CURRENT_USER: '现任资产使用人',
+  DOC_TARGET_USER: '调拨后新使用人'
 }
 
 const enabledUsers = computed(() => orgStore.users.filter(u => u.status === 'ENABLED'))
@@ -284,6 +288,8 @@ const approverTypeTip = computed(() => {
   if (type === 'DEPT_LEADER') return '按单据归属部门的「部门负责人」解析，唯一审批人；需在「组织架构 → 部门」中指定'
   if (type === 'PARENT_DEPT_LEADER') return '按单据归属部门的上一级部门负责人解析，唯一审批人'
   if (type === 'DEPT_VP') return '按单据归属部门的「分管领导」解析，唯一审批人；本部门未配置时向上级部门查找'
+  if (type === 'ASSET_CURRENT_USER') return '按调拨单提交时生成的「调出前使用人快照」解析；配 HAS_ASSET_USER 条件可在空闲资产上跳过'
+  if (type === 'DOC_TARGET_USER') return '按调拨单的「新使用人」字段解析，唯一审批人；新使用人必须在职'
   return '固定由指定账号审批'
 })
 

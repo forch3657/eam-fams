@@ -182,10 +182,10 @@ test('[RP-05] 陈学知（R3）只读浏览页签，按权限发起借出/变更
   await expect(page.getByRole('button', { name: '新增资产' }), '不得改台账').toHaveCount(0)
   await expect(page.getByRole('button', { name: '生成盘点计划' }), '不得发起盘点').toHaveCount(0)
 
-  // 资产变更页签收纳调拨 / 维修 / 信息更正三类；R3 有 fa:change + fa:repair，可发起维修
+  // 资产变更页签收纳调拨 / 维修两类；信息更正已下架（台账字段直接在列表「修改」里改）
   await tab('资产变更').first().click()
   await expect(tab('维修'), '维修已迁入资产变更页签').toBeVisible()
-  await expect(tab('信息更正')).toBeVisible()
+  await expect(tab('信息更正'), '信息更正不应再出现在界面').toHaveCount(0)
   const addDoc = page.locator('.el-button:visible').filter({ hasText: '新增单据' }).first()
   await expect(addDoc, '应能发起维修报修').toBeVisible()
 
@@ -199,7 +199,7 @@ test('[RP-05] 陈学知（R3）只读浏览页签，按权限发起借出/变更
   }
 })
 
-// 注：2026-11-10 起「台账使用人本人」可对自己名下资产发起退库/借出/维修/信息更正
+// 注：2026-11-10 起「台账使用人本人」可对自己名下资产发起退库/借出/维修（信息更正入口已下架）
 // （AssetOwnerPolicy）。该授权体现在台账行级「发起业务」入口，以及切到对应单据页签后的
 // 「新增单据」按钮；本用例停留在固定资产台账页签，只核对纯只读浏览不带出写入口。
 test('[RP-06] 部门主管（R5）只读浏览全部页签，但没有任何新增入口', async ({ context, page }) => {

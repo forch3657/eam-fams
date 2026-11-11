@@ -53,11 +53,11 @@ const SEED_PARAMS = [
 // - mode 存 APPROVE_MODE 编码（ANY 或签 / SEQUENCE 依次 / ALL 会签）；
 // - conditionType 存 APPROVE_CONDITION 编码（NONE / AMOUNT_GT / HAS_DIFF），conditionValue 为阈值；
 // - approver / condition 为冗余展示文案（兼容旧数据与只读场景），不参与判定。
-const STEP = (key, name, roleId, roleName, mode = 'ANY', conditionType = 'NONE', conditionValue = 0) => ({
+const STEP = (key, name, roleId, roleName, mode = 'ANY', conditionType = 'NONE', conditionValue = 0, approverType) => ({
   key,
   name,
-  // 审批人解析方式：部门主管 → 按单据归属部门解析「部门负责人」；分管副总 → 解析「分管领导」
-  approverType: roleId === 'R5' ? 'DEPT_LEADER' : roleId === 'R7' ? 'DEPT_VP' : undefined,
+  // 审批人解析方式：默认按角色 / 部门负责人 / 分管领导；调拨两类使用人环节显式覆盖
+  approverType: approverType || (roleId === 'R5' ? 'DEPT_LEADER' : roleId === 'R7' ? 'DEPT_VP' : undefined),
   approverRoleId: roleId,
   approver: roleName,
   mode,
@@ -65,7 +65,8 @@ const STEP = (key, name, roleId, roleName, mode = 'ANY', conditionType = 'NONE',
   conditionValue,
   condition: conditionType === 'AMOUNT_GT'
     ? `单据金额大于 ${conditionValue} 元`
-    : (conditionType === 'HAS_DIFF' ? '存在盘点差异' : '无条件')
+    : (conditionType === 'HAS_DIFF' ? '存在盘点差异'
+      : (conditionType === 'HAS_ASSET_USER' ? '存在现任资产使用人' : '无条件'))
 })
 
 // 角色速查：R1 系统管理员 / R2 资产管理员 / R3 资产使用人 / R4 财务管理员
@@ -112,9 +113,11 @@ const SEED_FLOWS = [
     initiator: '资产管理员', initiatorRoleId: 'R2', enabled: true,
     ...AUDIT('2026-01-06T12:20:00', '2026-10-22T09:10:00'),
     steps: [
-      STEP('s1', '调出部门主管审批', 'R5', '部门主管', 'ANY'),
-      STEP('s2', '资产管理员办理调拨', 'R2', '资产管理员', 'SEQUENCE'),
-      STEP('s3', '大额调拨分管副总审批', 'R7', '分管副总', 'ANY', 'AMOUNT_GT', 200000)
+      STEP('s1', '现任使用人交出确认', 'R3', '现任资产使用人', 'ANY', 'HAS_ASSET_USER', 0, 'ASSET_CURRENT_USER'),
+      STEP('s2', '调出部门主管审批', 'R5', '部门主管', 'ANY'),
+      STEP('s3', '新使用人接收确认', 'R3', '调拨后新使用人', 'ANY', 'NONE', 0, 'DOC_TARGET_USER'),
+      STEP('s4', '大额调拨分管副总审批', 'R7', '分管副总', 'ANY', 'AMOUNT_GT', 200000),
+      STEP('s5', '资产管理员办理调拨', 'R2', '资产管理员', 'SEQUENCE')
     ]
   },
   {

@@ -111,6 +111,34 @@
           </div>
         </el-form-item>
 
+        <template v-if="props.docKey === 'transfer'">
+          <el-alert v-if="transferAssetStatus === 'IDLE'" type="warning" :closable="false" show-icon
+            title="空闲资产不能调拨"
+            description="空闲资产请先办理「派发领用」确定使用人，再发起调拨。"
+            style="margin-bottom:12px" />
+          <el-form-item label="调出前归属">
+            <div class="form-hint">
+              {{ transferCurrent.dept || '未分配' }} · {{ transferCurrent.user || '无使用人' }} · {{ transferCurrent.location || '未指定' }}
+            </div>
+            <div class="form-hint">提交时由服务端按台账生成快照，随单据留痕并用于「现任使用人交出确认」。</div>
+          </el-form-item>
+          <el-form-item label="新使用人" required>
+            <el-select v-model="form.toUserId" placeholder="请选择调拨后的使用人" filterable clearable style="width:100%">
+              <el-option v-for="u in enabledUsers" :key="u.id" :label="`${u.name}（${orgStore.deptName(u.deptId) || '-'}）`" :value="u.id" />
+            </el-select>
+            <div class="form-hint">接收人需在审批链中确认接收；请选择在职账号。</div>
+          </el-form-item>
+          <el-form-item label="调入部门">
+            <el-select v-model="form.toDeptId" placeholder="不选则沿用原部门" filterable clearable style="width:100%">
+              <el-option v-for="d in deptOptions" :key="d.id" :label="d.name" :value="d.id" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="新存放地点">
+            <el-autocomplete v-model="form.toLocation" :fetch-suggestions="queryTransferLocations"
+              :trigger-on-focus="true" clearable placeholder="不选则沿用原地点；可输入新地点" style="width:100%" />
+          </el-form-item>
+        </template>
+
         <el-form-item v-if="props.docKey === 'alloc'" label="使用部门">
           <el-select v-model="form.deptId" placeholder="请选择使用部门" clearable filterable style="width:100%">
             <el-option v-for="d in deptOptions" :key="d.id" :label="d.name" :value="d.id" />
@@ -135,20 +163,6 @@
           </el-form-item>
           <el-form-item label="出账依据">
             <el-input v-model="form.outLedgerBasis" maxlength="200" placeholder="转让出公司时填写" />
-          </el-form-item>
-        </template>
-
-        <template v-if="props.docKey === 'change'">
-          <el-form-item label="变更类型" required>
-            <el-select v-model="form.changeType" placeholder="请选择变更类型" style="width:100%">
-              <el-option v-for="o in changeTypeOptions" :key="o.value" :label="o.label" :value="o.value" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="更正前">
-            <el-input v-model="form.beforeSnapshot" type="textarea" :rows="2" maxlength="500" placeholder="信息更正时填写" />
-          </el-form-item>
-          <el-form-item label="更正后">
-            <el-input v-model="form.afterSnapshot" type="textarea" :rows="2" maxlength="500" placeholder="信息更正时填写" />
           </el-form-item>
         </template>
 
@@ -268,7 +282,6 @@ const defaultDeptId = computed(() => {
   return account?.deptId || userStore.user?.deptId || ''
 })
 const disposeTypeOptions = computed(() => optionsOf('DISPOSE_TYPE'))
-const changeTypeOptions = computed(() => optionsOf('CHANGE_TYPE'))
 
 /** 仅凭「台账使用人本人」授权的用户：下拉只列自己名下资产，避免选到别人资产后保存 403 */
 const ownerOnly = computed(() =>
@@ -319,9 +332,31 @@ const emptyForm = () => ({
   id: '', name: '', companyId: '', assetId: '', remark: '', deptId: '',
   disposeType: '', buyer: '', voucherNo: '', disposalAmount: null, outLedgerBasis: '',
   changeType: '', beforeSnapshot: '', afterSnapshot: '',
-  expectedReturnDate: '', borrowDocId: ''
+  expectedReturnDate: '', borrowDocId: '',
+  toDeptId: '', toUserId: '', toLocation: ''
 })
 const form = reactive(emptyForm())
+
+const enabledUsers = computed(() => (orgStore.users || []).filter(u => u.status === 'ENABLED'))
+/** 调拨：选中资产的当前归属（只读展示）；before* 快照由服务端提交时按台账生成 */
+const transferAsset = computed(() => assetStore.assets.find(a => a.id === form.assetId))
+const transferAssetStatus = computed(() => transferAsset.value?.status || '')
+const transferCurrent = computed(() => {
+  const a = transferAsset.value
+  if (!a) return { dept: '', user: '', location: '' }
+  return {
+    dept: orgStore.deptName(a.deptId) || '',
+    user: (orgStore.users || []).find(u => u.id === a.userId)?.name || '',
+    location: a.location || ''
+  }
+})
+/** 新存放地点候选：台账已有位置去重，输入新值即作为自由文本保存 */
+function queryTransferLocations(queryString, cb) {
+  const q = String(queryString || '').trim().toLowerCase()
+  const all = [...new Set(assetStore.assets.map(a => a.location).filter(Boolean))]
+    .sort().map(value => ({ value }))
+  cb(q ? all.filter(o => o.value.toLowerCase().includes(q)) : all)
+}
 
 /** 只有草稿 / 已驳回可改；与后端 GenericService.assertDocMutable 同源，无状态的历史数据按草稿处理 */
 const isDocEditable = row => !row?.status || DOC_EDITABLE_STATUS.includes(row.status)
@@ -337,7 +372,8 @@ function openDialog(row) {
         voucherNo: row.voucherNo || '', disposalAmount: row.disposalAmount ?? null,
         outLedgerBasis: row.outLedgerBasis || '', changeType: row.changeType || '',
         beforeSnapshot: row.beforeSnapshot || '', afterSnapshot: row.afterSnapshot || '',
-        expectedReturnDate: row.expectedReturnDate || '', borrowDocId: row.borrowDocId || ''
+        expectedReturnDate: row.expectedReturnDate || '', borrowDocId: row.borrowDocId || '',
+        toDeptId: row.toDeptId || '', toUserId: row.toUserId || '', toLocation: row.toLocation || ''
       }
     // 派发单的实际领用人按既有口径沿用单据创建人，默认带出其账号所属部门
     : { companyId: orgStore.companies[0]?.id || '', deptId: defaultDeptId.value })
@@ -378,6 +414,12 @@ function extraFields() {
   if (props.docKey === 'alloc') {
     extra.deptId = form.deptId
   }
+  if (props.docKey === 'transfer') {
+    // 快照 before* 由服务端 submit 时按台账生成，客户端不传，避免伪造现任使用人
+    Object.assign(extra, {
+      toDeptId: form.toDeptId, toUserId: form.toUserId, toLocation: form.toLocation
+    })
+  }
   if (form.borrowDocId) {
     extra.borrowDocId = form.borrowDocId
   }
@@ -395,6 +437,18 @@ async function submit() {
   if (!form.assetId) { ElMessage.warning('请选择关联资产'); return }
   if (props.docKey === 'dispose' && !form.disposeType) { ElMessage.warning('请选择处置方式'); return }
   if (props.docKey === 'change' && !form.changeType) { ElMessage.warning('请选择变更类型'); return }
+  if (props.docKey === 'transfer') {
+    // 用户裁决：空闲资产可以派发、不能调拨，选了就明确提示
+    if (transferAssetStatus.value === 'IDLE') {
+      ElMessage.warning('空闲资产不能调拨，请先办理「派发领用」确定使用人')
+      return
+    }
+    if (!form.toUserId) { ElMessage.warning('请选择新使用人（调拨必填）'); return }
+    if (!enabledUsers.value.some(u => u.id === form.toUserId)) {
+      ElMessage.warning('新使用人不是有效的在职账号，请重新选择')
+      return
+    }
+  }
   const extra = extraFields()
   try {
     if (dialogMode.value === 'edit') {
@@ -518,7 +572,9 @@ function ctxOf(doc) {
     amount: Number(doc?.disposalAmount || asset?.original || doc?.amount || 0),
     hasDiff: false,
     // 与服务端 effectiveCtx 一致：处置方式取单据字段，不能由客户端 ctx 谎报
-    disposeType: doc?.disposeType || ''
+    disposeType: doc?.disposeType || '',
+    // 调拨「现任使用人交出确认」环节按是否有使用人决定生效
+    hasAssetUser: !!doc?.beforeUserId || !!asset?.userId
   }
 }
 
