@@ -443,24 +443,25 @@
         </el-form-item>
         <el-form-item label="盘点范围" required>
           <el-radio-group v-model="planForm.scopeType">
-            <el-radio value="全部">全部资产</el-radio>
-            <el-radio value="分类">按分类</el-radio>
-            <el-radio value="部门">按使用部门</el-radio>
+            <el-radio value="全部资产">全部资产</el-radio>
+            <el-radio value="按资产类型">按资产类型</el-radio>
+            <el-radio value="按存放地点">按存放地点</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="资产分类" v-if="planForm.scopeType === '分类'">
-          <el-select v-model="planForm.scopeValue" placeholder="请选择分类" style="width:100%">
+        <el-form-item v-if="planForm.scopeType === '按资产类型'" label="资产类型" required>
+          <el-select v-model="planForm.scopeValue" placeholder="输入关键词搜索分类" filterable clearable style="width:100%">
             <el-option v-for="c in categoryOptions" :key="c" :label="c" :value="c" />
           </el-select>
         </el-form-item>
-        <el-form-item label="使用部门" v-if="planForm.scopeType === '部门'">
-          <el-select v-model="planForm.scopeValue" placeholder="请选择部门" style="width:100%">
-            <el-option v-for="d in departmentOptions" :key="d" :label="d" :value="d" />
+        <el-form-item v-if="planForm.scopeType === '按存放地点'" label="存放地点" required>
+          <el-select v-model="planForm.locations" multiple filterable clearable placeholder="可多选、可搜索" style="width:100%">
+            <el-option v-for="l in wizardLocationOptions" :key="l" :label="l" :value="l" />
           </el-select>
+          <span class="muted hint">选项取自资产台账中已登记的存放地点，与「新增盘点」一致</span>
         </el-form-item>
         <el-form-item label="盘点人" required>
-          <el-select v-model="planForm.counter" placeholder="请选择盘点人" style="width:100%">
-            <el-option v-for="u in counterOptions" :key="u" :label="u" :value="u" />
+          <el-select v-model="planForm.counter" placeholder="输入姓名搜索并选择盘点人" filterable clearable no-data-text="没有可用的在职账号" style="width:100%">
+            <el-option v-for="u in counterOptions" :key="u.id" :label="`${u.name}（${u.dept}）`" :value="u.name" />
           </el-select>
         </el-form-item>
         <el-form-item label="盘点日期" required>
@@ -476,9 +477,17 @@
           <span class="plan-hint">{{ planPreviewCount }} 项资产将纳入本次盘点计划</span>
         </el-form-item>
       </el-form>
+      <el-alert
+        type="info"
+        show-icon
+        :closable="false"
+        title="计划只保存盘点安排与资产范围，不会自动生成盘点单"
+        description="保存后请到「盘点计划」页签点「生成盘点单」，再到「盘点单」页签登记盘点结果并提交审批。"
+        style="margin:0 0 8px"
+      />
       <template #footer>
         <el-button @click="planDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitPlan">生成计划并推送工单</el-button>
+        <el-button type="primary" @click="submitPlan">保存盘点计划</el-button>
       </template>
     </el-dialog>
 
@@ -1286,9 +1295,14 @@ const categoryCodeOptions = computed(() => optionsOf('ASSET_CATEGORY'))
 /** 单据 / 盘点计划状态选项：下拉展示中文，落库存编码 */
 const docStatusOptions = computed(() => optionsOf('DOC_STATUS'))
 const depreciationMethodOptions = computed(() => optionsOf('DEPRECIATION_METHOD'))
-const counterOptions = ['张三', '李四', '王五', '赵会计', '钱助理', '孙主管']
-/** 台账视图模型里部门字段是 dept（department 不存在），旧写法让部门下拉恒为空 */
-const departmentOptions = computed(() => [...new Set(assetLedger.value.map(a => a.dept).filter(Boolean))])
+/**
+ * 盘点人必须取组织主数据里的在职账号：硬编码假名会让 createDocFromPlan 按姓名反查失败，
+ * 生成的盘点单 counters 为空。读 org-users 只需 org:user 或 wm:todo，
+ * R3 / R8 已有 wm:todo，无需为此放开 org:user（那是写 / 删权限码）。
+ */
+const counterOptions = computed(() => (orgStore.users || [])
+  .filter(u => u.status === 'ENABLED' && !isTempAccount(u))
+  .map(u => ({ id: u.id, name: u.name, dept: orgStore.deptName(u.deptId) || '-' })))
 
 /**
  * 统一 ISO 8601。
@@ -1314,9 +1328,17 @@ function downloadCsv(filename, header, rows) {
  * 盘点计划的资产明细：取自真实台账（带 assetId，生成盘点单时才能对得上账）。
  * 计划只是事前安排，真正的盘点执行与结论在「盘点单」里做。
  */
-function buildPlanItems(scopeType, scopeValue) {
+function buildPlanItems() {
+  const selectedType = planForm.scopeType === '按资产类型' ? planForm.scopeValue : ''
+  const locations = planForm.locations || []
+  const byLocation = planForm.scopeType === '按存放地点'
+  // 与「新增盘点」的 buildInventoryItems 同口径：分类用中文标签、地点用台账原始 location
   return fixedAssetStore.assetLedger
-    .filter(a => scopeType === '全部' || (scopeType === '分类' ? a.type === scopeValue : a.dept === scopeValue))
+    .filter(a => {
+      if (selectedType && a.type !== selectedType) return false
+      if (byLocation && locations.length && !locations.includes(a.location)) return false
+      return true
+    })
     .map(a => ({
       assetId: a.id,
       assetNo: a.code,
@@ -1403,9 +1425,15 @@ async function createDocFromPlan(plan) {
   }
 }
 
-function scopeLabel(scopeType, scopeValue) {
-  if (scopeType === '全部') return '全部资产'
-  return `${scopeType}：${scopeValue}`
+/** 范围描述与「新增盘点」的 wizardScopeLabel 同口径：落库能看出具体选了哪些值 */
+function scopeLabel() {
+  if (planForm.scopeType === '按资产类型' && planForm.scopeValue) {
+    return `按资产类型：${planForm.scopeValue}`
+  }
+  if (planForm.scopeType === '按存放地点' && planForm.locations.length) {
+    return `按存放地点：${planForm.locations.join('、')}`
+  }
+  return '全部资产'
 }
 
 // 盘点数据的可见性：
@@ -1534,19 +1562,24 @@ const profitDialogVisible = ref(false)
 const profitForm = reactive({
   assetName: '', assetType: '', dept: '', userId: '', location: '', qty: 1, price: 0
 })
-const planForm = reactive({ planName: '', scopeType: '全部', scopeValue: '', counter: '', planDate: '', methods: ['小程序扫码'] })
+const planForm = reactive({ planName: '', scopeType: '全部资产', scopeValue: '', locations: [], counter: '', planDate: '', methods: ['小程序扫码'] })
 
-/** 预览口径必须与 buildPlanItems 一致：分类下拉存中文标签（a.type），部门字段是 a.dept */
-const planPreviewCount = computed(() => {
-  return assetLedger.value.filter(a =>
-    planForm.scopeType === '全部' ||
-    (planForm.scopeType === '分类' ? a.type === planForm.scopeValue : a.dept === planForm.scopeValue)
-  ).length
+/** 切换范围时清掉不适用的选项，避免残留值把「全部资产」悄悄过滤掉 */
+watch(() => planForm.scopeType, scope => {
+  if (scope !== '按资产类型') planForm.scopeValue = ''
+  if (scope !== '按存放地点') planForm.locations = []
 })
 
-function handleCreatePlan() {
+/** 预览直接复用 buildPlanItems，保证与实际保存的资产范围不会漂移 */
+const planPreviewCount = computed(() => buildPlanItems().length)
+
+async function handleCreatePlan() {
   inventorySub.value = 'plans'
-  Object.assign(planForm, { planName: '', scopeType: '全部', scopeValue: '', counter: '', planDate: '', methods: ['小程序扫码'] })
+  // 盘点人下拉依赖组织用户表：首屏按 org:user / wm:todo 加载，这里补一次兜底
+  if (!orgStore.usersLoaded && (can('org:user') || can('wm:todo'))) {
+    await orgStore.loadAll({ withUsers: true }).catch(() => {})
+  }
+  Object.assign(planForm, { planName: '', scopeType: '全部资产', scopeValue: '', locations: [], counter: '', planDate: '', methods: ['小程序扫码'] })
   planDialogVisible.value = true
 }
 
@@ -1568,35 +1601,43 @@ function nextPlanNo() {
   return `${head}${String(max + 1).padStart(3, '0')}`
 }
 
-function submitPlan() {
+async function submitPlan() {
   if (!planForm.planName || !planForm.counter || !planForm.planDate) {
     ElMessage.warning('请填写计划名称、盘点人与盘点日期')
     return
   }
-  if (planForm.scopeType !== '全部' && !planForm.scopeValue) {
-    ElMessage.warning('请选择盘点范围')
+  if (planForm.scopeType === '按资产类型' && !planForm.scopeValue) {
+    ElMessage.warning('请选择资产类型，或把盘点范围改回「全部资产」')
+    return
+  }
+  if (planForm.scopeType === '按存放地点' && !planForm.locations.length) {
+    ElMessage.warning('请至少选择一个存放地点，或把盘点范围改回「全部资产」')
     return
   }
   if (!planForm.methods.length) {
     ElMessage.warning('请至少选择一种盘点方式')
     return
   }
-  const items = buildPlanItems(planForm.scopeType, planForm.scopeValue)
+  const items = buildPlanItems()
   if (!items.length) {
     ElMessage.warning('所选范围内没有可盘点的资产')
     return
   }
-  inventoryPlanCol.add({
-    planNo: nextPlanNo(),
-    planName: planForm.planName,
-    scope: scopeLabel(planForm.scopeType, planForm.scopeValue),
-    counter: planForm.counter,
-    planDate: planForm.planDate,
-    status: 'DRAFT',
-    items
-  })
-  planDialogVisible.value = false
-  ElMessage.success(`盘点计划已生成，${items.length} 项资产工单已推送给 ${planForm.counter}`)
+  try {
+    await inventoryPlanCol.add({
+      planNo: nextPlanNo(),
+      planName: planForm.planName,
+      scope: scopeLabel(),
+      counter: planForm.counter,
+      planDate: planForm.planDate,
+      status: 'DRAFT',
+      items
+    })
+    planDialogVisible.value = false
+    ElMessage.success(`盘点计划已保存（${items.length} 项资产）。请到「盘点计划」页签点「生成盘点单」后执行盘点`)
+  } catch (e) {
+    ElMessage.error(e?.message || '盘点计划保存失败')
+  }
 }
 
 function exportInventory(row) {
