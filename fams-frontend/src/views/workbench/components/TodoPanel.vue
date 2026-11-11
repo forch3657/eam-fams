@@ -1,6 +1,6 @@
 <template>
   <div class="wb-todo">
-    <el-tabs v-model="tab" class="wb-tabs">
+    <el-tabs v-model="tab" class="wb-tabs" @tab-click="inFlightOnly = false">
       <!-- 待我审批 -->
       <el-tab-pane name="pending">
         <template #label>待我审批<el-badge v-if="pending.length" :value="pending.length" class="tab-badge" /></template>
@@ -60,7 +60,11 @@
       <!-- 我发起的 -->
       <el-tab-pane name="mine">
         <template #label>我发起的<el-badge v-if="mineRejected.length" :value="mineRejected.length" type="warning" class="tab-badge" /></template>
-        <el-table :data="mine" size="small" :max-height="tableHeight" empty-text="我还没有提交过单据">
+        <div v-if="inFlightOnly" class="wb-mine-filter">
+          <span>只看在途 <b>{{ workbench.mineInFlightCount }}</b> 单（待提交 / 进行中 / 已驳回）</span>
+          <el-button link type="primary" size="small" @click="inFlightOnly = false">查看全部我发起的</el-button>
+        </div>
+        <el-table :data="mineRows" size="small" :max-height="tableHeight" :empty-text="inFlightOnly ? '当前没有在途单据' : '我还没有提交过单据'">
           <el-table-column prop="code" label="单据号" width="125" />
           <el-table-column prop="bizName" label="类型" width="88" />
           <el-table-column prop="title" label="单据" min-width="140" show-overflow-tooltip />
@@ -69,7 +73,9 @@
               <el-tag :type="statusType(row.status)" size="small">{{ labelOf('DOC_STATUS', row.status) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="stepName" label="当前环节" min-width="120" show-overflow-tooltip />
+          <el-table-column label="当前环节" min-width="120" show-overflow-tooltip>
+            <template #default="{ row }">{{ row.stepName || '—' }}</template>
+          </el-table-column>
           <el-table-column label="提交时间" width="146">
             <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
           </el-table-column>
@@ -78,7 +84,7 @@
               <el-button v-if="row.status === 'DRAFT' || row.status === 'REJECTED'" link type="primary" size="small" @click="submitDoc(row)">{{ row.status === 'REJECTED' ? '重新提交' : '提交' }}</el-button>
               <el-button v-if="row.status === 'PROCESSING'" link type="info" size="small" @click="withdrawDoc(row)">撤回</el-button>
               <el-button v-if="['DRAFT', 'PROCESSING', 'REJECTED'].includes(row.status)" link type="warning" size="small" @click="voidDoc(row)">作废</el-button>
-              <el-button link type="primary" size="small" @click="goProcess(row)">去处理</el-button>
+              <el-button link type="primary" size="small" @click="goProcess(row)">{{ DOC_TERMINAL_STATUS.includes(row.status) ? '查看详情' : '去处理' }}</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -137,7 +143,7 @@ import { useNotifyStore } from '../../../store/notify'
 import { dataService } from '../../../services'
 import { BIZ_DOC_REGISTRY, runApproval, isCollabAction } from '../../../services/approval'
 import { docCtx } from '../../../services/workbench'
-import { labelOf } from '../../../constants/enums'
+import { labelOf, DOC_TERMINAL_STATUS } from '../../../constants/enums'
 import { formatDateTime } from '../../../utils/format'
 import DocApprovalDialog from '../../fixed-asset/DocApprovalDialog.vue'
 
@@ -169,6 +175,9 @@ const pending = computed(() => workbench.todos.pending)
 const mine = computed(() => workbench.todos.mine)
 const done = computed(() => workbench.todos.done)
 const mineRejected = computed(() => mine.value.filter(m => m.status === 'REJECTED'))
+/** 「我在途」卡片下钻时只看未完结单据；与行动条共用 store 的同一份数据 */
+const inFlightOnly = ref(false)
+const mineRows = computed(() => inFlightOnly.value ? workbench.mineInFlight : mine.value)
 /** 全局在途单据的待办环节（个人无待办时用于填充左侧区域） */
 const globalSteps = computed(() => workbench.overview.approval.pendingByStep || [])
 
@@ -176,8 +185,13 @@ const dlgVisible = ref(false)
 const current = ref({})
 const currentCtx = computed(() => docCtx(current.value.doc, workbench.assets, current.value.bizType))
 
-/** 供工作台指标卡联动切换页签 */
-defineExpose({ setTab: (name) => { tab.value = name } })
+/** 供工作台指标卡联动切换页签；inFlight 表示同时只显示在途单据 */
+defineExpose({
+  setTab: (name, opts = {}) => {
+    tab.value = name
+    inFlightOnly.value = name === 'mine' && !!opts.inFlight
+  }
+})
 
 // statusType 统一取自 utils/status.js（P1 一致性收敛）
 
@@ -295,6 +309,16 @@ function goProcess(item) {
 
 <style scoped>
 .tab-badge { margin-left: 6px; vertical-align: top; }
+.wb-mine-filter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: var(--fs-xs);
+  color: var(--t-weak);
+}
+.wb-mine-filter b { color: var(--c-primary); font-family: var(--font-num); }
 .wb-overdue { color: var(--c-danger); font-weight: 600; }
 /* 空态在卡片内垂直居中，并给一个可执行的下一步，而不是只有说明文字 */
 .wb-todo-empty {

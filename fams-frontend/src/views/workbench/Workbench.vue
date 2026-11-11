@@ -34,8 +34,8 @@
           <span v-else-if="!workbench.alertCount" class="k-ok">正常</span>
         </span>
       </div>
-      <div class="wb-stat">
-        <span class="v">{{ mineCount }}</span>
+      <div v-if="can('wm:todo')" class="wb-stat clickable" title="查看我发起的未完结单据" @click="focusMine">
+        <span class="v">{{ workbench.mineInFlightCount }}</span>
         <span class="k">我在途</span>
       </div>
     </div>
@@ -132,8 +132,6 @@ const can = code => userStore.can(code)
 const sideTab = ref(can('wm:alert') ? 'alert' : 'message')
 const todoRef = ref(null)
 
-const mineCount = computed(() => workbench.todos.mine.filter(m => m.status !== 'DONE').length)
-
 /** 数据更新时间（供页头展示，避免"刷新"按钮成为页头唯一信息） */
 const updatedAt = ref('')
 function stampUpdated() {
@@ -161,9 +159,13 @@ async function refresh() {
 }
 
 /** 指标卡 → 定位到待办面板的对应页签 */
-function focusTab(name) {
-  if (todoRef.value?.setTab) todoRef.value.setTab(name)
+function focusTab(name, opts) {
+  if (todoRef.value?.setTab) todoRef.value.setTab(name, opts)
   scrollTo('wb-todo-panel')
+}
+/** 「我在途」→「我发起的」并只看未完结单据，保证卡片数字与列表行数一致 */
+function focusMine() {
+  focusTab('mine', { inFlight: true })
 }
 /** 指标卡 → 定位到右侧预警/消息 */
 function focusSide(name) {

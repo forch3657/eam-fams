@@ -4,6 +4,7 @@ import { dataService, COLLECTION } from '../services'
 import { BIZ_DOC_REGISTRY, ALL_BIZ_TYPES, isApproverOfBiz } from '../services/approval'
 import { myTodos, buildAlerts, buildOverview } from '../services/workbench'
 import { paramNumber } from '../services/sysParams'
+import { DOC_IN_FLIGHT_STATUS } from '../constants/enums'
 import { useOrgStore } from './org'
 import { useUserStore } from './user'
 import { useApprovalStore } from './approval'
@@ -131,10 +132,15 @@ export const useWorkbenchStore = defineStore('workbench', () => {
   const alertCount = computed(() => alerts.value.length)
   const dangerAlertCount = computed(() => alerts.value.filter(a => a.level === 'danger').length)
 
+  /** 我发起的在途单据：行动条「我在途」与「我发起的」筛选列表共用，终态（已撤销/已完结）不计入 */
+  const mineInFlight = computed(() => todos.value.mine.filter(m => DOC_IN_FLIGHT_STATUS.includes(m.status)))
+  const mineInFlightCount = computed(() => mineInFlight.value.length)
+
   return {
     docs, assets, items, plans, loaded, loading,
     todos, alerts, overview,
     pendingCount, alertCount, dangerAlertCount,
+    mineInFlight, mineInFlightCount,
     load
   }
 })

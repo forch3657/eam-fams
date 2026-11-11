@@ -296,7 +296,41 @@ test('[P5-02] 行动条计数与待办列表一致且可下钻', async ({ contex
   // 点「预警」行动条 → 右侧切到预警中心
   await page.locator('.wb-stat').nth(1).click()
   await expect(page.locator('.wb-side-tabs .el-tabs__item.is-active')).toContainText('预警中心')
+
+  // 点「我在途」→「我发起的」只看在途，行数与卡片数字同源一致
+  await page.locator('.wb-stat').nth(2).click()
+  await expect(page.locator('.wb-todo .el-tabs__item.is-active')).toContainText('我发起的')
+  await expect(activePane(page).locator('.wb-mine-filter')).toBeVisible()
+  const mineInFlight = Number(await statValue(page, 2).innerText())
+  await expect(activePane(page).locator('.el-table__row')).toHaveCount(mineInFlight)
   await shot(page, testInfo, 1, '行动条计数与待办一致')
+  guards.assertClean()
+})
+
+test('[P5-02b] 已撤销单据退出「我在途」，但在「我发起的」仍可追溯', async ({ context, page }, testInfo) => {
+  const asset = await createAsset()
+  const doc = await createAllocDoc(String(asset.id))
+  const guards = installGuards(page)
+  await seedSession(context, admin)
+  await openWorkbench(page)
+  const before = Number(await statValue(page, 2).innerText())
+
+  // 草稿可作废：DRAFT → REVOKED（终态），在途数应减少 1
+  const voided = await act(admin, { docKey: 'alloc', docId: doc.id, action: 'void' })
+  expect(voided.status, JSON.stringify(voided.body)).toBe(200)
+  expect(voided.body.data?.status).toBe('REVOKED')
+  await openWorkbench(page)
+  expect(Number(await statValue(page, 2).innerText())).toBe(before - 1)
+
+  // 只看在途不含该单；切回全部仍可见，且状态 / 操作文案按终态呈现
+  await page.locator('.wb-stat').nth(2).click()
+  await expect(activePane(page).locator('.el-table__row').filter({ hasText: doc.code })).toHaveCount(0)
+  await activePane(page).getByRole('button', { name: '查看全部我发起的' }).click()
+  const row = activePane(page).locator('.el-table__row').filter({ hasText: doc.code }).first()
+  await expect(row).toBeVisible()
+  await expect(row).toContainText('已撤销')
+  await expect(row.getByRole('button', { name: '查看详情' })).toBeVisible()
+  await shot(page, testInfo, 1, '已撤销单退出在途但保留留痕')
   guards.assertClean()
 })
 

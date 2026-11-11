@@ -26,6 +26,8 @@
       <div class="sec-title">审批环节</div>
       <el-alert v-if="!flow" type="warning" :closable="false" show-icon
         title="该业务类型没有启用的审批流程，请到「系统管理 → 流程配置」中配置并启用" />
+      <el-alert v-else-if="isTerminal" type="info" :closable="false" show-icon
+        :title="`该单据${labelOf('DOC_STATUS', doc.status)}，审批流程已终止，以下环节与轨迹仅作留痕`" />
       <el-steps v-else :active="activeIndex" finish-status="success" align-center>
         <el-step v-for="s in steps" :key="s.key" :title="s.name" :description="stepDesc(s)" />
       </el-steps>
@@ -138,7 +140,7 @@
  * - 按当前登录人的角色决定可执行的提交/通过/驳回/撤销动作，动作交由父组件落库。
  */
 import { ref, computed, watch, onMounted } from 'vue'
-import { labelOf } from '../../constants/enums'
+import { labelOf, DOC_TERMINAL_STATUS } from '../../constants/enums'
 import { formatDateTime } from '../../utils/format'
 import { statusType, approveResultType as timelineType } from '../../utils/status'
 import { useOrgStore } from '../../store/org'
@@ -195,7 +197,11 @@ const bizType = computed(() => props.bizType || DOC_BIZ_TYPE[props.docKey] || pr
 const flow = computed(() => getFlow(bizType.value, approvalStore.flows))
 const steps = computed(() => effectiveSteps(flow.value, props.ctx))
 const records = computed(() => props.doc ? approvalsOf(approvalStore.approvals, props.docKey, props.doc.id) : [])
-const current = computed(() => currentStep(steps.value, records.value, orgStore, props.doc, assetPool.value))
+/** 终态（已撤销 / 已完结）不再有当前环节：否则步骤条会停在「待审批」并全绿误导 */
+const isTerminal = computed(() => DOC_TERMINAL_STATUS.includes(props.doc?.status))
+const current = computed(() => isTerminal.value
+  ? null
+  : currentStep(steps.value, records.value, orgStore, props.doc, assetPool.value))
 
 const timeline = computed(() => [...records.value].sort((a, b) => String(a.time || '').localeCompare(String(b.time || ''))))
 const activeIndex = computed(() => (current.value ? current.value.index : steps.value.length))

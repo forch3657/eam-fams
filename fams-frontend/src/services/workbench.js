@@ -14,7 +14,7 @@ import {
   BIZ_DOC_REGISTRY, ALL_BIZ_TYPES,
   getFlow, effectiveSteps, approvalsOf, currentStep, canApprove, stepInfo, stepRoleId
 } from './approval'
-import { labelOf } from '../constants/enums'
+import { labelOf, DOC_TERMINAL_STATUS } from '../constants/enums'
 
 const DAY = 24 * 60 * 60 * 1000
 
@@ -97,7 +97,11 @@ export function myTodos(p = {}) {
       const flow = getFlow(bizType, flows)
       const steps = flow ? effectiveSteps(flow, ctx) : []
       const records = approvalsOf(approvals, reg.docKey, doc.id)
-      const cur = steps.length ? currentStep(steps, records, org, doc, assets) : null
+      // 终态（已撤销 / 已完结）流程已结束，不再有「当前环节」；
+      // currentStep 只看审批记录，不短路会让作废单仍停在待审环节。
+      const cur = DOC_TERMINAL_STATUS.includes(doc.status)
+        ? null
+        : (steps.length ? currentStep(steps, records, org, doc, assets) : null)
       const base = {
         bizType,
         bizName: labelOf('BUSINESS_TYPE', bizType),
@@ -168,9 +172,9 @@ export function myTodos(p = {}) {
     })
   }
 
-  // 被驳回的单据置顶
+  // 排序：被驳回 → 待提交 → 进行中 → 终态（已撤销 / 已完结）沉底，同组按创建时间倒序
   mine.sort((a, b) => {
-    const rank = s => (s === 'REJECTED' ? 0 : s === 'DRAFT' ? 1 : 2)
+    const rank = s => (s === 'REJECTED' ? 0 : s === 'DRAFT' ? 1 : DOC_TERMINAL_STATUS.includes(s) ? 3 : 2)
     return rank(a.status) - rank(b.status) || String(b.createdAt || '').localeCompare(String(a.createdAt || ''))
   })
   pending.sort((a, b) => (b.overdue ? 1 : 0) - (a.overdue ? 1 : 0) || b.stayDays - a.stayDays)

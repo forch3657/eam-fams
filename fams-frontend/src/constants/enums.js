@@ -115,6 +115,15 @@ export const DOC_STATUS = {
   DONE: '已完结'
 }
 
+/** 状态分组（不是枚举文案，无需登记 ENUMS）：终态流程已结束，只作审计留痕 */
+export const DOC_TERMINAL_STATUS = ['REVOKED', 'DONE']
+
+/**
+ * 在途口径（工作台「我在途」）：我发起后仍需我动作（待提交 / 已驳回），
+ * 或仍在他人手里审批（进行中）。终态不计入；withdraw 撤回回 DRAFT 仍算在途。
+ */
+export const DOC_IN_FLIGHT_STATUS = ['DRAFT', 'PROCESSING', 'REJECTED']
+
 /**
  * 允许用通用表单改写的单据状态：只有草稿与被驳回可改。
  * 与后端 GenericService.assertDocMutable 同源：PROCESSING / REVOKED / DONE 一律拒绝改写，
