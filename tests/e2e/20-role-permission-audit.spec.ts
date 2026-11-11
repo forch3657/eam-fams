@@ -179,7 +179,7 @@ test('[RP-05] 陈学知（R3）只读浏览页签，按权限发起借出/变更
   for (const label of MAIN_TABS) {
     await expect(tab(label).first(), `应可只读浏览页签「${label}」`).toBeVisible()
   }
-  await expect(page.getByRole('button', { name: '新增资产' }), '不得改台账').toHaveCount(0)
+  await expect(page.getByRole('button', { name: '新增', exact: true }), '不得改台账').toHaveCount(0)
   await expect(page.getByRole('button', { name: '生成盘点计划' }), '不得发起盘点').toHaveCount(0)
 
   // 资产变更页签收纳调拨 / 维修两类；信息更正已下架（台账字段直接在列表「修改」里改）
@@ -211,7 +211,7 @@ test('[RP-06] 部门主管（R5）只读浏览全部页签，但没有任何新�
     await expect(page.getByRole('tab', { name: label, exact: true }).first(),
       `审批人应能只读浏览页签「${label}」`).toBeVisible()
   }
-  await expect(page.getByRole('button', { name: '新增资产' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '新增', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '生成盘点计划' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '新增单据' }),
     '只读浏览不应带出任何单据新增按钮').toHaveCount(0)

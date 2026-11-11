@@ -2,17 +2,6 @@
   <div class="page-container">
     <div class="page-header">
       <h2>固定资产管理</h2>
-      <div>
-        <el-button type="primary" title="资产登记建档：直接入账为「空闲」，不生成入库单；账外资产的实物入库请在「入库/验收」页签办理" @click="openAssetDialog()" v-if="activeTab === 'asset' && can('fa:add')">
-          <el-icon><Plus /></el-icon>
-          新增资产
-        </el-button>
-        <el-button type="primary" @click="handleCreatePlan" v-if="activeTab === 'inventory' && can('fa:inventory')">
-          <el-icon><Plus /></el-icon>
-          生成盘点计划
-        </el-button>
-
-      </div>
     </div>
     <el-card class="fill">
 
@@ -294,6 +283,13 @@
             <div class="kpi-card"><div class="kpi-label">已盘</div><div class="kpi-value num" style="color:#67c23a">{{ inventoryStats.counted }}</div></div>
             <div class="kpi-card"><div class="kpi-label">盘盈</div><div class="kpi-value num" style="color:var(--c-primary)">{{ inventoryStats.profit }}</div></div>
             <div class="kpi-card"><div class="kpi-label">盘亏</div><div class="kpi-value num" style="color:#f56c6c">{{ inventoryStats.loss }}</div></div>
+          </div>
+
+          <div class="inventory-toolbar" v-if="can('fa:inventory')">
+            <el-button type="primary" @click="handleCreatePlan">
+              <el-icon><Plus /></el-icon>
+              生成盘点计划
+            </el-button>
           </div>
 
           <el-table :data="inventoryPlans" style="width: 100%">
@@ -2909,6 +2905,7 @@ async function loadAssetRecords(asset) {
 
 .inventory-toolbar {
   display: flex;
+  justify-content: flex-end;
   align-items: center;
   gap: 12px;
   margin-bottom: 12px;

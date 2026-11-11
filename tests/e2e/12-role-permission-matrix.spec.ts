@@ -183,14 +183,14 @@ const BUTTON_CASES = [
   {
     code: 'ROLE_ASSET',
     path: '/fixed-assets?tab=asset',
-    button: /新增资产/,
+    button: /^新增$/,
     visible: true,
     reason: '资产管理员有 fa:add'
   },
   {
     code: 'ROLE_LEADER',
     path: '/fixed-assets?tab=asset',
-    button: /新增资产/,
+    button: /^新增$/,
     visible: false,
     reason: '部门主管没有 fa:add（只有 fa:edit）'
   },

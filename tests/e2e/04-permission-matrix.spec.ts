@@ -149,7 +149,7 @@ test('[P4-05] 只有查看权时不渲染新增/删除按钮', async ({ context,
   await page.goto('/fixed-assets')
   await waitSettled(page)
   const pane = page.locator('.el-tab-pane:visible').first()
-  await expect(page.getByRole('button', { name: /新增资产/ })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '新增', exact: true })).toHaveCount(0)
   await expect(pane.getByRole('button', { name: '删除' })).toHaveCount(0)
   await shot(page, testInfo, 1, '受限角色无新增删除')
 
@@ -163,7 +163,7 @@ test('[P4-05] 只有查看权时不渲染新增/删除按钮', async ({ context,
   await seedSession(adminContext, await loginViaApi({ username: ADMIN.username, password: ADMIN.password }))
   await adminPage.goto('/fixed-assets')
   await waitSettled(adminPage)
-  await expect(adminPage.getByRole('button', { name: /新增资产/ }).first()).toBeVisible()
+  await expect(adminPage.getByRole('button', { name: '新增', exact: true }).first()).toBeVisible()
   await shot(adminPage, testInfo, 2, '管理员同页有新增按钮')
   await adminContext.close()
   guards.assertClean()

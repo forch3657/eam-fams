@@ -556,17 +556,47 @@ body {
   display: flex;
   align-items: center;
   padding: 0 12px;
-  overflow-x: auto;
+  /* 横向滚动交给标签列表，右侧「关闭全部」常驻可见 */
+  overflow: hidden;
   white-space: nowrap;
 }
 
 .tags-list {
-  display: inline-flex;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
   gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
+.tags-list::-webkit-scrollbar { height: 4px; }
+
+.tags-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  height: 24px;
+  margin-left: 8px;
+  padding: 0 8px;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--t-sub);
+  background: var(--bg-card);
+  border: 1px solid var(--bd);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tags-clear .el-icon { font-size: 12px; }
+.tags-clear:hover:not(:disabled) { color: var(--c-primary); border-color: var(--c-primary); }
+.tags-clear:disabled { opacity: .45; cursor: not-allowed; }
 
 .tag-item {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 4px;
   height: 26px;

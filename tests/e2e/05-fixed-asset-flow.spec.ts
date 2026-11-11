@@ -173,7 +173,7 @@ test('[P1-01] 页面新增资产后接口与台账一致', async ({ context, pag
 
   await page.goto('/fixed-assets')
   await waitSettled(page)
-  await page.getByRole('button', { name: /新增资产/ }).first().click()
+  await page.getByRole('button', { name: '新增', exact: true }).first().click()
 
   const dialog = page.locator('.el-dialog:visible').filter({ hasText: '新增资产' }).last()
   await expect(dialog).toBeVisible()
