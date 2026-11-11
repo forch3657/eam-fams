@@ -140,6 +140,22 @@ class P13TransferApprovalTest {
     }
 
     @Test
+    void hasBorrowerConditionAndDocBorrowerResolver() {
+        Map<String, Object> s = step("DOC_BORROWER", "HAS_BORROWER");
+        assertTrue(ApprovalSupport.stepApplies(s, ctx("hasBorrower", true)));
+        assertFalse(ApprovalSupport.stepApplies(s, ctx("hasBorrower", false)));
+        assertFalse(ApprovalSupport.stepApplies(s, new HashMap<>()));
+        assertTrue(ApproverResolver.isPersonScoped(step("DOC_BORROWER", "NONE")));
+        assertEquals("借出借用人", ApproverResolver.personLabel("DOC_BORROWER"));
+
+        GenericService service = serviceWithUser("ENABLED");
+        Map<String, Object> doc = Collections.singletonMap("borrowerId", "U_NEW");
+        assertEquals(Collections.singleton("U_NEW"),
+                ApproverResolver.resolve(service, step("DOC_BORROWER", "NONE"), "D6", doc));
+        assertTrue(ApproverResolver.resolve(service, step("DOC_BORROWER", "NONE"), "D6", Collections.emptyMap()).isEmpty());
+    }
+
+    @Test
     void deptOnlyApproverCanSeeTodosCreatedByOthers() {
         UserPrincipal r3 = principal("DEPT_ONLY", "fa:view", "wm:todo");
         assertTrue(GenericService.approverNeedsUnscopedDocs(r3, "fixed-asset-doc-lists-transfer"));

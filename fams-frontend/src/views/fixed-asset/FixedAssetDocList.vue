@@ -107,14 +107,14 @@
           </el-select>
           <!-- 新增资产登记与入库验收是两件事：登记直接入账为「空闲」，WF1 只处理盘盈/账外的待入库资产 -->
           <div v-if="props.docKey === 'inbound' && !assetOptions.length" class="asset-empty-hint">
-            暂无「待入库」资产。入库验收只面向盘盈 / 账外资产（由盘点完结自动建账并生成入库单）；通过「新增资产」登记的资产已直接入账为「空闲」并写入库日期，无需再办入库，可直接派发领用。
+            暂无「待入库」资产。入库验收只面向盘盈 / 账外资产（由盘点完结自动建账并生成入库单）；通过「新增资产」登记的资产已直接入账为「空闲」并写入库日期，无需再办入库，可直接派发。
           </div>
         </el-form-item>
 
         <template v-if="props.docKey === 'transfer'">
           <el-alert v-if="transferAssetStatus === 'IDLE'" type="warning" :closable="false" show-icon
             title="空闲资产不能调拨"
-            description="空闲资产请先办理「派发领用」确定使用人，再发起调拨。"
+            description="空闲资产请先办理「派发」确定使用人，再发起调拨。"
             style="margin-bottom:12px" />
           <el-form-item label="调出前归属">
             <div class="form-hint">
@@ -139,6 +139,12 @@
           </el-form-item>
         </template>
 
+        <el-form-item v-if="props.docKey === 'alloc'" label="实际领用人" required>
+          <el-select v-model="form.receiverId" placeholder="请选择实际领用人（在职账号）" filterable clearable style="width:100%" @change="onReceiverChange">
+            <el-option v-for="u in enabledUsers" :key="u.id" :label="`${u.name}（${orgStore.deptName(u.deptId) || '-'}）`" :value="u.id" />
+          </el-select>
+          <div class="form-hint">审批通过后写入资产台账使用人；选择后自动带出其所属部门。</div>
+        </el-form-item>
         <el-form-item v-if="props.docKey === 'alloc'" label="使用部门">
           <el-select v-model="form.deptId" placeholder="请选择使用部门" clearable filterable style="width:100%">
             <el-option v-for="d in deptOptions" :key="d.id" :label="d.name" :value="d.id" />
@@ -166,9 +172,25 @@
           </el-form-item>
         </template>
 
-        <el-form-item v-if="props.docKey === 'borrow'" label="预计归还日">
-          <el-date-picker v-model="form.expectedReturnDate" type="date" value-format="YYYY-MM-DD" placeholder="请选择预计归还日" style="width:100%" />
-        </el-form-item>
+        <template v-if="props.docKey === 'borrow'">
+          <el-form-item label="借用人" required>
+            <el-select v-model="form.borrowerId" placeholder="请选择借用人（在职账号）" filterable clearable style="width:100%" @change="onBorrowerChange">
+              <el-option v-for="u in enabledUsers" :key="u.id" :label="`${u.name}（${orgStore.deptName(u.deptId) || '-'}）`" :value="u.id" />
+            </el-select>
+            <div class="form-hint">借出是临时转移占有，台账使用人仍保持原责任人不变。</div>
+          </el-form-item>
+          <el-form-item label="借用部门">
+            <el-select v-model="form.borrowerDeptId" placeholder="选择借用人后自动带出" clearable filterable style="width:100%">
+              <el-option v-for="d in deptOptions" :key="d.id" :label="d.name" :value="d.id" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="借用用途">
+            <el-input v-model="form.borrowPurpose" maxlength="100" placeholder="如：项目现场临时测试" />
+          </el-form-item>
+          <el-form-item label="预计归还日">
+            <el-date-picker v-model="form.expectedReturnDate" type="date" value-format="YYYY-MM-DD" placeholder="请选择预计归还日" style="width:100%" />
+          </el-form-item>
+        </template>
         <el-form-item v-if="props.docKey === 'back' && form.borrowDocId" label="关联借出单">
           <span>归还型退库单（关联 {{ form.borrowDocId }}）</span>
         </el-form-item>
@@ -333,9 +355,20 @@ const emptyForm = () => ({
   disposeType: '', buyer: '', voucherNo: '', disposalAmount: null, outLedgerBasis: '',
   changeType: '', beforeSnapshot: '', afterSnapshot: '',
   expectedReturnDate: '', borrowDocId: '',
-  toDeptId: '', toUserId: '', toLocation: ''
+  toDeptId: '', toUserId: '', toLocation: '',
+  receiverId: '', borrowerId: '', borrowerDeptId: '', borrowPurpose: ''
 })
 const form = reactive(emptyForm())
+
+/** 选实际领用人 / 借用人后自动带出其所属部门，避免部门与实际人不一致 */
+function onReceiverChange(id) {
+  const u = id ? (orgStore.users || []).find(x => x.id === id) : null
+  if (u?.deptId) form.deptId = u.deptId
+}
+function onBorrowerChange(id) {
+  const u = id ? (orgStore.users || []).find(x => x.id === id) : null
+  if (u?.deptId) form.borrowerDeptId = u.deptId
+}
 
 const enabledUsers = computed(() => (orgStore.users || []).filter(u => u.status === 'ENABLED'))
 /** 调拨：选中资产的当前归属（只读展示）；before* 快照由服务端提交时按台账生成 */
@@ -373,7 +406,9 @@ function openDialog(row) {
         outLedgerBasis: row.outLedgerBasis || '', changeType: row.changeType || '',
         beforeSnapshot: row.beforeSnapshot || '', afterSnapshot: row.afterSnapshot || '',
         expectedReturnDate: row.expectedReturnDate || '', borrowDocId: row.borrowDocId || '',
-        toDeptId: row.toDeptId || '', toUserId: row.toUserId || '', toLocation: row.toLocation || ''
+        toDeptId: row.toDeptId || '', toUserId: row.toUserId || '', toLocation: row.toLocation || '',
+        receiverId: row.receiverId || '', borrowerId: row.borrowerId || '',
+        borrowerDeptId: row.borrowerDeptId || '', borrowPurpose: row.borrowPurpose || ''
       }
     // 派发单的实际领用人按既有口径沿用单据创建人，默认带出其账号所属部门
     : { companyId: orgStore.companies[0]?.id || '', deptId: defaultDeptId.value })
@@ -412,7 +447,14 @@ function extraFields() {
     extra.expectedReturnDate = form.expectedReturnDate
   }
   if (props.docKey === 'alloc') {
-    extra.deptId = form.deptId
+    Object.assign(extra, { deptId: form.deptId, receiverId: form.receiverId })
+  }
+  if (props.docKey === 'borrow') {
+    Object.assign(extra, {
+      borrowerId: form.borrowerId,
+      borrowerDeptId: form.borrowerDeptId,
+      borrowPurpose: form.borrowPurpose
+    })
   }
   if (props.docKey === 'transfer') {
     // 快照 before* 由服务端 submit 时按台账生成，客户端不传，避免伪造现任使用人
@@ -437,10 +479,22 @@ async function submit() {
   if (!form.assetId) { ElMessage.warning('请选择关联资产'); return }
   if (props.docKey === 'dispose' && !form.disposeType) { ElMessage.warning('请选择处置方式'); return }
   if (props.docKey === 'change' && !form.changeType) { ElMessage.warning('请选择变更类型'); return }
+  if (props.docKey === 'alloc') {
+    if (!form.receiverId) { ElMessage.warning('请选择实际领用人（派发必填）'); return }
+    if (!enabledUsers.value.some(u => u.id === form.receiverId)) {
+      ElMessage.warning('实际领用人不是有效的在职账号，请重新选择'); return
+    }
+  }
+  if (props.docKey === 'borrow') {
+    if (!form.borrowerId) { ElMessage.warning('请选择借用人（借出必填）'); return }
+    if (!enabledUsers.value.some(u => u.id === form.borrowerId)) {
+      ElMessage.warning('借用人不是有效的在职账号，请重新选择'); return
+    }
+  }
   if (props.docKey === 'transfer') {
     // 用户裁决：空闲资产可以派发、不能调拨，选了就明确提示
     if (transferAssetStatus.value === 'IDLE') {
-      ElMessage.warning('空闲资产不能调拨，请先办理「派发领用」确定使用人')
+      ElMessage.warning('空闲资产不能调拨，请先办理「派发」确定使用人')
       return
     }
     if (!form.toUserId) { ElMessage.warning('请选择新使用人（调拨必填）'); return }
@@ -574,7 +628,9 @@ function ctxOf(doc) {
     // 与服务端 effectiveCtx 一致：处置方式取单据字段，不能由客户端 ctx 谎报
     disposeType: doc?.disposeType || '',
     // 调拨「现任使用人交出确认」环节按是否有使用人决定生效
-    hasAssetUser: !!doc?.beforeUserId || !!asset?.userId
+    hasAssetUser: !!doc?.beforeUserId || !!asset?.userId,
+    // 借出「借用人确认接收」：历史单据没有借用人时不生效
+    hasBorrower: !!doc?.borrowerId
   }
 }
 

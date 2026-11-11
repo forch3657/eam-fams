@@ -150,6 +150,10 @@ public final class ApprovalSupport {
             // 调拨「现任使用人交出确认」：空闲资产没有使用人时不生效，避免提交被 fail-closed 拦死
             return truthy(ctx.get("hasAssetUser"));
         }
+        if ("HAS_BORROWER".equals(type)) {
+            // 借出「借用人确认接收」：历史单据没有借用人字段时不生效，避免存量 E2E / 在途单被拦
+            return truthy(ctx.get("hasBorrower"));
+        }
         return "HAS_DIFF".equals(type) && truthy(ctx.get("hasDiff"));
     }
 

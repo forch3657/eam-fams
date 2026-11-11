@@ -44,6 +44,9 @@ public final class ApproverResolver {
     /** 调拨：按单据上的新使用人解析（唯一审批人） */
     public static final String TYPE_DOC_TARGET_USER = "DOC_TARGET_USER";
 
+    /** 借出：按单据上的借用人解析（唯一审批人） */
+    public static final String TYPE_DOC_BORROWER = "DOC_BORROWER";
+
     /** 父部门链最大深度，防止组织数据成环时死循环 */
     private static final int MAX_DEPT_DEPTH = 12;
 
@@ -55,7 +58,8 @@ public final class ApproverResolver {
         String type = typeOf(step);
         return TYPE_DEPT_LEADER.equals(type) || "PARENT_DEPT_LEADER".equals(type)
                 || "DEPT_VP".equals(type) || "USER".equals(type)
-                || TYPE_ASSET_CURRENT_USER.equals(type) || TYPE_DOC_TARGET_USER.equals(type);
+                || TYPE_ASSET_CURRENT_USER.equals(type) || TYPE_DOC_TARGET_USER.equals(type)
+                || TYPE_DOC_BORROWER.equals(type);
     }
 
     /**
@@ -109,6 +113,9 @@ public final class ApproverResolver {
             case TYPE_DOC_TARGET_USER:
                 addUser(service, ids, text(doc == null ? "" : doc.get("toUserId")));
                 break;
+            case TYPE_DOC_BORROWER:
+                addUser(service, ids, text(doc == null ? "" : doc.get("borrowerId")));
+                break;
             case TYPE_ROLE:
             default:
                 ids.addAll(service.userIdsOfRole(text(step.get("approverRoleId"))));
@@ -149,6 +156,8 @@ public final class ApproverResolver {
                 return "现任资产使用人";
             case TYPE_DOC_TARGET_USER:
                 return "调拨后新使用人";
+            case TYPE_DOC_BORROWER:
+                return "借出借用人";
             default:
                 return "角色成员";
         }

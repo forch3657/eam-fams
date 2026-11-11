@@ -385,6 +385,30 @@
           "unique": false,
           "enumName": null,
           "refCollection": null
+        },
+        {
+          "name": "borrowerId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-users"
+        },
+        {
+          "name": "borrowerDeptId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-departments"
+        },
+        {
+          "name": "borrowPurpose",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
         }
       ],
       "uniqueFields": [
@@ -406,6 +430,14 @@
         {
           "field": "returnBy",
           "collection": "org-users"
+        },
+        {
+          "field": "borrowerId",
+          "collection": "org-users"
+        },
+        {
+          "field": "borrowerDeptId",
+          "collection": "org-departments"
         }
       ],
       "protect": [],
@@ -5138,6 +5170,14 @@
           "unique": false,
           "enumName": null,
           "refCollection": "org-departments"
+        },
+        {
+          "name": "receiverId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-users"
         }
       ],
       "uniqueFields": [
@@ -5159,6 +5199,10 @@
         {
           "field": "deptId",
           "collection": "org-departments"
+        },
+        {
+          "field": "receiverId",
+          "collection": "org-users"
         }
       ],
       "protect": [],

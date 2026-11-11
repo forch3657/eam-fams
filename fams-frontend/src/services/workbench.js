@@ -52,6 +52,8 @@ export function docCtx(doc, assets = [], bizType = '') {
   if (bizType === 'DISPOSE' || doc?.disposeType) ctx.disposeType = doc?.disposeType || ''
   // 调拨「现任使用人交出确认」按是否有使用人决定生效，口径与服务端 effectiveCtx 一致
   if (bizType === 'TRANSFER') ctx.hasAssetUser = !!(doc?.beforeUserId || asset?.userId)
+  // 借出「借用人确认接收」：历史单据没有借用人字段时不生效
+  if (bizType === 'BORROW') ctx.hasBorrower = !!doc?.borrowerId
   return ctx
 }
 

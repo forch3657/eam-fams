@@ -66,7 +66,8 @@ const STEP = (key, name, roleId, roleName, mode = 'ANY', conditionType = 'NONE',
   condition: conditionType === 'AMOUNT_GT'
     ? `单据金额大于 ${conditionValue} 元`
     : (conditionType === 'HAS_DIFF' ? '存在盘点差异'
-      : (conditionType === 'HAS_ASSET_USER' ? '存在现任资产使用人' : '无条件'))
+      : (conditionType === 'HAS_ASSET_USER' ? '存在现任资产使用人'
+        : (conditionType === 'HAS_BORROWER' ? '已登记借用人' : '无条件')))
 })
 
 // 角色速查：R1 系统管理员 / R2 资产管理员 / R3 资产使用人 / R4 财务管理员
@@ -105,7 +106,8 @@ const SEED_FLOWS = [
     ...AUDIT('2026-01-06T12:15:00', '2026-10-22T09:10:00'),
     steps: [
       STEP('s1', '部门主管审批', 'R5', '部门主管', 'ANY'),
-      STEP('s2', '资产管理员审核', 'R2', '资产管理员', 'SEQUENCE')
+      STEP('s2', '资产管理员审核', 'R2', '资产管理员', 'SEQUENCE'),
+      STEP('s3', '借用人确认接收', 'R3', '借出借用人', 'ANY', 'HAS_BORROWER', 0, 'DOC_BORROWER')
     ]
   },
   {

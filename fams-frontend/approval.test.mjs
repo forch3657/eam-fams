@@ -75,7 +75,7 @@ eq(Object.keys(ENUMS.BUSINESS_TYPE).length, 11, '审批业务类型条数')
 // 纵向审批：部门负责人 / 分管领导按「单据归属部门」解析到唯一的人，
 // 因此用生产部（D6）作为探针部门校验每个环节都能解析出审批人。
 // 调拨的两类使用人环节按单据字段解析，探针单据需带上快照与目标使用人
-const probeDoc = { deptId: 'D6', beforeUserId: 'U3', toUserId: 'U3' }
+const probeDoc = { deptId: 'D6', beforeUserId: 'U3', toUserId: 'U3', borrowerId: 'U3' }
 for (const flow of approval.flows) {
   ok(Array.isArray(flow.steps) && flow.steps.length > 0, `流程 ${flow.code} 没有环节`)
   ok(!!flow.initiatorRoleId, `流程 ${flow.code} 未指定发起角色`)
@@ -83,7 +83,7 @@ for (const flow of approval.flows) {
   for (const s of flow.steps || []) {
     ok(org.roles.some(r => r.id === s.approverRoleId), `流程 ${flow.code} 环节「${s.name}」的审批角色不存在`)
     ok(['ANY', 'SEQUENCE', 'ALL'].includes(s.mode), `流程 ${flow.code} 环节「${s.name}」的审批方式编码非法：${s.mode}`)
-    ok(['NONE', 'AMOUNT_GT', 'HAS_DIFF', 'HAS_ASSET_USER'].includes(s.conditionType), `流程 ${flow.code} 环节「${s.name}」的触发条件编码非法`)
+    ok(['NONE', 'AMOUNT_GT', 'HAS_DIFF', 'HAS_ASSET_USER', 'HAS_BORROWER'].includes(s.conditionType), `流程 ${flow.code} 环节「${s.name}」的触发条件编码非法`)
     ok(stepApprovers(s, org, probeDoc).length > 0, `流程 ${flow.code} 环节「${s.name}」没有可审批的启用账号`)
   }
 }

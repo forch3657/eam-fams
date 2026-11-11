@@ -215,7 +215,8 @@ export const APPROVE_CONDITION = {
   NONE: '无条件',
   AMOUNT_GT: '单据金额大于',
   HAS_DIFF: '存在盘点差异',
-  HAS_ASSET_USER: '存在现任资产使用人'
+  HAS_ASSET_USER: '存在现任资产使用人',
+  HAS_BORROWER: '已登记借用人'
 }
 
 /** 审批动作结果 */

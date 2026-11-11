@@ -849,7 +849,12 @@ const BORROW_DOCS = {
     returnBy: f.ref('org-users'),
     returned: f.bool(),
     // 借出时登记预计归还日，供逾期预警使用
-    expectedReturnDate: f.date()
+    expectedReturnDate: f.date(),
+    // 借出三要素：借给谁、哪个部门、什么用途。借出只是临时转移占有，
+    // 台账 userId / deptId 仍保持原责任人不变（BORROW 分支只改资产状态）。
+    borrowerId: f.ref('org-users'),
+    borrowerDeptId: f.ref('org-departments'),
+    borrowPurpose: f.str()
   },
   query: { keyword: ['code', 'name'], filters: ['status', 'companyId', 'returned'], sort: ['createTime'], page: true },
   rules: {
@@ -858,7 +863,9 @@ const BORROW_DOCS = {
       { field: 'companyId', collection: 'org-companies' },
       { field: 'assetId', collection: 'fixed-assets' },
       { field: 'creatorId', collection: 'org-users' },
-      { field: 'returnBy', collection: 'org-users' }
+      { field: 'returnBy', collection: 'org-users' },
+      { field: 'borrowerId', collection: 'org-users' },
+      { field: 'borrowerDeptId', collection: 'org-departments' }
     ]
   }
 }
@@ -993,10 +1000,15 @@ export const CONTRACT_PATTERNS = [
         { field: 'assetId', collection: 'fixed-assets' },
         { field: 'creatorId', collection: 'org-users' }
       ]
-      // 只给派发单加使用部门：审批完结由 ApprovalService.syncAssetLedger 回写资产台账 dept_id
+      // 派发单：使用部门 + 实际领用人。receiverId 是台账 userId 的唯一来源，
+      // 不再用单据创建人（资产管理员）兜底，避免「使用责任人」落到经办人身上。
       if (biz === 'alloc') {
         fields.deptId = f.ref('org-departments')
-        refs.push({ field: 'deptId', collection: 'org-departments' })
+        fields.receiverId = f.ref('org-users')
+        refs.push(
+          { field: 'deptId', collection: 'org-departments' },
+          { field: 'receiverId', collection: 'org-users' }
+        )
       }
       return {
         key,

@@ -11,7 +11,7 @@
  */
 export const ASSET_ACTION_DEFS = [
   { docKey: 'inbound', label: '入库验收', statuses: ['PENDING_INBOUND'], tab: 'inbound' },
-  { docKey: 'alloc', label: '派发领用', statuses: ['IDLE'], tab: 'dispatch', sub: 'alloc' },
+  { docKey: 'alloc', label: '派发', statuses: ['IDLE'], tab: 'dispatch', sub: 'alloc' },
   { docKey: 'back', label: '退库', statuses: ['IN_USE', 'BORROWED'], tab: 'dispatch', sub: 'back' },
   { docKey: 'borrow', label: '借出', statuses: ['IN_USE'], tab: 'borrow' },
   { docKey: 'transfer', label: '调拨', statuses: ['IDLE', 'IN_USE', 'PENDING_WRITE_OFF'], tab: 'change', sub: 'transfer' },

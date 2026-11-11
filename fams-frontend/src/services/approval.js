@@ -82,6 +82,7 @@ export const CONDITION_TEXT = {
   AMOUNT_GT: '单据金额大于',
   HAS_DIFF: '存在盘点差异',
   HAS_ASSET_USER: '存在现任资产使用人（空闲资产跳过）',
+  HAS_BORROWER: '已登记借用人（历史单据跳过）',
   DISPOSE_FINANCE: '财务按处置方式强制参与（报废按金额）',
   DISPOSE_AUDIT: '审计按处置方式强制参与（报废按金额）'
 }
@@ -211,9 +212,11 @@ export function stepApprovers(step, org, doc = null, assets = []) {
     const user = step.approverId ? userById(orgStore, step.approverId) : null
     return user && user.status === 'ENABLED' ? [user] : []
   }
-  if (type === 'ASSET_CURRENT_USER' || type === 'DOC_TARGET_USER') {
-    // 调拨两次交接确认：现任使用人取提交时的服务端快照，接收人取单据目标字段
-    const id = type === 'ASSET_CURRENT_USER' ? (doc?.beforeUserId || '') : (doc?.toUserId || '')
+  if (type === 'ASSET_CURRENT_USER' || type === 'DOC_TARGET_USER' || type === 'DOC_BORROWER') {
+    // 使用人类环节：调拨现任使用人取服务端快照、调拨接收人 / 借出借用人取单据目标字段
+    const field = type === 'ASSET_CURRENT_USER' ? 'beforeUserId'
+      : type === 'DOC_TARGET_USER' ? 'toUserId' : 'borrowerId'
+    const id = doc?.[field] || ''
     const user = id ? userById(orgStore, id) : null
     return user && user.status === 'ENABLED' ? [user] : []
   }
@@ -268,6 +271,8 @@ export function stepApplies(step, ctx = {}) {
   if (type === 'HAS_DIFF') return !!ctx.hasDiff
   // 调拨「现任使用人交出确认」：空闲资产没有使用人时不生效，避免提交被 fail-closed 拦死
   if (type === 'HAS_ASSET_USER') return !!ctx.hasAssetUser
+  // 借出「借用人确认接收」：历史单据没填借用人时不生效
+  if (type === 'HAS_BORROWER') return !!ctx.hasBorrower
   return true
 }
 

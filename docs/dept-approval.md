@@ -29,6 +29,9 @@ ids.addAll(service.userIdsOfRole(text(step.get("approverRoleId"))));
 | `USER` | 环节上指定的固定账号 | 是 |
 | `ASSET_CURRENT_USER` | 调拨单提交时生成的**调出前使用人快照** `beforeUserId` | 是 |
 | `DOC_TARGET_USER` | 调拨单的**新使用人** `toUserId` | 是 |
+| `DOC_BORROWER` | 借出单的**借用人** `borrowerId` | 是 |
+
+`HAS_BORROWER` 是可选触发条件（借出单填了借用人才生效），与 `HAS_ASSET_USER` 同理用于兼容历史 / 存量在途单据。WF4 的 `s3 借用人确认接收` = `DOC_BORROWER + HAS_BORROWER`；未填借用人的单据退回原来的两环节链，提交时不会被 fail-closed 预解析拦死。
 
 > 后两类为 WF5 调拨交接确认新增（2026-11-11）。`ASSET_CURRENT_USER` 必须配 `HAS_ASSET_USER`
 > 触发条件：空闲资产没有使用人时该环节不生效，否则提交时的 fail-closed 预解析会把它拦成 400。

@@ -273,7 +273,7 @@ test('[P1-07] 新建单据默认草稿并在单据面板可见', async ({ contex
   const doc = await createDoc('alloc', { assetId: asset.id })
   const guards = installGuards(page)
   await seedSession(context, admin)
-  // dispatch 是外层页签，sub=alloc 定位到「分配」子页签
+  // dispatch 是外层页签，sub=alloc 定位到「派发」子页签
   await page.goto('/fixed-assets?tab=dispatch&sub=alloc')
   await waitSettled(page)
 

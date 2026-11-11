@@ -150,6 +150,10 @@ public class ApprovalService {
         if ("TRANSFER".equals(bizType)) {
             ctx.put("hasAssetUser", !text(previous.get("beforeUserId")).isEmpty());
         }
+        if ("BORROW".equals(bizType)) {
+            // 服务端按单据事实判定，不采信客户端 ctx；历史单据无借用人时环节不生效
+            ctx.put("hasBorrower", !text(previous.get("borrowerId")).isEmpty());
+        }
         List<Map<String, Object>> steps = ApprovalSupport.effectiveSteps(flow, ctx);
         List<Map<String, Object>> approvals =
                 ApprovalSupport.approvalsOf(genericService, APPROVALS, docKey, docId);
@@ -514,15 +518,17 @@ public class ApprovalService {
         }
         switch (bizType) {
             case "DISPATCH":
-                // 实际领用人字段来源仍待产品裁决（§7.3）：有 receiverId 时优先，否则沿用创建人
+                // 2026-11-11 裁决：台账使用人只认实际领用人，不再用单据创建人（资产管理员）兜底，
+                // 否则「落实使用责任人」会落到经办人身上。userId 字段仅用于兼容历史单据。
                 String receiver = text(doc.get("receiverId"));
                 if (receiver.isEmpty()) {
                     receiver = text(doc.get("userId"));
                 }
-                if (receiver.isEmpty()) {
-                    receiver = text(doc.get("creatorId"));
+                if (!receiver.isEmpty()) {
+                    genericService.patchField(ASSETS, assetId, "userId", receiver, null);
+                } else {
+                    log.warn("派发单缺少实际领用人，未写入台账使用人 docId={}", text(doc.get("id")));
                 }
-                genericService.patchField(ASSETS, assetId, "userId", receiver, null);
                 patchIfPresent(doc, assetId, "deptId");
                 genericService.patchField(ASSETS, assetId, "status", "IN_USE", null);
                 break;
@@ -671,7 +677,7 @@ public class ApprovalService {
                 break;
             case "TRANSFER":
                 // 用户裁决（2026-11-11）：空闲资产可以派发、不能调拨，选了就明确提示
-                requireStatus(status, "空闲资产不能调拨，请先办理「派发领用」确定使用人",
+                requireStatus(status, "空闲资产不能调拨，请先办理「派发」确定使用人",
                         "IN_USE", "PENDING_WRITE_OFF");
                 break;
             case "CHANGE":

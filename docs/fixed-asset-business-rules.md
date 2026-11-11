@@ -334,6 +334,21 @@ IN_USE / BORROWED --维修--> REPAIRING --验收--> IN_USE
 
 **回归**：新增 `P13TransferApprovalTest`（后端）与前端 `approval.test.mjs` 断言同步；`mvn test` 137 项、前端 4 组单测全绿，jacoco 门禁通过。
 
+### 7.1g 追加裁决（2026-11-11）：派发 / 借出术语与责任人口径
+
+用户裁决：「归还后维持现状（回 `IDLE`、清空 `userId`）」「配置管理前置（预算 / 配置标准 / 调剂优先）不做」，其余 1～3 条按建议执行。
+
+| 项 | 口径 |
+| --- | --- |
+| 术语统一 | 「分配」子页签、行级「派发领用」、mock 种子「新员工入职设备分配」全部收敛为**「派发」**；`alloc` / WF2 / `fa:dispatch` 等技术 key 不变，避免破坏深链与契约 |
+| 派发 `receiverId` | 派发单新增**实际领用人**（必填、在职账号），选人自动带出其所属部门；WF2 `DONE` 时台账 `userId` **只认 `receiverId`**，不再用 `creatorId`（资产管理员）兜底；`userId` 字段仅兼容历史单据，缺失时不写使用人并记 warn |
+| 借出三要素 | 借出单新增 `borrowerId`（必填）/ `borrowerDeptId` / `borrowPurpose`；借出仍只是临时转移占有，台账 `userId` / `deptId` 保持原责任人不变（`BORROW` 分支只改状态） |
+| WF4 新环节 | 追加 `s3 借用人确认接收`（`DOC_BORROWER` + `HAS_BORROWER`）；历史单据 / 未填借用人的存量用例该环节不生效，审批链退回两环节，`unresolvedStepNames` 不会把它们拦成 400 |
+| 归还 | **维持现状**：`BORROWED → IDLE` + 清空 `userId`，继续使用须重新派发 WF2 |
+| 配置管理前置 | **不做**：预算、配置标准、调剂优先属于采购 / 预算系统职责，本系统只管派发执行 |
+
+审批人可见性另见 `docs/dept-approval.md`：`DEPT_ONLY` 的审批人（`R3`）通过 `GenericService.approverNeedsUnscopedDocs` 放行固资单据列表的数据范围过滤，否则「别人提交、当前环节点名到本人」的待办恒空。
+
 ### 7.2 已裁决：登记 / 入库语义边界、期初过渡与归还载体（2026-11-09）
 
 **6a 概念澄清（用户口径）**：「新增资产是登记，入库是实际资产入库」。二者是**不同性质的动作**，不是同一流程的两个阶段：

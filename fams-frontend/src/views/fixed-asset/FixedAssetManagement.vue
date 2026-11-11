@@ -124,7 +124,7 @@
         <!-- 派发/退库：key 必须随子签变化，否则 useCollection 仍绑定初始集合，退库单会写进派发单 -->
         <el-tab-pane v-if="tabVisible('fa:dispatch')" label="派发/退库" name="dispatch">
           <el-tabs v-model="dispatchSub" type="card" class="sub-tabs">
-            <el-tab-pane label="分配" name="alloc" />
+            <el-tab-pane label="派发" name="alloc" />
             <el-tab-pane label="退库" name="back" />
           </el-tabs>
           <FixedAssetDocList

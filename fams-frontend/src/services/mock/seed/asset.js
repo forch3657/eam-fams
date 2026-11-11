@@ -94,7 +94,7 @@ const CREATOR_USER = ['U4', 'U5', 'U6']
 
 const SEED_DOC_LISTS = {
   inbound: buildDocs('RK', 8, ['联想笔记本采购入库', '办公设备季度补充入库', '车辆采购入库验收', '打印耗材批量入库', '会议设备采购入库'], CREATOR_ASSET),
-  alloc: buildDocs('FP', 7, ['新员工入职设备分配', '市场部办公设备派发', '项目部现场设备派发', '财务部电脑更新派发'], CREATOR_ASSET),
+  alloc: buildDocs('FP', 7, ['新员工入职设备派发', '市场部办公设备派发', '项目部现场设备派发', '财务部电脑更新派发'], CREATOR_ASSET),
   back: buildDocs('TK', 6, ['员工离职设备退库', '项目结束设备退库', '部门调整资产退库'], CREATOR_USER),
   transfer: buildDocs('DB', 6, ['总部调拨至分公司', '仓库间资产调拨', '跨区域调拨支援项目'], CREATOR_ASSET),
   repair: buildDocs('WX', 6, ['打印机故障送修', '车辆年度维修保养', '空调机组检修'], CREATOR_USER),
