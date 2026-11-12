@@ -1,5 +1,17 @@
 # 资产管理系统（fams-frontend）
 
+> ## 交接说明（2026-11-12，请先读本节）
+>
+> - **仓库**：前端 `https://git.ds.fidt/im/third-party/EamFamsWeb.git`；服务端 `https://git.ds.fidt/im/third-party/EamFamsSv.git`。
+> - **交接范围**：前后端只推送源码；生产部署必需的构建 / 启动脚本、建库 SQL、nginx 配置与部署手册已放在**后端仓 `deploy-kit/`**（按其中 README 复制到工作区根即可使用）。nginx 二进制、证书私钥、JWT 密钥与 MySQL 管理员口令未入库；E2E 与 CI 配置非部署必需，未推送。
+> - **目录约定**：两个仓库克隆到同一父目录，目录名必须保持 `fams-backend` / `fams-frontend`。`npm run export:contract` 会写入 `../fams-backend/src/main/resources/contract`，根目录构建脚本也按此定位。
+> - **当前运行模式**：`VITE_USE_MOCK=false`，前端默认直连 Spring Boot 后端（`.env.development` → `http://localhost:8080/api`，`.env.production` → `/api` 经 nginx 反代）。下文关于 mock 演示数据、`localStorage` 与演示账号的描述属历史实现，不要据此登录。
+> - **启动**：`npm ci` → `npm run dev`（http://localhost:5174）；校验 `npm run test`、`npm run check:perm`；构建 `npm run build`。技术栈 Vue 3 + Vite 6 + Element Plus + Pinia，Node 22（本机 Node 不在 PATH 时可用仓库内 `run.bat`）。
+> - **凭据**：应用登录初始口令、数据库与内网账号口令一律不写入仓库，向项目管理员索取。
+> - **后续升级计划**：见文末「后续升级计划」。
+>
+> 以下为原设计文档，保留供参考；部分内容已过时，以上述交接说明为准。
+
 从经营性资产管理系统中抽离出来的**固定资产 + 低值资产**独立前端工程，可单独开发、单独运行。侧边栏顺序：固定资产 → 低值资产 → 组织架构 → 系统管理。
 
 ## 接口契约与 mock 切换
@@ -49,7 +61,7 @@ VITE_API_BASE_URL=http://your-backend/api
 本机 Node 不在 PATH，工程根目录提供了启动脚本 `run.bat` / `run.ps1`，会自动加载预装 Node 运行时、按需安装依赖并启动。
 
 ```powershell
-cd f:/work/EAM-FAMS/fams-frontend
+cd fams-frontend
 .\run.bat            # 启动 dev 服务器 -> http://localhost:5174/
 .\run.bat install    # 强制重新安装依赖后启动（依赖异常/首次克隆后）
 .\run.bat build      # 构建生产包
@@ -67,12 +79,12 @@ cd f:/work/EAM-FAMS/fams-frontend
 
 ```powershell
 $env:Path = "$env:USERPROFILE\.workbuddy\binaries\node\versions\22.22.2-6;$env:Path"
-cd f:/work/EAM-FAMS/fams-frontend
+cd fams-frontend
 npm install
 npm run dev     # http://localhost:5174/
 ```
 
-演示账号：`admin / 123456`（系统管理员）、`asset / 123456`（资产管理员）。
+演示账号：当前为直连后端模式，账号与初始口令由后端 `src/main/resources/db/seed.sql` 及部署手册提供，向项目管理员索取；历史 mock 模式下的演示口令已失效，请勿据此登录。
 
 ## 功能范围
 
@@ -208,3 +220,15 @@ VITE_API_BASE_URL=      # 后端根地址，为空时自动回落 mock，避免�
 
 - 原项目 `f:/work/FAMS` 未被修改，固定资产模块仍是其中一部分，两边可同时运行。
 - 本工程剥离了审计留痕、GIS 地图、echarts 大屏等无关能力，依赖精简为 vue / vue-router / pinia / element-plus / icons / qrcode。
+
+## 后续升级计划
+
+摘自项目《后续升级计划 20261112》：
+
+1. 实现多公司管理
+2. 对接人员组织架构接口（删除现有人员组织，对接角色权限）— 接口对接：陈国
+3. 对接流程引擎（提供流程给杜娟配置）— 接口对接：术欢
+4. 对接 PC 端，迁入柳讯
+5. 完善移动端，迁入柳讯移动端
+6. 柳讯移动端完善扫码盘点与查询功能
+7. 调研 UHF RFID 标签打印机与手持设备，升级 RFID 扫码盘点功能

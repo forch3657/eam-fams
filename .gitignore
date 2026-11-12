@@ -19,3 +19,6 @@ deploy/nginx/logs/
 # 日志与临时脚本
 *.log
 *.err
+
+# 发布脚本的本地缓存（内网仓 clone，不入库）
+.publish-cache/

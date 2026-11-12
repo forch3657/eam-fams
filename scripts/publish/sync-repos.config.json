@@ -1,0 +1,38 @@
+{
+  "cacheDir": ".publish-cache",
+  "rootBranch": "main",
+  "githubRemote": "origin",
+  "sslVerify": false,
+  "commitUser": "fams-sync",
+  "commitEmail": "fams-sync@local",
+  "excludeDirs": [".git", "node_modules", "dist", "dist-single", "target", ".idea", ".playwright-cli"],
+  "excludeFiles": ["*.log", "*.err", ".env", ".env.local", ".DS_Store", "*.iml"],
+  "forbidden": ["*.key", "*.crt", "jwt-secret", "db-admin*", "nginx.exe", "*.log", "*.err"],
+  "protectedInTarget": ["deploy-kit/", "README.md", ".gitignore"],
+  "targets": [
+    {
+      "name": "backend",
+      "url": "https://git.ds.fidt/im/third-party/EamFamsSv.git",
+      "branch": "fams-import-20261112",
+      "sourceDir": "fams-backend",
+      "keepInTarget": ["deploy-kit/"],
+      "mirrors": [
+        { "from": "build-prod.ps1", "to": "deploy-kit/build-prod.ps1" },
+        { "from": "start-prod.ps1", "to": "deploy-kit/start-prod.ps1" },
+        { "from": "stop-prod.ps1", "to": "deploy-kit/stop-prod.ps1" },
+        { "from": "stop-prod.bat", "to": "deploy-kit/stop-prod.bat" },
+        { "from": "deploy/sql/mysql/schema.sql", "to": "deploy-kit/deploy/sql/mysql/schema.sql" },
+        { "from": "deploy/sql/mysql/baseline-data.sql", "to": "deploy-kit/deploy/sql/mysql/baseline-data.sql" },
+        { "from": "docs/deployment.md", "to": "deploy-kit/docs/deployment.md" }
+      ]
+    },
+    {
+      "name": "frontend",
+      "url": "https://git.ds.fidt/im/third-party/EamFamsWeb.git",
+      "branch": "fams-import-20261112",
+      "sourceDir": "fams-frontend",
+      "keepInTarget": [],
+      "mirrors": []
+    }
+  ]
+}

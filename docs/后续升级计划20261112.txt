@@ -1,0 +1,19 @@
+
+公司内部服务器
+172.21.21.203  git.ds.fidt 要修改host才能登录 已设置好
+https://git.ds.fidt/
+账号是tianyoulong@fzidt.com  密码 Fzidt0487  
+
+服务端git: https://git.ds.fidt/im/third-party/EamFamsSv.git 
+前端git:  https://git.ds.fidt/im/third-party/EamFamsWeb.git
+
+1.先实现 多公司的管理
+2.对接人员组织架构  接口找陈国  (删除人员组织，对接角色权限)
+3.对接流程引擎 接口找术欢 (提供流程给杜娟配置)
+
+4. 对接PC端，迁入柳讯
+5.完善移动端，迁入柳讯移动端
+6.柳讯移动端完善扫码盘点与查询的功能
+7.调研UHF  RFID标签打印机和手持设备，升级RFID扫码盘点功能
+
+

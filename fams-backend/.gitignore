@@ -4,3 +4,11 @@ target/
 *.iml
 *.log
 .DS_Store
+
+# 部署包中的运行时文件与凭据（与内网后端仓保持一致）
+deploy-kit/deploy/.secrets/
+deploy-kit/deploy/certs/*.key
+deploy-kit/deploy/certs/*.crt
+deploy-kit/deploy/nginx/nginx.exe
+deploy-kit/deploy/nginx/logs/
+deploy-kit/deploy/nginx/temp/
