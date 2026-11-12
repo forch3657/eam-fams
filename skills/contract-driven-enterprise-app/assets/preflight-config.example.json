@@ -1,0 +1,31 @@
+{
+  "_comment": "复制本文件到项目根或任意位置，用 --config 指向它。rules 中可关闭规则或调整 severity（ERROR/WARN/OFF）。",
+  "excludeDirs": [
+    "node_modules",
+    "target",
+    "dist",
+    "build",
+    ".git",
+    ".codebuddy",
+    ".idea",
+    ".vscode",
+    "playwright-report",
+    "e2e-artifacts",
+    "coverage",
+    "skills"
+  ],
+  "maxFileBytes": 2097152,
+  "rules": {
+    "contract-solo-change": { "severity": "ERROR", "enabled": true },
+    "plaintext-password": { "severity": "ERROR", "enabled": true },
+    "weak-default-password": { "severity": "WARN", "enabled": true },
+    "e2e-destructive-sql": { "severity": "ERROR", "enabled": true },
+    "utf16-bom": { "severity": "ERROR", "enabled": true },
+    "ignore-auth": { "severity": "WARN", "enabled": true },
+    "hardcoded-secret": { "severity": "WARN", "enabled": true },
+    "ps1-non-ascii": { "severity": "WARN", "enabled": true },
+    "csv-without-bom": { "severity": "WARN", "enabled": true },
+    "skip-tests": { "severity": "WARN", "enabled": true },
+    "reporter-override": { "severity": "WARN", "enabled": true }
+  }
+}
