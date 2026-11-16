@@ -1,5 +1,7 @@
 package com.fams.engine;
 
+import com.fams.contract.ResourceMeta;
+import com.fams.contract.ResourceRegistry;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -167,8 +169,18 @@ public class PermissionPolicy {
     /** 契约文件是否加载成功（false 时使用 static 内置默认映射） */
     private volatile boolean contractLoaded = false;
 
+    /** 契约中显式登记过的集合规则键（含仅备注、无权限码的条目），用于 fail-closed 判定 */
+    private final Set<String> registeredResources = ConcurrentHashMap.newKeySet();
+
     /** 未知集合只告警一次，避免通用 CRUD 高频请求刷爆日志 */
     private final Set<String> warnedUnknown = ConcurrentHashMap.newKeySet();
+
+    /** 集合注册表：启动期校验所有集合都在权限契约中登记（S-05 fail-closed） */
+    private final ResourceRegistry resourceRegistry;
+
+    public PermissionPolicy(ResourceRegistry resourceRegistry) {
+        this.resourceRegistry = resourceRegistry;
+    }
 
     /**
      * 启动时加载权限契约。
@@ -184,11 +196,13 @@ public class PermissionPolicy {
             Map<String, String[]> read = new HashMap<>();
             Map<String, String[]> write = new HashMap<>();
             Map<String, String[]> delete = new HashMap<>();
+            registeredResources.clear();
             for (JsonNode rule : root.path("rules")) {
                 String resource = rule.path("resource").asText("");
                 if (resource.isEmpty()) {
                     continue;
                 }
+                registeredResources.add(resource);
                 putIfPresent(read, resource, rule.get("read"));
                 putIfPresent(write, resource, rule.get("write"));
                 putIfPresent(delete, resource, rule.get("delete"));
@@ -206,12 +220,43 @@ public class PermissionPolicy {
             for (JsonNode item : root.path("immutable")) {
                 IMMUTABLE.add(item.asText());
             }
+
+            // S-05 fail-closed：启动期校验每个集合都在权限契约登记（精确或前缀）。
+            // 契约单一真源保证 resources.json 与 permission-resources.json 同步，
+            // 若有遗漏则拒绝启动，避免新集合上线后默认放行。
+            java.util.List<String> missing = new java.util.ArrayList<>();
+            for (ResourceMeta meta : resourceRegistry.all()) {
+                if (!isRegisteredResource(meta.getKey())) {
+                    missing.add(meta.getKey());
+                }
+            }
+            if (!missing.isEmpty()) {
+                throw new IllegalStateException("权限契约缺失集合登记（fail-closed），拒绝启动：" + missing);
+            }
+
             contractLoaded = true;
-            log.info("[permission] 权限契约已加载：read={} write={} delete={} immutable={}",
-                    READ.size(), WRITE.size(), DELETE.size(), IMMUTABLE.size());
+            log.info("[permission] 权限契约已加载并通过启动校验：read={} write={} delete={} immutable={} resources={}",
+                    READ.size(), WRITE.size(), DELETE.size(), IMMUTABLE.size(), registeredResources.size());
         } catch (Exception e) {
-            log.warn("[permission] 权限契约加载失败，退回内置默认映射：{}", e.getMessage());
+            // fail-closed：契约加载失败或校验不通过时不再静默降级为默认放行，直接阻断启动
+            throw new IllegalStateException("权限契约加载/校验失败（fail-closed），拒绝启动", e);
         }
+    }
+
+    /** 集合是否已在权限契约中登记（精确匹配或以已登记前缀开头） */
+    private boolean isRegisteredResource(String key) {
+        if (key == null) {
+            return false;
+        }
+        if (registeredResources.contains(key)) {
+            return true;
+        }
+        for (String prefix : registeredResources) {
+            if (key.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void putIfPresent(Map<String, String[]> table, String resource, JsonNode codes) {
@@ -264,6 +309,15 @@ public class PermissionPolicy {
 
     /** 权限码判定：任一命中即通过 */
     public boolean matches(String key, String method, java.util.Set<String> granted) {
+        // S-05 fail-closed：契约加载后，未在权限契约登记的集合一律拒绝。
+        // 启动期已校验所有 resources.json 集合均已登记，运行时若出现动态未登记集合，
+        // 说明调用方拼错了 key 或绕过契约新增集合，必须拒绝而不是默认放行。
+        if (contractLoaded && resourceRegistry.exists(key) && !isRegisteredResource(key)) {
+            if (warnedUnknown.add("deny:" + key)) {
+                log.warn("[permission] 集合 {} 未在权限契约登记，fail-closed 拒绝", key);
+            }
+            return false;
+        }
         warnIfUnknown(key);
         if (IMMUTABLE.contains(key) && !"GET".equalsIgnoreCase(method)) {
             return false;

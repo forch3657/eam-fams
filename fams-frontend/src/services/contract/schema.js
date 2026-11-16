@@ -330,6 +330,8 @@ const LOW_VALUE_ITEMS = {
   audit: true,
   fields: {
     code: f.str({ required: true, unique: true }),
+    // D2：物品归属公司；库存按公司独立，避免跨公司扣减同一条库存
+    companyId: f.ref('org-companies'),
     // 类别取字典编码（LOW_VALUE_CATEGORY，见 constants/enums.js）
     category: f.enum('LOW_VALUE_CATEGORY', { required: true }),
     name: f.str({ required: true }),
@@ -343,9 +345,10 @@ const LOW_VALUE_ITEMS = {
     location: f.str(),
     status: f.enum('LOW_VALUE_ITEM_STATUS', { required: true })
   },
-  query: { keyword: ['name', 'code', 'spec'], filters: ['category', 'status', 'location'], sort: ['updateTime', 'code'], page: true },
+  query: { keyword: ['name', 'code', 'spec'], filters: ['companyId', 'category', 'status', 'location'], sort: ['updateTime', 'code'], page: true },
   rules: {
     unique: ['code'],
+    refs: [{ field: 'companyId', collection: 'org-companies' }],
     // 仍有库存或已产生单据时禁止删除
     protect: [
       { collection: 'low-value-inbound', field: 'itemId', message: '该物品已产生入库单据，不能删除' },
@@ -377,6 +380,8 @@ function lowValueDoc(key, label, effect, extra = {}, stockExtra = {}) {
     audit: true,
     fields: {
       docNo: f.str({ required: true, unique: true }),
+      // D2：单据归属公司，库存结算与行级范围都按此列隔离
+      companyId: f.ref('org-companies'),
       itemId: f.ref('low-value-items', { required: true }),
       // 类别取字典编码（办理当时的快照文案另存 categoryName）
       category: f.enum('LOW_VALUE_CATEGORY'),
@@ -398,10 +403,11 @@ function lowValueDoc(key, label, effect, extra = {}, stockExtra = {}) {
       settleTime: f.date(),
       ...extra
     },
-    query: { keyword: ['docNo'], filters: ['itemId', 'category', 'deptId', 'status'], sort: ['createTime'], page: true },
+    query: { keyword: ['docNo'], filters: ['companyId', 'itemId', 'category', 'deptId', 'status'], sort: ['createTime'], page: true },
     rules: {
       unique: ['docNo'],
       refs: [
+        { field: 'companyId', collection: 'org-companies' },
         { field: 'itemId', collection: 'low-value-items' },
         { field: 'deptId', collection: 'org-departments' },
         { field: 'creatorId', collection: 'org-users' }
@@ -475,6 +481,10 @@ const ORG_COMPANIES = {
     name: f.str({ required: true, unique: true }),
     shortName: f.str(),
     parentId: f.ref('org-companies'),
+    // D2：层级路径与层级号，CompanyScopeResolver 展开可见公司集合时可直接复用；
+    // path 形如 "/集团id/研究院id/至臻id"，逐级展开仍以 parentId 为准（path 仅加速与展示）。
+    path: f.str(),
+    level: f.num(),
     type: f.str(),
     creditCode: f.str(),
     legalPerson: f.str(),
@@ -546,6 +556,8 @@ const ORG_USERS = {
     name: f.str({ required: true }),
     companyId: f.ref('org-companies', { required: true }),
     deptId: f.ref('org-departments'),
+    // D2：显式授权可访问的其它公司（跨公司兼任），参与 CompanyScopeResolver 可见集合
+    scopeCompanyIds: f.arr(),
     position: f.str(),
     roleIds: f.arr(),
     phone: f.str(),
@@ -633,13 +645,15 @@ const SYSTEM_PARAMS = {
   idField: 'id',
   audit: true,
   fields: {
+    // D2：公司级覆盖；空值 = 集团默认。key 仍全局唯一，覆盖项使用独立 key（如 xxx@公司编码）
+    companyId: f.ref('org-companies'),
     name: f.str({ required: true }),
     key: f.str({ required: true, unique: true }),
     value: f.str(),
     type: f.enum('PARAM_TYPE'),
     remark: f.str()
   },
-  query: { keyword: ['name', 'key'], filters: ['type'], sort: ['key'], page: true },
+  query: { keyword: ['name', 'key'], filters: ['companyId', 'type'], sort: ['key'], page: true },
   rules: { unique: ['key'] }
 }
 
@@ -649,6 +663,8 @@ const SYSTEM_FLOWS = {
   idField: 'id',
   audit: true,
   fields: {
+    // D2：公司级流程覆盖；空值 = 集团默认流程模板
+    companyId: f.ref('org-companies'),
     code: f.str({ required: true, unique: true }),
     name: f.str({ required: true }),
     bizType: f.enum('BUSINESS_TYPE', { required: true }),
@@ -657,7 +673,7 @@ const SYSTEM_FLOWS = {
     enabled: f.bool(),
     steps: f.arr()
   },
-  query: { keyword: ['name', 'code'], filters: ['bizType', 'enabled'], sort: ['code'], page: true },
+  query: { keyword: ['name', 'code'], filters: ['companyId', 'bizType', 'enabled'], sort: ['code'], page: true },
   rules: {
     unique: ['code'],
     refs: [{ field: 'initiatorRoleId', collection: 'org-roles' }],
@@ -919,6 +935,8 @@ const BACK_DOCS = staticDocList('fixed-asset-doc-lists-back', '退库单列表',
 const DISPOSE_DOCS = staticDocList('fixed-asset-doc-lists-dispose', '处置单列表', {
   disposeType: f.enum('DISPOSE_TYPE'),
   buyer: f.str(),
+  // D2：跨公司转让/处置时受让公司；普通处置可空
+  transfereeCompanyId: f.ref('org-companies'),
   voucherNo: f.str(),
   disposalAmount: f.num(),
   outLedgerBasis: f.str()

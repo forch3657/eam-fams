@@ -9,7 +9,6 @@
 # so Chinese characters inside string literals get mangled and can break parsing.
 $ErrorActionPreference = 'Continue'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$failed = $false
 
 # npm/node may be absent from PATH (this machine ships node via workbuddy)
 if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
@@ -34,14 +33,38 @@ Write-Host '=== [2/4] Frontend: unit tests ==='
 Set-Location (Join-Path $root 'fams-frontend')
 npm run test
 if ($LASTEXITCODE -ne 0) {
-    Write-Host '! Frontend unit tests failed. Must be green before release.'
-    $failed = $true
+    Write-Host 'X Frontend unit tests failed. Build aborted before producing dist.'
+    Set-Location $root
+    exit 1
 }
 
-Write-Host '=== [3/4] Frontend: permission contract check ==='
+Write-Host '=== [3/4] Frontend: permission + contract drift check ==='
 npm run check:perm
 if ($LASTEXITCODE -ne 0) {
     Write-Host 'X Permission contract drift. Build aborted (run npm run check:perm for details).'
+    Set-Location $root
+    exit 1
+}
+# D4: export contract from the single source (schema.js) and fail if the export
+# CHANGEs the checked-in contract. Compare file hashes before/after -- comparing
+# against HEAD would falsely fail while legitimate schema changes are uncommitted.
+$contractDir = Join-Path $root 'fams-backend/src/main/resources/contract'
+function Get-ContractHashes {
+    Get-ChildItem -LiteralPath $contractDir -Filter '*.json' | Sort-Object Name | ForEach-Object {
+        "$($_.Name)=$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash)"
+    }
+}
+$beforeHashes = (Get-ContractHashes) -join ';'
+npm run export:contract
+if ($LASTEXITCODE -ne 0) {
+    Write-Host 'X Contract export failed. Build aborted.'
+    Set-Location $root
+    exit 1
+}
+$afterHashes = (Get-ContractHashes) -join ';'
+if ($beforeHashes -ne $afterHashes) {
+    Write-Host 'X Contract drift detected: re-export changed backend contract files.'
+    Write-Host '  Commit the freshly exported contract (or fix schema.js) and rebuild.'
     Set-Location $root
     exit 1
 }
@@ -55,9 +78,5 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Set-Location $root
-if ($failed) {
-    Write-Host 'Build finished, but frontend unit tests are red. Fix them before release.'
-    exit 1
-}
-Write-Host 'OK Build succeeded: jar and dist are produced only after tests pass.'
+Write-Host 'OK Build succeeded: jar and dist are produced only after all gates pass.'
 Write-Host '   Next: run start-prod.ps1 to publish.'

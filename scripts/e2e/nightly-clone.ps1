@@ -51,7 +51,7 @@ $distIndex = Join-Path $root 'fams-frontend/dist/index.html'
 if (-not (Test-Path $distIndex)) { throw ('dist missing: ' + $distIndex + '  (run build-prod.ps1 first)') }
 
 $appUser = if ($env:DB_USER) { $env:DB_USER } else { 'fams' }
-$appPwd = if ($env:DB_PASSWORD) { $env:DB_PASSWORD } else { 'FamsDb@2026!' }
+$appPwd = if ($env:DB_PASSWORD) { $env:DB_PASSWORD } else { 'ZgM8Zg9PKm2CYyeYzdNs' }
 # The application account only has DML; creating/dropping the clone needs an admin.
 # Keep the password in MYSQL_ADMIN_PWD for unattended runs; the fallback is the
 # local dev admin account documented in docs/qa (change it before real deployment).

@@ -16,7 +16,7 @@ spring:
     # 默认指向独立测试库 fams_e2e；库不存在时启动即失败，避免误连生产库
     url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/fams_e2e?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai}
     username: ${DB_USER:fams}
-    password: ${DB_PASSWORD:FamsDb@2026!}
+    password: ${DB_PASSWORD:ZgM8Zg9PKm2CYyeYzdNs}
     driver-class-name: com.mysql.cj.jdbc.Driver
   sql:
     init:

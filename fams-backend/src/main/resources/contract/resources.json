@@ -703,6 +703,14 @@
           "refCollection": null
         },
         {
+          "name": "transfereeCompanyId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-companies"
+        },
+        {
           "name": "voucherNo",
           "type": "string",
           "required": false,
@@ -2325,6 +2333,14 @@
           "refCollection": null
         },
         {
+          "name": "companyId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-companies"
+        },
+        {
           "name": "category",
           "type": "enum",
           "required": true,
@@ -2408,7 +2424,12 @@
       "uniqueFields": [
         "code"
       ],
-      "refs": [],
+      "refs": [
+        {
+          "field": "companyId",
+          "collection": "org-companies"
+        }
+      ],
       "protect": [
         {
           "collection": "low-value-inbound",
@@ -2446,6 +2467,7 @@
         "spec"
       ],
       "filterFields": [
+        "companyId",
         "category",
         "status",
         "location"
@@ -2481,6 +2503,14 @@
           "unique": true,
           "enumName": null,
           "refCollection": null
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-companies"
         },
         {
           "name": "itemId",
@@ -2632,6 +2662,10 @@
       ],
       "refs": [
         {
+          "field": "companyId",
+          "collection": "org-companies"
+        },
+        {
           "field": "itemId",
           "collection": "low-value-items"
         },
@@ -2661,6 +2695,7 @@
         "docNo"
       ],
       "filterFields": [
+        "companyId",
         "itemId",
         "category",
         "deptId",
@@ -2696,6 +2731,14 @@
           "unique": true,
           "enumName": null,
           "refCollection": null
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-companies"
         },
         {
           "name": "itemId",
@@ -2855,6 +2898,10 @@
       ],
       "refs": [
         {
+          "field": "companyId",
+          "collection": "org-companies"
+        },
+        {
           "field": "itemId",
           "collection": "low-value-items"
         },
@@ -2891,6 +2938,7 @@
         "docNo"
       ],
       "filterFields": [
+        "companyId",
         "itemId",
         "category",
         "deptId",
@@ -2926,6 +2974,14 @@
           "unique": true,
           "enumName": null,
           "refCollection": null
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-companies"
         },
         {
           "name": "itemId",
@@ -3085,6 +3141,10 @@
       ],
       "refs": [
         {
+          "field": "companyId",
+          "collection": "org-companies"
+        },
+        {
           "field": "itemId",
           "collection": "low-value-items"
         },
@@ -3114,6 +3174,7 @@
         "docNo"
       ],
       "filterFields": [
+        "companyId",
         "itemId",
         "category",
         "deptId",
@@ -3278,6 +3339,22 @@
           "unique": false,
           "enumName": null,
           "refCollection": "org-companies"
+        },
+        {
+          "name": "path",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "level",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
         },
         {
           "name": "type",
@@ -3614,6 +3691,14 @@
           "unique": false,
           "enumName": null,
           "refCollection": "org-departments"
+        },
+        {
+          "name": "scopeCompanyIds",
+          "type": "array",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
         },
         {
           "name": "position",
@@ -3988,6 +4073,14 @@
           "refCollection": null
         },
         {
+          "name": "companyId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-companies"
+        },
+        {
           "name": "name",
           "type": "string",
           "required": true,
@@ -4043,6 +4136,7 @@
         "key"
       ],
       "filterFields": [
+        "companyId",
         "type"
       ],
       "sortFields": [
@@ -4067,6 +4161,14 @@
           "unique": true,
           "enumName": null,
           "refCollection": null
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-companies"
         },
         {
           "name": "code",
@@ -4151,6 +4253,7 @@
         "code"
       ],
       "filterFields": [
+        "companyId",
         "bizType",
         "enabled"
       ],

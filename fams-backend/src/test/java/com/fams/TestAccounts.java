@@ -16,7 +16,7 @@ public final class TestAccounts {
     public static final String ADMIN = "admin";
 
     /** 种子里的初始口令（明文；入库后由 DataInitializer 迁移为 BCrypt） */
-    public static final String PASSWORD = "Fzidt@123";
+    public static final String PASSWORD = "updbJghM7dKx8Az3J3QF";
 
     private TestAccounts() {
     }

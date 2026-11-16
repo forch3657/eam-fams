@@ -99,7 +99,7 @@ export const useOrgStore = defineStore('org', () => {
     return build(null)
   })
 
-  /** 组织树：公司 → 部门 → 子部门 */
+  /** 组织树：公司（任意层级，含集团 → 二级 → 三级）→ 部门 → 子部门 */
   const deptTree = computed(() => {
     const buildDepts = (companyId, parentId) => departments.value
       .filter(d => d.companyId === companyId && (d.parentId || null) === parentId)
@@ -108,20 +108,26 @@ export const useOrgStore = defineStore('org', () => {
         const children = buildDepts(companyId, d.id)
         return { id: d.id, name: d.name, type: 'dept', children: children.length ? children : undefined }
       })
+    // 公司层级与部门层级都递归展开；seen 防止组织数据成环时无限递归
+    const buildCompany = (company, seen) => {
+      if (seen.has(company.id)) return null
+      const nextSeen = new Set(seen)
+      nextSeen.add(company.id)
+      const nodes = buildDepts(company.id, null)
+      companies.value
+        .filter(c => (c.parentId || null) === company.id)
+        .sort((a, b) => (a.sort || 0) - (b.sort || 0))
+        .forEach(sub => {
+          const built = buildCompany(sub, nextSeen)
+          if (built) nodes.push(built)
+        })
+      return { id: company.id, name: company.name, type: 'company', children: nodes.length ? nodes : undefined }
+    }
     return companies.value
       .filter(c => (c.parentId || null) === null)
       .sort((a, b) => (a.sort || 0) - (b.sort || 0))
-      .map(c => {
-        const subs = companies.value.filter(x => x.parentId === c.id).sort((a, b) => (a.sort || 0) - (b.sort || 0))
-        const nodes = buildDepts(c.id, null)
-        subs.forEach(s => nodes.push({
-          id: s.id,
-          name: s.name,
-          type: 'company',
-          children: buildDepts(s.id, null).length ? buildDepts(s.id, null) : undefined
-        }))
-        return { id: c.id, name: c.name, type: 'company', children: nodes.length ? nodes : undefined }
-      })
+      .map(c => buildCompany(c, new Set()))
+      .filter(Boolean)
   })
 
   /** 供业务模块下拉使用：仅启用状态 */

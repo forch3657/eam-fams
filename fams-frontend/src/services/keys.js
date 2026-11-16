@@ -10,3 +10,6 @@ export const USER_STORAGE_KEY = 'fams-user'
 
 /** 访问令牌：services/auth.js 写入，services/http.js 每次请求读取放到 Authorization 头 */
 export const TOKEN_STORAGE_KEY = 'token'
+
+/** D2 公司视角：store/companyScope.js 写入，services/http.js 读取放到 X-Company-View 头（仅默认值/展示，不参与授权） */
+export const COMPANY_VIEW_STORAGE_KEY = 'fams-company-view'

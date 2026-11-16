@@ -14,7 +14,8 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/fams?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai}
     username: ${DB_USER:fams}
-    password: ${DB_PASSWORD:FamsDb@2026!}
+    # 口令强制由环境变量注入，禁止在配置或仓库中留明文默认值（S-02）
+    password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
   sql:
     init:
@@ -25,11 +26,14 @@ fams:
     # 生产部署务必通过环境变量 JWT_SECRET 注入强密钥；此处默认值仅用于本机演示，部署时覆盖。
     # 注意：HS256 要求密钥 >= 256 bits（>= 32 个 ASCII 字符），否则启动报 WeakKeyException。
     jwt-secret: ${JWT_SECRET}
-    jwt-expire-minutes: ${JWT_EXPIRE_MINUTES:480}
+    # S-03：有效期收敛到 30 分钟，降低 token 被盗后的重放窗口
+    jwt-expire-minutes: ${JWT_EXPIRE_MINUTES:30}
     permit-all:
       - /health
       - /version
       - /auth/login
+      # D3 探活端点免登录（仅 health，指标端点仍需认证）
+      - /actuator/health
   cors:
     # 前端由 nginx 在 https://localhost 托管，/api 反代到本服务，同源即可；
     # 如需跨域再放开，用环境变量 CORS_ALLOWED_ORIGINS 覆盖

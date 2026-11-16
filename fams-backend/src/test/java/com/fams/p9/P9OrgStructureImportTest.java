@@ -367,12 +367,12 @@ public class P9OrgStructureImportTest {
         return orgService.doImport(file, abortOnError);
     }
 
-    /** 按模板列顺序拼一行：公司名称, 公司编码, 部门名称, 上级部门, 姓名, 登录账号, 初始口令, 岗位, 手机, 邮箱, 角色, 状态 */
+    /** 按模板列顺序拼一行：公司名称, 公司编码, 部门名称, 上级部门, 姓名, 登录账号, 初始口令, 岗位, 手机, 邮箱, 角色, 状态, 上级公司 */
     private static String row(String company, String code, String dept, String parent,
                               String name, String username, String password, String position,
                               String phone, String email, String roles, String status) {
         return String.join(",", company, code, dept, parent, name, username, password,
-                position, phone, email, roles, status);
+                position, phone, email, roles, status, "");
     }
 
     private Map<String, Object> findOne(String key, String... pairs) {

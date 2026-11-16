@@ -5,20 +5,20 @@
 SET NAMES utf8mb4;
 
 -- 固定资产台账 (fixed-assets)
-INSERT INTO `fixed_assets` (`id`, `code`, `name`, `category`, `brand`, `model`, `company_id`, `dept_id`, `user_id`, `location`, `purchase_date`, `inbound_date`, `amount`, `original`, `net`, `status`, `depreciate`, `purchase_mode`, `lease_months`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
-('A01', 'GD20260001', '联想ThinkPad笔记本电脑', 'ELECTRONIC', '联想', 'ThinkPad T14', 'C1', 'D1', 'U2', '总部办公楼2层', '2026-03-12 08:00:00', '2026-03-15 08:00:00', 8500, 8500, 7650, 'IDLE', 1, 'PURCHASE', 36, 'seed', '2026-03-15 09:00:00', 'seed', '2026-09-18 10:22:31', 1),
-('A02', 'GD20260002', '戴尔OptiPlex台式电脑', 'ELECTRONIC', '戴尔', 'OptiPlex 7010', 'C1', 'D2', 'U3', '总部办公楼3层', '2026-02-20 08:00:00', '2026-02-25 08:00:00', 6200, 6200, 5580, 'DISPATCHING', 1, 'PURCHASE', 36, 'seed', '2026-02-25 09:30:00', 'seed', '2026-09-17 15:40:12', 1),
-('A03', 'GD20260003', '惠普激光打印机', 'ELECTRONIC', '惠普', 'LaserJet M405', 'C2', 'D8', 'U10', '总部办公楼1层', '2025-11-08 08:00:00', '2025-11-12 08:00:00', 3200, 3200, 2560, 'BORROWED', 1, 'PURCHASE', 24, 'seed', '2025-11-12 10:00:00', 'seed', '2026-09-16 09:05:44', 1),
-('A04', 'GD20260004', '丰田考斯特商务车', 'VEHICLE', '丰田', '考斯特 20座', 'C4', 'D12', 'U14', '车库', '2025-06-18 08:00:00', '2025-06-25 08:00:00', 385000, 385000, 320800, 'REPAIRING', 1, 'PURCHASE', 60, 'seed', '2025-06-25 11:00:00', 'seed', '2026-09-15 14:22:08', 1),
-('A05', 'GD20260005', '数控车床CK6140', 'MACHINE', '沈阳机床', 'CK6140', 'C1', 'D6', 'U7', '仓库A区', '2024-09-10 08:00:00', '2024-09-20 08:00:00', 268000, 268000, 214400, 'DISPOSING', 1, 'LEASE', 48, 'seed', '2024-09-20 14:00:00', 'seed', '2026-09-14 11:31:52', 1),
-('A06', 'GD20260006', '华为会议平板', 'ELECTRONIC', '华为', 'IdeaHub S2', 'C1', 'D4', 'U5', '总部办公楼3层', '2026-04-02 08:00:00', '2026-04-06 08:00:00', 26800, 26800, 25460, 'IDLE', 1, 'PURCHASE', 36, 'seed', '2026-04-06 09:20:00', 'seed', '2026-09-13 16:48:20', 1),
-('A07', 'GD20260007', '格力中央空调机组', 'MACHINE', '格力', 'GMV-560', 'C2', 'D9', 'U11', '数据中心机房', '2025-03-15 08:00:00', '2025-03-28 08:00:00', 158000, 158000, 132700, 'DISPATCHING', 1, 'SELF_BUILD', 120, 'seed', '2025-03-28 15:10:00', 'seed', '2026-09-12 08:55:03', 1),
-('A08', 'GD20260008', '实木会议桌', 'FURNITURE', '华丰', 'HF-B3200', 'C4', 'D13', 'U15', '总部办公楼1层', '2025-12-05 08:00:00', '2025-12-10 08:00:00', 12800, 12800, 11520, 'BORROWED', 1, 'PURCHASE', 60, 'seed', '2025-12-10 10:40:00', 'seed', '2026-09-11 13:26:47', 1),
-('A09', 'GD20260009', '人体工学办公椅', 'FURNITURE', '西昊', 'M57', 'C1', 'D3', 'U4', '总部办公楼2层', '2026-01-16 08:00:00', '2026-01-20 08:00:00', 1580, 1580, 1420, 'IDLE', 1, 'PURCHASE', 24, 'seed', '2026-01-20 11:00:00', 'seed', '2026-09-10 10:12:35', 1),
-('A10', 'GD20260010', '服务器机柜', 'ELECTRONIC', '图腾', 'G2.6642', 'C3', 'D11', 'U13', '数据中心机房', '2024-11-22 08:00:00', '2024-12-01 08:00:00', 42000, 42000, 33600, 'REPAIRING', 1, 'LEASE', 36, 'seed', '2024-12-01 09:50:00', 'seed', '2026-09-09 17:04:11', 1),
-('A11', 'GD20260011', '合力3吨叉车', 'MACHINE', '合力', 'CPCD30', 'C4', 'D12', 'U14', '仓库B区', '2025-08-08 08:00:00', '2025-08-15 08:00:00', 96000, 96000, 84000, 'DISPOSING', 1, 'PURCHASE', 60, 'seed', '2025-08-15 16:20:00', 'seed', '2026-09-08 09:38:56', 1),
-('A12', 'GD20260012', '爱普生投影仪', 'ELECTRONIC', '爱普生', 'CB-X06', 'C2', 'D8', 'U10', '总部办公楼3层', '2026-05-20 08:00:00', '2026-05-24 08:00:00', 4600, 4600, 4370, 'IDLE', 1, 'PURCHASE', 36, 'seed', '2026-05-24 14:05:00', 'seed', '2026-09-07 14:51:29', 1),
-('A13', 'GD20260013', '不间断电源UPS', 'ELECTRONIC', '山特', 'C3KS', 'C1', 'D102', 'U9', '数据中心机房', '2025-10-11 08:00:00', '2025-10-18 08:00:00', 18600, 18600, 16120, 'DISPATCHING', 1, 'PURCHASE', 48, 'seed', '2025-10-18 08:30:00', 'seed', '2026-09-06 11:19:40', 1);
+INSERT INTO `fixed_assets` (`id`, `code`, `name`, `category`, `brand`, `model`, `company_id`, `dept_id`, `user_id`, `location`, `purchase_date`, `inbound_date`, `amount`, `original`, `net`, `status`, `depreciate`, `purchase_mode`, `lease_months`, `source_tag`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
+('A01', 'GD20260001', '联想ThinkPad笔记本电脑', 'ELECTRONIC', '联想', 'ThinkPad T14', 'C1', 'D1', 'U2', '总部办公楼2层', '2026-03-12 08:00:00', '2026-03-15 08:00:00', 8500, 8500, 7650, 'IDLE', 1, 'PURCHASE', 36, NULL, 'seed', '2026-03-15 09:00:00', 'seed', '2026-09-18 10:22:31', 1),
+('A02', 'GD20260002', '戴尔OptiPlex台式电脑', 'ELECTRONIC', '戴尔', 'OptiPlex 7010', 'C1', 'D2', 'U3', '总部办公楼3层', '2026-02-20 08:00:00', '2026-02-25 08:00:00', 6200, 6200, 5580, 'DISPATCHING', 1, 'PURCHASE', 36, NULL, 'seed', '2026-02-25 09:30:00', 'seed', '2026-09-17 15:40:12', 1),
+('A03', 'GD20260003', '惠普激光打印机', 'ELECTRONIC', '惠普', 'LaserJet M405', 'C2', 'D8', 'U10', '总部办公楼1层', '2025-11-08 08:00:00', '2025-11-12 08:00:00', 3200, 3200, 2560, 'BORROWED', 1, 'PURCHASE', 24, NULL, 'seed', '2025-11-12 10:00:00', 'seed', '2026-09-16 09:05:44', 1),
+('A04', 'GD20260004', '丰田考斯特商务车', 'VEHICLE', '丰田', '考斯特 20座', 'C4', 'D12', 'U14', '车库', '2025-06-18 08:00:00', '2025-06-25 08:00:00', 385000, 385000, 320800, 'REPAIRING', 1, 'PURCHASE', 60, NULL, 'seed', '2025-06-25 11:00:00', 'seed', '2026-09-15 14:22:08', 1),
+('A05', 'GD20260005', '数控车床CK6140', 'MACHINE', '沈阳机床', 'CK6140', 'C1', 'D6', 'U7', '仓库A区', '2024-09-10 08:00:00', '2024-09-20 08:00:00', 268000, 268000, 214400, 'DISPOSING', 1, 'LEASE', 48, NULL, 'seed', '2024-09-20 14:00:00', 'seed', '2026-09-14 11:31:52', 1),
+('A06', 'GD20260006', '华为会议平板', 'ELECTRONIC', '华为', 'IdeaHub S2', 'C1', 'D4', 'U5', '总部办公楼3层', '2026-04-02 08:00:00', '2026-04-06 08:00:00', 26800, 26800, 25460, 'IDLE', 1, 'PURCHASE', 36, NULL, 'seed', '2026-04-06 09:20:00', 'seed', '2026-09-13 16:48:20', 1),
+('A07', 'GD20260007', '格力中央空调机组', 'MACHINE', '格力', 'GMV-560', 'C2', 'D9', 'U11', '数据中心机房', '2025-03-15 08:00:00', '2025-03-28 08:00:00', 158000, 158000, 132700, 'DISPATCHING', 1, 'SELF_BUILD', 120, NULL, 'seed', '2025-03-28 15:10:00', 'seed', '2026-09-12 08:55:03', 1),
+('A08', 'GD20260008', '实木会议桌', 'FURNITURE', '华丰', 'HF-B3200', 'C4', 'D13', 'U15', '总部办公楼1层', '2025-12-05 08:00:00', '2025-12-10 08:00:00', 12800, 12800, 11520, 'BORROWED', 1, 'PURCHASE', 60, NULL, 'seed', '2025-12-10 10:40:00', 'seed', '2026-09-11 13:26:47', 1),
+('A09', 'GD20260009', '人体工学办公椅', 'FURNITURE', '西昊', 'M57', 'C1', 'D3', 'U4', '总部办公楼2层', '2026-01-16 08:00:00', '2026-01-20 08:00:00', 1580, 1580, 1420, 'IDLE', 1, 'PURCHASE', 24, NULL, 'seed', '2026-01-20 11:00:00', 'seed', '2026-09-10 10:12:35', 1),
+('A10', 'GD20260010', '服务器机柜', 'ELECTRONIC', '图腾', 'G2.6642', 'C3', 'D11', 'U13', '数据中心机房', '2024-11-22 08:00:00', '2024-12-01 08:00:00', 42000, 42000, 33600, 'REPAIRING', 1, 'LEASE', 36, NULL, 'seed', '2024-12-01 09:50:00', 'seed', '2026-09-09 17:04:11', 1),
+('A11', 'GD20260011', '合力3吨叉车', 'MACHINE', '合力', 'CPCD30', 'C4', 'D12', 'U14', '仓库B区', '2025-08-08 08:00:00', '2025-08-15 08:00:00', 96000, 96000, 84000, 'DISPOSING', 1, 'PURCHASE', 60, NULL, 'seed', '2025-08-15 16:20:00', 'seed', '2026-09-08 09:38:56', 1),
+('A12', 'GD20260012', '爱普生投影仪', 'ELECTRONIC', '爱普生', 'CB-X06', 'C2', 'D8', 'U10', '总部办公楼3层', '2026-05-20 08:00:00', '2026-05-24 08:00:00', 4600, 4600, 4370, 'IDLE', 1, 'PURCHASE', 36, NULL, 'seed', '2026-05-24 14:05:00', 'seed', '2026-09-07 14:51:29', 1),
+('A13', 'GD20260013', '不间断电源UPS', 'ELECTRONIC', '山特', 'C3KS', 'C1', 'D102', 'U9', '数据中心机房', '2025-10-11 08:00:00', '2025-10-18 08:00:00', 18600, 18600, 16120, 'DISPATCHING', 1, 'PURCHASE', 48, NULL, 'seed', '2025-10-18 08:30:00', 'seed', '2026-09-06 11:19:40', 1);
 
 -- 盘点计划 (fixed-asset-inventory-plans)
 INSERT INTO `fixed_asset_inventory_plans` (`id`, `plan_no`, `plan_name`, `scope`, `counter`, `plan_date`, `status`, `items`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
@@ -48,8 +48,8 @@ INSERT INTO `fixed_asset_depreciation_reports` (`id`, `period`, `opening_value`,
 -- 入库单列表 (fixed-asset-doc-lists-inbound)
 INSERT INTO `fixed_asset_doc_lists_inbound` (`id`, `code`, `name`, `company_id`, `asset_id`, `creator_id`, `finish_time`, `remark`, `status`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
 ('RK-1', 'RK2026900', '联想笔记本采购入库', 'C1', 'A01', 'U17', '2026-01-15 17:20:00', '按季度例行办理', 'DONE', 'seed', '2026-01-10 09:00:00', 'seed', NULL, 1),
-('RK-2', 'RK2026887', '办公设备季度补充入库', 'C2', 'A04', 'U2', NULL, '需资产管理员现场复核', 'PROCESSING', 'seed', '2026-10-19 09:07:00', 'seed', NULL, 1),
-('RK-3', 'RK2026874', '车辆采购入库验收', 'C3', 'A05', 'U10', NULL, '已完成实物验收', 'DRAFT', 'seed', '2026-03-12 09:14:00', 'seed', NULL, 1),
+('RK-2', 'RK2026887', '办公设备季度补充入库', 'C2', 'A05', 'U2', NULL, '需资产管理员现场复核', 'PROCESSING', 'seed', '2026-10-19 09:07:00', 'seed', NULL, 1),
+('RK-3', 'RK2026874', '车辆采购入库验收', 'C3', 'A04', 'U10', NULL, '已完成实物验收', 'DRAFT', 'seed', '2026-03-12 09:14:00', 'seed', NULL, 1),
 ('RK-4', 'RK2026861', '打印耗材批量入库', 'C4', 'A07', 'U17', NULL, '等待财务确认金额', 'REJECTED', 'seed', '2026-04-13 09:21:00', 'seed', NULL, 1),
 ('RK-5', 'RK2026848', '会议设备采购入库', 'C1', 'A11', 'U2', NULL, '附现场照片存档', 'REVOKED', 'seed', '2026-05-14 09:28:00', 'seed', NULL, 1),
 ('RK-6', 'RK2026835', '联想笔记本采购入库', 'C2', 'A02', 'U10', '2026-06-20 17:20:00', '按季度例行办理', 'DONE', 'seed', '2026-06-15 09:35:00', 'seed', NULL, 1),
@@ -57,68 +57,68 @@ INSERT INTO `fixed_asset_doc_lists_inbound` (`id`, `code`, `name`, `company_id`,
 ('RK-8', 'RK2026809', '车辆采购入库验收', 'C4', 'A01', 'U2', NULL, '已完成实物验收', 'DRAFT', 'seed', '2026-08-17 09:49:00', 'seed', NULL, 1);
 
 -- 派发单列表 (fixed-asset-doc-lists-alloc)
-INSERT INTO `fixed_asset_doc_lists_alloc` (`id`, `code`, `name`, `company_id`, `asset_id`, `creator_id`, `finish_time`, `remark`, `status`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
-('FP-1', 'FP2026900', '新员工入职设备分配', 'C1', 'A01', 'U17', '2026-01-15 17:20:00', '按季度例行办理', 'DONE', 'seed', '2026-01-10 09:00:00', 'seed', NULL, 1),
-('FP-2', 'FP2026887', '市场部办公设备派发', 'C2', 'A04', 'U2', NULL, '需资产管理员现场复核', 'PROCESSING', 'seed', '2026-10-19 09:07:00', 'seed', NULL, 1),
-('FP-3', 'FP2026874', '项目部现场设备派发', 'C3', 'A05', 'U10', NULL, '已完成实物验收', 'DRAFT', 'seed', '2026-03-12 09:14:00', 'seed', NULL, 1),
-('FP-4', 'FP2026861', '财务部电脑更新派发', 'C4', 'A07', 'U17', NULL, '等待财务确认金额', 'REJECTED', 'seed', '2026-04-13 09:21:00', 'seed', NULL, 1),
-('FP-5', 'FP2026848', '新员工入职设备分配', 'C1', 'A11', 'U2', NULL, '附现场照片存档', 'REVOKED', 'seed', '2026-05-14 09:28:00', 'seed', NULL, 1),
-('FP-6', 'FP2026835', '市场部办公设备派发', 'C2', 'A02', 'U10', '2026-06-20 17:20:00', '按季度例行办理', 'DONE', 'seed', '2026-06-15 09:35:00', 'seed', NULL, 1),
-('FP-7', 'FP2026822', '项目部现场设备派发', 'C3', 'A13', 'U17', NULL, '需资产管理员现场复核', 'PROCESSING', 'seed', '2026-10-19 09:42:00', 'seed', NULL, 1);
+INSERT INTO `fixed_asset_doc_lists_alloc` (`id`, `code`, `name`, `company_id`, `asset_id`, `creator_id`, `finish_time`, `remark`, `status`, `dept_id`, `receiver_id`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
+('FP-1', 'FP2026900', '新员工入职设备派发', 'C1', 'A01', 'U17', '2026-01-15 17:20:00', '按季度例行办理', 'DONE', NULL, NULL, 'seed', '2026-01-10 09:00:00', 'seed', NULL, 1),
+('FP-2', 'FP2026887', '市场部办公设备派发', 'C2', 'A05', 'U2', NULL, '需资产管理员现场复核', 'PROCESSING', NULL, NULL, 'seed', '2026-10-19 09:07:00', 'seed', NULL, 1),
+('FP-3', 'FP2026874', '项目部现场设备派发', 'C3', 'A04', 'U10', NULL, '已完成实物验收', 'DRAFT', NULL, NULL, 'seed', '2026-03-12 09:14:00', 'seed', NULL, 1),
+('FP-4', 'FP2026861', '财务部电脑更新派发', 'C4', 'A07', 'U17', NULL, '等待财务确认金额', 'REJECTED', NULL, NULL, 'seed', '2026-04-13 09:21:00', 'seed', NULL, 1),
+('FP-5', 'FP2026848', '新员工入职设备派发', 'C1', 'A11', 'U2', NULL, '附现场照片存档', 'REVOKED', NULL, NULL, 'seed', '2026-05-14 09:28:00', 'seed', NULL, 1),
+('FP-6', 'FP2026835', '市场部办公设备派发', 'C2', 'A02', 'U10', '2026-06-20 17:20:00', '按季度例行办理', 'DONE', NULL, NULL, 'seed', '2026-06-15 09:35:00', 'seed', NULL, 1),
+('FP-7', 'FP2026822', '项目部现场设备派发', 'C3', 'A13', 'U17', NULL, '需资产管理员现场复核', 'PROCESSING', NULL, NULL, 'seed', '2026-10-19 09:42:00', 'seed', NULL, 1);
 
 -- 退库单列表 (fixed-asset-doc-lists-back)
-INSERT INTO `fixed_asset_doc_lists_back` (`id`, `code`, `name`, `company_id`, `asset_id`, `creator_id`, `finish_time`, `remark`, `status`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
-('TK-1', 'TK2026900', '员工离职设备退库', 'C1', 'A01', 'U4', '2026-01-15 17:20:00', '按季度例行办理', 'DONE', 'seed', '2026-01-10 09:00:00', 'seed', NULL, 1),
-('TK-2', 'TK2026887', '项目结束设备退库', 'C2', 'A04', 'U5', NULL, '需资产管理员现场复核', 'PROCESSING', 'seed', '2026-10-19 09:07:00', 'seed', NULL, 1),
-('TK-3', 'TK2026874', '部门调整资产退库', 'C3', 'A05', 'U6', NULL, '已完成实物验收', 'DRAFT', 'seed', '2026-03-12 09:14:00', 'seed', NULL, 1),
-('TK-4', 'TK2026861', '员工离职设备退库', 'C4', 'A07', 'U4', NULL, '等待财务确认金额', 'REJECTED', 'seed', '2026-04-13 09:21:00', 'seed', NULL, 1),
-('TK-5', 'TK2026848', '项目结束设备退库', 'C1', 'A11', 'U5', NULL, '附现场照片存档', 'REVOKED', 'seed', '2026-05-14 09:28:00', 'seed', NULL, 1),
-('TK-6', 'TK2026835', '部门调整资产退库', 'C2', 'A02', 'U6', '2026-06-20 17:20:00', '按季度例行办理', 'DONE', 'seed', '2026-06-15 09:35:00', 'seed', NULL, 1);
+INSERT INTO `fixed_asset_doc_lists_back` (`id`, `code`, `name`, `company_id`, `asset_id`, `creator_id`, `finish_time`, `remark`, `status`, `borrow_doc_id`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
+('TK-1', 'TK2026900', '员工离职设备退库', 'C1', 'A01', 'U4', '2026-01-15 17:20:00', '按季度例行办理', 'DONE', NULL, 'seed', '2026-01-10 09:00:00', 'seed', NULL, 1),
+('TK-2', 'TK2026887', '项目结束设备退库', 'C2', 'A05', 'U5', NULL, '需资产管理员现场复核', 'PROCESSING', NULL, 'seed', '2026-10-19 09:07:00', 'seed', NULL, 1),
+('TK-3', 'TK2026874', '部门调整资产退库', 'C3', 'A04', 'U6', NULL, '已完成实物验收', 'DRAFT', NULL, 'seed', '2026-03-12 09:14:00', 'seed', NULL, 1),
+('TK-4', 'TK2026861', '员工离职设备退库', 'C4', 'A07', 'U4', NULL, '等待财务确认金额', 'REJECTED', NULL, 'seed', '2026-04-13 09:21:00', 'seed', NULL, 1),
+('TK-5', 'TK2026848', '项目结束设备退库', 'C1', 'A11', 'U5', NULL, '附现场照片存档', 'REVOKED', NULL, 'seed', '2026-05-14 09:28:00', 'seed', NULL, 1),
+('TK-6', 'TK2026835', '部门调整资产退库', 'C2', 'A02', 'U6', '2026-06-20 17:20:00', '按季度例行办理', 'DONE', NULL, 'seed', '2026-06-15 09:35:00', 'seed', NULL, 1);
 
 -- 借出单列表 (fixed-asset-doc-lists-borrow)
-INSERT INTO `fixed_asset_doc_lists_borrow` (`id`, `code`, `name`, `company_id`, `asset_id`, `creator_id`, `finish_time`, `remark`, `status`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
-('JC-1', 'JC2026900', '笔记本电脑临时借出', 'C1', 'A01', 'U4', '2026-01-15 17:20:00', '按季度例行办理', 'DONE', 'seed', '2026-01-10 09:00:00', 'seed', NULL, 1),
-('JC-2', 'JC2026887', '相机设备外拍借用', 'C2', 'A04', 'U5', NULL, '需资产管理员现场复核', 'PROCESSING', 'seed', '2026-10-19 09:07:00', 'seed', NULL, 1),
-('JC-3', 'JC2026874', '测量仪器借用申请', 'C3', 'A05', 'U6', NULL, '已完成实物验收', 'DRAFT', 'seed', '2026-03-12 09:14:00', 'seed', NULL, 1),
-('JC-4', 'JC2026861', '笔记本电脑临时借出', 'C4', 'A07', 'U4', NULL, '等待财务确认金额', 'REJECTED', 'seed', '2026-04-13 09:21:00', 'seed', NULL, 1),
-('JC-5', 'JC2026848', '相机设备外拍借用', 'C1', 'A11', 'U5', NULL, '附现场照片存档', 'REVOKED', 'seed', '2026-05-14 09:28:00', 'seed', NULL, 1),
-('JC-6', 'JC2026835', '测量仪器借用申请', 'C2', 'A02', 'U6', '2026-06-20 17:20:00', '按季度例行办理', 'DONE', 'seed', '2026-06-15 09:35:00', 'seed', NULL, 1);
+INSERT INTO `fixed_asset_doc_lists_borrow` (`id`, `code`, `name`, `company_id`, `asset_id`, `creator_id`, `finish_time`, `remark`, `status`, `return_date`, `return_remark`, `return_by`, `returned`, `expected_return_date`, `borrower_id`, `borrower_dept_id`, `borrow_purpose`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
+('JC-1', 'JC2026900', '笔记本电脑临时借出', 'C1', 'A01', 'U4', '2026-01-15 17:20:00', '按季度例行办理', 'DONE', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-01-10 09:00:00', 'seed', NULL, 1),
+('JC-2', 'JC2026887', '相机设备外拍借用', 'C2', 'A05', 'U5', NULL, '需资产管理员现场复核', 'PROCESSING', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-10-19 09:07:00', 'seed', NULL, 1),
+('JC-3', 'JC2026874', '测量仪器借用申请', 'C3', 'A04', 'U6', NULL, '已完成实物验收', 'DRAFT', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-03-12 09:14:00', 'seed', NULL, 1),
+('JC-4', 'JC2026861', '笔记本电脑临时借出', 'C4', 'A07', 'U4', NULL, '等待财务确认金额', 'REJECTED', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-04-13 09:21:00', 'seed', NULL, 1),
+('JC-5', 'JC2026848', '相机设备外拍借用', 'C1', 'A11', 'U5', NULL, '附现场照片存档', 'REVOKED', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-05-14 09:28:00', 'seed', NULL, 1),
+('JC-6', 'JC2026835', '测量仪器借用申请', 'C2', 'A02', 'U6', '2026-06-20 17:20:00', '按季度例行办理', 'DONE', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-06-15 09:35:00', 'seed', NULL, 1);
 
 -- 调拨单列表 (fixed-asset-doc-lists-transfer)
-INSERT INTO `fixed_asset_doc_lists_transfer` (`id`, `code`, `name`, `company_id`, `asset_id`, `creator_id`, `finish_time`, `remark`, `status`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
-('DB-1', 'DB2026900', '总部调拨至分公司', 'C1', 'A01', 'U17', '2026-01-15 17:20:00', '按季度例行办理', 'DONE', 'seed', '2026-01-10 09:00:00', 'seed', NULL, 1),
-('DB-2', 'DB2026887', '仓库间资产调拨', 'C2', 'A04', 'U2', NULL, '需资产管理员现场复核', 'PROCESSING', 'seed', '2026-10-19 09:07:00', 'seed', NULL, 1),
-('DB-3', 'DB2026874', '跨区域调拨支援项目', 'C3', 'A05', 'U10', NULL, '已完成实物验收', 'DRAFT', 'seed', '2026-03-12 09:14:00', 'seed', NULL, 1),
-('DB-4', 'DB2026861', '总部调拨至分公司', 'C4', 'A07', 'U17', NULL, '等待财务确认金额', 'REJECTED', 'seed', '2026-04-13 09:21:00', 'seed', NULL, 1),
-('DB-5', 'DB2026848', '仓库间资产调拨', 'C1', 'A11', 'U2', NULL, '附现场照片存档', 'REVOKED', 'seed', '2026-05-14 09:28:00', 'seed', NULL, 1),
-('DB-6', 'DB2026835', '跨区域调拨支援项目', 'C2', 'A02', 'U10', '2026-06-20 17:20:00', '按季度例行办理', 'DONE', 'seed', '2026-06-15 09:35:00', 'seed', NULL, 1);
+INSERT INTO `fixed_asset_doc_lists_transfer` (`id`, `code`, `name`, `company_id`, `asset_id`, `creator_id`, `finish_time`, `remark`, `status`, `to_dept_id`, `to_user_id`, `to_location`, `before_dept_id`, `before_user_id`, `before_location`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
+('DB-1', 'DB2026900', '总部调拨至分公司', 'C1', 'A01', 'U17', '2026-01-15 17:20:00', '按季度例行办理', 'DONE', NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-01-10 09:00:00', 'seed', NULL, 1),
+('DB-2', 'DB2026887', '仓库间资产调拨', 'C2', 'A05', 'U2', NULL, '需资产管理员现场复核', 'PROCESSING', NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-10-19 09:07:00', 'seed', NULL, 1),
+('DB-3', 'DB2026874', '跨区域调拨支援项目', 'C3', 'A04', 'U10', NULL, '已完成实物验收', 'DRAFT', NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-03-12 09:14:00', 'seed', NULL, 1),
+('DB-4', 'DB2026861', '总部调拨至分公司', 'C4', 'A07', 'U17', NULL, '等待财务确认金额', 'REJECTED', NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-04-13 09:21:00', 'seed', NULL, 1),
+('DB-5', 'DB2026848', '仓库间资产调拨', 'C1', 'A11', 'U2', NULL, '附现场照片存档', 'REVOKED', NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-05-14 09:28:00', 'seed', NULL, 1),
+('DB-6', 'DB2026835', '跨区域调拨支援项目', 'C2', 'A02', 'U10', '2026-06-20 17:20:00', '按季度例行办理', 'DONE', NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-06-15 09:35:00', 'seed', NULL, 1);
 
 -- 维修单列表 (fixed-asset-doc-lists-repair)
 INSERT INTO `fixed_asset_doc_lists_repair` (`id`, `code`, `name`, `company_id`, `asset_id`, `creator_id`, `finish_time`, `remark`, `status`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
 ('WX-1', 'WX2026900', '打印机故障送修', 'C1', 'A01', 'U4', '2026-01-15 17:20:00', '按季度例行办理', 'DONE', 'seed', '2026-01-10 09:00:00', 'seed', NULL, 1),
-('WX-2', 'WX2026887', '车辆年度维修保养', 'C2', 'A04', 'U5', NULL, '需资产管理员现场复核', 'PROCESSING', 'seed', '2026-10-19 09:07:00', 'seed', NULL, 1),
-('WX-3', 'WX2026874', '空调机组检修', 'C3', 'A05', 'U6', NULL, '已完成实物验收', 'DRAFT', 'seed', '2026-03-12 09:14:00', 'seed', NULL, 1),
+('WX-2', 'WX2026887', '车辆年度维修保养', 'C2', 'A05', 'U5', NULL, '需资产管理员现场复核', 'PROCESSING', 'seed', '2026-10-19 09:07:00', 'seed', NULL, 1),
+('WX-3', 'WX2026874', '空调机组检修', 'C3', 'A04', 'U6', NULL, '已完成实物验收', 'DRAFT', 'seed', '2026-03-12 09:14:00', 'seed', NULL, 1),
 ('WX-4', 'WX2026861', '打印机故障送修', 'C4', 'A07', 'U4', NULL, '等待财务确认金额', 'REJECTED', 'seed', '2026-04-13 09:21:00', 'seed', NULL, 1),
 ('WX-5', 'WX2026848', '车辆年度维修保养', 'C1', 'A11', 'U5', NULL, '附现场照片存档', 'REVOKED', 'seed', '2026-05-14 09:28:00', 'seed', NULL, 1),
 ('WX-6', 'WX2026835', '空调机组检修', 'C2', 'A02', 'U6', '2026-06-20 17:20:00', '按季度例行办理', 'DONE', 'seed', '2026-06-15 09:35:00', 'seed', NULL, 1);
 
 -- 资产变更单列表 (fixed-asset-doc-lists-change)
-INSERT INTO `fixed_asset_doc_lists_change` (`id`, `code`, `name`, `company_id`, `asset_id`, `creator_id`, `finish_time`, `remark`, `status`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
-('BG-1', 'BG2026900', '资产使用部门变更', 'C1', 'A01', 'U4', '2026-01-15 17:20:00', '按季度例行办理', 'DONE', 'seed', '2026-01-10 09:00:00', 'seed', NULL, 1),
-('BG-2', 'BG2026887', '资产责任人变更', 'C2', 'A04', 'U5', NULL, '需资产管理员现场复核', 'PROCESSING', 'seed', '2026-10-19 09:07:00', 'seed', NULL, 1),
-('BG-3', 'BG2026874', '资产标签信息变更', 'C3', 'A05', 'U6', NULL, '已完成实物验收', 'DRAFT', 'seed', '2026-03-12 09:14:00', 'seed', NULL, 1),
-('BG-4', 'BG2026861', '资产使用部门变更', 'C4', 'A07', 'U4', NULL, '等待财务确认金额', 'REJECTED', 'seed', '2026-04-13 09:21:00', 'seed', NULL, 1),
-('BG-5', 'BG2026848', '资产责任人变更', 'C1', 'A11', 'U5', NULL, '附现场照片存档', 'REVOKED', 'seed', '2026-05-14 09:28:00', 'seed', NULL, 1);
+INSERT INTO `fixed_asset_doc_lists_change` (`id`, `code`, `name`, `company_id`, `asset_id`, `creator_id`, `finish_time`, `remark`, `status`, `change_type`, `before_snapshot`, `after_snapshot`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
+('BG-1', 'BG2026900', '资产使用部门变更', 'C1', 'A01', 'U4', '2026-01-15 17:20:00', '按季度例行办理', 'DONE', NULL, NULL, NULL, 'seed', '2026-01-10 09:00:00', 'seed', NULL, 1),
+('BG-2', 'BG2026887', '资产责任人变更', 'C2', 'A05', 'U5', NULL, '需资产管理员现场复核', 'PROCESSING', NULL, NULL, NULL, 'seed', '2026-10-19 09:07:00', 'seed', NULL, 1),
+('BG-3', 'BG2026874', '资产标签信息变更', 'C3', 'A04', 'U6', NULL, '已完成实物验收', 'DRAFT', NULL, NULL, NULL, 'seed', '2026-03-12 09:14:00', 'seed', NULL, 1),
+('BG-4', 'BG2026861', '资产使用部门变更', 'C4', 'A07', 'U4', NULL, '等待财务确认金额', 'REJECTED', NULL, NULL, NULL, 'seed', '2026-04-13 09:21:00', 'seed', NULL, 1),
+('BG-5', 'BG2026848', '资产责任人变更', 'C1', 'A11', 'U5', NULL, '附现场照片存档', 'REVOKED', NULL, NULL, NULL, 'seed', '2026-05-14 09:28:00', 'seed', NULL, 1);
 
 -- 处置单列表 (fixed-asset-doc-lists-dispose)
-INSERT INTO `fixed_asset_doc_lists_dispose` (`id`, `code`, `name`, `company_id`, `asset_id`, `creator_id`, `finish_time`, `remark`, `status`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
-('CZ-1', 'CZ2026900', '超期设备报废处置', 'C1', 'A01', 'U17', '2026-01-15 17:20:00', '按季度例行办理', 'DONE', 'seed', '2026-01-10 09:00:00', 'seed', NULL, 1),
-('CZ-2', 'CZ2026887', '盘亏资产核销处置', 'C2', 'A04', 'U2', NULL, '需资产管理员现场复核', 'PROCESSING', 'seed', '2026-10-19 09:07:00', 'seed', NULL, 1),
-('CZ-3', 'CZ2026874', '旧家具变卖处置', 'C3', 'A05', 'U10', NULL, '已完成实物验收', 'DRAFT', 'seed', '2026-03-12 09:14:00', 'seed', NULL, 1),
-('CZ-4', 'CZ2026861', '超期设备报废处置', 'C4', 'A07', 'U17', NULL, '等待财务确认金额', 'REJECTED', 'seed', '2026-04-13 09:21:00', 'seed', NULL, 1),
-('CZ-5', 'CZ2026848', '盘亏资产核销处置', 'C1', 'A11', 'U2', NULL, '附现场照片存档', 'REVOKED', 'seed', '2026-05-14 09:28:00', 'seed', NULL, 1),
-('CZ-6', 'CZ2026835', '旧家具变卖处置', 'C2', 'A02', 'U10', '2026-06-20 17:20:00', '按季度例行办理', 'DONE', 'seed', '2026-06-15 09:35:00', 'seed', NULL, 1),
-('CZ-7', 'CZ2026822', '超期设备报废处置', 'C3', 'A13', 'U17', NULL, '需资产管理员现场复核', 'PROCESSING', 'seed', '2026-10-19 09:42:00', 'seed', NULL, 1);
+INSERT INTO `fixed_asset_doc_lists_dispose` (`id`, `code`, `name`, `company_id`, `asset_id`, `creator_id`, `finish_time`, `remark`, `status`, `dispose_type`, `buyer`, `transferee_company_id`, `voucher_no`, `disposal_amount`, `out_ledger_basis`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
+('CZ-1', 'CZ2026900', '超期设备报废处置', 'C1', 'A01', 'U17', '2026-01-15 17:20:00', '按季度例行办理', 'DONE', NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-01-10 09:00:00', 'seed', NULL, 1),
+('CZ-2', 'CZ2026887', '盘亏资产核销处置', 'C2', 'A05', 'U2', NULL, '需资产管理员现场复核', 'PROCESSING', NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-10-19 09:07:00', 'seed', NULL, 1),
+('CZ-3', 'CZ2026874', '旧家具变卖处置', 'C3', 'A04', 'U10', NULL, '已完成实物验收', 'DRAFT', NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-03-12 09:14:00', 'seed', NULL, 1),
+('CZ-4', 'CZ2026861', '超期设备报废处置', 'C4', 'A07', 'U17', NULL, '等待财务确认金额', 'REJECTED', NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-04-13 09:21:00', 'seed', NULL, 1),
+('CZ-5', 'CZ2026848', '盘亏资产核销处置', 'C1', 'A11', 'U2', NULL, '附现场照片存档', 'REVOKED', NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-05-14 09:28:00', 'seed', NULL, 1),
+('CZ-6', 'CZ2026835', '旧家具变卖处置', 'C2', 'A02', 'U10', '2026-06-20 17:20:00', '按季度例行办理', 'DONE', NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-06-15 09:35:00', 'seed', NULL, 1),
+('CZ-7', 'CZ2026822', '超期设备报废处置', 'C3', 'A13', 'U17', NULL, '需资产管理员现场复核', 'PROCESSING', NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-10-19 09:42:00', 'seed', NULL, 1);
 
 -- 存放位置 (fixed-asset-settings-locations)
 INSERT INTO `fixed_asset_settings_locations` (`code`, `name`, `parent_name`, `manager`, `asset_count`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
@@ -179,56 +179,56 @@ INSERT INTO `fixed_asset_report_depreciation_details` (`id`, `asset_id`, `name`,
 ('RDD7', 'A10', '服务器机柜', 42000, 'STRAIGHT_LINE', 36, 8400, 33600, 1.58, '2024-11-22 08:00:00', 'seed', '2024-12-01 09:50:00', 'seed', '2026-09-12 08:55:03', 1);
 
 -- 折旧计划明细 (fixed-asset-report-depreciation-plan-details)
-INSERT INTO `fixed_asset_report_depreciation_plan_details` (`id`, `plan_name`, `asset_id`, `asset_name`, `asset_type`, `company_id`, `original`, `residual_rate`, `total_life`, `used_life`, `dep_date`, `finished`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
-('RPD01', '华信科技-电子设备月折旧', 'A01', '联想ThinkPad笔记本电脑', 'ELECTRONIC', 'C1', 8500, 5, 36, 6, '2026-09-01 08:00:00', 0, 'seed', '2026-09-01 02:00:00', 'seed', '2026-09-01 02:05:00', 1),
-('RPD02', '华信科技-电子设备月折旧', 'A02', '戴尔OptiPlex台式电脑', 'ELECTRONIC', 'C1', 6200, 5, 36, 7, '2026-09-01 08:00:00', 0, 'seed', '2026-09-01 02:00:00', 'seed', '2026-09-01 02:05:00', 1),
-('RPD03', '华信科技-电子设备月折旧', 'A06', '华为会议平板', 'ELECTRONIC', 'C1', 26800, 5, 36, 5, '2026-09-01 08:00:00', 0, 'seed', '2026-09-01 02:00:00', 'seed', '2026-09-01 02:05:00', 1),
-('RPD04', '华信科技-机械设备月折旧', 'A05', '数控车床CK6140', 'MACHINE', 'C1', 268000, 5, 48, 24, '2026-09-01 08:00:00', 0, 'seed', '2026-09-01 02:00:00', 'seed', '2026-09-01 02:05:00', 1),
-('RPD05', '华信科技-办公家具季折旧', 'A09', '人体工学办公椅', 'FURNITURE', 'C1', 1580, 5, 24, 8, '2026-07-01 08:00:00', 0, 'seed', '2026-07-01 02:00:00', 'seed', '2026-07-01 02:05:00', 1),
-('RPD06', '华信科技-房屋建筑年折旧', 'A13', '不间断电源UPS', 'ELECTRONIC', 'C1', 18600, 5, 48, 11, '2026-01-01 08:00:00', 1, 'seed', '2026-01-01 02:00:00', 'seed', '2026-01-01 02:05:00', 1),
-('RPD07', '云鼎资产-电子设备月折旧', 'A03', '惠普激光打印机', 'ELECTRONIC', 'C2', 3200, 5, 24, 10, '2026-09-05 08:00:00', 0, 'seed', '2026-09-05 02:00:00', 'seed', '2026-09-05 02:05:00', 1),
-('RPD08', '云鼎资产-电子设备月折旧', 'A12', '爱普生投影仪', 'ELECTRONIC', 'C2', 4600, 5, 36, 4, '2026-09-05 08:00:00', 0, 'seed', '2026-09-05 02:00:00', 'seed', '2026-09-05 02:05:00', 1),
-('RPD09', '云鼎资产-机械设备月折旧', 'A07', '格力中央空调机组', 'MACHINE', 'C2', 158000, 5, 120, 18, '2026-09-05 08:00:00', 0, 'seed', '2026-09-05 02:00:00', 'seed', '2026-09-05 02:05:00', 1),
-('RPD10', '恒信租赁-运输设备月折旧', 'A04', '丰田考斯特商务车', 'VEHICLE', 'C3', 385000, 5, 60, 15, '2026-09-10 08:00:00', 0, 'seed', '2026-09-10 02:00:00', 'seed', '2026-09-10 02:05:00', 1),
-('RPD11', '恒信租赁-电子设备月折旧', 'A10', '服务器机柜', 'ELECTRONIC', 'C3', 42000, 5, 36, 22, '2026-09-10 08:00:00', 0, 'seed', '2026-09-10 02:00:00', 'seed', '2026-09-10 02:05:00', 1),
-('RPD12', '中天建设-机械设备月折旧', 'A11', '合力3吨叉车', 'MACHINE', 'C4', 96000, 5, 60, 13, '2026-09-15 08:00:00', 0, 'seed', '2026-09-15 02:00:00', 'seed', '2026-09-15 02:05:00', 1),
-('RPD13', '中天建设-运输设备月折旧', 'A08', '实木会议桌', 'FURNITURE', 'C4', 12800, 5, 60, 9, '2026-09-15 08:00:00', 0, 'seed', '2026-09-15 02:00:00', 'seed', '2026-09-15 02:05:00', 1),
-('RPD14', '中天建设-房屋建筑年折旧', 'A11', '合力3吨叉车', 'MACHINE', 'C4', 96000, 3, 360, 12, '2026-01-01 08:00:00', 1, 'seed', '2026-01-01 02:00:00', 'seed', '2026-01-01 02:05:00', 1),
-('RPD15', '华信科技-电子设备月折旧', 'A13', '不间断电源UPS', 'ELECTRONIC', 'C1', 18600, 5, 48, 11, '2026-08-01 08:00:00', 1, 'seed', '2026-08-01 02:00:00', 'seed', '2026-08-01 02:05:00', 1),
-('RPD16', '华信科技-办公家具季折旧', 'A09', '人体工学办公椅', 'FURNITURE', 'C1', 1580, 5, 24, 7, '2026-04-01 08:00:00', 1, 'seed', '2026-04-01 02:00:00', 'seed', '2026-04-01 02:05:00', 1);
+INSERT INTO `fixed_asset_report_depreciation_plan_details` (`id`, `plan_name`, `asset_id`, `asset_name`, `asset_type`, `company_id`, `original`, `residual_rate`, `total_life`, `used_life`, `dep_date`, `finished`, `asset_no`, `department`, `location`, `inbound_date`, `method`, `monthly`, `accumulated`, `net_value`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
+('RPD01', '华信科技-电子设备月折旧', 'A01', '联想ThinkPad笔记本电脑', 'ELECTRONIC', 'C1', 8500, 5, 36, 6, '2026-09-01 08:00:00', 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-09-01 02:00:00', 'seed', '2026-09-01 02:05:00', 1),
+('RPD02', '华信科技-电子设备月折旧', 'A02', '戴尔OptiPlex台式电脑', 'ELECTRONIC', 'C1', 6200, 5, 36, 7, '2026-09-01 08:00:00', 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-09-01 02:00:00', 'seed', '2026-09-01 02:05:00', 1),
+('RPD03', '华信科技-电子设备月折旧', 'A06', '华为会议平板', 'ELECTRONIC', 'C1', 26800, 5, 36, 5, '2026-09-01 08:00:00', 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-09-01 02:00:00', 'seed', '2026-09-01 02:05:00', 1),
+('RPD04', '华信科技-机械设备月折旧', 'A05', '数控车床CK6140', 'MACHINE', 'C1', 268000, 5, 48, 24, '2026-09-01 08:00:00', 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-09-01 02:00:00', 'seed', '2026-09-01 02:05:00', 1),
+('RPD05', '华信科技-办公家具季折旧', 'A09', '人体工学办公椅', 'FURNITURE', 'C1', 1580, 5, 24, 8, '2026-07-01 08:00:00', 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-07-01 02:00:00', 'seed', '2026-07-01 02:05:00', 1),
+('RPD06', '华信科技-房屋建筑年折旧', 'A13', '不间断电源UPS', 'ELECTRONIC', 'C1', 18600, 5, 48, 11, '2026-01-01 08:00:00', 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-01-01 02:00:00', 'seed', '2026-01-01 02:05:00', 1),
+('RPD07', '云鼎资产-电子设备月折旧', 'A03', '惠普激光打印机', 'ELECTRONIC', 'C2', 3200, 5, 24, 10, '2026-09-05 08:00:00', 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-09-05 02:00:00', 'seed', '2026-09-05 02:05:00', 1),
+('RPD08', '云鼎资产-电子设备月折旧', 'A12', '爱普生投影仪', 'ELECTRONIC', 'C2', 4600, 5, 36, 4, '2026-09-05 08:00:00', 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-09-05 02:00:00', 'seed', '2026-09-05 02:05:00', 1),
+('RPD09', '云鼎资产-机械设备月折旧', 'A07', '格力中央空调机组', 'MACHINE', 'C2', 158000, 5, 120, 18, '2026-09-05 08:00:00', 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-09-05 02:00:00', 'seed', '2026-09-05 02:05:00', 1),
+('RPD10', '恒信租赁-运输设备月折旧', 'A04', '丰田考斯特商务车', 'VEHICLE', 'C3', 385000, 5, 60, 15, '2026-09-10 08:00:00', 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-09-10 02:00:00', 'seed', '2026-09-10 02:05:00', 1),
+('RPD11', '恒信租赁-电子设备月折旧', 'A10', '服务器机柜', 'ELECTRONIC', 'C3', 42000, 5, 36, 22, '2026-09-10 08:00:00', 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-09-10 02:00:00', 'seed', '2026-09-10 02:05:00', 1),
+('RPD12', '中天建设-机械设备月折旧', 'A11', '合力3吨叉车', 'MACHINE', 'C4', 96000, 5, 60, 13, '2026-09-15 08:00:00', 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-09-15 02:00:00', 'seed', '2026-09-15 02:05:00', 1),
+('RPD13', '中天建设-运输设备月折旧', 'A08', '实木会议桌', 'FURNITURE', 'C4', 12800, 5, 60, 9, '2026-09-15 08:00:00', 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-09-15 02:00:00', 'seed', '2026-09-15 02:05:00', 1),
+('RPD14', '中天建设-房屋建筑年折旧', 'A11', '合力3吨叉车', 'MACHINE', 'C4', 96000, 3, 360, 12, '2026-01-01 08:00:00', 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-01-01 02:00:00', 'seed', '2026-01-01 02:05:00', 1),
+('RPD15', '华信科技-电子设备月折旧', 'A13', '不间断电源UPS', 'ELECTRONIC', 'C1', 18600, 5, 48, 11, '2026-08-01 08:00:00', 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-08-01 02:00:00', 'seed', '2026-08-01 02:05:00', 1),
+('RPD16', '华信科技-办公家具季折旧', 'A09', '人体工学办公椅', 'FURNITURE', 'C1', 1580, 5, 24, 7, '2026-04-01 08:00:00', 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'seed', '2026-04-01 02:00:00', 'seed', '2026-04-01 02:05:00', 1);
 
 -- 低值资产台账 (low-value-items)
-INSERT INTO `low_value_items` (`id`, `code`, `category`, `name`, `spec`, `unit`, `price`, `stock`, `reserved`, `safety_stock`, `location`, `status`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
-('DZ01', 'DZ20260001', 'OFFICE', '得力7733优事贴', '(76×76mm)4色装', '包', 3.5, 1, 0, 10, '行政库房', 'LOW_STOCK', 'seed', '2026-01-06 10:00:00', 'seed', '2026-09-18 10:22:31', 1),
-('DZ02', 'DZ20260002', 'OFFICE', '得力9064标签贴', '43*12mm箭头款', '包', 3.5, 1, 0, 10, '行政库房', 'LOW_STOCK', 'seed', '2026-01-06 10:05:00', 'seed', '2026-09-18 10:25:12', 1),
-('DZ03', 'DZ20260003', 'WATER', '农夫山泉饮用水(5L,4瓶/箱)', '5L,4瓶/箱', '箱', 42, 20, 0, 5, '行政库房', 'NORMAL', 'seed', '2026-01-06 10:10:00', 'seed', '2026-09-17 15:40:08', 1),
-('DZ04', 'DZ20260004', 'OFFICE', '晨光ADM94897按钮文件袋', 'A4透明文件袋', '个', 1.5, 37, 0, 20, '行政库房', 'NORMAL', 'seed', '2026-01-06 10:15:00', 'seed', '2026-09-17 09:15:44', 1),
-('DZ05', 'DZ20260005', 'OFFICE', '晨光AYZ97512A快干印台', '透明圆 红', '个', 4.5, 2, 0, 5, '行政库房', 'LOW_STOCK', 'seed', '2026-01-06 10:20:00', 'seed', '2026-09-16 14:22:08', 1),
-('DZ06', 'DZ20260006', 'OFFICE', '粉红色复印纸', 'A4/210mm×297mm/70g/500张', '包', 29, 3, 0, 10, '行政库房', 'LOW_STOCK', 'seed', '2026-01-06 10:25:00', 'seed', '2026-09-16 11:31:52', 1),
-('DZ07', 'DZ20260007', 'PPE', '晨光ADM953948 A4纸塑料档案盒', '7.5cm全新料 A4文件盒资料盒 蓝（12个/份）', '箱', 144, 1, 0, 3, '行政库房', 'LOW_STOCK', 'seed', '2026-01-06 10:30:00', 'seed', '2026-09-15 16:48:20', 1),
-('DZ08', 'DZ20260008', 'PAPER', '白色复印纸', '白色A4/210mm×297mm/70g/500张/70G', '包', 22, 135, 0, 30, '总部办公楼1层', 'NORMAL', 'seed', '2026-01-06 10:35:00', 'seed', '2026-09-15 08:55:03', 1),
-('DZ09', 'DZ20260009', 'OFFICE', '无酸纸档案盒', 'A4纸质大容量12CM（10个/包）', '包', 45, 1, 0, 5, '行政库房', 'LOW_STOCK', 'seed', '2026-01-06 10:40:00', 'seed', '2026-09-14 13:26:47', 1);
+INSERT INTO `low_value_items` (`id`, `code`, `company_id`, `category`, `name`, `spec`, `unit`, `price`, `stock`, `reserved`, `safety_stock`, `location`, `status`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
+('DZ01', 'DZ20260001', NULL, 'OFFICE', '得力7733优事贴', '(76×76mm)4色装', '包', 3.5, 1, 0, 10, '行政库房', 'LOW_STOCK', 'seed', '2026-01-06 10:00:00', 'seed', '2026-09-18 10:22:31', 1),
+('DZ02', 'DZ20260002', NULL, 'OFFICE', '得力9064标签贴', '43*12mm箭头款', '包', 3.5, 1, 0, 10, '行政库房', 'LOW_STOCK', 'seed', '2026-01-06 10:05:00', 'seed', '2026-09-18 10:25:12', 1),
+('DZ03', 'DZ20260003', NULL, 'WATER', '农夫山泉饮用水(5L,4瓶/箱)', '5L,4瓶/箱', '箱', 42, 20, 0, 5, '行政库房', 'NORMAL', 'seed', '2026-01-06 10:10:00', 'seed', '2026-09-17 15:40:08', 1),
+('DZ04', 'DZ20260004', NULL, 'OFFICE', '晨光ADM94897按钮文件袋', 'A4透明文件袋', '个', 1.5, 37, 0, 20, '行政库房', 'NORMAL', 'seed', '2026-01-06 10:15:00', 'seed', '2026-09-17 09:15:44', 1),
+('DZ05', 'DZ20260005', NULL, 'OFFICE', '晨光AYZ97512A快干印台', '透明圆 红', '个', 4.5, 2, 0, 5, '行政库房', 'LOW_STOCK', 'seed', '2026-01-06 10:20:00', 'seed', '2026-09-16 14:22:08', 1),
+('DZ06', 'DZ20260006', NULL, 'OFFICE', '粉红色复印纸', 'A4/210mm×297mm/70g/500张', '包', 29, 3, 0, 10, '行政库房', 'LOW_STOCK', 'seed', '2026-01-06 10:25:00', 'seed', '2026-09-16 11:31:52', 1),
+('DZ07', 'DZ20260007', NULL, 'PPE', '晨光ADM953948 A4纸塑料档案盒', '7.5cm全新料 A4文件盒资料盒 蓝（12个/份）', '箱', 144, 1, 0, 3, '行政库房', 'LOW_STOCK', 'seed', '2026-01-06 10:30:00', 'seed', '2026-09-15 16:48:20', 1),
+('DZ08', 'DZ20260008', NULL, 'PAPER', '白色复印纸', '白色A4/210mm×297mm/70g/500张/70G', '包', 22, 135, 0, 30, '总部办公楼1层', 'NORMAL', 'seed', '2026-01-06 10:35:00', 'seed', '2026-09-15 08:55:03', 1),
+('DZ09', 'DZ20260009', NULL, 'OFFICE', '无酸纸档案盒', 'A4纸质大容量12CM（10个/包）', '包', 45, 1, 0, 5, '行政库房', 'LOW_STOCK', 'seed', '2026-01-06 10:40:00', 'seed', '2026-09-14 13:26:47', 1);
 
 -- 低值资产入库单 (low-value-inbound)
-INSERT INTO `low_value_inbound` (`id`, `doc_no`, `item_id`, `category`, `item_name`, `category_name`, `spec`, `unit`, `quantity`, `price`, `amount`, `dept_id`, `operator`, `remark`, `status`, `creator_id`, `submit_time`, `settle_time`, `supplier`, `inbound_date`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
-('LVI1', 'RK2026001', 'DZ08', 'PAPER', '白色复印纸', '纸品', '白色A4/210mm×297mm/70g/500张/70G', '包', 200, 22, 4400, 'D3', '张三', '年度集中采购', 'DONE', NULL, NULL, NULL, '得力办公旗舰店', '2026-09-01 08:00:00', 'seed', '2026-09-01 09:00:00', 'seed', '2026-09-01 17:20:00', 1),
-('LVI2', 'RK2026002', 'DZ03', 'WATER', '农夫山泉饮用水(5L,4瓶/箱)', '水', '5L,4瓶/箱', '箱', 30, 42, 1260, 'D3', '张三', '', 'DONE', NULL, NULL, NULL, '农夫山泉配送商', '2026-09-03 08:00:00', 'seed', '2026-09-03 09:10:00', 'seed', '2026-09-03 16:30:00', 1),
-('LVI3', 'RK2026003', 'DZ04', 'OFFICE', '晨光ADM94897按钮文件袋', '办公用品', 'A4透明文件袋', '个', 100, 1.5, 150, 'D3', '李四', '', 'DONE', NULL, NULL, NULL, '晨光文具官方店', '2026-09-05 08:00:00', 'seed', '2026-09-05 10:00:00', 'seed', '2026-09-05 15:00:00', 1),
-('LVI4', 'RK2026004', 'DZ07', 'PPE', '晨光ADM953948 A4纸塑料档案盒', '劳保用品', '7.5cm全新料 A4文件盒资料盒 蓝（12个/份）', '箱', 10, 144, 1440, 'D3', '李四', '档案室用', 'DONE', NULL, NULL, NULL, '晨光文具官方店', '2026-09-08 08:00:00', 'seed', '2026-09-08 11:00:00', 'seed', '2026-09-08 17:00:00', 1),
-('LVI5', 'RK2026005', 'DZ06', 'OFFICE', '粉红色复印纸', '办公用品', 'A4/210mm×297mm/70g/500张', '包', 20, 29, 580, 'D3', '王五', '', 'DONE', NULL, NULL, NULL, '得力办公旗舰店', '2026-09-10 08:00:00', 'seed', '2026-09-10 09:30:00', 'seed', '2026-09-10 14:20:00', 1);
+INSERT INTO `low_value_inbound` (`id`, `doc_no`, `company_id`, `item_id`, `category`, `item_name`, `category_name`, `spec`, `unit`, `quantity`, `price`, `amount`, `dept_id`, `operator`, `remark`, `status`, `creator_id`, `submit_time`, `settle_time`, `supplier`, `inbound_date`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
+('LVI1', 'RK2026001', NULL, 'DZ08', 'PAPER', '白色复印纸', '纸品', '白色A4/210mm×297mm/70g/500张/70G', '包', 200, 22, 4400, 'D3', '张三', '年度集中采购', 'DONE', NULL, NULL, NULL, '得力办公旗舰店', '2026-09-01 08:00:00', 'seed', '2026-09-01 09:00:00', 'seed', '2026-09-01 17:20:00', 1),
+('LVI2', 'RK2026002', NULL, 'DZ03', 'WATER', '农夫山泉饮用水(5L,4瓶/箱)', '水', '5L,4瓶/箱', '箱', 30, 42, 1260, 'D3', '张三', '', 'DONE', NULL, NULL, NULL, '农夫山泉配送商', '2026-09-03 08:00:00', 'seed', '2026-09-03 09:10:00', 'seed', '2026-09-03 16:30:00', 1),
+('LVI3', 'RK2026003', NULL, 'DZ04', 'OFFICE', '晨光ADM94897按钮文件袋', '办公用品', 'A4透明文件袋', '个', 100, 1.5, 150, 'D3', '李四', '', 'DONE', NULL, NULL, NULL, '晨光文具官方店', '2026-09-05 08:00:00', 'seed', '2026-09-05 10:00:00', 'seed', '2026-09-05 15:00:00', 1),
+('LVI4', 'RK2026004', NULL, 'DZ07', 'PPE', '晨光ADM953948 A4纸塑料档案盒', '劳保用品', '7.5cm全新料 A4文件盒资料盒 蓝（12个/份）', '箱', 10, 144, 1440, 'D3', '李四', '档案室用', 'DONE', NULL, NULL, NULL, '晨光文具官方店', '2026-09-08 08:00:00', 'seed', '2026-09-08 11:00:00', 'seed', '2026-09-08 17:00:00', 1),
+('LVI5', 'RK2026005', NULL, 'DZ06', 'OFFICE', '粉红色复印纸', '办公用品', 'A4/210mm×297mm/70g/500张', '包', 20, 29, 580, 'D3', '王五', '', 'DONE', NULL, NULL, NULL, '得力办公旗舰店', '2026-09-10 08:00:00', 'seed', '2026-09-10 09:30:00', 'seed', '2026-09-10 14:20:00', 1);
 
 -- 低值资产领用单 (low-value-requisition)
-INSERT INTO `low_value_requisition` (`id`, `doc_no`, `item_id`, `category`, `item_name`, `category_name`, `spec`, `unit`, `quantity`, `price`, `amount`, `dept_id`, `operator`, `remark`, `status`, `creator_id`, `submit_time`, `settle_time`, `receiver`, `requisition_date`, `purpose`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
-('LVR1', 'PY2026001', 'DZ08', 'PAPER', '白色复印纸', '纸品', '白色A4/210mm×297mm/70g/500张/70G', '包', 50, 22, 1100, 'D2', '张三', '', 'DONE', NULL, NULL, NULL, '李娜', '2026-09-06 08:00:00', '日常办公', 'seed', '2026-09-06 09:00:00', 'seed', '2026-09-06 10:30:00', 1),
-('LVR2', 'PY2026002', 'DZ03', 'WATER', '农夫山泉饮用水(5L,4瓶/箱)', '水', '5L,4瓶/箱', '箱', 10, 42, 420, 'D3', '张三', '', 'DONE', NULL, NULL, NULL, '王强', '2026-09-09 08:00:00', '会议用水', 'seed', '2026-09-09 09:30:00', 'seed', '2026-09-09 11:00:00', 1),
-('LVR3', 'PY2026003', 'DZ04', 'OFFICE', '晨光ADM94897按钮文件袋', '办公用品', 'A4透明文件袋', '个', 63, 1.5, 94.5, 'D3', '李四', '', 'DONE', NULL, NULL, NULL, '王强', '2026-09-11 08:00:00', '员工档案整理', 'seed', '2026-09-11 14:00:00', 'seed', '2026-09-11 15:40:00', 1),
-('LVR4', 'PY2026004', 'DZ06', 'OFFICE', '粉红色复印纸', '办公用品', 'A4/210mm×297mm/70g/500张', '包', 17, 29, 493, 'D5', '李四', '', 'DONE', NULL, NULL, NULL, '何欣', '2026-09-12 08:00:00', '宣传物料打印', 'seed', '2026-09-12 09:00:00', 'seed', '2026-09-12 16:20:00', 1),
-('LVR5', 'PY2026005', 'DZ07', 'PPE', '晨光ADM953948 A4纸塑料档案盒', '劳保用品', '7.5cm全新料 A4文件盒资料盒 蓝（12个/份）', '箱', 9, 144, 1296, 'D13', '王五', '', 'DONE', NULL, NULL, NULL, '周芳', '2026-09-15 08:00:00', '档案归档', 'seed', '2026-09-15 10:00:00', 'seed', '2026-09-15 17:00:00', 1);
+INSERT INTO `low_value_requisition` (`id`, `doc_no`, `company_id`, `item_id`, `category`, `item_name`, `category_name`, `spec`, `unit`, `quantity`, `price`, `amount`, `dept_id`, `operator`, `remark`, `status`, `creator_id`, `submit_time`, `settle_time`, `receiver`, `requisition_date`, `purpose`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
+('LVR1', 'PY2026001', NULL, 'DZ08', 'PAPER', '白色复印纸', '纸品', '白色A4/210mm×297mm/70g/500张/70G', '包', 50, 22, 1100, 'D2', '张三', '', 'DONE', NULL, NULL, NULL, '李娜', '2026-09-06 08:00:00', '日常办公', 'seed', '2026-09-06 09:00:00', 'seed', '2026-09-06 10:30:00', 1),
+('LVR2', 'PY2026002', NULL, 'DZ03', 'WATER', '农夫山泉饮用水(5L,4瓶/箱)', '水', '5L,4瓶/箱', '箱', 10, 42, 420, 'D3', '张三', '', 'DONE', NULL, NULL, NULL, '王强', '2026-09-09 08:00:00', '会议用水', 'seed', '2026-09-09 09:30:00', 'seed', '2026-09-09 11:00:00', 1),
+('LVR3', 'PY2026003', NULL, 'DZ04', 'OFFICE', '晨光ADM94897按钮文件袋', '办公用品', 'A4透明文件袋', '个', 63, 1.5, 94.5, 'D3', '李四', '', 'DONE', NULL, NULL, NULL, '王强', '2026-09-11 08:00:00', '员工档案整理', 'seed', '2026-09-11 14:00:00', 'seed', '2026-09-11 15:40:00', 1),
+('LVR4', 'PY2026004', NULL, 'DZ06', 'OFFICE', '粉红色复印纸', '办公用品', 'A4/210mm×297mm/70g/500张', '包', 17, 29, 493, 'D5', '李四', '', 'DONE', NULL, NULL, NULL, '何欣', '2026-09-12 08:00:00', '宣传物料打印', 'seed', '2026-09-12 09:00:00', 'seed', '2026-09-12 16:20:00', 1),
+('LVR5', 'PY2026005', NULL, 'DZ07', 'PPE', '晨光ADM953948 A4纸塑料档案盒', '劳保用品', '7.5cm全新料 A4文件盒资料盒 蓝（12个/份）', '箱', 9, 144, 1296, 'D13', '王五', '', 'DONE', NULL, NULL, NULL, '周芳', '2026-09-15 08:00:00', '档案归档', 'seed', '2026-09-15 10:00:00', 'seed', '2026-09-15 17:00:00', 1);
 
 -- 低值资产退库单 (low-value-return)
-INSERT INTO `low_value_return` (`id`, `doc_no`, `item_id`, `category`, `item_name`, `category_name`, `spec`, `unit`, `quantity`, `price`, `amount`, `dept_id`, `operator`, `remark`, `status`, `creator_id`, `submit_time`, `settle_time`, `returner`, `return_date`, `reason`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
-('LVT1', 'TK2026001', 'DZ08', 'PAPER', '白色复印纸', '纸品', '白色A4/210mm×297mm/70g/500张/70G', '包', 15, 22, 330, 'D2', '张三', '', 'DONE', NULL, NULL, NULL, '李娜', '2026-09-13 08:00:00', '部门领用过量', 'seed', '2026-09-13 09:00:00', 'seed', '2026-09-13 11:30:00', 1),
-('LVT2', 'TK2026002', 'DZ04', 'OFFICE', '晨光ADM94897按钮文件袋', '办公用品', 'A4透明文件袋', '个', 7, 1.5, 10.5, 'D3', '李四', '', 'DONE', NULL, NULL, NULL, '王强', '2026-09-16 08:00:00', '项目取消，退回剩余', 'seed', '2026-09-16 14:00:00', 'seed', '2026-09-16 16:10:00', 1);
+INSERT INTO `low_value_return` (`id`, `doc_no`, `company_id`, `item_id`, `category`, `item_name`, `category_name`, `spec`, `unit`, `quantity`, `price`, `amount`, `dept_id`, `operator`, `remark`, `status`, `creator_id`, `submit_time`, `settle_time`, `returner`, `return_date`, `reason`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
+('LVT1', 'TK2026001', NULL, 'DZ08', 'PAPER', '白色复印纸', '纸品', '白色A4/210mm×297mm/70g/500张/70G', '包', 15, 22, 330, 'D2', '张三', '', 'DONE', NULL, NULL, NULL, '李娜', '2026-09-13 08:00:00', '部门领用过量', 'seed', '2026-09-13 09:00:00', 'seed', '2026-09-13 11:30:00', 1),
+('LVT2', 'TK2026002', NULL, 'DZ04', 'OFFICE', '晨光ADM94897按钮文件袋', '办公用品', 'A4透明文件袋', '个', 7, 1.5, 10.5, 'D3', '李四', '', 'DONE', NULL, NULL, NULL, '王强', '2026-09-16 08:00:00', '项目取消，退回剩余', 'seed', '2026-09-16 14:00:00', 'seed', '2026-09-16 16:10:00', 1);
 
 -- 低值资产存放位置 (low-value-settings-locations)
 INSERT INTO `low_value_settings_locations` (`id`, `code`, `name`, `parent_code`, `parent_name`, `manager`, `item_count`, `status`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
@@ -239,25 +239,25 @@ INSERT INTO `low_value_settings_locations` (`id`, `code`, `name`, `parent_code`,
 ('LVL05', 'XZKF-A', '行政库房·A架', 'XZKF', '行政库房', '张三', 0, 'ENABLED', 'seed', '2026-02-11 09:40:00', 'seed', '2026-09-02 11:20:00', 1);
 
 -- 用户 (org-users)
-INSERT INTO `org_users` (`id`, `username`, `password`, `password_reset_at`, `name`, `company_id`, `dept_id`, `position`, `role_ids`, `phone`, `email`, `status`, `created_at`, `last_login_at`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
-('U2', 'zhangwei', '123456', NULL, '张伟', 'C1', 'D1', '技术部经理', '["R2"]', '13800000002', 'zhangwei@huaxin.com', 'ENABLED', '2024-03-12 09:30:00', '2026-10-21 18:40:05', 'seed', '2024-03-12 09:30:00', 'seed', '2026-10-21 18:40:05', 1),
-('U3', 'lina', '123456', NULL, '李娜', 'C1', 'D2', '财务主管', '["R4"]', '13800000003', 'lina@huaxin.com', 'ENABLED', '2024-04-02 14:20:00', '2026-10-20 11:05:12', 'seed', '2024-04-02 14:20:00', 'seed', '2026-10-20 11:05:12', 1),
-('U4', 'wangqiang', '123456', NULL, '王强', 'C1', 'D3', '行政专员', '["R3"]', '13800000004', 'wangqiang@huaxin.com', 'ENABLED', '2024-05-18 10:05:00', '2026-10-19 16:22:41', 'seed', '2024-05-18 10:05:00', 'seed', '2026-10-19 16:22:41', 1),
-('U5', 'liuyang', '123456', NULL, '刘洋', 'C1', 'D4', '运营专员', '["R3"]', '13800000005', 'liuyang@huaxin.com', 'ENABLED', '2024-06-21 16:45:00', '2026-10-18 09:33:20', 'seed', '2024-06-21 16:45:00', 'seed', '2026-10-18 09:33:20', 1),
-('U6', 'hexin', '123456', NULL, '何欣', 'C1', 'D5', '市场专员', '["R3"]', '13800000006', 'hexin@huaxin.com', 'ENABLED', '2024-07-09 08:55:00', '2026-10-17 15:10:08', 'seed', '2024-07-09 08:55:00', 'seed', '2026-10-17 15:10:08', 1),
-('U7', 'chengang', '123456', NULL, '陈刚', 'C1', 'D6', '生产主管', '["R5"]', '13800000007', 'chengang@huaxin.com', 'ENABLED', '2024-08-15 11:30:00', '2026-10-16 08:02:55', 'seed', '2024-08-15 11:30:00', 'seed', '2026-10-16 08:02:55', 1),
-('U8', 'fengtao', '123456', NULL, '冯涛', 'C1', 'D7', '仓储主管', '["R5"]', '13800000008', 'fengtao@huaxin.com', 'ENABLED', '2024-09-03 15:10:00', '2026-10-15 17:48:31', 'seed', '2024-09-03 15:10:00', 'seed', '2026-10-15 17:48:31', 1),
-('U9', 'gaoxiang', '123456', NULL, '高翔', 'C1', 'D102', '运维组长', '["R2"]', '13800000009', 'gaoxiang@huaxin.com', 'ENABLED', '2024-10-11 09:00:00', '2026-10-14 10:26:19', 'seed', '2024-10-11 09:00:00', 'seed', '2026-10-14 10:26:19', 1),
-('U10', 'zhoujing', '123456', NULL, '周静', 'C2', 'D8', '资产主管', '["R2"]', '13800000010', 'zhoujing@yunding.com', 'ENABLED', '2024-11-08 13:40:00', '2026-10-13 14:55:02', 'seed', '2024-11-08 13:40:00', 'seed', '2026-10-13 14:55:02', 1),
-('U11', 'zhengkai', '123456', NULL, '郑凯', 'C2', 'D9', '财务专员', '["R4"]', '13800000011', 'zhengkai@yunding.com', 'ENABLED', '2024-12-02 10:15:00', '2026-10-12 09:41:37', 'seed', '2024-12-02 10:15:00', 'seed', '2026-10-12 09:41:37', 1),
-('U12', 'wudi', '123456', NULL, '吴迪', 'C3', 'D10', '业务经理', '["R5"]', '13800000012', 'wudi@hengxin.com', 'ENABLED', '2025-01-16 09:20:00', '2026-10-11 16:07:44', 'seed', '2025-01-16 09:20:00', 'seed', '2026-10-11 16:07:44', 1),
-('U13', 'chenjing', '123456', NULL, '陈静', 'C3', 'D11', '风控专员', '["R6"]', '13800000013', 'chenjing@hengxin.com', 'ENABLED', '2025-03-05 14:00:00', '2026-10-10 11:19:53', 'seed', '2025-03-05 14:00:00', 'seed', '2026-10-10 11:19:53', 1),
-('U14', 'zhaomin', '123456', NULL, '赵敏', 'C4', 'D12', '工程部主管', '["R5"]', '13800000014', 'zhaomin@zhongtian.com', 'ENABLED', '2025-04-22 08:30:00', '2026-10-09 15:38:26', 'seed', '2025-04-22 08:30:00', 'seed', '2026-10-09 15:38:26', 1),
-('U15', 'zhoufang', '123456', NULL, '周芳', 'C4', 'D13', '采购专员', '["R3"]', '13800000015', 'zhoufang@zhongtian.com', 'ENABLED', '2025-06-10 15:45:00', '2026-10-08 09:12:11', 'seed', '2025-06-10 15:45:00', 'seed', '2026-10-08 09:12:11', 1),
-('U16', 'sunlei', '123456', NULL, '孙磊', 'C5', 'D14', '后勤专员', '["R3"]', '13800000016', 'sunlei@huaxin.com', 'DISABLED', '2025-08-19 11:05:00', '2026-09-28 17:30:49', 'seed', '2025-08-19 11:05:00', 'seed', '2026-09-28 17:30:49', 1),
-('U17', 'asset', '123456', NULL, '资产管理员', 'C1', 'D1', '资产管理岗', '["R2"]', '13800000017', 'asset@huaxin.com', 'ENABLED', '2024-01-05 09:02:00', '2026-10-20 10:11:12', 'seed', '2024-01-05 09:02:00', 'seed', '2026-10-20 10:11:12', 1),
-('U18', 'fuzong', '123456', NULL, '马文远', 'C1', 'D1', '分管副总', '["R7"]', '13800000018', 'fuzong@huaxin.com', 'ENABLED', '2024-01-05 09:30:00', '2026-10-19 09:40:00', 'seed', '2024-01-05 09:30:00', 'seed', '2026-10-19 09:40:00', 1),
-('U19', 'cangguan', '123456', NULL, '孟海涛', 'C1', 'D7', '仓管员', '["R8"]', '13800000019', 'cangguan@huaxin.com', 'ENABLED', '2024-01-05 09:35:00', '2026-10-18 16:20:00', 'seed', '2024-01-05 09:35:00', 'seed', '2026-10-18 16:20:00', 1);
+INSERT INTO `org_users` (`id`, `username`, `password`, `password_reset_at`, `name`, `company_id`, `dept_id`, `scope_company_ids`, `position`, `role_ids`, `phone`, `email`, `status`, `created_at`, `last_login_at`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
+('U2', 'zhangwei', 'updbJghM7dKx8Az3J3QF', NULL, '张伟', 'C1', 'D1', NULL, '技术部经理', '["R2","R5"]', '13800000002', 'zhangwei@huaxin.com', 'ENABLED', '2024-03-12 09:30:00', '2026-10-21 18:40:05', 'seed', '2024-03-12 09:30:00', 'seed', '2026-10-21 18:40:05', 1),
+('U3', 'lina', 'updbJghM7dKx8Az3J3QF', NULL, '李娜', 'C1', 'D2', NULL, '财务主管', '["R4","R5"]', '13800000003', 'lina@huaxin.com', 'ENABLED', '2024-04-02 14:20:00', '2026-10-20 11:05:12', 'seed', '2024-04-02 14:20:00', 'seed', '2026-10-20 11:05:12', 1),
+('U4', 'wangqiang', 'updbJghM7dKx8Az3J3QF', NULL, '王强', 'C1', 'D3', NULL, '行政部主管', '["R3","R5"]', '13800000004', 'wangqiang@huaxin.com', 'ENABLED', '2024-05-18 10:05:00', '2026-10-19 16:22:41', 'seed', '2024-05-18 10:05:00', 'seed', '2026-10-19 16:22:41', 1),
+('U5', 'liuyang', 'updbJghM7dKx8Az3J3QF', NULL, '刘洋', 'C1', 'D4', NULL, '运营部主管', '["R3","R5"]', '13800000005', 'liuyang@huaxin.com', 'ENABLED', '2024-06-21 16:45:00', '2026-10-18 09:33:20', 'seed', '2024-06-21 16:45:00', 'seed', '2026-10-18 09:33:20', 1),
+('U6', 'hexin', 'updbJghM7dKx8Az3J3QF', NULL, '何欣', 'C1', 'D5', NULL, '市场部主管', '["R3","R5"]', '13800000006', 'hexin@huaxin.com', 'ENABLED', '2024-07-09 08:55:00', '2026-10-17 15:10:08', 'seed', '2024-07-09 08:55:00', 'seed', '2026-10-17 15:10:08', 1),
+('U7', 'chengang', 'updbJghM7dKx8Az3J3QF', NULL, '陈刚', 'C1', 'D6', NULL, '生产主管', '["R5"]', '13800000007', 'chengang@huaxin.com', 'ENABLED', '2024-08-15 11:30:00', '2026-10-16 08:02:55', 'seed', '2024-08-15 11:30:00', 'seed', '2026-10-16 08:02:55', 1),
+('U8', 'fengtao', 'updbJghM7dKx8Az3J3QF', NULL, '冯涛', 'C1', 'D7', NULL, '仓储主管', '["R5"]', '13800000008', 'fengtao@huaxin.com', 'ENABLED', '2024-09-03 15:10:00', '2026-10-15 17:48:31', 'seed', '2024-09-03 15:10:00', 'seed', '2026-10-15 17:48:31', 1),
+('U9', 'gaoxiang', 'updbJghM7dKx8Az3J3QF', NULL, '高翔', 'C1', 'D102', NULL, '运维组长', '["R2","R5"]', '13800000009', 'gaoxiang@huaxin.com', 'ENABLED', '2024-10-11 09:00:00', '2026-10-14 10:26:19', 'seed', '2024-10-11 09:00:00', 'seed', '2026-10-14 10:26:19', 1),
+('U10', 'zhoujing', 'updbJghM7dKx8Az3J3QF', NULL, '周静', 'C2', 'D8', NULL, '资产主管', '["R2","R5"]', '13800000010', 'zhoujing@yunding.com', 'ENABLED', '2024-11-08 13:40:00', '2026-10-13 14:55:02', 'seed', '2024-11-08 13:40:00', 'seed', '2026-10-13 14:55:02', 1),
+('U11', 'zhengkai', 'updbJghM7dKx8Az3J3QF', NULL, '郑凯', 'C2', 'D9', NULL, '财务主管', '["R4","R5"]', '13800000011', 'zhengkai@yunding.com', 'ENABLED', '2024-12-02 10:15:00', '2026-10-12 09:41:37', 'seed', '2024-12-02 10:15:00', 'seed', '2026-10-12 09:41:37', 1),
+('U12', 'wudi', 'updbJghM7dKx8Az3J3QF', NULL, '吴迪', 'C3', 'D10', NULL, '业务经理', '["R5"]', '13800000012', 'wudi@hengxin.com', 'ENABLED', '2025-01-16 09:20:00', '2026-10-11 16:07:44', 'seed', '2025-01-16 09:20:00', 'seed', '2026-10-11 16:07:44', 1),
+('U13', 'chenjing', 'updbJghM7dKx8Az3J3QF', NULL, '陈静', 'C3', 'D11', NULL, '风控合规部主管', '["R6","R5"]', '13800000013', 'chenjing@hengxin.com', 'ENABLED', '2025-03-05 14:00:00', '2026-10-10 11:19:53', 'seed', '2025-03-05 14:00:00', 'seed', '2026-10-10 11:19:53', 1),
+('U14', 'zhaomin', 'updbJghM7dKx8Az3J3QF', NULL, '赵敏', 'C4', 'D12', NULL, '工程部主管', '["R5"]', '13800000014', 'zhaomin@zhongtian.com', 'ENABLED', '2025-04-22 08:30:00', '2026-10-09 15:38:26', 'seed', '2025-04-22 08:30:00', 'seed', '2026-10-09 15:38:26', 1),
+('U15', 'zhoufang', 'updbJghM7dKx8Az3J3QF', NULL, '周芳', 'C4', 'D13', NULL, '物资采购部主管', '["R3","R5"]', '13800000015', 'zhoufang@zhongtian.com', 'ENABLED', '2025-06-10 15:45:00', '2026-10-08 09:12:11', 'seed', '2025-06-10 15:45:00', 'seed', '2026-10-08 09:12:11', 1),
+('U16', 'sunlei', 'updbJghM7dKx8Az3J3QF', NULL, '孙磊', 'C5', 'D14', NULL, '后勤专员', '["R3"]', '13800000016', 'sunlei@huaxin.com', 'DISABLED', '2025-08-19 11:05:00', '2026-09-28 17:30:49', 'seed', '2025-08-19 11:05:00', 'seed', '2026-09-28 17:30:49', 1),
+('U17', 'asset', 'updbJghM7dKx8Az3J3QF', NULL, '资产管理员', 'C1', 'D1', NULL, '资产管理岗', '["R2"]', '13800000017', 'asset@huaxin.com', 'ENABLED', '2024-01-05 09:02:00', '2026-10-20 10:11:12', 'seed', '2024-01-05 09:02:00', 'seed', '2026-10-20 10:11:12', 1),
+('U18', 'fuzong', 'updbJghM7dKx8Az3J3QF', NULL, '马文远', 'C1', 'D1', NULL, '分管副总', '["R7"]', '13800000018', 'fuzong@huaxin.com', 'ENABLED', '2024-01-05 09:30:00', '2026-10-19 09:40:00', 'seed', '2024-01-05 09:30:00', 'seed', '2026-10-19 09:40:00', 1),
+('U19', 'cangguan', 'updbJghM7dKx8Az3J3QF', NULL, '孟海涛', 'C1', 'D7', NULL, '仓管员', '["R8"]', '13800000019', 'cangguan@huaxin.com', 'ENABLED', '2024-01-05 09:35:00', '2026-10-18 16:20:00', 'seed', '2024-01-05 09:35:00', 'seed', '2026-10-18 16:20:00', 1);
 
 -- 盘点终端 (system-terminal-devices)
 INSERT INTO `system_terminal_devices` (`code`, `name`, `type`, `location`, `bind_user_id`, `status`, `last_active`, `vendor`, `model`, `sn`, `ip`, `install_date`, `maintainer`, `maintainer_phone`, `remark`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES

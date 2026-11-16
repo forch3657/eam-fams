@@ -10,7 +10,8 @@
       "DISPOSING": "处置中",
       "PENDING_INBOUND": "待入库",
       "PENDING_WRITE_OFF": "待核销",
-      "DISPOSED": "已核销"
+      "DISPOSED": "已核销",
+      "TRANSFERRED_OUT": "已转出"
     },
     "ASSET_CATEGORY": {
       "ELECTRONIC": "电子设备",
@@ -21,6 +22,10 @@
       "SUPPLIES": "办公用品",
       "MATERIAL": "材料",
       "OTHER": "其他设备"
+    },
+    "CONFIG_SCOPE": {
+      "GROUP": "集团默认",
+      "COMPANY": "公司覆盖"
     },
     "PURCHASE_MODE": {
       "PURCHASE": "购买",

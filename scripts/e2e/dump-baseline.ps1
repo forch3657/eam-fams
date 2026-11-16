@@ -13,7 +13,7 @@ $mysqldump = (Get-Command mysqldump -ErrorAction SilentlyContinue)
 if (-not $mysqldump) { throw 'mysqldump not found in PATH' }
 
 $user = if ($env:DB_USER) { $env:DB_USER } else { 'fams' }
-$pwd = if ($env:DB_PASSWORD) { $env:DB_PASSWORD } else { 'FamsDb@2026!' }
+$pwd = if ($env:DB_PASSWORD) { $env:DB_PASSWORD } else { 'ZgM8Zg9PKm2CYyeYzdNs' }
 $db = if ($env:DB_NAME) { $env:DB_NAME } else { 'fams' }
 
 Write-Host ("Dumping " + $db + " -> " + $out)

@@ -48,6 +48,30 @@
           </div>
         </el-tab-pane>
 
+        <!-- D3 公司统计（集团合并 + 按公司下钻） -->
+        <el-tab-pane label="公司统计" name="company">
+          <el-table :data="companyStats" class="clickable-table" style="width: 100%" @row-click="openCompanyDetail">
+            <el-table-column prop="company" label="所属公司" min-width="180">
+              <template #default="{ row }"><el-link type="primary" :underline="false">{{ row.company }}</el-link></template>
+            </el-table-column>
+            <el-table-column prop="assetCount" label="资产数量" width="120" />
+            <el-table-column prop="assetAmount" label="资产原值" width="150" align="right">
+              <template #default="{ row }"><span class="num">¥{{ row.assetAmount.toLocaleString() }}</span></template>
+            </el-table-column>
+            <el-table-column prop="netAmount" label="资产净值" width="150" align="right">
+              <template #default="{ row }"><span class="num">¥{{ row.netAmount.toLocaleString() }}</span></template>
+            </el-table-column>
+            <el-table-column label="占比" min-width="200">
+              <template #default="{ row }"><el-progress :percentage="row.percentage" :stroke-width="14" /></template>
+            </el-table-column>
+            <el-table-column label="操作" width="100" fixed="right">
+              <template #default="{ row }">
+                <el-button link type="primary" size="small" @click.stop="openCompanyDetail(row)">下钻明细</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
         <!-- 位置统计 -->
         <el-tab-pane label="位置统计" name="location">
           <el-table :data="pagedLocationStats" style="width: 100%">
@@ -351,6 +375,32 @@ const categoryStats = computed(() => {
   })).sort((a, b) => b.amount - a.amount)
 })
 
+/**
+ * D3 公司统计：同一份授权范围内的 assetLedger 按公司聚合，得到集团合并口径；
+ * 合计与各公司分组来自同一数据源，保证「合并 = 下钻之和」一致。
+ */
+const companyStats = computed(() => {
+  const grouped = {}
+  fixedAssetStore.assetLedger.forEach(a => {
+    const id = a.companyId || ''
+    const key = id || '未分配'
+    if (!grouped[key]) grouped[key] = { company: orgStore.companyName(id) || key, assetCount: 0, assetAmount: 0, netAmount: 0, ids: [] }
+    grouped[key].assetCount++
+    grouped[key].assetAmount += (a.original || 0)
+    grouped[key].netAmount += (a.net || 0)
+    grouped[key].ids.push(id)
+  })
+  const total = Object.values(grouped).reduce((s, g) => s + g.assetAmount, 0) || 1
+  return Object.values(grouped).map(g => ({
+    company: g.company,
+    assetCount: g.assetCount,
+    assetAmount: g.assetAmount,
+    netAmount: g.netAmount,
+    percentage: Math.round(g.assetAmount / total * 100),
+    ids: g.ids
+  })).sort((a, b) => b.assetAmount - a.assetAmount)
+})
+
 const locationStats = computed(() => {
   const grouped = {}
   fixedAssetStore.assetLedger.forEach(a => {
@@ -477,6 +527,12 @@ const detailVisible = ref(false)
 const detailTitle = ref('')
 const detailRows = ref([])
 
+function openCompanyDetail(row) {
+  detailRows.value = fixedAssetStore.assetLedger.filter(a => (row.ids || []).includes(a.companyId || ''))
+  detailTitle.value = `${row.company} · 资产明细`
+  detailVisible.value = true
+}
+
 function openDeptDetail(row) {
   const key = row.department || '未分配'
   detailRows.value = fixedAssetStore.assetLedger.filter(a => (a.dept || '未分配') === key)
@@ -519,9 +575,12 @@ const handleDepreciationReset = () => {
 }
 
 const handleExport = () => {
-  const tabNames = { category: '分类统计', location: '位置统计', department: '部门统计', user: '使用人统计' }
+  const tabNames = { category: '分类统计', company: '公司统计', location: '位置统计', department: '部门统计', user: '使用人统计' }
   let headers, rows
-  if (activeTab.value === 'category') {
+  if (activeTab.value === 'company') {
+    headers = ['所属公司', '资产数量', '资产原值', '资产净值', '占比(%)']
+    rows = companyStats.value.map(r => [r.company, r.assetCount, r.assetAmount, r.netAmount, r.percentage])
+  } else if (activeTab.value === 'category') {
     headers = ['资产分类', '数量', '总金额', '占比(%)']
     rows = categoryStats.value.map(r => [r.name, r.count, r.amount, r.percentage])
   } else if (activeTab.value === 'location') {

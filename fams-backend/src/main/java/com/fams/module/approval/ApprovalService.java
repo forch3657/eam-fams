@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -144,7 +145,9 @@ public class ApprovalService {
         if ("TRANSFER".equals(bizType) && "submit".equals(action)) {
             snapshotTransferSource(previous);
         }
-        Map<String, Object> flow = ApprovalSupport.flowOf(genericService, FLOWS, bizType);
+        // D2：按单据归属公司优先选公司级流程覆盖，未配置则回落集团默认
+        Map<String, Object> flow = ApprovalSupport.flowOf(genericService, FLOWS, bizType,
+                ApproverResolver.companyIdOf(genericService, previous));
         // 环节生效条件以服务端判定为准：客户端可以伪造 ctx 把条件环节跳过
         Map<String, Object> ctx = effectiveCtx(bizType, previous, request.getCtx());
         if ("TRANSFER".equals(bizType)) {
@@ -550,8 +553,11 @@ public class ApprovalService {
                 }
                 break;
             case "DISPOSE":
-                // 处置核销通过：待核销的资产账面上注销（保留在台账里留痕）
-                if (STATUS_PENDING_WRITE_OFF.equals(assetStatus(assetId))) {
+                // D3 跨公司转让：转出公司核销原卡（留出账依据），受让公司自动建新卡；
+                // 其余处置方式（报废/变卖/捐赠）沿用原「待核销 → 已核销」口径。
+                if ("TRANSFER_OUT".equals(text(doc.get("disposeType")))) {
+                    transferOutClosure(doc, assetId);
+                } else if (STATUS_PENDING_WRITE_OFF.equals(assetStatus(assetId))) {
                     genericService.patchField(ASSETS, assetId, "status", STATUS_DISPOSED, null);
                 }
                 break;
@@ -593,6 +599,86 @@ public class ApprovalService {
         Object value = doc.get(from);
         if (value != null && !text(value).isEmpty()) {
             genericService.patchField(ASSETS, assetId, to, value, null);
+        }
+    }
+
+    /**
+     * D3 跨公司转让闭环：处置单 disposeType=TRANSFER_OUT 审批完结时，
+     * 转出方原卡核销（状态「已转出」，保留凭证号/出账依据在单据上留痕），
+     * 受让方按原卡信息自动建一张新卡（空归属、置于受让公司）。
+     *
+     * <p>幂等：新卡的 sourceTag 含处置单 id，重复触发不会重复建卡；
+     * 建卡失败用独立事务隔离（不推翻已完结的审批），并由日志告警待人工补录。</p>
+     */
+    private void transferOutClosure(Map<String, Object> doc, String assetId) {
+        String docId = text(doc.get("id"));
+        String transferee = text(doc.get("transfereeCompanyId"));
+        Map<String, Object> asset;
+        try {
+            asset = genericService.get(ASSETS, assetId);
+        } catch (RuntimeException e) {
+            log.warn("转让完结读取原卡失败 assetId={} docId={}", assetId, docId, e);
+            return;
+        }
+        // 1) 转出方：已转出（区别于报废的「已核销」，台账保留出账轨迹）
+        if (!"TRANSFERRED_OUT".equals(text(asset.get("status")))) {
+            genericService.patchField(ASSETS, assetId, "status", "TRANSFERRED_OUT", null);
+        }
+        if (transferee.isEmpty()) {
+            log.warn("转让单缺少受让公司，仅核销原卡未建新卡 docId={} assetId={}", docId, assetId);
+            return;
+        }
+
+        // 2) 幂等：已存在同源新卡则不再创建
+        String stamp = "TRANSFER_OUT:" + docId;
+        boolean exists;
+        try {
+            exists = genericService.listInternal(ASSETS,
+                    Collections.singletonMap("sourceTag", new String[]{ stamp })).stream().findAny().isPresent();
+        } catch (RuntimeException e) {
+            exists = false;
+        }
+        if (exists) {
+            log.info("转让新卡已存在，跳过重复建卡 docId={} assetId={}", docId, assetId);
+            return;
+        }
+
+        // 3) 受让方建新卡：沿用原卡的品类/品牌/金额/原值，归属改到受让公司、状态空闲
+        Map<String, Object> card = new LinkedHashMap<>();
+        String code = "ZR" + docId.replaceAll("[^A-Za-z0-9]", "") + java.util.UUID.randomUUID()
+                .toString().replace("-", "").substring(0, 6);
+        card.put("code", code);
+        card.put("name", cut(text(asset.get("name")), 240));
+        card.put("category", text(asset.get("category")));
+        card.put("brand", text(asset.get("brand")));
+        card.put("model", text(asset.get("model")));
+        card.put("companyId", transferee);
+        card.put("location", text(doc.get("buyer"))); // 受让地点用买方字段承载，缺省沿用原卡
+        if (text(card.get("location")).isEmpty()) {
+            card.put("location", text(asset.get("location")));
+        }
+        card.put("purchaseDate", asset.get("purchaseDate"));
+        card.put("amount", asset.get("amount"));
+        card.put("original", asset.get("original"));
+        card.put("net", asset.get("net"));
+        card.put("status", "IDLE");
+        card.put("depreciate", asset.get("depreciate"));
+        card.put("purchaseMode", asset.get("purchaseMode"));
+        card.put("sourceTag", stamp);
+        // 受让公司通常不在审批人可见范围内：以系统身份建卡（清空 SecurityContext 后恢复），
+        // 否则 RowScopeGuard.assertWrite 会把跨公司派生卡判为越权 403。
+        org.springframework.security.core.context.SecurityContext ctx =
+                org.springframework.security.core.context.SecurityContextHolder.getContext();
+        try {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+            Map<String, Object> created = genericService.createIndependent(ASSETS, card);
+            log.info("跨公司转让受让方已建新卡 docId={} from={} to={} newCard={}",
+                    docId, text(doc.get("companyId")), transferee, created == null ? "" : created.get("id"));
+        } catch (RuntimeException e) {
+            log.warn("跨公司转让受让方建卡失败（待人工补录）docId={} transferee={} code={}",
+                    docId, transferee, code, e);
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.setContext(ctx);
         }
     }
 

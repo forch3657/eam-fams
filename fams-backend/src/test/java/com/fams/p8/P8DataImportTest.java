@@ -33,7 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * P8 通用数据导入：复用契约引擎（RowCodec / RuleEngine / GenericService.create）的批量落库链路，
  * 并验证导入控制器端点（元数据 / 模板下载 / 上传）。
  *
- * <p>演示账号为 {@code admin / Fzidt@123}（见 {@link com.fams.TestAccounts}）。</p>
+ * <p>演示账号为 {@code admin / updbJghM7dKx8Az3J3QF}（见 {@link com.fams.TestAccounts}）。</p>
  */
 @SpringBootTest
 @AutoConfigureMockMvc

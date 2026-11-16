@@ -1,6 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '../store/user'
-import { useAuditStore } from '../store/audit'
 import { useOrgStore } from '../store/org'
 import { setUnauthorizedHandler } from '../services/http'
 
@@ -196,22 +195,9 @@ router.beforeEach(async (to) => {
   return true
 })
 
-// 页面访问留痕：写入操作日志
-router.afterEach((to) => {
-  if (!to.meta?.title || to.path === '/login') return
-  const userStore = useUserStore()
-  if (!userStore.isLoggedIn) return
-  // 页面访问日志需要 sys:log 写权限；业务角色无此码，发出去只会 403。
-  // 业务写操作的审计由后端 OperationLogAspect 统一落库，不依赖这里。
-  if (!userStore.can('sys:log')) return
-  const auditStore = useAuditStore()
-  auditStore.logOp({
-    module: '页面访问',
-    action: '访问',
-    target: to.meta.title,
-    detail: `进入${to.meta.title}页面`
-  })
-})
+// 页面访问不再由前端写操作日志：operation-logs 已是 append-only 审计表，
+// 只允许后端 OperationLogAspect / BusinessAuditAspect 写，前端 POST 一律 403。
+// 高频页面访问也不属于需要审计的写操作。
 
 /**
  * 401 统一处理：任何接口返回未登录/令牌失效，清空本地会话并跳登录。

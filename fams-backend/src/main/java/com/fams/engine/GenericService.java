@@ -29,6 +29,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -83,6 +85,9 @@ public class GenericService {
         DOC_NO_YEAR_DASH_PREFIX.put("fixed-asset-inventory-plans", "PD-");
     }
 
+    /** 固资单据编号：字母前缀 + 4 位年份 + 序号（如 FP20261000） */
+    private static final Pattern FIXED_DOC_CODE = Pattern.compile("^([A-Za-z]+)(\\d{4})(\\d+)$");
+
     private final ResourceRegistry registry;
 
     private final GenericMapper mapper;
@@ -100,6 +105,9 @@ public class GenericService {
     private final PasswordPolicy passwordPolicy;
 
     private final AtomicLong sequence = new AtomicLong();
+
+    /** 统一行级范围断言（D1）：所有读写路径共用，避免按 id 或直调服务绕过数据范围 */
+    private final RowScopeGuard scopeGuard;
 
     // ------------------------------------------------------------------ 读
 
@@ -121,7 +129,7 @@ public class GenericService {
     @Transactional(readOnly = true)
     public List<Map<String, Object>> listInternal(String key, Map<String, String[]> raw) {
         ResourceMeta meta = registry.resolve(key);
-        return mapper.selectList(assembler.buildList(meta, raw)).stream()
+        return mapper.selectList(assembler.buildList(meta, scopedRaw(key, meta, raw))).stream()
                 .map(row -> codec.toApiRow(meta, row))
                 .collect(Collectors.toList());
     }
@@ -144,6 +152,7 @@ public class GenericService {
         if (row == null) {
             throw new ApiException(ErrorCode.NOT_FOUND, "数据不存在");
         }
+        scopeGuard.assertRead(key, row);
         return sanitized(meta, row);
     }
 
@@ -153,6 +162,8 @@ public class GenericService {
     public Map<String, Object> create(String key, Map<String, Object> body) {
         ResourceMeta meta = registry.resolve(key);
         Map<String, Object> row = codec.toDbRow(meta, body == null ? Collections.emptyMap() : body, false);
+        scopeGuard.assertWrite(key, row, null);
+        assertStatusServerOwned(meta, row, null);
         encodeOrgUserPasswordIfNeeded(key, row, true);
 
         // 低值单据 / 盘点单：单号留空时由服务端生成，保证跨部门唯一
@@ -179,6 +190,8 @@ public class GenericService {
             row.put(meta.getPkField(), pk);
         }
 
+        // 固资单据编号由前端按可见列表推算，列表受数据范围/分页影响可能算出已存在的号
+        ensureUniqueFixedDocCode(key, meta, row);
         rules.validate(meta, row, null);
         for (ResourceHook hook : hooks.forCollection(key)) {
             hook.beforeCreate(meta, row);
@@ -266,20 +279,25 @@ public class GenericService {
         if (previous == null) {
             throw new ApiException(ErrorCode.NOT_FOUND, "数据不存在");
         }
+        scopeGuard.assertRead(key, previous);
         // 乐观锁比对必须最先执行
         assertVersionMatch(meta, previous, body);
+        // D3：body 携带 version 时，把版本断言下推到 UPDATE 条件，消除 TOCTOU 窗口
+        Object expectedVersion = body == null ? null : body.get("version");
         // 审批中的固资单据禁止通过通用 CRUD 改写（审批动作走 updateQuietly）
         assertDocMutable(key, previous, false);
 
         Map<String, Object> next = codec.toDbRow(meta, body == null ? Collections.emptyMap() : body, true);
         next.put(meta.getPkField(), id);
+        scopeGuard.assertWrite(key, next, previous);
+        assertStatusServerOwned(meta, next, previous);
         encodeOrgUserPasswordIfNeeded(key, next, false);
 
         for (ResourceHook hook : hooks.forCollection(key)) {
             hook.beforeUpdate(meta, next, previous);
         }
 
-        Map<String, Object> saved = writeUpdate(meta, id, next, previous);
+        Map<String, Object> saved = writeUpdate(meta, id, next, previous, expectedVersion);
 
         for (ResourceHook hook : hooks.forCollection(key)) {
             hook.afterUpdate(meta, saved, previous);
@@ -298,10 +316,13 @@ public class GenericService {
         if (previous == null) {
             throw new ApiException(ErrorCode.NOT_FOUND, "数据不存在");
         }
+        scopeGuard.assertRead(key, previous);
         assertVersionMatch(meta, previous, body);
+        Object expectedVersion = body == null ? null : body.get("version");
         Map<String, Object> next = codec.toDbRow(meta, body == null ? Collections.emptyMap() : body, true);
         next.put(meta.getPkField(), id);
-        return sanitized(meta, codec.toApiRow(meta, writeUpdate(meta, id, next, previous)));
+        scopeGuard.assertWrite(key, next, previous);
+        return sanitized(meta, codec.toApiRow(meta, writeUpdate(meta, id, next, previous, expectedVersion)));
     }
 
     /**
@@ -347,6 +368,39 @@ public class GenericService {
         }
     }
 
+    /**
+     * S-06：带库存状态机的低值单据，status 由服务端/审批端点驱动，通用 CRUD 不得直接改写。
+     *
+     * <p>只有契约中配置了 {@code stock} 的集合受此约束（入库 / 领用 / 退库）。
+     * 合法路径：审批动作走 {@link #updateQuietly}（不经本守卫）；系统管理员 R1 保留维护通道，
+     * 供期初数据修复与 P4 库存状态机测试使用。普通业务账号即使有 lv:* 权限码，
+     * 也不能用通用 PUT/POST/batch 把单据直接改成 DONE/PROCESSING 来绕过审批结算库存。</p>
+     *
+     * @param previous 为 null 表示新建；非 null 表示更新
+     */
+    private void assertStatusServerOwned(ResourceMeta meta, Map<String, Object> row, Map<String, Object> previous) {
+        if (meta == null || meta.getStock() == null || isSystemAdmin()) {
+            return;
+        }
+        // 无登录主体的内部直调（审批派生、测试夹具、后台任务）不走 HTTP 权限码，
+        // 状态由服务端业务代码控制，无需拦截；外部请求一律带主体。
+        if (AuthContext.current() == null) {
+            return;
+        }
+        String desired = text(row.get("status"));
+        if (previous == null) {
+            // 新建只能是 DRAFT（审批中的单据由审批端点提交产生，不在此放行）
+            if (!desired.isEmpty() && !"DRAFT".equalsIgnoreCase(desired)) {
+                throw new ApiException(ErrorCode.FORBIDDEN, "单据状态由审批流程驱动，新建仅允许草稿 DRAFT");
+            }
+            return;
+        }
+        String current = text(previous.get("status"));
+        if (!desired.equalsIgnoreCase(current)) {
+            throw new ApiException(ErrorCode.FORBIDDEN, "单据状态由审批流程驱动，请通过审批端点流转");
+        }
+    }
+
     /** 当前登录人是否为系统管理员（R1）：以主数据角色为准，不信客户端传值 */
     private boolean isSystemAdmin() {
         String me = AuthContext.currentUserId();
@@ -355,11 +409,20 @@ public class GenericService {
 
     /** 校验 → 库存状态流转 → 审计 → 落库 */
     private Map<String, Object> writeUpdate(ResourceMeta meta, String id, Map<String, Object> next,
-                                            Map<String, Object> previous) {
+                                            Map<String, Object> previous, Object expectedVersion) {
         rules.validate(meta, next, id);
         applyStockOnStatusChange(meta, next, previous);
         stampUpdate(meta, previous, next);
-        mapper.updateById(writeParams(meta, next, false));
+        Map<String, Object> params = writeParams(meta, next, false);
+        // D3：仅在调用方显式携带 version 时下推乐观锁条件；affected=0 视为并发冲突
+        if (expectedVersion != null && meta.isAudit()) {
+            params.put("expectedVersion", RowCodec.toBigDecimal(expectedVersion));
+        }
+        int affected = mapper.updateById(params);
+        if (params.containsKey("expectedVersion") && affected == 0) {
+            throw new ApiException(ErrorCode.CONFLICT,
+                    "数据已被他人修改（并发冲突），请刷新后重试");
+        }
         return next;
     }
 
@@ -370,6 +433,7 @@ public class GenericService {
         if (row == null) {
             throw new ApiException(ErrorCode.NOT_FOUND, "数据不存在");
         }
+        scopeGuard.assertRead(key, row);
         // 0) 审批中的固资单据禁止删除
         assertDocMutable(key, row, true);
         // 1) 删除保护：必须先于库存回退，否则会出现「报了 1003 但库存已回退」
@@ -388,6 +452,9 @@ public class GenericService {
 
         for (ResourceHook hook : hooks.forCollection(key)) {
             hook.afterDelete(meta, row);
+        }
+        if ("org-companies".equals(key) || "org-departments".equals(key)) {
+            scopeGuard.invalidateCompanies();
         }
         return true;
     }
@@ -412,12 +479,16 @@ public class GenericService {
                 assertVersionMatch(meta, existing, body);
                 Map<String, Object> next = codec.toDbRow(meta, body, true);
                 next.put(meta.getPkField(), existing.get(meta.getPkField()));
+                scopeGuard.assertWrite(key, next, existing);
+                assertStatusServerOwned(meta, next, existing);
                 rules.validate(meta, next, String.valueOf(existing.get(meta.getPkField())));
                 stampUpdate(meta, existing, next);
                 mapper.updateById(writeParams(meta, next, false));
                 saved.add(next);
             } else {
                 Map<String, Object> row = codec.toDbRow(meta, body, false);
+                scopeGuard.assertWrite(key, row, null);
+                assertStatusServerOwned(meta, row, null);
                 if (isBlank(row.get(meta.getPkField()))) {
                     row.put(meta.getPkField(), nextId());
                 }
@@ -434,6 +505,7 @@ public class GenericService {
     @Transactional
     public boolean clear(String key) {
         ResourceMeta meta = registry.resolve(key);
+        scopeGuard.assertClear(key);
         mapper.deleteAll(new QuerySpec(meta).toParams(meta.getAllColumns(), null, null));
         return true;
     }
@@ -447,6 +519,7 @@ public class GenericService {
     @Transactional
     public boolean deleteByIdQuietly(String key, Object id) {
         ResourceMeta meta = registry.resolve(key);
+        scopeGuard.assertRead(key, findById(meta, String.valueOf(id)));
         Map<String, Object> params = new QuerySpec(meta).toParams(meta.getAllColumns(), null, null);
         params.put("id", id);
         mapper.deleteById(params);
@@ -562,30 +635,12 @@ public class GenericService {
      * <p>例外见 {@link #approverNeedsUnscopedDocs}：DEPT_ONLY 的审批人必须能看到
      * 别人提交、但当前环节点名到本人的待审单据。</p>
      */
+    /**
+     * 委托统一断言：list / page / listInternal 三个读入口共用同一套规则，
+     * 不再是一份只挂在列表上的私有实现；get 与全部写路径另由 {@link #scopeGuard} 直接校验。
+     */
     private Map<String, String[]> scopedRaw(String key, ResourceMeta meta, Map<String, String[]> raw) {
-        UserPrincipal principal = AuthContext.current();
-        if (principal == null || isAllScope(principal.getDataScope()) || !isDataScoped(key)) {
-            return raw;
-        }
-        if (approverNeedsUnscopedDocs(principal, key)) {
-            return raw;
-        }
-        Map<String, String[]> out = raw == null ? new LinkedHashMap<>() : new LinkedHashMap<>(raw);
-        String scope = principal.getDataScope();
-        if ("SELF".equalsIgnoreCase(scope)) {
-            putScopeFilter(out, meta, "createBy", principal.getUsername());
-        } else if ("DEPT".equalsIgnoreCase(scope)) {
-            putScopeFilter(out, meta, "deptId", principal.getDeptId());
-        } else if ("DEPT_ONLY".equalsIgnoreCase(scope)) {
-            if ("fixed-assets".equals(key)) {
-                putScopeFilter(out, meta, "userId", principal.getId());
-            } else if (meta.getAllColumns().contains("creatorId")) {
-                putScopeFilter(out, meta, "creatorId", principal.getId());
-            }
-        } else if ("COMPANY".equalsIgnoreCase(scope)) {
-            putScopeFilter(out, meta, "companyId", principal.getCompanyId());
-        }
-        return out;
+        return scopeGuard.scopeRaw(key, meta, raw);
     }
 
     /**
@@ -639,6 +694,17 @@ public class GenericService {
     /** 持有指定角色的启用用户 ID 列表（加签/转办后的环节审批人集合判定用） */
     @Transactional(readOnly = true)
     public List<String> userIdsOfRole(String roleId) {
+        return userIdsOfRole(roleId, null);
+    }
+
+    /**
+     * D2：按单据归属公司过滤角色审批人池。
+     *
+     * <p>{@code docCompanyId} 非空时，只返回「所属公司可见该单据公司」的用户，
+     * 避免 A 公司仓管出现在 B 公司审批人池。空值沿用当前登录人可见范围（D1 行为）。</p>
+     */
+    @Transactional(readOnly = true)
+    public List<String> userIdsOfRole(String roleId, String docCompanyId) {
         List<String> ids = new ArrayList<>();
         if (roleId == null || roleId.trim().isEmpty()) {
             return ids;
@@ -648,6 +714,15 @@ public class GenericService {
                 assembler.buildList(meta, Collections.emptyMap()))) {
             Map<String, Object> api = codec.toApiRow(meta, row);
             if (!"ENABLED".equals(text(api.get("status")))) {
+                continue;
+            }
+            if (docCompanyId != null && !docCompanyId.trim().isEmpty()) {
+                // 单据公司维度：用户自身公司必须在单据公司的可见集合内（本公司+下级+授权），
+                // 或用户显式授权公司包含单据公司；全集团账号不受限。
+                if (!scopeGuard.isUserCompanyEligible(api, docCompanyId, dataScopeOf(api))) {
+                    continue;
+                }
+            } else if (!scopeGuard.isCompanyVisible(api.get("companyId"))) {
                 continue;
             }
             if (asStringList(api.get("roleIds")).contains(roleId)) {
@@ -689,6 +764,11 @@ public class GenericService {
                 ? new QuerySpec(meta).eqPrimary(id)
                 : new QuerySpec(meta).eq(byField, id);
         Map<String, Object> params = spec.toParams(meta.getAllColumns(), null, null);
+        scopeGuard.assertWriteField(key, field, value);
+        List<Map<String, Object>> targets = mapper.selectList(params);
+        if (targets != null && !targets.isEmpty()) {
+            scopeGuard.assertRead(key, codec.toApiRow(meta, targets.get(0)));
+        }
         // toParams 已把 where 的值放在 v（k0...），此处只追加待更新的值，不能整体替换 v
         Map<String, Object> values = new LinkedHashMap<>(valuesOf(params));
         values.put("f0", value);
@@ -843,6 +923,57 @@ public class GenericService {
         return head + String.format("%03d", max + 1);
     }
 
+    /**
+     * 固资 8 类单据编号的服务端兜底。
+     *
+     * <p>前端 {@code genDocNo} 按「当前可见列表」推算编号，而列表受数据范围过滤、
+     * 分页与筛选影响（D1 收紧范围后尤其明显），可能算出库中已存在的编号并触发
+     * unique 冲突。这里在唯一性校验前按<b>全表</b>同前缀的最大序号 +1 重写编号，
+     * 与低值/盘点单「服务端生成单号」的既有口径一致；非标准编号不改写，
+     * 仍由唯一性校验报错，避免掩盖真实的数据问题。</p>
+     */
+    private void ensureUniqueFixedDocCode(String key, ResourceMeta meta, Map<String, Object> row) {
+        if (key == null || !key.startsWith("fixed-asset-doc-lists-")
+                || !meta.isKnownField("code")) {
+            return;
+        }
+        String code = text(row.get("code"));
+        Matcher matcher = FIXED_DOC_CODE.matcher(code);
+        if (!matcher.matches()) {
+            return;
+        }
+        Map<String, Object> exists = new QuerySpec(meta).eq("code", code)
+                .toParams(meta.getAllColumns(), null, null);
+        if (mapper.count(exists) == 0) {
+            return;
+        }
+        String head = matcher.group(1) + matcher.group(2);
+        List<String> allCodes = new ArrayList<>();
+        Map<String, Object> params = new QuerySpec(meta).toParams(meta.getAllColumns(), 2000L, 0L);
+        params.put("orderBy", "`code` DESC");
+        for (Map<String, Object> existing : mapper.selectList(params)) {
+            allCodes.add(text(existing.get("code")));
+        }
+        String next = nextFixedDocCode(head, allCodes);
+        row.put("code", next);
+        log.info("[doc-code] {} 编号 {} 已存在，按全表重新生成为 {}", key, code, next);
+    }
+
+    /** 按同前缀全表最大序号 +1 生成；序号从 1000 起，保持 FP20261000 这类既有格式 */
+    static String nextFixedDocCode(String head, List<String> codes) {
+        long max = 999L;
+        for (String code : codes) {
+            if (code == null || !code.startsWith(head)) {
+                continue;
+            }
+            String tail = code.substring(head.length());
+            if (tail.matches("\\d+")) {
+                max = Math.max(max, Long.parseLong(tail));
+            }
+        }
+        return head + String.format("%04d", max + 1);
+    }
+
     private void applyStockOnDelete(ResourceMeta meta, Map<String, Object> row) {
         ResourceMeta.Stock stock = meta.getStock();
         if (stock == null) {
@@ -908,11 +1039,16 @@ public class GenericService {
             current = ZERO;
         }
         int sign = (stock.isOut() ? -1 : 1) * (rollback ? -1 : 1);
-        BigDecimal next = current.add(qty.multiply(BigDecimal.valueOf(sign)));
+        BigDecimal delta = qty.multiply(BigDecimal.valueOf(sign));
+        BigDecimal next = current.add(delta);
         if (next.compareTo(ZERO) < 0) {
             throw new ApiException(ErrorCode.STOCK_INSUFFICIENT, "库存不足，当前可用 " + current.stripTrailingZeros().toPlainString());
         }
-        updateColumn(itemMeta, itemId, stock.getStockField(), next);
+        // D3：原子条件扣减（col = col + delta 且结果 >= 0），affected=0 视为并发下库存不足
+        int affected = updateColumnDelta(itemMeta, itemId, stock.getStockField(), delta, ZERO);
+        if (affected == 0) {
+            throw new ApiException(ErrorCode.STOCK_INSUFFICIENT, "库存不足（并发变更），请重试");
+        }
     }
 
     /** 预占：available = stock - reserved，不足报 1001 */
@@ -978,6 +1114,19 @@ public class GenericService {
         params.put("id", id);
         params.put("column", field);
         mapper.updateColumn(params);
+    }
+
+    /**
+     * D3 库存原子扣减：{@code SET col = col + delta WHERE pk=id AND col+delta >= floor}，
+     * 返回受影响行数。0 表示下界不满足（库存不足）或行不存在。
+     */
+    private int updateColumnDelta(ResourceMeta meta, Object id, String field, BigDecimal delta, BigDecimal floor) {
+        Map<String, Object> params = new QuerySpec(meta).toParams(meta.getAllColumns(), null, null);
+        params.put("id", id);
+        params.put("column", field);
+        params.put("delta", delta);
+        params.put("floor", floor == null ? ZERO : floor);
+        return mapper.updateColumnConditional(params);
     }
 
     /** 级联删除：如删除字典类型时清理其字典项集合 */

@@ -93,6 +93,28 @@ public class SqlProvider {
                 .toString();
     }
 
+    /**
+     * D3 库存条件扣减：{@code SET col = col + delta}，仅当结果不低于 floor 时更新。
+     * 扣减传负 delta、floor=0，可彻底消除「读后写」并发超卖窗口；返回受影响行数由调用方判定。
+     */
+    public String updateColumnConditional(Map<String, Object> params) {
+        String col = Ident.q(Names.camelToSnake(String.valueOf(params.get("column"))));
+        return new StringBuilder("UPDATE ")
+                .append(Ident.q(table(params)))
+                .append(" SET ")
+                .append(col)
+                .append(" = ")
+                .append(col)
+                .append(" + #{delta}")
+                .append(" WHERE ")
+                .append(Ident.q(pk(params)))
+                .append(" = #{id}")
+                .append(" AND ")
+                .append(col)
+                .append(" + #{delta} >= #{floor}")
+                .toString();
+    }
+
     public String insert(Map<String, Object> params) {
         List<String> cols = cols(params);
         StringBuilder sb = new StringBuilder("INSERT INTO ")
@@ -121,6 +143,11 @@ public class SqlProvider {
         }
         sb.append(" WHERE ").append(Ident.q(pk(params))).append(" = #{id}");
         appendFixedFilters(sb, params, "f");
+        // D3 乐观锁：携带 expectedVersion 时把版本断言下推到 UPDATE 条件，
+        // 受影响行数为 0 即版本冲突，消除「先读后写」的 TOCTOU 窗口。
+        if (params.get("expectedVersion") != null) {
+            sb.append(" AND ").append(Ident.q("version")).append(" = #{expectedVersion}");
+        }
         return sb.toString();
     }
 

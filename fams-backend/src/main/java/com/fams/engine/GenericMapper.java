@@ -44,6 +44,10 @@ public interface GenericMapper {
     @UpdateProvider(type = SqlProvider.class, method = "updateColumn")
     int updateColumn(Map<String, Object> params);
 
+    /** D3 库存条件扣减：原子增减 + 下界断言，返回受影响行数 */
+    @UpdateProvider(type = SqlProvider.class, method = "updateColumnConditional")
+    int updateColumnConditional(Map<String, Object> params);
+
     /** 行锁读取（库存变更前的悲观锁，防并发超卖） */
     @SelectProvider(type = SqlProvider.class, method = "selectForUpdate")
     Map<String, Object> selectForUpdate(Map<String, Object> params);

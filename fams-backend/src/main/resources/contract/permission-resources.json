@@ -1,7 +1,7 @@
 {
   "version": 1,
   "description": "集合 → 权限码契约。缺省字段表示该操作未登记权限码（仅需登录）。匹配规则：精确 key 优先，其次最长前缀。",
-  "immutable": ["fixed-asset-doc-approvals"],
+  "immutable": ["fixed-asset-doc-approvals", "operation-logs"],
   "rules": [
     {
       "resource": "fixed-assets",

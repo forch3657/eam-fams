@@ -4,7 +4,7 @@
 -- 说明：
 --   1) org/角色/管理员为系统运行所需最小集（根公司 C1、根部门 D1、系统管理员 U1、R1~R8 角色预设）；
 --   2) 字典（system_dict_types / system_dict_items）为枚举校验与下拉选项所必需，务必导入；
---   3) 演示口令 Fzidt@123 为明文，应用首次启动时由 DataInitializer 自动 BCrypt 化；
+--   3) 演示口令 updbJghM7dKx8Az3J3QF 为明文，应用首次启动时由 DataInitializer 自动 BCrypt 化；
 --      上线前请通过「系统管理 → 用户」修改或设置 fams.security.bootstrap-password 强制重置。
 --   4) 客户真实的组织架构（公司/部门/人员）请使用「数据导入」功能批量导入，无需在此手工维护。
 -- ============================================================
@@ -20,7 +20,7 @@ INSERT INTO `org_departments` (`id`, `code`, `name`, `parent_id`, `company_id`, 
 
 -- 系统管理员账号（口令明文，首启自动加密；role_ids 指向 R1 全权限）
 INSERT INTO `org_users` (`id`, `username`, `password`, `password_reset_at`, `name`, `company_id`, `dept_id`, `position`, `role_ids`, `phone`, `email`, `status`, `created_at`, `last_login_at`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
-('U1', 'admin', 'Fzidt@123', NULL, '系统管理员', 'C1', 'D1', '系统管理员', '["R1"]', '13800000001', 'admin@localhost', 'ENABLED', '2024-01-05 09:00:00', NULL, 'seed', '2024-01-05 09:00:00', 'seed', '2024-01-05 09:00:00', 1);
+('U1', 'admin', 'updbJghM7dKx8Az3J3QF', NULL, '系统管理员', 'C1', 'D1', '系统管理员', '["R1"]', '13800000001', 'admin@localhost', 'ENABLED', '2024-01-05 09:00:00', NULL, 'seed', '2024-01-05 09:00:00', 'seed', '2024-01-05 09:00:00', 1);
 
 -- 角色预设（R1 全权限，R2~R8 为业务角色模板）
 INSERT INTO `org_roles` (`id`, `code`, `name`, `org_scope`, `data_scope`, `status`, `sort`, `remark`, `permissions`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES

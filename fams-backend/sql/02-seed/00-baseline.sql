@@ -5,12 +5,12 @@
 SET NAMES utf8mb4;
 
 -- 公司 (org-companies)
-INSERT INTO `org_companies` (`id`, `code`, `name`, `short_name`, `parent_id`, `type`, `credit_code`, `legal_person`, `contact`, `phone`, `address`, `status`, `sort`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
-('C1', 'GS-0001', '华信科技集团有限公司', '华信科技', NULL, '有限责任公司', '91350100MA2X00001X', '陈立', '张伟', '0591-88000001', '福州市鼓楼区五四路100号华信大厦', 'ENABLED', 1, 'seed', '2024-01-05 09:00:00', 'seed', '2026-09-18 10:22:31', 1),
-('C2', 'GS-0002', '云鼎资产管理有限公司', '云鼎资产', 'C1', '有限责任公司', '91350100MA2X00002X', '林岚', '郑凯', '0591-88000002', '福州市台江区金融街18号', 'ENABLED', 2, 'seed', '2024-01-05 09:10:00', 'seed', '2026-09-17 15:40:12', 1),
-('C3', 'GS-0003', '恒信融资租赁有限公司', '恒信租赁', 'C1', '股份有限公司', '91350100MA2X00003X', '许鸣', '吴迪', '0591-88000003', '福州市仓山区金山大道66号', 'ENABLED', 3, 'seed', '2024-01-05 09:20:00', 'seed', '2026-09-16 09:05:44', 1),
-('C4', 'GS-0004', '中天建设集团有限公司', '中天建设', 'C1', '有限责任公司', '91350100MA2X00004X', '赵启明', '赵敏', '0591-88000004', '福州市晋安区福兴大道88号', 'ENABLED', 4, 'seed', '2024-01-05 09:30:00', 'seed', '2026-09-15 14:22:08', 1),
-('C5', 'GS-0005', '华信后勤服务有限公司', '华信后勤', 'C1', '有限责任公司', '91350100MA2X00005X', '孙振', '孙磊', '0591-88000005', '福州市鼓楼区华信大厦1层', 'DISABLED', 5, 'seed', '2024-01-05 09:40:00', 'seed', '2026-08-30 11:31:52', 1);
+INSERT INTO `org_companies` (`id`, `code`, `name`, `short_name`, `parent_id`, `path`, `level`, `type`, `credit_code`, `legal_person`, `contact`, `phone`, `address`, `status`, `sort`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
+('C1', 'GS-0001', '华信科技集团有限公司', '华信科技', NULL, NULL, NULL, '有限责任公司', '91350100MA2X00001X', '陈立', '张伟', '0591-88000001', '福州市鼓楼区五四路100号华信大厦', 'ENABLED', 1, 'seed', '2024-01-05 09:00:00', 'seed', '2026-09-18 10:22:31', 1),
+('C2', 'GS-0002', '云鼎资产管理有限公司', '云鼎资产', 'C1', NULL, NULL, '有限责任公司', '91350100MA2X00002X', '林岚', '郑凯', '0591-88000002', '福州市台江区金融街18号', 'ENABLED', 2, 'seed', '2024-01-05 09:10:00', 'seed', '2026-09-17 15:40:12', 1),
+('C3', 'GS-0003', '恒信融资租赁有限公司', '恒信租赁', 'C1', NULL, NULL, '股份有限公司', '91350100MA2X00003X', '许鸣', '吴迪', '0591-88000003', '福州市仓山区金山大道66号', 'ENABLED', 3, 'seed', '2024-01-05 09:20:00', 'seed', '2026-09-16 09:05:44', 1),
+('C4', 'GS-0004', '中天建设集团有限公司', '中天建设', 'C1', NULL, NULL, '有限责任公司', '91350100MA2X00004X', '赵启明', '赵敏', '0591-88000004', '福州市晋安区福兴大道88号', 'ENABLED', 4, 'seed', '2024-01-05 09:30:00', 'seed', '2026-09-15 14:22:08', 1),
+('C5', 'GS-0005', '华信后勤服务有限公司', '华信后勤', 'C1', NULL, NULL, '有限责任公司', '91350100MA2X00005X', '孙振', '孙磊', '0591-88000005', '福州市鼓楼区华信大厦1层', 'DISABLED', 5, 'seed', '2024-01-05 09:40:00', 'seed', '2026-08-30 11:31:52', 1);
 
 -- 部门 (org-departments)
 INSERT INTO `org_departments` (`id`, `code`, `name`, `parent_id`, `company_id`, `leader`, `leader_id`, `vp_id`, `headcount`, `phone`, `status`, `sort`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
@@ -23,32 +23,32 @@ INSERT INTO `org_departments` (`id`, `code`, `name`, `parent_id`, `company_id`, 
 ('D5', 'BM-0005', '市场部', NULL, 'C1', '何欣', 'U6', 'U18', 11, '0591-88000105', 'ENABLED', 5, 'seed', '2024-01-06 09:30:00', 'seed', '2026-09-12 09:38:56', 1),
 ('D6', 'BM-0006', '生产部', NULL, 'C1', '陈刚', 'U7', 'U18', 60, '0591-88000106', 'ENABLED', 6, 'seed', '2024-01-06 09:35:00', 'seed', '2026-09-11 14:51:29', 1),
 ('D7', 'BM-0007', '仓储部', NULL, 'C1', '冯涛', 'U8', 'U18', 18, '0591-88000107', 'ENABLED', 7, 'seed', '2024-01-06 09:40:00', 'seed', '2026-09-10 10:12:35', 1),
-('D8', 'BM-0008', '资产管理部', NULL, 'C2', '周静', 'U10', NULL, 14, '0591-88000201', 'ENABLED', 1, 'seed', '2024-01-06 09:45:00', 'seed', '2026-09-09 15:40:08', 1),
-('D9', 'BM-0009', '财务部', NULL, 'C2', '郑凯', 'U11', NULL, 8, '0591-88000202', 'ENABLED', 2, 'seed', '2024-01-06 09:50:00', 'seed', '2026-09-08 11:31:52', 1),
-('D10', 'BM-0010', '租赁业务部', NULL, 'C3', '吴迪', 'U12', NULL, 16, '0591-88000301', 'ENABLED', 1, 'seed', '2024-01-06 09:55:00', 'seed', '2026-09-07 16:48:20', 1),
-('D11', 'BM-0011', '风控合规部', NULL, 'C3', '高翔', NULL, NULL, 7, '0591-88000302', 'ENABLED', 2, 'seed', '2024-01-06 10:00:00', 'seed', '2026-09-06 08:55:03', 1),
-('D12', 'BM-0012', '工程管理部', NULL, 'C4', '赵敏', 'U14', NULL, 42, '0591-88000401', 'ENABLED', 1, 'seed', '2024-01-06 10:05:00', 'seed', '2026-09-05 13:26:47', 1),
-('D13', 'BM-0013', '物资采购部', NULL, 'C4', '周芳', 'U15', NULL, 10, '0591-88000402', 'ENABLED', 2, 'seed', '2024-01-06 10:10:00', 'seed', '2026-09-04 11:19:40', 1),
-('D14', 'BM-0014', '后勤保障部', NULL, 'C5', '孙磊', NULL, NULL, 20, '0591-88000501', 'DISABLED', 1, 'seed', '2024-01-06 10:15:00', 'seed', '2026-08-30 09:14:18', 1);
+('D8', 'BM-0008', '资产管理部', NULL, 'C2', '周静', 'U10', 'U18', 14, '0591-88000201', 'ENABLED', 1, 'seed', '2024-01-06 09:45:00', 'seed', '2026-09-09 15:40:08', 1),
+('D9', 'BM-0009', '财务部', NULL, 'C2', '郑凯', 'U11', 'U18', 8, '0591-88000202', 'ENABLED', 2, 'seed', '2024-01-06 09:50:00', 'seed', '2026-09-08 11:31:52', 1),
+('D10', 'BM-0010', '租赁业务部', NULL, 'C3', '吴迪', 'U12', 'U18', 16, '0591-88000301', 'ENABLED', 1, 'seed', '2024-01-06 09:55:00', 'seed', '2026-09-07 16:48:20', 1),
+('D11', 'BM-0011', '风控合规部', NULL, 'C3', '陈静', 'U13', 'U18', 7, '0591-88000302', 'ENABLED', 2, 'seed', '2024-01-06 10:00:00', 'seed', '2026-09-06 08:55:03', 1),
+('D12', 'BM-0012', '工程管理部', NULL, 'C4', '赵敏', 'U14', 'U18', 42, '0591-88000401', 'ENABLED', 1, 'seed', '2024-01-06 10:05:00', 'seed', '2026-09-05 13:26:47', 1),
+('D13', 'BM-0013', '物资采购部', NULL, 'C4', '周芳', 'U15', 'U18', 10, '0591-88000402', 'ENABLED', 2, 'seed', '2024-01-06 10:10:00', 'seed', '2026-09-04 11:19:40', 1),
+('D14', 'BM-0014', '后勤保障部', NULL, 'C5', '孙磊', '', '', 20, '0591-88000501', 'DISABLED', 1, 'seed', '2024-01-06 10:15:00', 'seed', '2026-08-30 09:14:18', 1);
 
 -- 用户 (org-users)
-INSERT INTO `org_users` (`id`, `username`, `password`, `password_reset_at`, `name`, `company_id`, `dept_id`, `position`, `role_ids`, `phone`, `email`, `status`, `created_at`, `last_login_at`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
-('U1', 'admin', 'Fzidt@123', NULL, '系统管理员', 'C1', 'D1', '信息中心主任', '["R1"]', '13800000001', 'admin@huaxin.com', 'ENABLED', '2024-01-05 09:00:00', '2026-10-22 09:12:33', 'seed', '2024-01-05 09:00:00', 'seed', '2026-10-22 09:12:33', 1);
+INSERT INTO `org_users` (`id`, `username`, `password`, `password_reset_at`, `name`, `company_id`, `dept_id`, `scope_company_ids`, `position`, `role_ids`, `phone`, `email`, `status`, `created_at`, `last_login_at`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
+('U1', 'admin', 'updbJghM7dKx8Az3J3QF', NULL, '系统管理员', 'C1', 'D1', NULL, '信息中心主任', '["R1"]', '13800000001', 'admin@huaxin.com', 'ENABLED', '2024-01-05 09:00:00', '2026-10-22 09:12:33', 'seed', '2024-01-05 09:00:00', 'seed', '2026-10-22 09:12:33', 1);
 
 -- 角色 (org-roles)
 INSERT INTO `org_roles` (`id`, `code`, `name`, `org_scope`, `data_scope`, `status`, `sort`, `remark`, `permissions`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
 ('R1', 'ROLE_ADMIN', '系统管理员', 'GROUP', 'ALL', 'ENABLED', 1, '拥有全部模块权限，负责系统配置与组织架构维护', '["fa:view","fa:add","fa:edit","fa:delete","fa:export","fa:inbound","fa:dispatch","fa:borrow","fa:change","fa:dispose","fa:repair","fa:inventory","fa:depreciation","fa:report","fa:settings","lv:view","lv:edit","lv:export","lv:inbound","lv:requisition","lv:return","lv:report","lv:settings","wm:view","wm:todo","wm:alert","wm:overview","wm:message","org:company","org:dept","org:user","org:role","sys:dict","sys:log","sys:workflow","sys:params","sys:message","sys:template","sys:terminal","sys:import"]', 'seed', '2024-01-05 09:00:00', 'seed', '2026-09-18 10:22:31', 1),
 ('R2', 'ROLE_ASSET', '资产管理员', 'COMPANY', 'COMPANY', 'ENABLED', 2, '负责资产台账、入库、派发、处置、盘点与低值资产出入库', '["fa:view","fa:add","fa:edit","fa:export","fa:inbound","fa:dispatch","fa:borrow","fa:change","fa:dispose","fa:repair","fa:inventory","fa:depreciation","fa:report","fa:settings","lv:view","lv:edit","lv:export","lv:inbound","lv:requisition","lv:return","lv:report","lv:settings","wm:view","wm:todo","wm:alert","wm:overview","wm:message"]', 'seed', '2024-01-05 09:05:00', 'seed', '2026-09-17 15:40:12', 1),
-('R3', 'ROLE_USER', '资产使用人', 'DEPT', 'DEPT_ONLY', 'ENABLED', 3, '资产使用人：查看台账，发起借出/变更/报修与低值入库/领用/退库，处理本人待办', '["fa:view","fa:borrow","fa:change","fa:repair","lv:view","lv:inbound","lv:requisition","lv:return","wm:view","wm:todo","wm:message"]', 'seed', '2024-01-05 09:10:00', 'seed', '2026-09-16 09:05:44', 1),
-('R4', 'ROLE_FINANCE', '财务管理员', 'COMPANY', 'COMPANY', 'ENABLED', 4, '负责折旧计提、资产报表与导出；WF8 财务复核审批人', '["fa:view","fa:export","fa:depreciation","fa:report","lv:view","lv:report","sys:log","wm:view","wm:todo","wm:overview","wm:message"]', 'seed', '2024-01-05 09:15:00', 'seed', '2026-09-15 14:22:08', 1),
-('R5', 'ROLE_LEADER', '部门主管', 'DEPT', 'DEPT', 'ENABLED', 5, '部门负责人，审批本部门资产业务单据；不持有台账编辑与派发/盘点执行权', '["fa:view","fa:report","lv:view","lv:requisition","lv:report","wm:view","wm:todo","wm:alert","wm:message"]', 'seed', '2024-01-05 09:20:00', 'seed', '2026-09-14 11:31:52', 1),
-('R6', 'ROLE_AUDITOR', '审计员', 'GROUP', 'ALL', 'ENABLED', 6, '只读内审与合规检查；盘点流程「审计抽查确认」审批人，需 wm:todo 才能处理待办', '["fa:view","fa:export","fa:report","lv:view","lv:report","sys:log","wm:view","wm:todo","wm:overview","wm:message"]', 'seed', '2024-01-05 09:25:00', 'seed', '2026-09-13 16:48:20', 1),
-('R7', 'ROLE_VP', '分管副总', 'GROUP', 'ALL', 'ENABLED', 7, '大额资产处置/维修的分管领导审批环节；只做审批与报表查看', '["fa:view","fa:report","lv:view","lv:report","wm:view","wm:todo","wm:overview","wm:message"]', 'seed', '2024-01-05 09:30:00', 'seed', '2026-09-12 15:20:10', 1),
+('R3', 'ROLE_USER', '资产使用人', 'DEPT', 'DEPT_ONLY', 'ENABLED', 3, '查看台账，发起借出/变更/报修与低值入库/领用/退库，处理本人待办', '["fa:view","fa:borrow","fa:change","fa:repair","lv:view","lv:inbound","lv:requisition","lv:return","wm:view","wm:todo","wm:message"]', 'seed', '2024-01-05 09:10:00', 'seed', '2026-09-16 09:05:44', 1),
+('R4', 'ROLE_FINANCE', '财务管理员', 'COMPANY', 'COMPANY', 'ENABLED', 4, '折旧计提/报表/导出；WF8 财务复核审批人', '["fa:view","fa:export","fa:depreciation","fa:report","lv:view","lv:report","sys:log","wm:view","wm:todo","wm:overview","wm:message"]', 'seed', '2024-01-05 09:15:00', 'seed', '2026-09-15 14:22:08', 1),
+('R5', 'ROLE_LEADER', '部门主管', 'DEPT', 'DEPT', 'ENABLED', 5, '部门负责人审批，不持有台账编辑与派发/盘点执行权', '["fa:view","fa:report","lv:view","lv:requisition","lv:report","wm:view","wm:todo","wm:alert","wm:message"]', 'seed', '2024-01-05 09:20:00', 'seed', '2026-09-14 11:31:52', 1),
+('R6', 'ROLE_AUDITOR', '审计员', 'GROUP', 'ALL', 'ENABLED', 6, '只读内审；盘点流程「审计抽查确认」审批人，需 wm:todo 才能处理待办', '["fa:view","fa:export","fa:report","lv:view","lv:report","sys:log","wm:view","wm:todo","wm:overview","wm:message"]', 'seed', '2024-01-05 09:25:00', 'seed', '2026-09-13 16:48:20', 1),
+('R7', 'ROLE_VP', '分管副总', 'GROUP', 'ALL', 'ENABLED', 7, '大额资产处置/维修审批，只做审批与报表查看', '["fa:view","fa:report","lv:view","lv:report","wm:view","wm:todo","wm:overview","wm:message"]', 'seed', '2024-01-05 09:30:00', 'seed', '2026-09-12 15:20:10', 1),
 ('R8', 'ROLE_WAREHOUSE', '仓管员', 'COMPANY', 'COMPANY', 'ENABLED', 8, '低值资产出入库与 WF1 仓管验收审批人', '["fa:view","fa:inbound","fa:report","lv:view","lv:inbound","lv:requisition","lv:return","lv:report","wm:view","wm:todo","wm:alert","wm:message"]', 'seed', '2024-01-05 09:35:00', 'seed', '2026-09-11 10:05:33', 1);
 
 -- 数据字典类型 (system-dict-types)
 INSERT INTO `system_dict_types` (`code`, `name`, `count`, `status`, `remark`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
-('asset_status', '资产状态', 6, 'ENABLED', NULL, 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1),
+('asset_status', '资产状态', 9, 'ENABLED', NULL, 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1),
 ('asset_type', '资产分类', 8, 'ENABLED', NULL, 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1),
 ('enable_status', '启停状态', 2, 'ENABLED', NULL, 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1),
 ('doc_status', '单据状态', 5, 'ENABLED', NULL, 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1),
@@ -69,8 +69,8 @@ INSERT INTO `system_dict_types` (`code`, `name`, `count`, `status`, `remark`, `c
 ('calc_time', '计提频率', 3, 'ENABLED', NULL, 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1),
 ('business_type', '审批业务', 11, 'ENABLED', NULL, 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1),
 ('approve_mode', '审批模式', 3, 'ENABLED', NULL, 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1),
-('approve_condition', '审批触发条件', 3, 'ENABLED', NULL, 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1),
-('approve_result', '审批动作结果', 4, 'ENABLED', NULL, 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1),
+('approve_condition', '审批触发条件', 5, 'ENABLED', NULL, 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1),
+('approve_result', '审批动作结果', 10, 'ENABLED', NULL, 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1),
 ('message_level', '消息级别', 3, 'ENABLED', NULL, 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1),
 ('device_status', '盘点终端状态', 4, 'ENABLED', NULL, 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1),
 ('device_type', '盘点终端类型', 5, 'ENABLED', NULL, 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1),
@@ -87,9 +87,9 @@ INSERT INTO `system_dict_items` (`id`, `label`, `value`, `sort`, `status`, `rema
 ('DI_asset_status_BORROWED', '借出中', 'BORROWED', 4, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'asset_status'),
 ('DI_asset_status_REPAIRING', '维修中', 'REPAIRING', 5, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'asset_status'),
 ('DI_asset_status_DISPOSING', '处置中', 'DISPOSING', 6, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'asset_status'),
-('DI_asset_status_PENDING_INBOUND', '待入库', 'PENDING_INBOUND', 7, 'ENABLED', '盘点盘盈建账后待入库验收', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'asset_status'),
-('DI_asset_status_PENDING_WRITE_OFF', '待核销', 'PENDING_WRITE_OFF', 8, 'ENABLED', '盘点盘亏待处置核销', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'asset_status'),
-('DI_asset_status_DISPOSED', '已核销', 'DISPOSED', 9, 'ENABLED', '处置审批完结，账面上注销', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'asset_status');
+('DI_asset_status_PENDING_INBOUND', '待入库', 'PENDING_INBOUND', 7, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'asset_status'),
+('DI_asset_status_PENDING_WRITE_OFF', '待核销', 'PENDING_WRITE_OFF', 8, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'asset_status'),
+('DI_asset_status_DISPOSED', '已核销', 'DISPOSED', 9, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'asset_status');
 
 -- 字典项 (system-dict-types-asset_type-items)
 INSERT INTO `system_dict_items` (`id`, `label`, `value`, `sort`, `status`, `remark`, `create_by`, `create_time`, `update_by`, `update_time`, `version`, `dict_code`) VALUES
@@ -138,23 +138,17 @@ INSERT INTO `system_dict_items` (`id`, `label`, `value`, `sort`, `status`, `rema
 ('DI_dispose_status_DONE', '已完成', 'DONE', 2, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'dispose_status');
 
 -- 字典项 (system-dict-types-dispose_type-items)
--- 目标口径：报废/变卖/捐赠/转让；后三类强制财务 R4 + 审计 R6 参与。
--- 旧「调拨/其他」只停用不删除，避免历史单据按 value 取不到文案。
 INSERT INTO `system_dict_items` (`id`, `label`, `value`, `sort`, `status`, `remark`, `create_by`, `create_time`, `update_by`, `update_time`, `version`, `dict_code`) VALUES
-('DI_dispose_type_SCRAP', '报废', 'SCRAP', 1, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-11-09 09:00:00', 1, 'dispose_type'),
-('DI_dispose_type_SALE', '变卖', 'SALE', 2, 'ENABLED', '强制财务与审计参与', 'seed', '2026-01-06 09:00:00', 'seed', '2026-11-09 09:00:00', 1, 'dispose_type'),
-('DI_dispose_type_DONATE', '捐赠', 'DONATE', 3, 'ENABLED', '强制财务与审计参与', 'seed', '2026-01-06 09:00:00', 'seed', '2026-11-09 09:00:00', 1, 'dispose_type'),
-('DI_dispose_type_TRANSFER_OUT', '转让', 'TRANSFER_OUT', 4, 'ENABLED', '仅集团内独立核算主体，出公司即出账', 'seed', '2026-01-06 09:00:00', 'seed', '2026-11-09 09:00:00', 1, 'dispose_type'),
-('DI_dispose_type_TRANSFER', '调拨', 'TRANSFER', 5, 'DISABLED', '已停用：公司内部转移走资产变更-调拨', 'seed', '2026-01-06 09:00:00', 'seed', '2026-11-09 09:00:00', 1, 'dispose_type'),
-('DI_dispose_type_OTHER', '其他', 'OTHER', 6, 'DISABLED', '已停用：四类处置方式已收敛', 'seed', '2026-01-06 09:00:00', 'seed', '2026-11-09 09:00:00', 1, 'dispose_type');
+('DI_dispose_type_SCRAP', '报废', 'SCRAP', 1, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'dispose_type'),
+('DI_dispose_type_SALE', '变卖', 'SALE', 2, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'dispose_type'),
+('DI_dispose_type_DONATE', '捐赠', 'DONATE', 3, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'dispose_type'),
+('DI_dispose_type_TRANSFER_OUT', '转让', 'TRANSFER_OUT', 4, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'dispose_type');
 
 -- 字典项 (system-dict-types-change_type-items)
--- 目标口径：调拨/维修/信息更正，三类同属「在册继续使用」。
 INSERT INTO `system_dict_items` (`id`, `label`, `value`, `sort`, `status`, `remark`, `create_by`, `create_time`, `update_by`, `update_time`, `version`, `dict_code`) VALUES
-('DI_change_type_TRANSFER', '调拨', 'TRANSFER', 1, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-11-09 09:00:00', 1, 'change_type'),
-('DI_change_type_REPAIR', '维修', 'REPAIR', 2, 'ENABLED', '引入维修中与修毕验收', 'seed', '2026-01-06 09:00:00', 'seed', '2026-11-09 09:00:00', 1, 'change_type'),
-('DI_change_type_CORRECTION', '信息更正', 'CORRECTION', 3, 'ENABLED', '须留更正前后快照', 'seed', '2026-01-06 09:00:00', 'seed', '2026-11-09 09:00:00', 1, 'change_type'),
-('DI_change_type_OTHER', '其他', 'OTHER', 4, 'DISABLED', '已停用：三类变更已收敛', 'seed', '2026-01-06 09:00:00', 'seed', '2026-11-09 09:00:00', 1, 'change_type');
+('DI_change_type_TRANSFER', '调拨', 'TRANSFER', 1, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'change_type'),
+('DI_change_type_REPAIR', '维修', 'REPAIR', 2, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'change_type'),
+('DI_change_type_CORRECTION', '信息更正', 'CORRECTION', 3, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'change_type');
 
 -- 字典项 (system-dict-types-purchase_mode-items)
 INSERT INTO `system_dict_items` (`id`, `label`, `value`, `sort`, `status`, `remark`, `create_by`, `create_time`, `update_by`, `update_time`, `version`, `dict_code`) VALUES
@@ -197,9 +191,9 @@ INSERT INTO `system_dict_items` (`id`, `label`, `value`, `sort`, `status`, `rema
 
 -- 字典项 (system-dict-types-inventory_disposal-items)
 INSERT INTO `system_dict_items` (`id`, `label`, `value`, `sort`, `status`, `remark`, `create_by`, `create_time`, `update_by`, `update_time`, `version`, `dict_code`) VALUES
-('DI_inventory_disposal_REPAIR', '转维修单', 'REPAIR', 1, 'ENABLED', '盘点异常生成待审维修单', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'inventory_disposal'),
-('DI_inventory_disposal_CHANGE', '转变更单', 'CHANGE', 2, 'ENABLED', '盘点异常生成待审资产变更单', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'inventory_disposal'),
-('DI_inventory_disposal_EXPLAINED', '已说明', 'EXPLAINED', 3, 'ENABLED', '异常已在备注说明，不生成派生单据', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'inventory_disposal');
+('DI_inventory_disposal_REPAIR', '转维修单', 'REPAIR', 1, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'inventory_disposal'),
+('DI_inventory_disposal_CHANGE', '转变更单', 'CHANGE', 2, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'inventory_disposal'),
+('DI_inventory_disposal_EXPLAINED', '已说明', 'EXPLAINED', 3, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'inventory_disposal');
 
 -- 字典项 (system-dict-types-depreciation_method-items)
 INSERT INTO `system_dict_items` (`id`, `label`, `value`, `sort`, `status`, `remark`, `create_by`, `create_time`, `update_by`, `update_time`, `version`, `dict_code`) VALUES
@@ -238,17 +232,22 @@ INSERT INTO `system_dict_items` (`id`, `label`, `value`, `sort`, `status`, `rema
 INSERT INTO `system_dict_items` (`id`, `label`, `value`, `sort`, `status`, `remark`, `create_by`, `create_time`, `update_by`, `update_time`, `version`, `dict_code`) VALUES
 ('DI_approve_condition_NONE', '无条件', 'NONE', 1, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_condition'),
 ('DI_approve_condition_AMOUNT_GT', '单据金额大于', 'AMOUNT_GT', 2, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_condition'),
-('DI_approve_condition_HAS_DIFF', '存在盘点差异', 'HAS_DIFF', 3, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_condition');
+('DI_approve_condition_HAS_DIFF', '存在盘点差异', 'HAS_DIFF', 3, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_condition'),
+('DI_approve_condition_HAS_ASSET_USER', '存在现任资产使用人', 'HAS_ASSET_USER', 4, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_condition'),
+('DI_approve_condition_HAS_BORROWER', '已登记借用人', 'HAS_BORROWER', 5, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_condition');
 
 -- 字典项 (system-dict-types-approve_result-items)
 INSERT INTO `system_dict_items` (`id`, `label`, `value`, `sort`, `status`, `remark`, `create_by`, `create_time`, `update_by`, `update_time`, `version`, `dict_code`) VALUES
 ('DI_approve_result_SUBMIT', '提交', 'SUBMIT', 1, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_result'),
-('DI_approve_result_AGREE', '通过', 'AGREE', 2, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_result'),
-('DI_approve_result_REJECT', '驳回', 'REJECT', 3, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_result'),
-('DI_approve_result_REVOKE', '撤销', 'REVOKE', 4, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_result'),
-('DI_approve_result_WITHDRAW', '撤回', 'WITHDRAW', 5, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_result'),
+('DI_approve_result_WITHDRAW', '撤回', 'WITHDRAW', 2, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_result'),
+('DI_approve_result_AGREE', '通过', 'AGREE', 3, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_result'),
+('DI_approve_result_REJECT', '驳回', 'REJECT', 4, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_result'),
+('DI_approve_result_REVOKE', '撤销', 'REVOKE', 5, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_result'),
 ('DI_approve_result_VOID', '作废', 'VOID', 6, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_result'),
-('DI_approve_result_TERMINATE', '终止', 'TERMINATE', 7, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_result');
+('DI_approve_result_TERMINATE', '终止', 'TERMINATE', 7, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_result'),
+('DI_approve_result_ADD_SIGN', '加签', 'ADD_SIGN', 8, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_result'),
+('DI_approve_result_TRANSFER', '转办', 'TRANSFER', 9, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_result'),
+('DI_approve_result_CC', '抄送', 'CC', 10, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'approve_result');
 
 -- 字典项 (system-dict-types-message_level-items)
 INSERT INTO `system_dict_items` (`id`, `label`, `value`, `sort`, `status`, `remark`, `create_by`, `create_time`, `update_by`, `update_time`, `version`, `dict_code`) VALUES
@@ -300,30 +299,29 @@ INSERT INTO `system_dict_items` (`id`, `label`, `value`, `sort`, `status`, `rema
 ('DI_org_scope_DEPT', '本部门', 'DEPT', 3, 'ENABLED', '', 'seed', '2026-01-06 09:00:00', 'seed', '2026-09-12 14:30:21', 1, 'org_scope');
 
 -- 系统参数 (system-params)
-INSERT INTO `system_params` (`id`, `name`, `key`, `value`, `type`, `remark`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
-('SP01', '资产编号前缀', 'sys.asset.code.prefix', 'GD', 'SYSTEM', '生成资产卡片编号的前缀', 'seed', '2026-01-06 11:00:00', 'seed', '2026-10-20 09:12:00', 1),
-('SP02', '低值物品编号前缀', 'sys.lowvalue.code.prefix', 'DZ', 'SYSTEM', '生成低值物品编码的前缀', 'seed', '2026-01-06 11:05:00', 'seed', '2026-10-19 14:30:00', 1),
-('SP03', '折旧计提日', 'sys.depreciation.day', '1', 'SYSTEM', '每月计提折旧的日期', 'seed', '2026-01-06 11:10:00', 'seed', '2026-10-18 10:05:00', 1),
-('SP04', '盘点提醒提前天数', 'sys.inventory.remind.days', '7', 'SYSTEM', '盘点截止前多少天开始提醒', 'seed', '2026-01-06 11:15:00', 'seed', '2026-10-17 16:40:00', 1),
-('SP05', '附件大小上限(MB)', 'sys.upload.maxSize', '20', 'SYSTEM', '单个附件上传大小上限', 'seed', '2026-01-06 11:20:00', 'seed', '2026-10-16 11:25:00', 1),
-('SP06', '消息保留天数', 'sys.message.keepDays', '90', 'CUSTOM', '站内消息保留天数，超时自动清理', 'seed', '2026-03-01 09:00:00', 'seed', '2026-10-15 09:00:00', 1),
-('SP07', '低库存预警阈值', 'sys.lowvalue.safetyRatio', '0.2', 'CUSTOM', '库存低于安全库存比例时预警', 'seed', '2026-03-01 09:05:00', 'seed', '2026-10-14 15:20:00', 1),
-('SP08', '盘点终端心跳超时(分钟)', 'sys.terminal.heartbeat', '5', 'CUSTOM', '盘点终端超过该时间未心跳视为离线', 'seed', '2026-03-01 09:10:00', 'seed', '2026-10-13 13:45:00', 1),
-('SP09', '审批滞留超时天数', 'sys.approval.timeout.days', '5', 'CUSTOM', '单据在审批中停留超过该天数仍未处理，工作台预警中心提示', 'seed', '2026-03-01 09:15:00', 'seed', '2026-10-12 09:15:00', 1),
-('SP10', '驳回重提期限(天)', 'sys.approval.reject.retryDays', '3', 'CUSTOM', '单据被驳回后超过该天数未重新提交，工作台预警中心提示', 'seed', '2026-03-01 09:20:00', 'seed', '2026-10-11 09:20:00', 1),
-('SP11', '期初数据切换日', 'sys.asset.legacy.cutoff', '', 'CUSTOM', '管理员在系统设置中指定的上线切换日（YYYY-MM-DD）；留空表示尚未指定，此时拒绝期初状态直写', 'seed', '2026-11-09 09:00:00', 'seed', '2026-11-09 09:00:00', 1);
+INSERT INTO `system_params` (`id`, `company_id`, `name`, `key`, `value`, `type`, `remark`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
+('SP01', NULL, '资产编号前缀', 'sys.asset.code.prefix', 'GD', 'SYSTEM', '生成资产卡片编号的前缀', 'seed', '2026-01-06 11:00:00', 'seed', '2026-10-20 09:12:00', 1),
+('SP02', NULL, '低值物品编号前缀', 'sys.lowvalue.code.prefix', 'DZ', 'SYSTEM', '生成低值物品编码的前缀', 'seed', '2026-01-06 11:05:00', 'seed', '2026-10-19 14:30:00', 1),
+('SP03', NULL, '折旧计提日', 'sys.depreciation.day', '1', 'SYSTEM', '每月计提折旧的日期', 'seed', '2026-01-06 11:10:00', 'seed', '2026-10-18 10:05:00', 1),
+('SP04', NULL, '盘点提醒提前天数', 'sys.inventory.remind.days', '7', 'SYSTEM', '盘点截止前多少天开始提醒', 'seed', '2026-01-06 11:15:00', 'seed', '2026-10-17 16:40:00', 1),
+('SP05', NULL, '附件大小上限(MB)', 'sys.upload.maxSize', '20', 'SYSTEM', '单个附件上传大小上限', 'seed', '2026-01-06 11:20:00', 'seed', '2026-10-16 11:25:00', 1),
+('SP06', NULL, '消息保留天数', 'sys.message.keepDays', '90', 'CUSTOM', '站内消息保留天数，超时自动清理', 'seed', '2026-03-01 09:00:00', 'seed', '2026-10-15 09:00:00', 1),
+('SP07', NULL, '低库存预警阈值', 'sys.lowvalue.safetyRatio', '0.2', 'CUSTOM', '库存低于安全库存比例时预警', 'seed', '2026-03-01 09:05:00', 'seed', '2026-10-14 15:20:00', 1),
+('SP08', NULL, '盘点终端心跳超时(分钟)', 'sys.terminal.heartbeat', '5', 'CUSTOM', '盘点终端超过该时间未心跳视为离线', 'seed', '2026-03-01 09:10:00', 'seed', '2026-10-13 13:45:00', 1),
+('SP09', NULL, '审批滞留超时天数', 'sys.approval.timeout.days', '5', 'CUSTOM', '单据在审批中停留超过该天数仍未处理，工作台预警中心提示', 'seed', '2026-03-01 09:15:00', 'seed', '2026-10-12 09:15:00', 1),
+('SP10', NULL, '驳回重提期限(天)', 'sys.approval.reject.retryDays', '3', 'CUSTOM', '单据被驳回后超过该天数未重新提交，工作台预警中心提示', 'seed', '2026-03-01 09:20:00', 'seed', '2026-10-11 09:20:00', 1);
 
 -- 工作流程 (system-workflow-flows)
-INSERT INTO `system_workflow_flows` (`id`, `code`, `name`, `biz_type`, `initiator`, `initiator_role_id`, `enabled`, `steps`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
-('WF1', 'FLOW_INBOUND', '资产入库验收流程', 'INBOUND', '资产管理员', 'R2', 1, '[{"key":"s1","name":"仓管验收","approverRoleId":"R8","approver":"仓管员","mode":"ANY","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s2","name":"资产管理员复核","approverRoleId":"R2","approver":"资产管理员","mode":"SEQUENCE","conditionType":"NONE","conditionValue":0,"condition":"无条件"}]', 'seed', '2026-01-06 12:00:00', 'seed', '2026-10-22 09:10:00', 1),
-('WF2', 'FLOW_DISPATCH', '资产派发流程', 'DISPATCH', '资产管理员', 'R2', 1, '[{"key":"s1","name":"使用部门确认","approverType":"DEPT_LEADER","approverRoleId":"R5","approver":"部门主管","mode":"ANY","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s2","name":"资产管理员登记","approverRoleId":"R2","approver":"资产管理员","mode":"SEQUENCE","conditionType":"NONE","conditionValue":0,"condition":"无条件"}]', 'seed', '2026-01-06 12:05:00', 'seed', '2026-10-22 09:10:00', 1),
-('WF3', 'FLOW_RETURN', '资产退库流程', 'RETURN', '资产使用人', 'R3', 1, '[{"key":"s1","name":"部门主管确认","approverType":"DEPT_LEADER","approverRoleId":"R5","approver":"部门主管","mode":"ANY","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s2","name":"仓管员验收入库","approverRoleId":"R8","approver":"仓管员","mode":"SEQUENCE","conditionType":"NONE","conditionValue":0,"condition":"无条件"}]', 'seed', '2026-01-06 12:10:00', 'seed', '2026-10-22 09:10:00', 1),
-('WF4', 'FLOW_BORROW', '资产借出流程', 'BORROW', '资产使用人', 'R3', 1, '[{"key":"s1","name":"部门主管审批","approverType":"DEPT_LEADER","approverRoleId":"R5","approver":"部门主管","mode":"ANY","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s2","name":"资产管理员审核","approverRoleId":"R2","approver":"资产管理员","mode":"SEQUENCE","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s3","name":"借用人确认接收","approverType":"DOC_BORROWER","approverRoleId":"R3","approver":"借出借用人","mode":"ANY","conditionType":"HAS_BORROWER","conditionValue":0,"condition":"已登记借用人"}]', 'seed', '2026-01-06 12:15:00', 'seed', '2026-10-22 09:10:00', 1),
-('WF5', 'FLOW_TRANSFER', '资产调拨流程', 'TRANSFER', '资产管理员', 'R2', 1, '[{"key":"s1","name":"现任使用人交出确认","approverType":"ASSET_CURRENT_USER","approverRoleId":"R3","approver":"现任资产使用人","mode":"ANY","conditionType":"HAS_ASSET_USER","conditionValue":0,"condition":"存在现任资产使用人"},{"key":"s2","name":"调出部门主管审批","approverType":"DEPT_LEADER","approverRoleId":"R5","approver":"部门主管","mode":"ANY","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s3","name":"新使用人接收确认","approverType":"DOC_TARGET_USER","approverRoleId":"R3","approver":"调拨后新使用人","mode":"ANY","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s4","name":"大额调拨分管副总审批","approverType":"DEPT_VP","approverRoleId":"R7","approver":"分管副总","mode":"ANY","conditionType":"AMOUNT_GT","conditionValue":200000,"condition":"单据金额大于 200000 元"},{"key":"s5","name":"资产管理员办理调拨","approverRoleId":"R2","approver":"资产管理员","mode":"SEQUENCE","conditionType":"NONE","conditionValue":0,"condition":"无条件"}]', 'seed', '2026-01-06 12:20:00', 'seed', '2026-10-22 09:10:00', 1),
-('WF6', 'FLOW_REPAIR', '资产维修流程', 'REPAIR', '资产使用人', 'R3', 1, '[{"key":"s1","name":"部门主管审批","approverType":"DEPT_LEADER","approverRoleId":"R5","approver":"部门主管","mode":"ANY","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s2","name":"资产管理员审核","approverRoleId":"R2","approver":"资产管理员","mode":"SEQUENCE","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s3","name":"大额维修分管副总审批","approverType":"DEPT_VP","approverRoleId":"R7","approver":"分管副总","mode":"ANY","conditionType":"AMOUNT_GT","conditionValue":50000,"condition":"单据金额大于 50000 元"},{"key":"s4","name":"修毕验收","approverRoleId":"R2","approver":"资产管理员","mode":"ANY","conditionType":"NONE","conditionValue":0,"condition":"维修完成验收后资产回使用中"}]', 'seed', '2026-01-06 12:25:00', 'seed', '2026-10-22 09:10:00', 1),
-('WF7', 'FLOW_CHANGE', '资产变更流程', 'CHANGE', '资产使用人', 'R3', 1, '[{"key":"s1","name":"调出部门主管审批","approverType":"DEPT_LEADER","approverRoleId":"R5","approver":"部门主管","mode":"ANY","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s2","name":"资产管理员确认","approverRoleId":"R2","approver":"资产管理员","mode":"SEQUENCE","conditionType":"NONE","conditionValue":0,"condition":"无条件"}]', 'seed', '2026-01-06 12:30:00', 'seed', '2026-10-22 09:10:00', 1),
-('WF8', 'FLOW_DISPOSE', '资产处置流程', 'DISPOSE', '资产管理员', 'R2', 1, '[{"key":"s1","name":"部门主管审批","approverType":"DEPT_LEADER","approverRoleId":"R5","approver":"部门主管","mode":"ANY","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s2","name":"财务管理员复核","approverRoleId":"R4","approver":"财务管理员","mode":"ANY","conditionType":"DISPOSE_FINANCE","conditionValue":50000,"condition":"变卖/捐赠/转让强制参与；报废按金额大于 50000 元"},{"key":"s3","name":"分管副总审批","approverType":"DEPT_VP","approverRoleId":"R7","approver":"分管副总","mode":"ALL","conditionType":"AMOUNT_GT","conditionValue":200000,"condition":"单据金额大于 200000 元"},{"key":"s4","name":"审计员备案","approverRoleId":"R6","approver":"审计员","mode":"ANY","conditionType":"DISPOSE_AUDIT","conditionValue":200000,"condition":"变卖/捐赠/转让强制参与；报废按金额大于 200000 元"}]', 'seed', '2026-01-06 12:35:00', 'seed', '2026-10-22 09:10:00', 1),
-('WF9', 'FLOW_INVENTORY', '资产盘点流程', 'INVENTORY', '资产管理员', 'R2', 1, '[{"key":"s1","name":"盘点结果确认","approverRoleId":"R2","approver":"资产管理员","mode":"ANY","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s2","name":"盘点差异复核","approverRoleId":"R2","approver":"资产管理员","mode":"ANY","conditionType":"HAS_DIFF","conditionValue":0,"condition":"存在盘点差异"},{"key":"s3","name":"审计抽查确认","approverRoleId":"R6","approver":"审计员","mode":"ANY","conditionType":"HAS_DIFF","conditionValue":0,"condition":"存在盘点差异"}]', 'seed', '2026-01-06 12:40:00', 'seed', '2026-10-22 09:10:00', 1),
-('WF10', 'FLOW_LV_REQUISITION', '低值资产领用流程', 'REQUISITION', '资产使用人', 'R3', 1, '[{"key":"s1","name":"部门主管审批","approverType":"DEPT_LEADER","approverRoleId":"R5","approver":"部门主管","mode":"ANY","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s2","name":"仓管员出库确认","approverRoleId":"R8","approver":"仓管员","mode":"SEQUENCE","conditionType":"NONE","conditionValue":0,"condition":"无条件"}]', 'seed', '2026-01-06 12:45:00', 'seed', '2026-10-22 09:10:00', 1),
-('WF11', 'FLOW_LV_RETURN', '低值资产退库流程', 'LV_RETURN', '资产使用人', 'R3', 1, '[{"key":"s1","name":"部门主管确认","approverType":"DEPT_LEADER","approverRoleId":"R5","approver":"部门主管","mode":"ANY","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s2","name":"仓管员验收入库","approverRoleId":"R8","approver":"仓管员","mode":"SEQUENCE","conditionType":"NONE","conditionValue":0,"condition":"无条件"}]', 'seed', '2026-01-06 12:50:00', 'seed', '2026-10-22 09:10:00', 1);
+INSERT INTO `system_workflow_flows` (`id`, `company_id`, `code`, `name`, `biz_type`, `initiator`, `initiator_role_id`, `enabled`, `steps`, `create_by`, `create_time`, `update_by`, `update_time`, `version`) VALUES
+('WF1', NULL, 'FLOW_INBOUND', '资产入库验收流程', 'INBOUND', '资产管理员', 'R2', 1, '[{"key":"s1","name":"仓管验收","approverRoleId":"R8","approver":"仓管员","mode":"ANY","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s2","name":"资产管理员复核","approverRoleId":"R2","approver":"资产管理员","mode":"SEQUENCE","conditionType":"NONE","conditionValue":0,"condition":"无条件"}]', 'seed', '2026-01-06 12:00:00', 'seed', '2026-10-22 09:10:00', 1),
+('WF2', NULL, 'FLOW_DISPATCH', '资产派发流程', 'DISPATCH', '资产管理员', 'R2', 1, '[{"key":"s1","name":"使用部门确认","approverType":"DEPT_LEADER","approverRoleId":"R5","approver":"部门主管","mode":"ANY","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s2","name":"资产管理员登记","approverRoleId":"R2","approver":"资产管理员","mode":"SEQUENCE","conditionType":"NONE","conditionValue":0,"condition":"无条件"}]', 'seed', '2026-01-06 12:05:00', 'seed', '2026-10-22 09:10:00', 1),
+('WF3', NULL, 'FLOW_RETURN', '资产退库流程', 'RETURN', '资产使用人', 'R3', 1, '[{"key":"s1","name":"部门主管确认","approverType":"DEPT_LEADER","approverRoleId":"R5","approver":"部门主管","mode":"ANY","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s2","name":"仓管员验收入库","approverRoleId":"R8","approver":"仓管员","mode":"SEQUENCE","conditionType":"NONE","conditionValue":0,"condition":"无条件"}]', 'seed', '2026-01-06 12:10:00', 'seed', '2026-10-22 09:10:00', 1),
+('WF4', NULL, 'FLOW_BORROW', '资产借出流程', 'BORROW', '资产使用人', 'R3', 1, '[{"key":"s1","name":"部门主管审批","approverType":"DEPT_LEADER","approverRoleId":"R5","approver":"部门主管","mode":"ANY","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s2","name":"资产管理员审核","approverRoleId":"R2","approver":"资产管理员","mode":"SEQUENCE","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s3","name":"借用人确认接收","approverType":"DOC_BORROWER","approverRoleId":"R3","approver":"借出借用人","mode":"ANY","conditionType":"HAS_BORROWER","conditionValue":0,"condition":"已登记借用人"}]', 'seed', '2026-01-06 12:15:00', 'seed', '2026-10-22 09:10:00', 1),
+('WF5', NULL, 'FLOW_TRANSFER', '资产调拨流程', 'TRANSFER', '资产管理员', 'R2', 1, '[{"key":"s1","name":"现任使用人交出确认","approverType":"ASSET_CURRENT_USER","approverRoleId":"R3","approver":"现任资产使用人","mode":"ANY","conditionType":"HAS_ASSET_USER","conditionValue":0,"condition":"存在现任资产使用人"},{"key":"s2","name":"调出部门主管审批","approverType":"DEPT_LEADER","approverRoleId":"R5","approver":"部门主管","mode":"ANY","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s3","name":"新使用人接收确认","approverType":"DOC_TARGET_USER","approverRoleId":"R3","approver":"调拨后新使用人","mode":"ANY","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s4","name":"大额调拨分管副总审批","approverType":"DEPT_VP","approverRoleId":"R7","approver":"分管副总","mode":"ANY","conditionType":"AMOUNT_GT","conditionValue":200000,"condition":"单据金额大于 200000 元"},{"key":"s5","name":"资产管理员办理调拨","approverRoleId":"R2","approver":"资产管理员","mode":"SEQUENCE","conditionType":"NONE","conditionValue":0,"condition":"无条件"}]', 'seed', '2026-01-06 12:20:00', 'seed', '2026-10-22 09:10:00', 1),
+('WF6', NULL, 'FLOW_REPAIR', '资产维修流程', 'REPAIR', '资产使用人', 'R3', 1, '[{"key":"s1","name":"部门主管审批","approverType":"DEPT_LEADER","approverRoleId":"R5","approver":"部门主管","mode":"ANY","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s2","name":"资产管理员审核","approverRoleId":"R2","approver":"资产管理员","mode":"SEQUENCE","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s3","name":"大额维修分管副总审批","approverType":"DEPT_VP","approverRoleId":"R7","approver":"分管副总","mode":"ANY","conditionType":"AMOUNT_GT","conditionValue":50000,"condition":"单据金额大于 50000 元"}]', 'seed', '2026-01-06 12:25:00', 'seed', '2026-10-22 09:10:00', 1),
+('WF7', NULL, 'FLOW_CHANGE', '资产变更流程', 'CHANGE', '资产使用人', 'R3', 1, '[{"key":"s1","name":"调出部门主管审批","approverType":"DEPT_LEADER","approverRoleId":"R5","approver":"部门主管","mode":"ANY","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s2","name":"资产管理员确认","approverRoleId":"R2","approver":"资产管理员","mode":"SEQUENCE","conditionType":"NONE","conditionValue":0,"condition":"无条件"}]', 'seed', '2026-01-06 12:30:00', 'seed', '2026-10-22 09:10:00', 1),
+('WF8', NULL, 'FLOW_DISPOSE', '资产处置流程', 'DISPOSE', '资产管理员', 'R2', 1, '[{"key":"s1","name":"部门主管审批","approverType":"DEPT_LEADER","approverRoleId":"R5","approver":"部门主管","mode":"ANY","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s2","name":"财务管理员复核","approverRoleId":"R4","approver":"财务管理员","mode":"ANY","conditionType":"AMOUNT_GT","conditionValue":50000,"condition":"单据金额大于 50000 元"},{"key":"s3","name":"分管副总审批","approverType":"DEPT_VP","approverRoleId":"R7","approver":"分管副总","mode":"ALL","conditionType":"AMOUNT_GT","conditionValue":200000,"condition":"单据金额大于 200000 元"},{"key":"s4","name":"审计员备案","approverRoleId":"R6","approver":"审计员","mode":"ANY","conditionType":"AMOUNT_GT","conditionValue":200000,"condition":"单据金额大于 200000 元"}]', 'seed', '2026-01-06 12:35:00', 'seed', '2026-10-22 09:10:00', 1),
+('WF9', NULL, 'FLOW_INVENTORY', '资产盘点流程', 'INVENTORY', '资产管理员', 'R2', 1, '[{"key":"s1","name":"盘点结果确认","approverRoleId":"R2","approver":"资产管理员","mode":"ANY","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s2","name":"盘点差异复核","approverRoleId":"R2","approver":"资产管理员","mode":"ANY","conditionType":"HAS_DIFF","conditionValue":0,"condition":"存在盘点差异"},{"key":"s3","name":"审计抽查确认","approverRoleId":"R6","approver":"审计员","mode":"ANY","conditionType":"HAS_DIFF","conditionValue":0,"condition":"存在盘点差异"}]', 'seed', '2026-01-06 12:40:00', 'seed', '2026-10-22 09:10:00', 1),
+('WF10', NULL, 'FLOW_LV_REQUISITION', '低值资产领用流程', 'REQUISITION', '资产使用人', 'R3', 1, '[{"key":"s1","name":"部门主管审批","approverType":"DEPT_LEADER","approverRoleId":"R5","approver":"部门主管","mode":"ANY","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s2","name":"仓管员出库确认","approverRoleId":"R8","approver":"仓管员","mode":"SEQUENCE","conditionType":"NONE","conditionValue":0,"condition":"无条件"}]', 'seed', '2026-01-06 12:45:00', 'seed', '2026-10-22 09:10:00', 1),
+('WF11', NULL, 'FLOW_LV_RETURN', '低值资产退库流程', 'LV_RETURN', '资产使用人', 'R3', 1, '[{"key":"s1","name":"部门主管确认","approverType":"DEPT_LEADER","approverRoleId":"R5","approver":"部门主管","mode":"ANY","conditionType":"NONE","conditionValue":0,"condition":"无条件"},{"key":"s2","name":"仓管员验收入库","approverRoleId":"R8","approver":"仓管员","mode":"SEQUENCE","conditionType":"NONE","conditionValue":0,"condition":"无条件"}]', 'seed', '2026-01-06 12:50:00', 'seed', '2026-10-22 09:10:00', 1);
 

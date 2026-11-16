@@ -4,7 +4,7 @@ import { useOrgStore } from './org'
 import { useAppStore } from './app'
 import { authService, issueToken, setToken } from '../services/auth'
 import { useMock } from '../services'
-import { USER_STORAGE_KEY as STORAGE_KEY } from '../services/keys'
+import { USER_STORAGE_KEY as STORAGE_KEY, COMPANY_VIEW_STORAGE_KEY } from '../services/keys'
 
 /**
  * 登录与权限
@@ -129,10 +129,10 @@ export const useUserStore = defineStore('user', () => {
     } catch (e) { console.error(e) }
   }
 
-  /** 主动登出：先清本地，再通知后端 */
+  /** 主动登出：先带 token 通知后端撤销，再清本地会话（S-03） */
   async function logout() {
-    clearSession()
     await authService.logout()
+    clearSession()
   }
 
   /**
@@ -142,7 +142,11 @@ export const useUserStore = defineStore('user', () => {
   function clearSession() {
     user.value = null
     setToken('')
-    try { sessionStorage.removeItem(STORAGE_KEY) } catch (e) { console.error(e) }
+    try {
+      sessionStorage.removeItem(STORAGE_KEY)
+      // D2：换账号/登出/令牌失效时一并清掉公司视角，避免带入上一位用户的现场
+      sessionStorage.removeItem(COMPANY_VIEW_STORAGE_KEY)
+    } catch (e) { console.error(e) }
     // 标签栏属于「上一位用户的工作现场」，退出/失效时必须一起清掉
     try { useAppStore().resetViews() } catch (e) { console.error(e) }
   }

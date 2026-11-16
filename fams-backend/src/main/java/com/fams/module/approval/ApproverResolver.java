@@ -84,6 +84,25 @@ public final class ApproverResolver {
     }
 
     /**
+     * D2：单据归属公司 = 单据自身 companyId → 资产 companyId → 创建人 companyId。
+     * 固资单据多无 company_id 列，需从资产反查；都拿不到时返回空串（沿用 D1 角色池口径）。
+     */
+    public static String companyIdOf(GenericService service, Map<String, Object> doc) {
+        if (doc == null) {
+            return "";
+        }
+        String companyId = text(doc.get("companyId"));
+        if (!companyId.isEmpty()) {
+            return companyId;
+        }
+        String assetCompany = text(read(service, ASSETS, text(doc.get("assetId"))).get("companyId"));
+        if (!assetCompany.isEmpty()) {
+            return assetCompany;
+        }
+        return text(read(service, USERS, text(doc.get("creatorId"))).get("companyId"));
+    }
+
+    /**
      * 按环节配置解析审批人集合；解析不到返回空集合（由调用方决定报错还是放行）。
      *
      * @param doc 单据，供「现任使用人 / 新使用人」两类环节读取快照与目标字段
@@ -118,7 +137,11 @@ public final class ApproverResolver {
                 break;
             case TYPE_ROLE:
             default:
-                ids.addAll(service.userIdsOfRole(text(step.get("approverRoleId"))));
+                // D2：角色池按单据归属公司过滤，避免 A 公司仓管出现在 B 公司审批人池
+                String docCompany = companyIdOf(service, doc);
+                ids.addAll(docCompany.isEmpty()
+                        ? service.userIdsOfRole(text(step.get("approverRoleId")))
+                        : service.userIdsOfRole(text(step.get("approverRoleId")), docCompany));
                 break;
         }
         return ids;

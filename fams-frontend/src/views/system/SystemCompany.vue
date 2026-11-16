@@ -259,12 +259,19 @@ function openDialog(row) {
 async function submit() {
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
+  const payload = { ...dialog.form }
+  // 清空上级公司时统一落 null，避免空串在后端引用校验/树构建中被当成有效父节点
+  if (!payload.parentId) payload.parentId = null
+  if (dialog.isEdit && payload.parentId === payload.id) {
+    ElMessage.warning('上级公司不能是自身')
+    return
+  }
   try {
     if (dialog.isEdit) {
-      await orgStore.updateCompany(dialog.form.id, dialog.form)
+      await orgStore.updateCompany(dialog.form.id, payload)
       ElMessage.success('公司信息已更新')
     } else {
-      await orgStore.addCompany(dialog.form)
+      await orgStore.addCompany(payload)
       ElMessage.success('公司已新增')
     }
     dialog.visible = false

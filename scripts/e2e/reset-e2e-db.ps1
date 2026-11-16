@@ -11,7 +11,7 @@ $mysql = (Get-Command mysql -ErrorAction SilentlyContinue)
 if (-not $mysql) { throw 'mysql client not found in PATH' }
 
 $user = if ($env:DB_USER) { $env:DB_USER } else { 'fams' }
-$pwd = if ($env:DB_PASSWORD) { $env:DB_PASSWORD } else { 'FamsDb@2026!' }
+$pwd = if ($env:DB_PASSWORD) { $env:DB_PASSWORD } else { 'ZgM8Zg9PKm2CYyeYzdNs' }
 $db = if ($env:DB_TEST_NAME) { $env:DB_TEST_NAME } else { 'fams_e2e' }
 
 # MySQL on Windows has no access to PowerShell's '<' redirection; USE + SOURCE is the portable way.

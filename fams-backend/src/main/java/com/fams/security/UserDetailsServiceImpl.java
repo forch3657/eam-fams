@@ -31,6 +31,30 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         if (!"ENABLED".equalsIgnoreCase(String.valueOf(user.getOrDefault("status", "")))) {
             throw new DisabledException("账号已停用");
         }
-        return new UserPrincipal(user, genericService.permissionsOf(user), genericService.dataScopeOf(user));
+        return new UserPrincipal(user, genericService.permissionsOf(user), genericService.dataScopeOf(user),
+                text(user.get("orgScope")), scopeCompanies(user.get("scopeCompanyIds")));
+    }
+
+    /** 用户行的数组列可能已是 List，也可能是 JSON 文本（兼容两种来源） */
+    private static java.util.Set<String> scopeCompanies(Object raw) {
+        java.util.Set<String> ids = new java.util.LinkedHashSet<>();
+        if (raw instanceof Iterable) {
+            for (Object item : (Iterable<?>) raw) {
+                if (item != null && !String.valueOf(item).trim().isEmpty()) {
+                    ids.add(String.valueOf(item).trim());
+                }
+            }
+        } else if (raw instanceof String && !((String) raw).trim().isEmpty()) {
+            for (String item : ((String) raw).split("[,;\\[\\]\"]+")) {
+                if (!item.trim().isEmpty()) {
+                    ids.add(item.trim());
+                }
+            }
+        }
+        return ids;
+    }
+
+    private static String text(Object value) {
+        return value == null ? "" : String.valueOf(value).trim();
     }
 }

@@ -94,10 +94,18 @@ public class GenericController {
         return R.ok(genericService.batch(key, rows));
     }
 
-    /** 清空集合 */
+    /**
+     * 清空集合：DELETE /all 为高危操作，除集合删除权限码外，
+     * 还必须是系统管理员（R1）。防止拥有 fa:delete 的业务账号清空整张表（S-05）。
+     */
     @DeleteMapping("/all")
     public R<Boolean> clear(@PathVariable("key") String key) {
         require(key, "DELETE");
+        com.fams.security.UserPrincipal me = AuthContext.current();
+        if (me == null || !genericService.userHasRole(me.getId(), "R1")) {
+            throw new ApiException(ErrorCode.FORBIDDEN, "清空集合仅限系统管理员");
+        }
+        log.warn("[audit] 系统管理员 {} 清空集合 {}", me.getUsername(), key);
         return R.ok(genericService.clear(key));
     }
 

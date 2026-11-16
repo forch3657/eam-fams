@@ -117,7 +117,7 @@ npm run e2e:headed -- --grep "领用"
 | 变量 | 默认 | 用途 |
 | --- | --- | --- |
 | `E2E_BASE_URL` | `http://localhost` | 被测地址；隔离栈填 `http://127.0.0.1:4173` |
-| `E2E_USERNAME` / `E2E_PASSWORD` | `admin` / `Fzidt@123` | 管理员账号 |
+| `E2E_USERNAME` / `E2E_PASSWORD` | `admin` / 见根目录 `README.md` 第 8 节 | 管理员账号（口令已轮换，不再写入文档） |
 | `E2E_RUN_ID` | 启动时间戳 | 产物目录名，复跑覆盖时手动指定 |
 | `E2E_CHANNEL` | `chromium` | 本机缺 headless shell 时用完整 chromium |
 

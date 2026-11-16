@@ -15,7 +15,7 @@
 | 后端 | http://localhost:8080 | `mvn spring-boot:run`，H2 内存库，自动建表 + 灌演示数据 |
 | 前端 | http://localhost:5174 | `npm run dev`（Vite） |
 
-- **登录账号**：`admin / Fzidt@123`（全员统一强初始口令 `Fzidt@123`；19 个演示账号口令均已 BCrypt 化，可在后端启动日志中查看）
+- **登录账号**：本地 H2 演示库使用 seed 演示账号；切到 MySQL / 生产形态后使用真实组织架构账号（登录账号为本人手机号），完整清单见第 4 节。初始口令由管理员单独下发，**不在文档、登录页或生产产物中记录明文**
 - **停止**：双击 `stop-dev.bat`（按监听端口 8080/5174 精准结束，不会误杀其他 java/node），或直接关掉那两个窗口
 
 > 脚本会自动定位 `.workbuddy` 下的预装 Node，无需手动配 PATH。
@@ -32,8 +32,8 @@
 不依赖浏览器，直接调接口确认后端健康：
 
 ```powershell
-# 登录
-$body = @{username='admin';password='Fzidt@123'} | ConvertTo-Json
+# 登录（引导口令由环境变量提供，不写入文档）
+$body = @{username='admin';password=$env:FAMS_BOOTSTRAP_PASSWORD} | ConvertTo-Json
 $r = Invoke-RestMethod -Uri http://localhost:8080/api/auth/login -Method POST -ContentType 'application/json' -Body $body
 $token = $r.data.token
 # 带 token 取数据
@@ -56,14 +56,14 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 | 数据库地址 | `jdbc:mysql://127.0.0.1:3306/fams` |
 | 数据库名 | `fams` |
 | 用户名 | `fams`（专用最小权限账号，仅授权 `fams.*`） |
-| 密码 | `FamsDb@2026!`（在 `application-dev.yml` 中为默认值；`fams` 仅有 DML，DDL 另用管理员账号，见 `docs/deployment.md` 第 1、3 节） |
+| 密码 | `ZgM8Zg9PKm2CYyeYzdNs`（在 `application-dev.yml` 中为默认值；`fams` 仅有 DML，DDL 另用管理员账号，见 `docs/deployment.md` 第 1、3 节） |
 | 连接参数 | `useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai`（适配 MySQL 8 的 `caching_sha2_password`） |
 
 > ⚠️ **前置条件**：`start-dev-mysql.bat` **不会自动建库建表**。必须先按下面第 2 节把 `fams` 库建好、灌入 schema+数据，否则后端起不来（Hikari 连不上 / 表不存在）。
 >
 > 切换回 H2 联调：停掉服务（双击 `stop-dev.bat`），再双击 `start-dev.bat` 即可。两套脚本共用 `stop-dev.bat`（按 8080/5174 端口精准结束）。
 >
-> 改数据库密码：直接改 `fams-backend/src/main/resources/application-dev.yml` 里的 `password: ${DB_PASSWORD:FamsDb@2026!}` 默认值，**不要用** `mvn -DDB_PASSWORD=xxx`——`spring-boot:run` 会 fork 新 JVM，命令行 `-D` 不一定透传，导致仍用默认值。
+> 改数据库密码：直接改 `fams-backend/src/main/resources/application-dev.yml` 里的 `password: ${DB_PASSWORD:ZgM8Zg9PKm2CYyeYzdNs}` 默认值，**不要用** `mvn -DDB_PASSWORD=xxx`——`spring-boot:run` 会 fork 新 JVM，命令行 `-D` 不一定透传，导致仍用默认值。
 
 ---
 
@@ -76,7 +76,7 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
    - `deploy/sql/mysql/baseline-data.sql` —— 根公司 `C1`、根部门 `D1`、管理员 `U1`、角色 `R1~R8` 与**全部数据字典**（不可省略）
    - 演示数据（仅测试环境）：`fams-backend/src/main/resources/db/seed.sql`
 
-   管理员初始口令 `Fzidt@123` 为明文写入，应用首次启动时由 `DataInitializer` 自动迁移为 BCrypt。
+   管理员引导口令取自 `fams.security.bootstrap-password`（不在文档中记录），应用首次启动时由 `DataInitializer` 迁移为 BCrypt 并要求首登修改；真实业务账号的初始口令由管理员单独下发。
 
 2. **改表结构三处 schema 必须同步**：`deploy/sql/mysql/schema.sql`、`fams-backend/src/main/resources/db/schema.sql`（H2）、`fams-backend/sql/01-schema/00-schema.sql`。
 
@@ -176,7 +176,7 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 
 切到 MySQL 后，JDBC 的 `tinyint/bool` 映射与 H2 可能有差异，至少跑一遍以下回归：
 
-- [ ] **登录**：`admin / Fzidt@123` 及各演示账号均能登录，无「未登录或登录已失效」横幅
+- [ ] **登录**：`admin` 与各公司真实账号（研究院 / 至臻 / 新视 / 数源）均能登录，顶栏显示的公司名与账号所属公司一致，无「未登录或登录已失效」横幅
 - [ ] **组织架构单表导入**：`系统管理 → 数据导入`（默认「组织架构导入」）下载模板 → 在示例行下方追加一行「公司 + 部门 + 人员」→ 导入成功，组织架构树可见该公司/部门/人员；同一文件重复导入不产生重复公司/部门，人员行提示「登录账号已存在」
 - [ ] **低值资产单表导入**：切到「低值资产导入」下载模板 → 追加一行（含不存在的存放位置）→ 导入后低值台账可见该物品、库存等于填写的期初库存、存放位置自动出现；重复导入库存不翻倍，且「入库管理」中没有生成单据
 - [ ] **固定资产单表导入**：切到「固定资产导入」下载模板 → 追加一行（填公司/部门/使用人）→ 导入后资产台账可见该卡片、公司/部门/使用人解析正确、存放地点自动出现；重复导入同一编号只提示复用，不新增卡片
@@ -243,35 +243,47 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 
 ---
 
-## 4. 演示账号清单
+## 4. 测试账号清单（真实组织架构）
 
-> 所有账号初始口令均为 **`Fzidt@123`**（seed 中明文，后端启动时会以 BCrypt 重新哈希落库）。
-> 权限由 `组织架构 → 角色管理` 中的角色决定；同一个账号可绑定多个角色（seed 中均为单角色）。
+> 当前 MySQL / 生产形态使用的是**真实组织架构账号**，不再是 seed 中的 19 个演示账号。账号来源：`数据录入准备/org-structure-fzidt.csv` 与 `org_users` 表；登录账号为本人手机号，完整名单在「系统管理 → 用户管理」中查看。
+> **不在文档、登录页或生产产物中记录明文口令与完整手机号**：初始口令由管理员单独下发并要求首登修改（S-01/S-02 整改口径）。下表账号均为脱敏展示，仅用于说明角色与范围。
 
-| 用户名 | 姓名 | 角色 | 部门 · 职位 | 状态 |
-|---|---|---|---|---|
-| `admin` | 系统管理员 | R1 系统管理员 | C1·D1 信息中心主任 | 启用 |
-| `zhangwei` | 张伟 | R2 资产管理员 | C1·D1 技术部经理 | 启用 |
-| `lina` | 李娜 | R4 财务管理员 | C1·D2 财务主管 | 启用 |
-| `wangqiang` | 王强 | R3 资产使用人 | C1·D3 行政专员 | 启用 |
-| `liuyang` | 刘洋 | R3 资产使用人 | C1·D4 运营专员 | 启用 |
-| `hexin` | 何欣 | R3 资产使用人 | C1·D5 市场专员 | 启用 |
-| `chengang` | 陈刚 | R5 部门主管 | C1·D6 生产主管 | 启用 |
-| `fengtao` | 冯涛 | R5 部门主管 | C1·D7 仓储主管 | 启用 |
-| `gaoxiang` | 高翔 | R2 资产管理员 | C1·D102 运维组长 | 启用 |
-| `zhoujing` | 周静 | R2 资产管理员 | C2·D8 资产主管 | 启用 |
-| `zhengkai` | 郑凯 | R4 财务管理员 | C2·D9 财务专员 | 启用 |
-| `wudi` | 吴迪 | R5 部门主管 | C3·D10 业务经理 | 启用 |
-| `chenjing` | 陈静 | R6 审计员 | C3·D11 风控专员 | 启用 |
-| `zhaomin` | 赵敏 | R5 部门主管 | C4·D12 工程部主管 | 启用 |
-| `zhoufang` | 周芳 | R3 资产使用人 | C4·D13 采购专员 | 启用 |
-| `sunlei` | 孙磊 | R3 资产使用人 | C5·D14 后勤专员 | **停用** |
-| `asset` | 资产管理员 | R2 资产管理员 | C1·D1 资产管理岗 | 启用 |
-| `fuzong` | 马文远 | R7 分管副总 | C1·D1 分管副总 | 启用 |
-| `cangguan` | 孟海涛 | R8 仓管员 | C1·D7 仓管员 | 启用 |
+### 公司层级与账号分布（2026-11-16 只读核对）
 
-> 公司：C1 华信科技、C2 云顶、C3 恒信、C4 中天、C5 华信（后勤）。
-> `sunlei` 为停用账号，**应登录失败**（提示「账号已停用」）。
+| 编码 | 公司 | 层级 | 启用部门 | 启用账号 |
+|---|---|---|---:|---:|
+| GS-0005 | 福州新区开发投资集团有限公司 | 一级（集团） | 0 | 0 |
+| GS-0001 | 福州数据技术研究院有限公司 | 二级 | 13 | 81 |
+| GS-0002 | 福州至臻医疗科技有限公司 | 三级（研究院子公司） | 5 | 11 |
+| GS-0003 | 福州新视智能科技有限公司 | 三级（研究院子公司） | 5 | 4 |
+| GS-0004 | 福州数源科技有限公司 | 三级（研究院子公司） | 6 | 42 |
+
+> 合计 138 个启用账号、29 个启用部门。集团层暂无账号，集团视角由 `admin` 或显式授权账号使用；公司层级由「公司管理 → 上级公司」维护。
+
+### 代表测试账号（脱敏）
+
+| 公司 | 姓名 | 登录账号 | 角色 | 部门 | 生效数据范围 |
+|---|---|---|---|---|---|
+| 研究院 | 系统管理员 | `admin` | R1 + R2 | — | ALL |
+| 研究院 | 郭晓雅 | `185****9119` | R7 + 领导班子 | 公司领导 | ALL |
+| 研究院 | 程乔楠 | `159****8864` | R5 | 综合管理部（党群工作部） | DEPT |
+| 研究院 | 石顺中 | `186****6605` | R5 | 产品研发一部 | DEPT |
+| 研究院 | 田有隆 | `136****0487` | R5 | 产品研发一部 | DEPT |
+| 研究院 | 陈学知 | `130****4128` | R3 | 产品研发一部 | DEPT_ONLY |
+| 研究院 | 李弥贤 | `135****1971` | R4 | 财务资金部 | COMPANY |
+| 研究院 | 陈铃 | `181****8615` | R3 + R8 + R2 | 综合管理部（党群工作部） | COMPANY |
+| 研究院 | 陈容源 | `157****1336` | R3 + R6 | 综合管理部（党群工作部） | ALL |
+| 至臻 | 陈妍 | `182****5689` | R4 | 财务资金部 | COMPANY |
+| 至臻 | 葛封才 | `189****8376` | R5 | 市场营销部 | DEPT |
+| 至臻 | 何领朝 | `132****3891` | R3 | 产品研发部 | DEPT_ONLY |
+| 新视 | 付云杰 | `177****9091` | R5 | 研发部 | DEPT |
+| 新视 | 陈由至 | `137****8257` | R3 | 研发部 | DEPT_ONLY |
+| 数源 | 林佳怡 | `158****1163` | R3 | 数据运营中心 | DEPT_ONLY |
+| 数源 | 陈晓雯 | `136****7797` | R3 | 人事行政部 | DEPT_ONLY |
+
+> 多角色按「最宽松」生效（如 `R3+R6` 取 `ALL`，`R3+R8+R2` 取 `COMPANY`）；`R7` 角色当前为 `DISABLED`，领导班子账号通过 `ROLE_LEADERSHIP` 生效，详见第 5 节。
+> 当前生产库停用账号为 **0**；需验证「停用账号登录失败」时，在「用户管理」临时停用一个测试账号，验证后恢复。
+> 2026-11-16 已点测：研究院、新视、至臻账号登录正常，顶栏显示的公司名与账号所属公司一致。
 
 ---
 
@@ -325,22 +337,24 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 | | `sys:template` | 消息模板 |
 | | `sys:terminal` | 盘点终端 |
 
-### 角色 → 关键权限映射
+### 角色 → 关键权限映射（与生产库 `org_roles` 对齐，2026-11-16 核对）
 
-| 角色 | 核心权限 | 数据范围 |
-|---|---|---|
-| R1 系统管理员 | 全部模块 | 全集团（ALL） |
-| R2 资产管理员 | `fa:*` 除 `fa:delete`；`lv:*` 出入库与维护 | 本公司（COMPANY） |
-| R3 资产使用人 | `fa:view`、`lv:view`、`lv:inbound`、`lv:requisition`、`lv:return`（无 `lv:edit`，低值台账只查看/办理单据，界面不出现编辑、删除按钮） | 本人名下 / 本人经办（DEPT_ONLY） |
-| R4 财务管理员 | `fa:view/export/depreciation/report`、`sys:log` | 本公司（COMPANY） |
-| R5 部门主管 | `fa:view/edit/dispatch/borrow/inventory`、`fa:report`、`lv:requisition` | 本部门全部（DEPT） |
-| R6 审计员 | 只读：`fa:view/report`、`lv:view/report`、`sys:log`；`wm:todo`（盘点「审计抽查确认」环节的审批人，需有待办才能处理） | 全集团（ALL） |
-| R7 分管副总 | `fa:view/edit/dispose/report`（大额处置审批环节） | 全集团（ALL） |
-| R8 仓管员 | `fa:view`、`lv:inbound/requisition/return` | 本公司（COMPANY） |
-| 领导班子（ROLE_LEADERSHIP，自定义） | `wm:*`、`fa:view/export/report`、`lv:view/export/report` | 全部（ALL，2026-11-09 起） |
+| 角色 | 编码 · 状态 | 组织范围 | 数据范围 | 职责摘要（具体权限码以 `org_roles.permissions` 为准） |
+|---|---|---|---|---|
+| R1 系统管理员 | `ROLE_ADMIN` / 启用（1 人） | GROUP | ALL | 全部模块与系统配置 |
+| R2 资产管理员 | `ROLE_ASSET` / 启用（3 人，含 `admin` 兼任） | COMPANY | COMPANY | 资产台账维护、出入库办理（**无删除**） |
+| R3 资产使用人 | `ROLE_USER` / 启用（106 人） | DEPT | DEPT_ONLY | 台账查看、借出/变更/报修发起、低值领用退库（**无低值编辑**） |
+| R4 财务管理员 | `ROLE_FINANCE` / 启用（4 人） | COMPANY | COMPANY | 财务复核、折旧与报表、操作日志 |
+| R5 部门主管 | `ROLE_LEADER` / 启用（21 人） | DEPT | DEPT | 部门审批与查看（**无 `fa:add` / `fa:edit`**） |
+| R6 审计员 | `ROLE_AUDITOR` / 启用（1 人） | GROUP | ALL | 审计只读、盘点「审计抽查确认」 |
+| R7 分管副总 | `ROLE_VP` / **停用**（10 人仍挂该角色） | GROUP | ALL | 停用角色不再授权；审批由领导班子角色承接 |
+| R8 仓管员 | `ROLE_WAREHOUSE` / 启用（2 人） | COMPANY | COMPANY | 仓管出入库办理、低值台账查看 |
+| 领导班子 | `ROLE_LEADERSHIP` / 启用（7 人） | COMPANY | ALL | 工作台待办、各类报表查看与导出 |
 
-> **数据范围**说明：`ALL/GROUP`=全部可见；`COMPANY`=仅本公司数据；`DEPT`=本人所在部门全部；`DEPT_ONLY`=仅本人名下固定资产与本人经办单据。
-> ✅ **当前状态（2026-11-02）**：行级数据过滤已在后端生效——`GenericService.list/page` 按当前账号的 `dataScope` 强制注入条件，并覆盖调用方传入的同名字段；菜单/按钮权限与行级范围同时受控，细节见第 7 节。
+> 人数按 `org_users.role_ids` 包含统计，含多角色账号，因此各角色人数之和大于账号总数。
+> **权限码不在文档中罗列**：2026-11-16 核对生产库发现旧文档写「R5 有 `fa:edit`」与实际不符（R5 无 `fa:add` / `fa:edit`），已改为职责摘要；具体权限码以「角色管理」页配置为准。
+> **数据范围**：`ALL`=全集团可见；`COMPANY`=本公司及以下（D1 起按公司层级展开）；`DEPT`=本部门及子部门；`DEPT_ONLY`=仅本人名下资产与本人经办单据。多角色取最宽松值。
+> **当前状态（2026-11-16，D1 改造中）**：行级过滤已由 `RowScopeGuard` 收敛为统一断言，覆盖 list/page/get 与全部写入路径；菜单/按钮权限与行级范围同时受控。第 7 节实现口径与验收表在 D1 门禁 1 放行前仍按「目标行为」看待，详见 `docs/group-multicompany-plan.md`。
 
 ---
 
@@ -348,20 +362,21 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 
 部署或改动权限逻辑后，按下列矩阵抽样验证（H2 与 MySQL 通用）：
 
-| 测试账号（角色） | 登录后预期 | 关键验证点 |
+| 测试账号（角色 / 范围 / 公司） | 登录后预期 | 关键验证点 |
 |---|---|---|
-| `admin`（R1） | 左侧菜单全开，含「系统管理」全部项 | 折旧方案开关可改并持久化；可维护角色权限 |
-| `zhangwei`（R2） | 资产管理全功能（**无**删除）；低值出入库 | 看不到「系统管理」菜单（无 `org:*`/`sys:*`） |
-| `lina`（R4） | 仅「折旧管理 / 资产报表 / 操作日志」等财务相关 | 无 `fa:add`，「新增资产」按钮不可见；无资产新增入口 |
-| `wangqiang`（R3） | 仅固定资产台账查看 + 低值领用/退库 | **新增领用**默认预填「王强 + 行政部(D3)」；可改选他人代申请；左侧无财务/系统菜单 |
-| `chengang`/`fengtao`（R5） | 本部门资产编辑、派发、盘点 | 数据范围限定本部门；可见「预警中心」 |
-| `chenjing`（R6） | 全部只读 | 所有新增/编辑/删除按钮均隐藏；可见「概览看板」 |
-| `fuzong`（R7） | 处置相关 | 处置审批环节可处理大额资产处置单 |
-| `cangguan`（R8） | 低值入库/领用/退库 | 低值出入库办理入口可见，固定资产新增不可见 |
-| `sunlei`（R3，停用） | **登录失败** | 提示「账号已停用」，不进入系统 |
-| 用 `wangqiang` 测试代申请 | 改「领用部门」→ 领用人下拉自动过滤该部门人员 | 选非本部门的人被阻断；换部门后已选人清空 |
+| `admin`（R1+R2 / ALL / 研究院） | 左侧菜单全开，含「系统管理」全部项 | 折旧方案开关可改并持久化；可维护角色权限 |
+| 陈铃（R3+R8+R2 / COMPANY / 研究院） | 资产管理 + 低值出入库 | 看不到「系统管理」菜单；多角色按 COMPANY 生效 |
+| 李弥贤（R4 / COMPANY / 研究院） | 「折旧管理 / 资产报表 / 操作日志」等财务相关 | 无 `fa:add`，「新增资产」按钮不可见 |
+| 陈学知（R3 / DEPT_ONLY / 研究院·产品研发一部） | 固定资产台账查看 + 低值领用/退库 | 新增领用默认预填本人；可改选他人代申请；左侧无财务/系统菜单 |
+| 程乔楠 / 石顺中（R5 / DEPT / 研究院） | 本部门资产编辑、派发、盘点 | 数据范围限定本部门（D1 起含子部门）；可见「预警中心」 |
+| 陈容源（R3+R6 / ALL / 研究院） | 全部只读 | 新增/编辑/删除按钮均隐藏；可见「概览看板」 |
+| 郭晓雅（R7+领导班子 / ALL / 研究院） | 处置与大额审批相关 | `R7` 角色停用不影响领导班子审批链 |
+| 至臻 陈妍（R4 / COMPANY / 至臻） | 顶栏显示「福州至臻医疗科技有限公司」 | 台账只见至臻数据；公司名与账号归属一致 |
+| 新视 付云杰（R5 / DEPT / 新视） | 顶栏显示「福州新视智能科技有限公司」 | 只看本部门数据 |
+| 停用账号验证 | **登录失败** | 在「用户管理」临时停用一个测试账号，提示「账号已停用」，验证后恢复（当前库无停用账号） |
+| 用陈学知测试代申请 | 改「领用部门」→ 领用人下拉自动过滤该部门人员 | 选非本部门的人被阻断；换部门后已选人清空 |
 
-> 提示：第 3 节「冒烟回归清单」中的「领用 / 退库代申请」可直接用 `wangqiang` 账号走通；「折旧方案启停」可用 `admin` 或 `zhangwei` 走通。
+> 提示：第 3 节「冒烟回归清单」中的「领用 / 退库代申请」可用陈学知账号走通；「折旧方案启停」可用 `admin` 或李弥贤走通。完整账号见「系统管理 → 用户管理」，口令由管理员单独下发。
 
 ---
 
@@ -378,6 +393,8 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 - **降级规则**：集合缺少对应列时（如单据没有 `deptId`）不做过滤，而不是退化为 `createBy`——否则审批人会把「本部门可见」误收紧成「只看自己创建」，工作台待办会变空（P3-14 回归时暴露）。`low-value-items` 是物品目录主数据、无归属列，个人仍可查看（否则连领用物品都选不到），但入库/领用/退库单据只看本人经办。
 - 已知边界：`DEPT` 按 `deptId` 精确匹配，不含子部门（当前部门树两层以内）；`get/{id}` 详情接口未做范围校验；跨公司隔离需真实多公司数据再验证。
 
+> **改造中（2026-11-16）**：集团化多公司四阶段计划（D1~D4）已启动，目标是统一行级断言、按公司层级展开可见范围、覆盖 `get` 与全部写入路径；详见 `docs/group-multicompany-plan.md` 与 `docs/qa/stage-gates.md`。**本节结论在 D1 门禁 1 通过前仍然有效，不得据此宣称跨公司隔离已实现**；门禁通过后再同步修订本节实现口径、预期行为与验收表执行状态。
+
 ### 预期行为
 
 | 数据范围 | 含义 | 过滤字段 |
@@ -391,14 +408,17 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 
 | 测试账号（角色 / 范围 / 所属） | 操作 | 预期结果 |
 |---|---|---|
-| `zhoujing`（R2 / COMPANY / C2 云顶） | 资产管理台账 | 只看到 C2 资产，看不到 C1/C3/C4/C5 |
-| `wangqiang`（R3 / DEPT_ONLY / C1·D3 行政部） | 固定资产台账、部门统计下钻 | 只看到本人名下资产；同部门他人资产不可见 |
-| `chengang`（R5 / DEPT / C1·D1） | 固定资产台账、部门统计下钻 | 看本部门全部资产，跨部门不可见 |
-| 领导班子（ROLE_LEADERSHIP / ALL） | 两类报表 + 下钻明细 | 全部部门、全部使用人的统计与明细可见 |
-| `admin`（R1 / ALL / C1） | 任意台账 + 导出 | 全公司全部门可见、可导出 |
-| `chenjing`（R6 / ALL / C3） | 资产报表导出 | 全量数据可导出 |
+| 陈铃（R2+R8+R3 / COMPANY / 研究院） | 资产管理台账 | 只看到研究院及其下级公司资产，看不到未授权公司数据 |
+| 陈学知（R3 / DEPT_ONLY / 研究院·产品研发一部） | 固定资产台账、部门统计下钻 | 只看到本人名下资产；同部门他人资产不可见 |
+| 程乔楠（R5 / DEPT / 研究院·综合管理部） | 固定资产台账、部门统计下钻 | 看本部门及子部门全部，跨部门不可见 |
+| 领导班子（ROLE_LEADERSHIP / ALL / 研究院） | 两类报表 + 下钻明细 | 全部部门、全部使用人的统计与明细可见 |
+| `admin`（R1 / ALL / 研究院） | 任意台账 + 导出 | 全公司全部门可见、可导出 |
+| 陈容源（R3+R6 / ALL / 研究院） | 资产报表导出 | 全量数据可导出 |
+| 至臻 陈妍（R4 / COMPANY / 至臻） | 登录 + 台账 | 顶栏公司名为至臻；看不到研究院 / 新视 / 数源数据 |
+| 新视 付云杰（R5 / DEPT / 新视） | 登录 + 台账 | 顶栏公司名为新视；只看本部门数据 |
+| 数源 林佳怡（R3 / DEPT_ONLY / 数源） | 登录 + 台账 | 顶栏公司名为数源；只看本人名下资产 |
 
-> 以上用例即多公司隔离的目标行为；当前单公司数据下先以 P4-19（`SELF`）回归，接入多公司数据后按此表补充验收。
+> 以上用例即多公司隔离的目标行为。2026-11-16 已点测研究院、新视、至臻账号登录与公司名显示正常；其余条目（按 id 越权 403、跨公司数据不可见、下钻与导出）在 D1 门禁 1 放行前仍需补验收，记录见 `docs/qa/stage-gates.md`。
 
 ---
 
@@ -422,11 +442,11 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 
 | 项 | 默认值 | 说明 |
 |---|---|---|
-| 应用登录口令 | `Fzidt@123`（全员统一强口令） | 业务账号 `admin`/`zhangwei`/`wangqiang`/… 均用此登录 |
+| 应用登录口令 | 不写入仓库 | 真实账号初始口令由管理员单独下发并强制首登修改；`admin` 引导口令取自 `fams.security.bootstrap-password`；登录页不再公示账号与口令 |
 | 数据库账号 | `fams` @ `127.0.0.1` | 仅授权 `fams.*` 的 DML，最小权限（`root@127.0.0.1` 已收回） |
-| 数据库口令 | `FamsDb@2026!` | 在 `application-dev.yml` / `application-prod.yml` 默认值 |
+| 数据库口令 | 不写入仓库 | prod 由 `start-prod.ps1` 从 `deploy/.secrets/db-password`（git 忽略）注入 `DB_PASSWORD`，`application-prod.yml` 仅保留占位符；dev 默认值见 `application-dev.yml` |
 | MySQL 管理员（仅 DDL） | 不写入仓库 | 本机 `root@localhost`，口令由密码管理器 / `MYSQL_ADMIN_PWD` 提供；生产换专属 DBA 账号 |
-| JWT 密钥 | `FamsJwtProdKey@2026!kP9zQx7vB2mC8wE3rT5yU` | HS256 要求 ≥32 字符；用环境变量 `JWT_SECRET` 覆盖 |
+| JWT 密钥 | 不写入仓库 | 由 `start-prod.ps1` 生成到 `deploy/.secrets/jwt-secret`（git 忽略）并经环境变量 `JWT_SECRET` 注入；HS256 要求 ≥32 字符 |
 
 ### 一键启动 / 停止
 

@@ -246,6 +246,7 @@ CREATE TABLE `fixed_asset_settings_depreciation_plans` (
 
 DROP TABLE IF EXISTS `low_value_items`;
 CREATE TABLE `low_value_items` (
+  `company_id` VARCHAR(64),
   `id` VARCHAR(64) NOT NULL COMMENT '主键',
   `code` VARCHAR(255) COMMENT '必填 唯一',
   `category` VARCHAR(64) COMMENT 'LOW_VALUE_CATEGORY 必填',
@@ -378,6 +379,8 @@ CREATE TABLE `low_value_settings_locations` (
 
 DROP TABLE IF EXISTS `org_companies`;
 CREATE TABLE `org_companies` (
+  `path` VARCHAR(1024),
+  `level` INT,
   `id` VARCHAR(64) NOT NULL COMMENT '主键',
   `code` VARCHAR(255) COMMENT '必填 唯一',
   `name` VARCHAR(255) COMMENT '必填 唯一',
@@ -423,6 +426,7 @@ CREATE TABLE `org_departments` (
 
 DROP TABLE IF EXISTS `org_users`;
 CREATE TABLE `org_users` (
+  `scope_company_ids` TEXT,
   `id` VARCHAR(64) NOT NULL COMMENT '主键',
   `username` VARCHAR(255) COMMENT '必填 唯一',
   `password` VARCHAR(255),
@@ -795,6 +799,7 @@ CREATE TABLE `fixed_asset_doc_lists_change` (
 
 DROP TABLE IF EXISTS `fixed_asset_doc_lists_dispose`;
 CREATE TABLE `fixed_asset_doc_lists_dispose` (
+  `transferee_company_id` VARCHAR(64),
   `id` VARCHAR(64) NOT NULL COMMENT '主键',
   `code` VARCHAR(255) COMMENT '必填 唯一',
   `name` VARCHAR(255) COMMENT '必填',

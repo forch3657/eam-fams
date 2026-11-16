@@ -16,7 +16,7 @@
  * 因此上层业务代码在两种模式下无需分支。
  */
 import { ApiError, ERROR_CODES } from './errors'
-import { TOKEN_STORAGE_KEY } from './keys'
+import { TOKEN_STORAGE_KEY, COMPANY_VIEW_STORAGE_KEY } from './keys'
 
 const BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
 const DEFAULT_TIMEOUT = 15000
@@ -51,8 +51,15 @@ function buildQuery(params) {
 
 function authHeaders() {
   let token = ''
-  try { token = sessionStorage.getItem(TOKEN_STORAGE_KEY) || '' } catch (e) { /* 隐私模式下不可用 */ }
-  return token ? { Authorization: `Bearer ${token}` } : {}
+  let companyView = ''
+  try {
+    token = sessionStorage.getItem(TOKEN_STORAGE_KEY) || ''
+    companyView = sessionStorage.getItem(COMPANY_VIEW_STORAGE_KEY) || ''
+  } catch (e) { /* 隐私模式下不可用 */ }
+  const headers = token ? { Authorization: `Bearer ${token}` } : {}
+  // D2：公司视角仅作展示/默认值提示，服务端始终以主体授权集合为准，不靠此头授权
+  if (companyView) headers['X-Company-View'] = companyView
+  return headers
 }
 
 /**
@@ -65,6 +72,19 @@ export function setErrorNotifier(fn) { errorNotifier = fn }
 function notifyError(message) {
   if (!errorNotifier) return
   try { errorNotifier(message) } catch (e) { console.warn('[http] 错误提示器异常', e) }
+}
+
+/**
+ * D3 前端错误上报：由 main.js 注入上报函数（可对接监控平台）。
+ * 携带后端响应头 X-Trace-Id，与后端日志/审计同一条链路；上报失败绝不影响业务。
+ */
+let errorReporter = null
+export function setErrorReporter(fn) { errorReporter = fn }
+function reportError({ code, path, method, traceId, message }) {
+  if (!errorReporter) return
+  try {
+    errorReporter({ code, path, method, traceId, message, ts: Date.now() })
+  } catch (e) { console.warn('[http] 错误上报失败', e) }
 }
 
 /** 并发的相同写请求复用同一个 promise，防双击/重复提交造成双写 */
@@ -98,6 +118,7 @@ async function performRequest(path, { method = 'GET', params, data, timeout = DE
       if (code === ERROR_CODES.UNAUTHORIZED) notifyUnauthorized()
       else if (!silent && code === 403) notifyError(body?.message || '无权限执行该操作')
       else if (!silent && code >= 500) notifyError('服务暂时不可用，请稍后重试')
+      if (code >= 500) reportError({ code, path, method, traceId: res.headers.get('X-Trace-Id'), message: body?.message })
       throw new ApiError(code, body?.message || `接口请求失败：${res.status}`, res.status, body?.details)
     }
 
@@ -119,6 +140,7 @@ async function performRequest(path, { method = 'GET', params, data, timeout = DE
       throw new ApiError(ERROR_CODES.SERVER, '接口请求超时')
     }
     if (!silent) notifyError('网络异常，请检查连接后重试')
+    reportError({ code: ERROR_CODES.SERVER, path, method, traceId: null, message: err?.message || '网络异常' })
     throw new ApiError(ERROR_CODES.SERVER, err?.message || '网络异常')
   } finally {
     clearTimeout(timer)

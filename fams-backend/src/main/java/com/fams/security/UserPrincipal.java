@@ -38,9 +38,20 @@ public class UserPrincipal implements UserDetails {
     /** 数据范围（多角色取最宽松）：ALL / COMPANY / DEPT / DEPT_ONLY / SELF */
     private final String dataScope;
 
+    /** 角色组织范围（GROUP / COMPANY / DEPT），集团化改造后参与范围判定 */
+    private final String orgScope;
+
+    /** 显式授权可访问的其它公司（跨公司兼任） */
+    private final Set<String> scopeCompanyIds;
+
     private final Set<GrantedAuthority> authorities;
 
     public UserPrincipal(Map<String, Object> user, Set<String> permissions, String dataScope) {
+        this(user, permissions, dataScope, "", Collections.emptySet());
+    }
+
+    public UserPrincipal(Map<String, Object> user, Set<String> permissions, String dataScope,
+                         String orgScope, Set<String> scopeCompanyIds) {
         this.id = text(user.get("id"));
         this.username = text(user.get("username"));
         this.name = text(user.get("name"));
@@ -49,6 +60,16 @@ public class UserPrincipal implements UserDetails {
         this.deptId = text(user.get("deptId"));
         this.roleIds = asStringList(user.get("roleIds"));
         this.dataScope = dataScope == null || dataScope.isEmpty() ? "ALL" : dataScope;
+        this.orgScope = orgScope == null ? "" : orgScope;
+        Set<String> grantedCompanies = new LinkedHashSet<>();
+        if (scopeCompanyIds != null) {
+            for (String id : scopeCompanyIds) {
+                if (id != null && !id.trim().isEmpty()) {
+                    grantedCompanies.add(id.trim());
+                }
+            }
+        }
+        this.scopeCompanyIds = Collections.unmodifiableSet(grantedCompanies);
         Set<GrantedAuthority> granted = new LinkedHashSet<>();
         if (permissions != null) {
             for (String code : permissions) {

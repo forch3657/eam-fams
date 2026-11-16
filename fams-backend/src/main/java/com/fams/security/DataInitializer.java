@@ -59,7 +59,7 @@ public class DataInitializer implements ApplicationRunner {
      * 明文口令迁移：演示数据来自前端 mock（密码为明文），入库前统一换成 BCrypt。
      *
      * <p>只处理非 bcrypt 形态的值；迁移完成后各账号的原口令保持不变，
-     * 因此演示登录（账号口令见 {@code db/seed.sql}，统一为 {@code Fzidt@123}）仍然可用。</p>
+     * 因此演示登录（账号口令见 {@code db/seed.sql}，统一为 {@code updbJghM7dKx8Az3J3QF}）仍然可用。</p>
      */
     private void migratePlainPasswords() {
         // 必须用 listInternal：list() 已对 org-users 做口令脱敏，取不到原始 password 列

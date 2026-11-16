@@ -73,12 +73,14 @@ public class OrgStructureImportService {
     public static final String COL_EMAIL = "邮箱";
     public static final String COL_ROLES = "角色";
     public static final String COL_STATUS = "状态";
+    /** D2：上级公司名称，用于构建三级公司层级；留空表示一级公司 */
+    public static final String COL_COMPANY_PARENT = "上级公司";
 
     /** 模板列顺序（也是校验时的必备列清单） */
     public static final List<String> COLUMNS = Collections.unmodifiableList(Arrays.asList(
             COL_COMPANY_NAME, COL_COMPANY_CODE, COL_DEPT_NAME, COL_DEPT_PARENT,
             COL_USER_NAME, COL_USERNAME, COL_PASSWORD, COL_POSITION,
-            COL_PHONE, COL_EMAIL, COL_ROLES, COL_STATUS));
+            COL_PHONE, COL_EMAIL, COL_ROLES, COL_STATUS, COL_COMPANY_PARENT));
 
     private static final String[] COLUMN_NOTES = {
             "公司名称，必填；已存在则自动复用",
@@ -92,12 +94,13 @@ public class OrgStructureImportService {
             "手机，选填",
             "邮箱，选填",
             "角色，选填；可填角色编码或名称，多个用 | 分隔",
-            "状态，选填；默认 ENABLED，可选 ENABLED/DISABLED 或 启用/停用"
+            "状态，选填；默认 ENABLED，可选 ENABLED/DISABLED 或 启用/停用",
+            "上级公司，选填；填写后挂到该公司之下，须在本文件或系统中已存在"
     };
 
     private static final String[] COLUMN_SAMPLES = {
             "示例科技有限公司", "GS-0001", "研发部", "", "张三", "zhangsan", "Zhang@2026!",
-            "工程师", "13800138000", "zhangsan@example.com", "ROLE_ADMIN", ENABLED
+            "工程师", "13800138000", "zhangsan@example.com", "ROLE_ADMIN", ENABLED, "示例集团"
     };
 
     private final ImportFileParser fileParser;
@@ -213,55 +216,100 @@ public class OrgStructureImportService {
     private void writeCompanies(List<OrgRow> rows, OrgImportResult result, Index index, boolean abort) {
         Set<String> created = new LinkedHashSet<>();
         Set<String> reused = new LinkedHashSet<>();
+        Set<String> touched = new LinkedHashSet<>();
+        int maxPass = rows.size() + 1;
 
+        // 多趟创建：先建上级公司，再建下级；文件中的顺序不影响层级解析
+        for (int pass = 0; pass < maxPass; pass++) {
+            boolean progressed = false;
+            for (OrgRow row : rows) {
+                if (row.invalid || (row.companyId != null && !row.companyId.isEmpty())) {
+                    continue;
+                }
+                // 上级公司尚未在本文件/系统中就绪，留到下一趟
+                String parentId = resolveParentCompanyId(row, index);
+                if (row.parentCompanyName.isEmpty() && parentId == null) {
+                    continue;
+                }
+                CompanyRef ref = index.companiesByName.get(row.companyName);
+                if (ref == null && !row.companyCode.isEmpty()) {
+                    CompanyRef byCode = index.companiesByCode.get(row.companyCode);
+                    if (byCode != null && !byCode.name.equals(row.companyName)) {
+                        fail(row, "公司编码「" + row.companyCode + "」已被公司「" + byCode.name + "」占用，请调整编码或名称",
+                                result, abort);
+                        row.invalid = true;
+                        continue;
+                    }
+                    ref = byCode;
+                }
+                if (ref != null) {
+                    if (!row.companyCode.isEmpty() && !row.companyCode.equals(ref.code)) {
+                        fail(row, "公司「" + ref.name + "」已存在，其编码为「" + ref.code
+                                + "」，与填写的「" + row.companyCode + "」不一致", result, abort);
+                        row.invalid = true;
+                        continue;
+                    }
+                    row.companyId = ref.id;
+                    if (!created.contains(ref.name)) {
+                        reused.add(ref.name);
+                    }
+                    touched.add(row.companyName);
+                    progressed = true;
+                    continue;
+                }
+                if (parentId == null) {
+                    continue; // 上级未就绪
+                }
+                String code = row.companyCode.isEmpty()
+                        ? autoCode(COMPANY_CODE_PREFIX, index.companiesByCode)
+                        : row.companyCode;
+                Map<String, Object> body = new LinkedHashMap<>();
+                body.put("code", code);
+                body.put("name", row.companyName);
+                body.put("status", row.status);
+                if (!parentId.isEmpty()) {
+                    body.put("parentId", parentId);
+                }
+                try {
+                    Map<String, Object> saved = genericService.create(COMPANIES, body);
+                    CompanyRef createdRef = new CompanyRef(str(saved.get("id")), row.companyName, code);
+                    index.companiesByName.put(row.companyName, createdRef);
+                    index.companiesByCode.put(code, createdRef);
+                    created.add(row.companyName);
+                    row.companyId = createdRef.id;
+                    touched.add(row.companyName);
+                    progressed = true;
+                } catch (ApiException e) {
+                    fail(row, "新建公司失败：" + e.getMessage(), result, abort);
+                    row.invalid = true;
+                }
+            }
+            if (!progressed) {
+                break;
+            }
+        }
+
+        // 仍未解析出上级公司的行：明确报错（防环或上级不存在）
         for (OrgRow row : rows) {
-            if (row.invalid) {
+            if (row.invalid || row.parentCompanyName.isEmpty() || !touched.contains(row.companyName)) {
                 continue;
             }
-            CompanyRef ref = index.companiesByName.get(row.companyName);
-            if (ref == null && !row.companyCode.isEmpty()) {
-                CompanyRef byCode = index.companiesByCode.get(row.companyCode);
-                if (byCode != null && !byCode.name.equals(row.companyName)) {
-                    fail(row, "公司编码「" + row.companyCode + "」已被公司「" + byCode.name + "」占用，请调整编码或名称",
-                            result, abort);
-                    continue;
-                }
-                ref = byCode;
-            }
-            if (ref != null) {
-                if (!row.companyCode.isEmpty() && !row.companyCode.equals(ref.code)) {
-                    fail(row, "公司「" + ref.name + "」已存在，其编码为「" + ref.code
-                            + "」，与填写的「" + row.companyCode + "」不一致", result, abort);
-                    continue;
-                }
-                row.companyId = ref.id;
-                if (!created.contains(ref.name)) {
-                    reused.add(ref.name);
-                }
-                continue;
-            }
-
-            String code = row.companyCode.isEmpty()
-                    ? autoCode(COMPANY_CODE_PREFIX, index.companiesByCode)
-                    : row.companyCode;
-            Map<String, Object> body = new LinkedHashMap<>();
-            body.put("code", code);
-            body.put("name", row.companyName);
-            body.put("status", row.status);
-            try {
-                Map<String, Object> saved = genericService.create(COMPANIES, body);
-                CompanyRef createdRef = new CompanyRef(str(saved.get("id")), row.companyName, code);
-                index.companiesByName.put(row.companyName, createdRef);
-                index.companiesByCode.put(code, createdRef);
-                created.add(row.companyName);
-                row.companyId = createdRef.id;
-            } catch (ApiException e) {
-                fail(row, "新建公司失败：" + e.getMessage(), result, abort);
+            if (resolveParentCompanyId(row, index) == null) {
+                fail(row, "上级公司「" + row.parentCompanyName + "」不存在或与本公司形成循环依赖", result, abort);
             }
         }
 
         result.createdCompanies = created.size();
         result.reusedCompanies = reused.size();
+    }
+
+    /** 上级公司 id：按名称查（本文件已建或系统已有）；无上级返回空串；上级未就绪返回 null */
+    private static String resolveParentCompanyId(OrgRow row, Index index) {
+        if (row.parentCompanyName.isEmpty()) {
+            return "";
+        }
+        CompanyRef parent = index.companiesByName.get(row.parentCompanyName);
+        return parent == null ? null : parent.id;
     }
 
     // ---------------------------------------------------------------- 第 2 趟：部门
@@ -406,6 +454,10 @@ public class OrgStructureImportService {
         row.companyName = value(raw, COL_COMPANY_NAME);
         if (row.companyName.isEmpty()) {
             throw new ApiException(ErrorCode.VALIDATION, "公司名称不能为空");
+        }
+        row.parentCompanyName = value(raw, COL_COMPANY_PARENT);
+        if (row.parentCompanyName.equals(row.companyName)) {
+            throw new ApiException(ErrorCode.VALIDATION, "公司「" + row.companyName + "」的上级公司不能是自己");
         }
         row.companyCode = value(raw, COL_COMPANY_CODE);
         row.deptName = value(raw, COL_DEPT_NAME);
@@ -628,6 +680,7 @@ public class OrgStructureImportService {
         int line;
         String companyName = "";
         String companyCode = "";
+        String parentCompanyName = "";
         String deptName = "";
         String parentDeptName = "";
         String userName = "";

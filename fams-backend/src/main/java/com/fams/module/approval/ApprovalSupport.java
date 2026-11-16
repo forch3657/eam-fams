@@ -81,12 +81,38 @@ public final class ApprovalSupport {
         return collection == null ? null : DOC_OF_COLLECTION.get(collection.trim());
     }
 
-    /** 取业务类型对应的启用流程 */
+    /** 取业务类型对应的启用流程（集团默认口径） */
     public static Map<String, Object> flowOf(GenericService service, String flowsKey, String bizType) {
+        return flowOf(service, flowsKey, bizType, null);
+    }
+
+    /**
+     * D2：按单据公司解析流程 —— 公司级覆盖优先，集团默认（companyId 为空）兜底。
+     * 未指定单据公司时沿用集团默认口径，保证已有调用方行为不变。
+     */
+    public static Map<String, Object> flowOf(GenericService service, String flowsKey, String bizType,
+                                             String docCompanyId) {
+        Map<String, Object> groupDefault = null;
+        Map<String, Object> fallback = null;
         for (Map<String, Object> flow : service.list(flowsKey, Collections.emptyMap())) {
-            if (bizType != null && bizType.equals(text(flow.get("bizType"))) && truthy(flow.get("enabled"))) {
-                return flow;
+            if (bizType == null || !bizType.equals(text(flow.get("bizType"))) || !truthy(flow.get("enabled"))) {
+                continue;
             }
+            String flowCompany = text(flow.get("companyId"));
+            if (docCompanyId != null && !docCompanyId.trim().isEmpty()
+                    && docCompanyId.equals(flowCompany)) {
+                return flow; // 公司级覆盖
+            }
+            if (flowCompany.isEmpty() && groupDefault == null) {
+                groupDefault = flow;
+            }
+            if (fallback == null) {
+                fallback = flow;
+            }
+        }
+        Map<String, Object> found = groupDefault != null ? groupDefault : fallback;
+        if (found != null) {
+            return found;
         }
         throw new ApiException(ErrorCode.BAD_REQUEST,
                 "该业务类型没有启用的审批流程，请先在「系统管理 → 流程配置」中配置");

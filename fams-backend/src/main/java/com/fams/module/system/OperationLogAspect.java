@@ -3,8 +3,6 @@ package com.fams.module.system;
 import com.fams.common.R;
 import com.fams.contract.ResourceMeta;
 import com.fams.contract.ResourceRegistry;
-import com.fams.engine.GenericService;
-import com.fams.security.AuthContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -13,7 +11,6 @@ import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Pointcut;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -23,18 +20,14 @@ import java.util.Set;
 /**
  * 操作日志切面（部门规范：审计留痕）。
  *
- * <p>统一拦截通用引擎的写端点，落 {@code operation-logs} 集合，
- * 不在每个业务方法里重复写日志代码。</p>
- *
- * <p>只记录写操作：读接口不记日志，避免日志表被查询流量灌满。</p>
+ * <p>统一拦截通用引擎的写端点，经 {@link AuditLogService} 落 {@code operation-logs}，
+ * 不在每个业务方法里重复写日志代码。只记录写操作，读接口不记日志。</p>
  */
 @Slf4j
 @Aspect
 @Component
 @RequiredArgsConstructor
 public class OperationLogAspect {
-
-    private static final String OPERATION_LOGS = "operation-logs";
 
     private static final Set<String> WRITE_METHODS = new HashSet<>(Arrays.asList(
             "create", "update", "remove", "batch", "clear"));
@@ -49,7 +42,7 @@ public class OperationLogAspect {
         ACTIONS.put("clear", "清空");
     }
 
-    private final GenericService genericService;
+    private final AuditLogService auditLogService;
 
     private final ResourceRegistry registry;
 
@@ -65,14 +58,21 @@ public class OperationLogAspect {
         }
         Object[] args = joinPoint.getArgs();
         String key = args.length > 0 && args[0] != null ? String.valueOf(args[0]) : "";
+        if (AuditLogService.OPERATION_LOGS.equals(key)) {
+            // append-only：审计表自身的写入不再递归记日志
+            return joinPoint.proceed();
+        }
         String pathTarget = pathTarget(method, args);
 
         try {
             Object result = joinPoint.proceed();
-            write(key, method, resultTarget(result, key, pathTarget), "SUCCESS", "");
+            String target = resultTarget(result, key, pathTarget);
+            auditLogService.record(moduleOf(key), ACTIONS.getOrDefault(method, method),
+                    target, "SUCCESS", key + " " + target, null);
             return result;
         } catch (Throwable ex) {
-            write(key, method, pathTarget, "FAILED", ex.getMessage());
+            auditLogService.record(moduleOf(key), ACTIONS.getOrDefault(method, method),
+                    pathTarget, "FAILED", key + "：" + ex.getMessage(), null);
             throw ex;
         }
     }
@@ -104,28 +104,6 @@ public class OperationLogAspect {
             }
         }
         return fallback;
-    }
-
-    private void write(String key, String method, String target, String result, String detail) {
-        try {
-            Map<String, Object> row = new HashMap<>();
-            row.put("time", LocalDateTime.now());
-            row.put("module", moduleOf(key));
-            row.put("action", ACTIONS.getOrDefault(method, method));
-            row.put("target", target);
-            row.put("result", result);
-            row.put("detail", truncate((key + " " + target
-                    + (detail == null || detail.isEmpty() ? "" : "：" + detail)).trim(), 200));
-            row.put("operator", AuthContext.currentUsername());
-            genericService.create(OPERATION_LOGS, row);
-        } catch (RuntimeException ex) {
-            // 日志落库失败绝不能影响业务操作本身
-            log.warn("操作日志写入失败：{}", ex.getMessage());
-        }
-    }
-
-    private static String truncate(String value, int max) {
-        return value == null || value.length() <= max ? value : value.substring(0, max);
     }
 
     /** 集合 key → 所属模块（用于日志归类） */

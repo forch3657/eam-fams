@@ -27,11 +27,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private static final String HEADER = "Authorization";
 
-    private static final String PREFIX = "Bearer ";
+    public static final String PREFIX = "Bearer ";
 
     private final JwtProvider jwtProvider;
 
     private final UserDetailsServiceImpl userDetailsService;
+
+    private final TokenBlacklist tokenBlacklist;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
@@ -40,6 +42,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         if (StringUtils.hasText(header) && header.startsWith(PREFIX)) {
             String token = header.substring(PREFIX.length());
             try {
+                if (tokenBlacklist.isRevoked(token)) {
+                    log.debug("token 已登出失效");
+                    SecurityContextHolder.clearContext();
+                    chain.doFilter(request, response);
+                    return;
+                }
                 String username = jwtProvider.parse(token);
                 UserDetails user = userDetailsService.loadUserByUsername(username);
                 UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(

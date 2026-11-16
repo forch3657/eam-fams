@@ -20,6 +20,14 @@ if (-not (Test-Path $secretFile)) {
     Write-Host 'Generated new JWT_SECRET (persisted locally, not committed)'
 }
 $env:JWT_SECRET = (Get-Content -Path $secretFile -Raw).Trim()
+# 生产 DB 口令：本地未提交文件读取并注入，配置中不留明文默认值（S-02）
+$dbPwdFile = Join-Path $secretDir 'db-password'
+if (Test-Path $dbPwdFile) {
+    $env:DB_PASSWORD = (Get-Content -Path $dbPwdFile -Raw).Trim()
+} elseif (-not $env:DB_PASSWORD) {
+    Write-Host 'ERROR: DB_PASSWORD not set and deploy/.secrets/db-password missing. Aborting.'
+    exit 1
+}
 $java = 'java'
 if ($env:JAVA_HOME) { $java = Join-Path $env:JAVA_HOME 'bin/java.exe' }
 $jar = Join-Path $root 'fams-backend/target/fams-backend-1.0.0-SNAPSHOT.jar'

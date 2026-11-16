@@ -161,6 +161,11 @@
           <el-form-item label="受让方">
             <el-input v-model="form.buyer" maxlength="100" placeholder="变卖 / 捐赠 / 转让时填写" />
           </el-form-item>
+          <el-form-item v-if="form.disposeType === 'TRANSFER_OUT'" label="受让公司" required>
+            <el-select v-model="form.transfereeCompanyId" placeholder="请选择受让公司（审批通过后自动建卡）" filterable style="width:100%">
+              <el-option v-for="c in companyOptions" :key="c.id" :label="c.name" :value="c.id" />
+            </el-select>
+          </el-form-item>
           <el-form-item label="凭证号">
             <el-input v-model="form.voucherNo" maxlength="100" placeholder="财务凭证或协议编号" />
           </el-form-item>
@@ -352,7 +357,7 @@ const dialogVisible = ref(false)
 const dialogMode = ref('add')
 const emptyForm = () => ({
   id: '', name: '', companyId: '', assetId: '', remark: '', deptId: '',
-  disposeType: '', buyer: '', voucherNo: '', disposalAmount: null, outLedgerBasis: '',
+  disposeType: '', buyer: '', transfereeCompanyId: '', voucherNo: '', disposalAmount: null, outLedgerBasis: '',
   changeType: '', beforeSnapshot: '', afterSnapshot: '',
   expectedReturnDate: '', borrowDocId: '',
   toDeptId: '', toUserId: '', toLocation: '',
@@ -402,6 +407,7 @@ function openDialog(row) {
         id: row.id, name: row.name || '', companyId: row.companyId || '',
         assetId: row.assetId || '', remark: row.remark || '', deptId: row.deptId || '',
         disposeType: row.disposeType || '', buyer: row.buyer || '',
+        transfereeCompanyId: row.transfereeCompanyId || '',
         voucherNo: row.voucherNo || '', disposalAmount: row.disposalAmount ?? null,
         outLedgerBasis: row.outLedgerBasis || '', changeType: row.changeType || '',
         beforeSnapshot: row.beforeSnapshot || '', afterSnapshot: row.afterSnapshot || '',
@@ -434,7 +440,8 @@ function extraFields() {
   if (props.docKey === 'dispose') {
     Object.assign(extra, {
       disposeType: form.disposeType, buyer: form.buyer, voucherNo: form.voucherNo,
-      disposalAmount: form.disposalAmount, outLedgerBasis: form.outLedgerBasis
+      disposalAmount: form.disposalAmount, outLedgerBasis: form.outLedgerBasis,
+      transfereeCompanyId: form.disposeType === 'TRANSFER_OUT' ? form.transfereeCompanyId : ''
     })
   }
   if (props.docKey === 'change') {
@@ -478,6 +485,12 @@ async function submit() {
   if (!form.companyId) { ElMessage.warning('请选择所属公司'); return }
   if (!form.assetId) { ElMessage.warning('请选择关联资产'); return }
   if (props.docKey === 'dispose' && !form.disposeType) { ElMessage.warning('请选择处置方式'); return }
+  if (props.docKey === 'dispose' && form.disposeType === 'TRANSFER_OUT' && !form.transfereeCompanyId) {
+    ElMessage.warning('跨公司转让必须选择受让公司'); return
+  }
+  if (props.docKey === 'dispose' && form.disposeType === 'TRANSFER_OUT' && form.transfereeCompanyId === form.companyId) {
+    ElMessage.warning('受让公司不能与转出公司相同'); return
+  }
   if (props.docKey === 'change' && !form.changeType) { ElMessage.warning('请选择变更类型'); return }
   if (props.docKey === 'alloc') {
     if (!form.receiverId) { ElMessage.warning('请选择实际领用人（派发必填）'); return }

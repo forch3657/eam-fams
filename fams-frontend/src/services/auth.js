@@ -45,17 +45,21 @@ export const authService = {
     return request('/auth/login', { method: 'POST', data: { username, password } })
   },
 
-  /** 登出：本地 token 无条件清除，后端通知失败不影响本地已登出 */
+  /**
+   * 登出：先用当前 token 通知后端加入黑名单，再清本地。
+   * 顺序不能反——后端要靠 Authorization 头拿到 token 才能撤销（S-03）。
+   * 后端通知失败也要清本地，不能让用户在前端卡在已登出状态。
+   */
   async logout() {
     const had = getToken()
-    setToken('')
     if (!useMock && had) {
       try {
         await request('/auth/logout', { method: 'POST' })
       } catch (e) {
-        console.error('[auth] 登出通知失败（本地已登出）', e)
+        console.error('[auth] 登出通知失败（本地仍会登出）', e)
       }
     }
+    setToken('')
     return true
   },
 

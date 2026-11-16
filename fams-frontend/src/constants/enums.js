@@ -21,7 +21,9 @@ export const ASSET_STATUS = {
   // 盘点闭环：盘盈建账后待入库验收、盘亏待核销、核销完成后留痕
   PENDING_INBOUND: '待入库',
   PENDING_WRITE_OFF: '待核销',
-  DISPOSED: '已核销'
+  DISPOSED: '已核销',
+  // D3 跨公司转让：转出方账面核销、留存出账依据；受让方自动建新卡
+  TRANSFERRED_OUT: '已转出'
 }
 
 /**
@@ -298,10 +300,17 @@ export const ORG_SCOPE = {
   DEPT: '本部门'
 }
 
+/** 配置适用范围（D2：集团默认 + 公司级覆盖） */
+export const CONFIG_SCOPE = {
+  GROUP: '集团默认',
+  COMPANY: '公司覆盖'
+}
+
 /** 枚举注册表：契约校验与 labelOf 依赖它 */
 export const ENUMS = {
   ASSET_STATUS,
   ASSET_CATEGORY,
+  CONFIG_SCOPE,
   PURCHASE_MODE,
   ENABLE_STATUS,
   INBOUND_STATUS,

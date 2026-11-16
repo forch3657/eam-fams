@@ -26,7 +26,7 @@ export const DOC_PREFIX = 'E2E_ORG_'
 
 /** 真实人员初始口令：来自「数据录入准备/org-structure-fzidt.csv」，仅本夹具持有 */
 const REAL_PASSWORD = 'Fzidt@2026!'
-const ADMIN_PASSWORD = 'Fzidt@123'
+const ADMIN_PASSWORD = 'updbJghM7dKx8Az3J3QF'
 
 export interface RealOrgActor {
   /** 运行时按 username 从生产库解析，不硬编码主键 */

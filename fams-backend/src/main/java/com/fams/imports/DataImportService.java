@@ -10,6 +10,8 @@ import com.fams.rule.RuleEngine;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -42,6 +44,7 @@ public class DataImportService {
     private final RuleEngine rules;
     private final EnumCatalog enumCatalog;
     private final ImportFileParser fileParser;
+    private final PlatformTransactionManager transactionManager;
 
     /** 列出可导入的资源及其字段（供前端构建模板与映射 UI） */
     public List<ResourceInfo> listResources() {
@@ -122,20 +125,51 @@ public class DataImportService {
             }
         }
 
-        for (ImportFileParser.ParsedRow row : rows) {
+        if (abortOnError) {
+            // D3：整批模式写入阶段整体事务——任一行落库失败即全批回滚，不留半截数据。
+            // 抛 RowFailure 冲出 TransactionTemplate 触发回滚，与外部专项导入口径一致。
+            int[] ok = { 0 };
             try {
-                if (!abortOnError) {
+                new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+                    for (ImportFileParser.ParsedRow row : rows) {
+                        try {
+                            genericService.create(key, new LinkedHashMap<>(row.values));
+                            ok[0]++;
+                        } catch (Exception e) {
+                            throw new RowFailure(row.line, messageOf(e));
+                        }
+                    }
+                });
+                success = ok[0];
+            } catch (RowFailure e) {
+                failures.add(new ImportResult.Failure(e.line, e.message));
+                return new ImportResult(total, 0, "REJECTED_INVALID", failures);
+            }
+        } else {
+            // 逐行模式：create 自身即独立事务，失败行不影响成功行
+            for (ImportFileParser.ParsedRow row : rows) {
+                try {
                     validateRow(meta, row.values);
+                    genericService.create(key, new LinkedHashMap<>(row.values));
+                    success++;
+                } catch (Exception e) {
+                    failures.add(new ImportResult.Failure(row.line, messageOf(e)));
                 }
-                genericService.create(key, new LinkedHashMap<>(row.values));
-                success++;
-            } catch (Exception e) {
-                failures.add(new ImportResult.Failure(row.line, messageOf(e)));
             }
         }
 
         String status = failures.isEmpty() ? "OK" : (success == 0 ? "FAILED" : "PARTIAL");
         return new ImportResult(total, success, status, failures);
+    }
+
+    /** 整批写入失败标记：冲出 TransactionTemplate 以触发整体回滚 */
+    private static final class RowFailure extends RuntimeException {
+        final int line;
+        final String message;
+        RowFailure(int line, String message) {
+            this.line = line;
+            this.message = message;
+        }
     }
 
     private void validateRow(ResourceMeta meta, Map<String, String> row) {

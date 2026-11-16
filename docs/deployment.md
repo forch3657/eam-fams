@@ -13,7 +13,7 @@
 
 | 账号 | Host | 用途 | 权限 | 口令来源 |
 |---|---|---|---|---|
-| `fams` | `127.0.0.1` | 应用运行时连接（dev / prod） | `fams.*` 的 `SELECT, INSERT, UPDATE, DELETE, EXECUTE` | `application-dev.yml` / `application-prod.yml` 默认值 `FamsDb@2026!`，可用环境变量 `DB_PASSWORD` 覆盖 |
+| `fams` | `127.0.0.1` | 应用运行时连接（dev / prod） | `fams.*` 的 `SELECT, INSERT, UPDATE, DELETE, EXECUTE` | prod：环境变量 `DB_PASSWORD`（由 `start-prod.ps1` 从 `deploy/.secrets/db-password` 注入，文件已 gitignore）；dev：见 `application-dev.yml`。口令值不写入任何仓库文件 |
 | `root` | `localhost` | 仅建库与 DDL（加列、索引、建表） | `*.*` 全权限 | 不写入仓库：`deploy/.secrets/db-admin.txt`（已被 `.gitignore` 忽略），或环境变量 `MYSQL_ADMIN_PWD` |
 
 规则：
@@ -69,8 +69,8 @@ Remove-Item Env:MYSQL_PWD   # 用完立即清除
 ### 1.4 应用账号口令变更
 
 1. 用管理员执行 `ALTER USER 'fams'@'127.0.0.1' IDENTIFIED BY '<新口令>';`
-2. 同步修改 `fams-backend/src/main/resources/application-dev.yml` 与 `application-prod.yml` 的 `password` 默认值（或部署时用 `DB_PASSWORD` 注入）。
-3. 重启后端；生产形态改了 `application-prod.yml` 后必须重新执行 `build-prod.ps1`（配置会打进 jar），再 `start-prod.ps1`。
+2. dev：修改 `application-dev.yml` 的默认值；prod：更新本地 `deploy/.secrets/db-password`（该文件被 gitignore，不入库），配置侧的 `application-prod.yml` 只保留 `${DB_PASSWORD}` 占位符、无明文默认值。
+3. 重启后端；生产形态改了配置后必须重新执行 `build-prod.ps1`（配置会打进 jar），再 `start-prod.ps1`（从口令文件注入 `DB_PASSWORD`）。
 
 > 本地 `mvn spring-boot:run` 场景不要用 `-DDB_PASSWORD=xxx`：`spring-boot:run` 会 fork 新 JVM，命令行 `-D` 不一定透传，结果仍用默认值。
 
@@ -101,7 +101,7 @@ CREATE DATABASE IF NOT EXISTS `fams`
 >
 > ⚠️ `dev` / `prod` 的 `spring.sql.init.mode` 都是 `never`，后端**不会**自动建表。没执行上面脚本就启动，会因 Hikari 连不上或表不存在而失败。
 >
-> 管理员 `U1` 的初始口令 `Fzidt@123` 在 `baseline-data.sql` 中是明文，应用首次启动时由 `DataInitializer` 自动迁移为 BCrypt；上线前请通过「系统管理 → 用户」修改。
+> 管理员 `U1` 的初始口令在 `baseline-data.sql` 中保留演示明文，应用首次启动时由 `DataInitializer` 自动迁移为 BCrypt；**当前生产 admin 口令已轮换，见根目录 `README.md` 第 8 节「凭据轮换记录」**，正式发布前必须再次替换。
 
 ### 2.3 执行命令（PowerShell）
 
@@ -224,6 +224,13 @@ Remove-Item Env:MYSQL_PWD
 | `10-asset-source-tag.sql` | `fixed_assets` 加 `source_tag`，承载「期初导入」标注 | 2026-11-04 已执行 |
 | `11-role-permissions.sql` | 8 个内置角色权限基线校准：新增 `fa:repair`、收回部门主管执行权、补齐财务/审计/仓管审批权；等价管理员在角色管理页配置 | 2026-11-05 已通过管理员 API 落生产库，脚本供重部署复跑 |
 | `12-approve-result-dict.sql` | 审批结果字典补 `WITHDRAW` / `VOID` / `TERMINATE` 三项，供「系统管理 → 数据字典」展示与维护 | 2026-11-06 已在生产库执行（`INSERT IGNORE` 幂等） |
+| `19-company-hierarchy-check.sql` | 公司三级层级复核 + `org_companies.parent` 索引 | D1 已执行 |
+| `20-scope-indexes.sql` | 6 个 `idx_*company*` 范围查询索引 | D1 已执行 |
+| `21-role-datascope-backfill.sql` | 9 角色显式 `org_scope`/`data_scope`（只补空值） | D1 已执行 |
+| `22-user-company-scope.sql` | 用户授权公司集合与组织层级字段 | D2 已执行 |
+| `23-low-value-company.sql` | 低值台账与三类单据 `company_id` 加列回填 | D2 已执行 |
+| `24-company-scope-columns.sql` | 配置公司覆盖列、处置单受让公司字段与索引 | D2 已执行 |
+| `25-leadership-role.sql` | 幂等补齐第 9 个角色 `ROLE_LEADERSHIP`（新环境重建必需，见 §3.5.1） | D4 新增，供新环境执行 |
 
 > `12-approve-result-dict.sql` 只补运行期字典项：`EnumCatalog.allowed()` = 内置 `contract/enums.json` ∪ 运行期字典，
 > `label()` 只查内置，因此功能不依赖字典项；三个新结果码已由
@@ -241,12 +248,70 @@ Remove-Item Env:MYSQL_PWD
 > 最后 `stop-prod.ps1` / `build-prod.ps1` / `start-prod.ps1` 重建生产栈。
 > 顺序颠倒会出现「契约声明了字段但库里没列」导致读写 500。
 
+### 3.5.1 新环境完整重建顺序（灾备 / 全新部署必读）
+
+只按第 2 节建库（schema + baseline-data）**不足以复现生产基线**：`baseline-data.sql` 只含 R1~R8 共 8 个内置角色，生产实测是 9 个——第 9 个 `ROLE_LEADERSHIP`（领导班子，id `mvu9z81n35`）是历史上管理员手工创建的自定义角色，11/21 脚本只 `UPDATE`/补空值、从不 `INSERT`。漏掉它会导致领导班子审批人配置与流程解析失效，且与 `docs/qa/role-permission-matrix.md` 的 9 角色矩阵不符。
+
+全新环境按以下顺序重建（均用管理员账号，执行前先做 `mysqldump --single-transaction` 快照）：
+
+1. 第 2 节：`schema.sql` → `baseline-data.sql`（8 个内置角色 + 字典；**不要**执行 seed.sql 演示数据）。
+2. 历史 DML 校准：`06` ~ `12`（其中 `11` 此时 UPDATE 不到领导班子，属正常，由第 4 步补齐）。
+3. 集团化 DDL/DML：`19` → `20` → `21` → `22` → `23` → `24`（均为加法型、幂等可重复执行）。
+4. **`25-leadership-role.sql`**：幂等插入领导班子角色（11 个权限码、`org_scope=COMPANY`、`data_scope=ALL`）。
+5. 复核 SELECT：应返回 **9 角色 / 5 公司 / 76 资产 / 138 账号**（数据规模以日常备份为准，角色与公司数固定）；核对 `org_roles` 无空 `org_scope`/`data_scope`。
+6. 命令行外置注入 `DB_PASSWORD`（见 §1.4）、`JWT_SECRET`（由 `start-prod.ps1` 生成），再 `build-prod.ps1` → `start-prod.ps1`。
+
+> 已运行中的生产库无需执行 25（角色已存在，`WHERE NOT EXISTS` 会跳过）；该脚本是为灾备重建准备的。
+
 ### 3.6 回滚
 
 本项目的迁移策略是只做加法，不写 down 脚本。需要撤销时：
 
 1. 另写一个新脚本（新日期），做反向变更；
 2. 保留原脚本不动，避免重复执行时状态不确定。
+
+---
+
+## 3A. 备份、恢复演练与版本标记（D4）
+
+### 3A.1 自动备份
+
+```powershell
+$env:MYSQL_PWD = <管理员口令>   # 不要写入脚本或命令历史
+powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/backup-prod-db.ps1 -Keep 14
+Remove-Item Env:MYSQL_PWD
+```
+
+- 输出到 `db-baseline/auto-backup-<时间戳>.sql`，保留最近 14 份，不删人工 `backup-*` 快照。
+- **必须使用 mysqldump 原生 `--result-file`**：PowerShell 5.1 的 `>` 重定向会把输出重编码为 UTF-16LE（`FF FE` BOM），mysql 无法恢复。脚本已内置字节头自检，发现 BOM 立即删除备份并报错。
+- 恢复用 mysql 直接 `SOURCE`：`mysql -u root -e "SOURCE <绝对路径>/auto-backup-xxx.sql;" <目标库>`。不要把备份内容经 PowerShell 管道传给 mysql（同样会编码损坏）。
+
+### 3A.2 恢复演练（本次实测）
+
+| 项 | 结果 |
+|---|---|
+| 快照 | `auto-backup-20261116-170858.sql`（7.8MB，无 BOM） |
+| 演练库 | `fams_dr_drill_20261116`（临时，演练后已 DROP） |
+| RTO | **6.02 秒**（39 张表恢复完成） |
+| 数据对比 | 演练库与生产库一致：39 表 / 76 资产 / 5 公司 / 9 角色 / 138 账号 |
+| RPO | 取决于备份间隔；当前为人工触发，正式对外前需配定时任务 |
+
+### 3A.3 健康检查和可观测端点
+
+| 端点 | 用途 | 认证 |
+|---|---|---|
+| `GET /api/health` | 应用自研探活 | 免登录 |
+| `GET /api/actuator/health` | Spring Boot 探活 | 免登录 |
+| `GET /api/actuator/metrics` | Micrometer 指标 | 需 Bearer token |
+| nginx 访问日志 | `deploy/nginx/logs/access.log`，含 traceId/耗时/UA/IP | — |
+
+traceId 由 `TraceIdFilter` 生成或从请求头 `X-Trace-Id` 透传，写入 MDC 与审计日志，经响应头回传；前端 5xx/网络异常上报携带同一 traceId，可跨前后端串联。
+
+### 3A.4 版本标记与回滚
+
+- 发布时在交付仓打 tag：`v<年月日>-<阶段>`，记录 `git rev-parse --short HEAD` 与 `build-prod.ps1` 构建时间，写入 `docs/qa/go-live-checklist.md` 第 7 节。**打 tag 前必须确认本期改动已全部提交**：以未包含改造的 HEAD 打 tag 会导致回滚拿到空版本；`VERSION` 中标注"待提交后重打"时即为该前置条件未满足。
+- 回滚路径：① 用 `stop-prod.ps1` 停栈；② 从上一个 jar/dist 版本或交付仓 tag 恢复产物；③ 若涉及 DDL，用更晚日期的新脚本做反向变更（不改写历史脚本）；④ 必要时用 `db-baseline/` 快照恢复数据库；⑤ `start-prod.ps1` 重启并核对 `/api/health`。
+- 生产栈重建顺序固定：`stop-prod.ps1` → `build-prod.ps1` → `start-prod.ps1`；期间站点短暂不可用。
 
 ---
 
@@ -270,7 +335,7 @@ Remove-Item Env:MYSQL_PWD
 - [ ] `fams@127.0.0.1` 存在，权限恰好是 `fams.*` 的 DML + EXECUTE，无 DDL。
 - [ ] `root@localhost` 口令已改强口令，存放在密码管理器或 `deploy/.secrets/db-admin.txt`，未提交仓库。
 - [ ] `fams` 库为 `utf8mb4` / `utf8mb4_general_ci`，表数量 39。
-- [ ] `baseline-data.sql` 已执行：`C1` / `D1` / `U1` / `R1~R8` 与字典齐全。
+- [ ] `baseline-data.sql` 已执行：`C1` / `D1` / `U1` / `R1~R8` 与字典齐全；新环境另已执行 19~25 迁移，`org_roles` 为 9 个角色（含 25 补齐的领导班子），见 §3.5.1。
 - [ ] 应用连接串口令与库中一致，`/api/health` 返回 `UP`。
 - [ ] 已执行的迁移脚本与 `sql/04-maintenance/` 一致，三处 schema 已同步。
-- [ ] 生产环境已替换默认应用口令 `Fzidt@123` 与数据库口令 `FamsDb@2026!`。
+- [ ] 生产环境默认管理员口令与数据库口令已轮换（当前值见根目录 `README.md` 第 8 节；正式发布前必须再次替换为组织凭据，不再沿用仓库内任何默认值）。

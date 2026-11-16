@@ -31,7 +31,7 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   // 作废单是审计凭证、只有管理员可删除：先由发起人撤销释放预占，再由 admin 回收测试数据。
   // 只删本轮新建的单据，真实账号一律不动。
-  const admin = await loginViaApi({ username: 'admin', password: 'Fzidt@123' })
+  const admin = await loginViaApi({ username: 'admin', password: 'updbJghM7dKx8Az3J3QF' })
   for (const id of created) {
     await withApi(chen, async api => {
       await api.post('/api/approvals/action', {

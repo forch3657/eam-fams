@@ -27,7 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * P1 认证与鉴权验收：登录、统一失败提示、失败锁定、无 token / 坏 token 401。
  *
- * <p>演示数据自带的账号口令为 {@code admin / Fzidt@123}（见 {@link com.fams.TestAccounts}），
+ * <p>演示数据自带的账号口令为 {@code admin / updbJghM7dKx8Az3J3QF}（见 {@link com.fams.TestAccounts}），
  * 启动时由 DataInitializer 迁移为 BCrypt 后再参与校验。</p>
  */
 @SpringBootTest

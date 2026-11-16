@@ -10,7 +10,7 @@ export const ARTIFACT_ROOT = path.resolve(process.cwd(), 'e2e-artifacts', RUN_ID
 /** 管理账号：需要全部权限，用于巡检与数据准备 */
 export const ADMIN = {
   username: process.env.E2E_USERNAME ?? 'admin',
-  password: process.env.E2E_PASSWORD ?? 'Fzidt@123'
+  password: process.env.E2E_PASSWORD ?? 'updbJghM7dKx8Az3J3QF'
 }
 
 /** 会话存储键，与 fams-frontend/src/services/keys.js 保持一致 */

@@ -36,7 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * P2 通用引擎 + 组织架构验收：8 个端点的行为与契约一致。
  *
- * <p>演示账号为 {@code admin / Fzidt@123}（见 {@link com.fams.TestAccounts}），
+ * <p>演示账号为 {@code admin / updbJghM7dKx8Az3J3QF}（见 {@link com.fams.TestAccounts}），
  * 登录后携带 Bearer token 访问业务接口。</p>
  */
 @SpringBootTest

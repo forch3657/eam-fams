@@ -27,7 +27,7 @@ $mysql = (Get-Command mysql -ErrorAction SilentlyContinue)
 if (-not $mysql) { throw 'mysql client not found in PATH' }
 
 $appUser = if ($env:DB_USER) { $env:DB_USER } else { 'fams' }
-$appPwd = if ($env:DB_PASSWORD) { $env:DB_PASSWORD } else { 'FamsDb@2026!' }
+$appPwd = if ($env:DB_PASSWORD) { $env:DB_PASSWORD } else { 'ZgM8Zg9PKm2CYyeYzdNs' }
 $dbName = if ($env:DB_TEST_NAME) { $env:DB_TEST_NAME } else { 'fams_e2e' }
 
 # --- 1. admin password (masked input, or MYSQL_ADMIN_PWD for automation) ---

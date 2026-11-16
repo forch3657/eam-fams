@@ -30,7 +30,7 @@ Write-Host ('Using npm: ' + $npmCmd)
 $mysql = (Get-Command mysql -ErrorAction SilentlyContinue)
 if (-not $mysql) { Write-Host 'X mysql client not found in PATH'; exit 1 }
 $dbUser = if ($env:DB_USER) { $env:DB_USER } else { 'fams' }
-$dbPwd = if ($env:DB_PASSWORD) { $env:DB_PASSWORD } else { 'FamsDb@2026!' }
+$dbPwd = if ($env:DB_PASSWORD) { $env:DB_PASSWORD } else { 'ZgM8Zg9PKm2CYyeYzdNs' }
 $dbName = if ($env:DB_TEST_NAME) { $env:DB_TEST_NAME } else { 'fams_e2e' }
 # MYSQL_PWD instead of --password: keeps the credential out of the process list.
 $env:MYSQL_PWD = $dbPwd

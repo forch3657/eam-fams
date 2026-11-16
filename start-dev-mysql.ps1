@@ -34,12 +34,12 @@ Write-Host 'Starting backend (mvn spring-boot:run -Dspring-boot.run.profiles=dev
 # 后端：dev profile 连 MySQL。数据库/账号在 application-dev.yml 中：
 #   url      = jdbc:mysql://127.0.0.1:3306/fams?...
 #   username = fams   （专用最小权限账号，仅授权 fams.*）
-#   password = FamsDb@2026!   （默认值；改密码请直接改 application-dev.yml，
+#   password = ZgM8Zg9PKm2CYyeYzdNs   （默认值；改密码请直接改 application-dev.yml，
 #                              不要用 `mvn -DDB_PASSWORD=xxx`，spring-boot:run 会 fork 新 JVM 导致 -D 不透传）
 Start-Process -FilePath 'mvn.cmd' -ArgumentList 'spring-boot:run', '-Dspring-boot.run.profiles=dev' -WorkingDirectory (Join-Path $root 'fams-backend') -WindowStyle Normal
 Start-Process -FilePath 'npm.cmd' -ArgumentList 'run', 'dev' -WorkingDirectory (Join-Path $root 'fams-frontend') -WindowStyle Normal
 
 Write-Host 'Done. Backend on MySQL needs ~20-40s (first run downloads deps).'
-Write-Host 'DB: mysql://127.0.0.1:3306/fams   user=fams   password=FamsDb@2026!'
+Write-Host 'DB: mysql://127.0.0.1:3306/fams   user=fams   password=ZgM8Zg9PKm2CYyeYzdNs'
 Write-Host 'Open http://localhost:5174 after the backend window shows "Started".'
 Write-Host 'NOTE: The `fams` database must already exist with schema+data loaded (see README section 2).'

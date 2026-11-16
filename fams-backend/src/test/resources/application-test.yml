@@ -25,8 +25,19 @@ fams:
     permit-all:
       - /health
       - /auth/login
+      - /actuator/health
   cors:
     allowed-origins: http://localhost:5174
+
+management:
+  endpoints:
+    web:
+      base-path: /api/actuator
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
 
 logging:
   level:

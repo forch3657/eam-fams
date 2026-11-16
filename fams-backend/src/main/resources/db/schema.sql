@@ -245,6 +245,7 @@ CREATE TABLE `fixed_asset_settings_depreciation_plans` (
 
 DROP TABLE IF EXISTS `low_value_items`;
 CREATE TABLE `low_value_items` (
+  `company_id` VARCHAR(64),
   `id` VARCHAR(64) NOT NULL COMMENT '主键',
   `code` VARCHAR(255) COMMENT '必填 唯一',
   `category` VARCHAR(64) COMMENT 'LOW_VALUE_CATEGORY 必填',
@@ -267,6 +268,7 @@ CREATE TABLE `low_value_items` (
 
 DROP TABLE IF EXISTS `low_value_inbound`;
 CREATE TABLE `low_value_inbound` (
+  `company_id` VARCHAR(64),
   `id` VARCHAR(64) NOT NULL COMMENT '主键',
   `doc_no` VARCHAR(255) COMMENT '必填 唯一',
   `item_id` VARCHAR(255) COMMENT '→low-value-items 必填',
@@ -297,6 +299,7 @@ CREATE TABLE `low_value_inbound` (
 
 DROP TABLE IF EXISTS `low_value_requisition`;
 CREATE TABLE `low_value_requisition` (
+  `company_id` VARCHAR(64),
   `id` VARCHAR(64) NOT NULL COMMENT '主键',
   `doc_no` VARCHAR(255) COMMENT '必填 唯一',
   `item_id` VARCHAR(255) COMMENT '→low-value-items 必填',
@@ -328,6 +331,7 @@ CREATE TABLE `low_value_requisition` (
 
 DROP TABLE IF EXISTS `low_value_return`;
 CREATE TABLE `low_value_return` (
+  `company_id` VARCHAR(64),
   `id` VARCHAR(64) NOT NULL COMMENT '主键',
   `doc_no` VARCHAR(255) COMMENT '必填 唯一',
   `item_id` VARCHAR(255) COMMENT '→low-value-items 必填',
@@ -377,6 +381,8 @@ CREATE TABLE `low_value_settings_locations` (
 
 DROP TABLE IF EXISTS `org_companies`;
 CREATE TABLE `org_companies` (
+  `path` VARCHAR(1024),
+  `level` INT,
   `id` VARCHAR(64) NOT NULL COMMENT '主键',
   `code` VARCHAR(255) COMMENT '必填 唯一',
   `name` VARCHAR(255) COMMENT '必填 唯一',
@@ -422,6 +428,7 @@ CREATE TABLE `org_departments` (
 
 DROP TABLE IF EXISTS `org_users`;
 CREATE TABLE `org_users` (
+  `scope_company_ids` TEXT,
   `id` VARCHAR(64) NOT NULL COMMENT '主键',
   `username` VARCHAR(255) COMMENT '必填 唯一',
   `password` VARCHAR(255),
@@ -480,6 +487,7 @@ CREATE TABLE `system_dict_types` (
 
 DROP TABLE IF EXISTS `system_params`;
 CREATE TABLE `system_params` (
+  `company_id` VARCHAR(64),
   `id` VARCHAR(64) NOT NULL COMMENT '主键',
   `name` VARCHAR(255) COMMENT '必填',
   `key` VARCHAR(255) COMMENT '必填 唯一',
@@ -496,6 +504,7 @@ CREATE TABLE `system_params` (
 
 DROP TABLE IF EXISTS `system_workflow_flows`;
 CREATE TABLE `system_workflow_flows` (
+  `company_id` VARCHAR(64),
   `id` VARCHAR(64) NOT NULL COMMENT '主键',
   `code` VARCHAR(255) COMMENT '必填 唯一',
   `name` VARCHAR(255) COMMENT '必填',
@@ -794,6 +803,7 @@ CREATE TABLE `fixed_asset_doc_lists_change` (
 
 DROP TABLE IF EXISTS `fixed_asset_doc_lists_dispose`;
 CREATE TABLE `fixed_asset_doc_lists_dispose` (
+  `transferee_company_id` VARCHAR(64),
   `id` VARCHAR(64) NOT NULL COMMENT '主键',
   `code` VARCHAR(255) COMMENT '必填 唯一',
   `name` VARCHAR(255) COMMENT '必填',

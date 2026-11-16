@@ -61,12 +61,23 @@
           >
             <el-icon><Fold v-if="!appStore.sidebarCollapsed" /><Expand v-else /></el-icon>
           </button>
-          <!-- 当前数据范围标识：由角色配置决定，只读展示（避免看起来像可切换控件） -->
+          <!-- D2 公司视角切换器：只切换展示/默认值，授权仍由角色的 dataScope 决定 -->
           <el-tooltip :content="scopeTip" placement="bottom">
-            <span class="scope-chip">
-              <el-icon><OfficeBuilding /></el-icon>
-              <span class="scope-name">{{ scopeName }}</span>
-            </span>
+            <el-select
+              v-model="companyScope.viewCompanyId"
+              class="scope-select"
+              size="small"
+              :disabled="companyScope.visibleCompanies.length <= 1"
+              @change="onCompanyViewChange"
+            >
+              <template #prefix><el-icon><OfficeBuilding /></el-icon></template>
+              <el-option
+                v-for="c in companyScope.visibleCompanies"
+                :key="c.id"
+                :label="c.name"
+                :value="c.id"
+              />
+            </el-select>
           </el-tooltip>
         </div>
         <div class="header-right">
@@ -139,6 +150,7 @@ import { useOrgStore } from '../store/org'
 import { useNotifyStore } from '../store/notify'
 import { useAuditStore } from '../store/audit'
 import { useWorkbenchStore } from '../store/workbench'
+import { useCompanyScopeStore } from '../store/companyScope'
 import TagsView from '../components/TagsView.vue'
 import { dataMode } from '../services'
 import { loadDictEnums } from '../services/dictEnums'
@@ -158,6 +170,7 @@ const orgStore = useOrgStore()
 const notifyStore = useNotifyStore()
 const auditStore = useAuditStore()
 const workbench = useWorkbenchStore()
+const companyScope = useCompanyScopeStore()
 
 const activeMenu = computed(() => route.path)
 /** 权限判定（角色在组织架构中维护，登录后按角色解析） */
@@ -166,24 +179,20 @@ const can = code => userStore.can(code)
 const groupVisible = perms => perms.some(p => can(p))
 const modeLabel = computed(() => (dataMode === 'mock' ? '演示数据' : '后端接口'))
 
-/**
- * 当前数据范围（公司）
- *
- * 按用户的 companyId 从组织主数据现查，而不是直接用登录时的快照 user.org：
- * 组织架构被清空/公司改名后，顶栏能立即反映，不必重新登录。
- */
-const scopeName = computed(() => {
-  const u = userStore.user
-  if (!u) return '固定资产管理中心'
-  if (u.companyId) {
-    const live = orgStore.companyName(u.companyId)
-    if (live) return live
-    // 主数据已加载但查不到该公司（例如刚清空组织架构）：不要回落到过期快照
-    if (orgStore.loaded) return '固定资产管理中心'
-  }
-  return u.org || '固定资产管理中心'
-})
-/** 数据范围说明：口径来自角色的 dataScope，不是可随意切换的控件 */
+/** D2 公司视角名（随视角切换；组织主数据现查，改名后立即可见） */
+const scopeName = computed(() => companyScope.viewName)
+/** 切换公司视角：只改展示与新建默认值；重新装载各业务视图以按新视角收窄 */
+function onCompanyViewChange(id) {
+  if (!companyScope.setView(id)) return
+  // 视角变化后重新拉取各业务视图；服务端按主体授权集合返回，前端再按所选公司收窄展示
+  try {
+    if (can('fa:view')) fixedAssetStore.loadAll()
+    if (can('lv:view')) lowValueAssetStore.loadAll()
+    if (can('wm:todo')) workbench.load(true)
+    if (can('sys:log')) auditStore.loadAll()
+  } catch (e) { console.error(e) }
+}
+/** 数据范围说明：口径来自角色的 dataScope，视角切换不改变授权 */
 const scopeTip = computed(() => {
   // 取第一个启用角色：停用角色不再代表当前数据范围
   const ids = userStore.user?.roleIds || []
@@ -205,13 +214,15 @@ watch(
   { immediate: true }
 )
 
-onMounted(() => {
+onMounted(async () => {
   // 预取一律按权限判定：业务角色没有对应权限时不发请求，
   // 否则登录首屏就会冒出「无权限访问该数据」的 403（2026-11-02 收紧）。
   if (can('fa:view') && !fixedAssetStore.loaded) fixedAssetStore.loadAll()
   if (can('lv:view') && !lowValueAssetStore.loaded) lowValueAssetStore.loadAll()
   // 守卫只加载了基础三张表；这里按权限补用户表（无权角色直接跳过，不产生 403）
-  if (can('org:user') || can('wm:todo')) orgStore.loadAll({ withUsers: true })
+  if (can('org:user') || can('wm:todo')) await orgStore.loadAll({ withUsers: true })
+  // D2 公司视角：组织主数据就绪后初始化（恢复会话视角或回落到用户自身公司）
+  companyScope.init()
   if (can('wm:message') && !notifyStore.loaded) notifyStore.loadAll()
   if (can('sys:log') && !auditStore.loaded) auditStore.loadAll()
   // 工作台聚合数据（顶栏待办徽标依赖它）
