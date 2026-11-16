@@ -64,7 +64,7 @@
           <!-- D2 公司视角切换器：只切换展示/默认值，授权仍由角色的 dataScope 决定 -->
           <el-tooltip :content="scopeTip" placement="bottom">
             <el-select
-              v-model="companyScope.viewCompanyId"
+              v-model="currentCompanyView"
               class="scope-select"
               size="small"
               :disabled="companyScope.visibleCompanies.length <= 1"
@@ -181,6 +181,11 @@ const modeLabel = computed(() => (dataMode === 'mock' ? '演示数据' : '后端
 
 /** D2 公司视角名（随视角切换；组织主数据现查，改名后立即可见） */
 const scopeName = computed(() => companyScope.viewName)
+/** 下拉框绑定值：空视角时回落到用户所属公司，确保单公司用户也显示公司名而非「请选择」 */
+const currentCompanyView = computed({
+  get: () => companyScope.effectiveCompanyId,
+  set: id => companyScope.setView(id)
+})
 /** 切换公司视角：只改展示与新建默认值；重新装载各业务视图以按新视角收窄 */
 function onCompanyViewChange(id) {
   if (!companyScope.setView(id)) return
