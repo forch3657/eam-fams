@@ -105,6 +105,16 @@
               </el-badge>
             </button>
           </el-tooltip>
+          <el-tooltip content="使用帮助（按角色与场景）" placement="bottom">
+            <button
+              type="button"
+              class="hdr-badge"
+              aria-label="打开使用帮助中心"
+              @click="helpVisible = true"
+            >
+              <el-icon class="hdr-icon"><QuestionFilled /></el-icon>
+            </button>
+          </el-tooltip>
           <el-tag v-if="dataMode === 'mock'" class="mode-tag" type="info" effect="plain" size="small">{{ modeLabel }}</el-tag>
           <el-dropdown trigger="click" @command="handleCommand">
             <span
@@ -134,12 +144,13 @@
         <AppBreadcrumb />
         <router-view />
       </el-main>
+      <HelpCenter v-model="helpVisible" />
     </el-container>
   </el-container>
 </template>
 
 <script setup>
-import { computed, onMounted, watch } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import AppBreadcrumb from '../components/AppBreadcrumb.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '../store/app'
@@ -152,13 +163,14 @@ import { useAuditStore } from '../store/audit'
 import { useWorkbenchStore } from '../store/workbench'
 import { useCompanyScopeStore } from '../store/companyScope'
 import TagsView from '../components/TagsView.vue'
+import HelpCenter from '../components/HelpCenter.vue'
 import { dataMode } from '../services'
 import { loadDictEnums } from '../services/dictEnums'
 import { labelOf } from '../constants/enums'
 import { loadSysParams } from '../services/sysParams'
 import { Monitor, Setting, User, Box, Fold, Expand, OfficeBuilding, CaretBottom, HomeFilled, Bell, ChatDotRound,
   Notebook, DataAnalysis, SetUp, Goods, Histogram, Connection, UserFilled, Avatar,
-  Collection, Document, Share, Operation, Tickets, Cellphone, Upload } from '@element-plus/icons-vue'
+  Collection, Document, Share, Operation, Tickets, Cellphone, Upload, QuestionFilled } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -171,6 +183,7 @@ const notifyStore = useNotifyStore()
 const auditStore = useAuditStore()
 const workbench = useWorkbenchStore()
 const companyScope = useCompanyScopeStore()
+const helpVisible = ref(false)
 
 const activeMenu = computed(() => route.path)
 /** 权限判定（角色在组织架构中维护，登录后按角色解析） */
