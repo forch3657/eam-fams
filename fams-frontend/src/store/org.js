@@ -67,6 +67,22 @@ export const useOrgStore = defineStore('org', () => {
     loaded.value = true
   }
 
+  /**
+   * 清空组织缓存（换账号 / 登出 / 令牌失效时调用）。
+   *
+   * 不能只靠 usersLoaded 标记：换账号后若 loaded/usersLoaded 仍为 true，
+   * loadAll 会直接提前返回，页面沿用它上一位用户的用户表——
+   * 例如部门主管（DEPT_ONLY）只看得到本部门 4 人，换成系统管理员后仍只有 4 人。
+   */
+  function reset() {
+    companies.value = []
+    departments.value = []
+    users.value = []
+    roles.value = []
+    loaded.value = false
+    usersLoaded.value = false
+  }
+
   // ---------------- 派生数据 ----------------
   const companyMap = computed(() => new Map(companies.value.map(c => [c.id, c])))
   const deptMap = computed(() => new Map(departments.value.map(d => [d.id, d])))
@@ -350,6 +366,7 @@ export const useOrgStore = defineStore('org', () => {
     loaded,
     usersLoaded,
     loadAll,
+    reset,
     companyTree,
     deptTree,
     companyOptions,

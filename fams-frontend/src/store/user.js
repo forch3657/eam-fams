@@ -73,6 +73,9 @@ export const useUserStore = defineStore('user', () => {
       if (!issued) return { ok: false, reason: 'SERVER', message: '登录接口未返回 token' }
       // 先把 token 写入 sessionStorage，后续请求（含组织数据加载）才会带上 Authorization
       setToken(issued)
+      // 换账号：先清掉上一位用户的组织缓存（含 usersLoaded 标记），
+      // 否则 loadAll 会提前返回并沿用旧用户表（管理员看不到全部人员）
+      org.reset()
       const account = res?.user || {}
       // 此时已持有 token，可以安全加载组织主数据（用于角色/公司名称展示与权限判定）。
       // 加载失败不阻断登录：路由守卫与各页面挂载时都会兜底重试。
@@ -149,6 +152,8 @@ export const useUserStore = defineStore('user', () => {
     } catch (e) { console.error(e) }
     // 标签栏属于「上一位用户的工作现场」，退出/失效时必须一起清掉
     try { useAppStore().resetViews() } catch (e) { console.error(e) }
+    // 组织缓存同样属于上一位用户：清掉 loaded/usersLoaded，避免下一位用户沿用旧用户表
+    try { useOrgStore().reset() } catch (e) { console.error(e) }
   }
 
   function restore() {

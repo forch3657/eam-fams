@@ -222,14 +222,16 @@ watch(
 onMounted(async () => {
   // 预取一律按权限判定：业务角色没有对应权限时不发请求，
   // 否则登录首屏就会冒出「无权限访问该数据」的 403（2026-11-02 收紧）。
-  if (can('fa:view') && !fixedAssetStore.loaded) fixedAssetStore.loadAll()
-  if (can('lv:view') && !lowValueAssetStore.loaded) lowValueAssetStore.loadAll()
+  // 不判断 loaded：换账号后 store 可能残留上一位用户的数据（权限集合相同则不会重载），
+  // MainLayout 只在登录后挂载一次，这里强制按当前账号重新拉取，避免越权展示旧数据。
+  if (can('fa:view')) fixedAssetStore.loadAll()
+  if (can('lv:view')) lowValueAssetStore.loadAll()
   // 守卫只加载了基础三张表；这里按权限补用户表（无权角色直接跳过，不产生 403）
   if (can('org:user') || can('wm:todo')) await orgStore.loadAll({ withUsers: true })
   // D2 公司视角：组织主数据就绪后初始化（恢复会话视角或回落到用户自身公司）
   companyScope.init()
-  if (can('wm:message') && !notifyStore.loaded) notifyStore.loadAll()
-  if (can('sys:log') && !auditStore.loaded) auditStore.loadAll()
+  if (can('wm:message')) notifyStore.loadAll()
+  if (can('sys:log')) auditStore.loadAll()
   // 工作台聚合数据（顶栏待办徽标依赖它）
   // 不在这里判断 loaded：load 内部按权限快照判定，换账号后权限变化会自动重新装载
   if (can('wm:todo')) workbench.load()
