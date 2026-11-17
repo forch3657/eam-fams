@@ -80,6 +80,45 @@
           </div>
         </el-tab-pane>
 
+        <!-- 公司统计：库存按物品归属公司、领用按单据归属公司，合计与下钻同源 -->
+        <el-tab-pane label="公司统计" name="company">
+          <el-table
+            :data="companyStats"
+            class="clickable-table"
+            style="width: 100%"
+            show-summary
+            :summary-method="companySummary"
+            @row-click="openCompanyDetail"
+          >
+            <el-table-column prop="company" label="所属公司" min-width="180">
+              <template #default="{ row }"><el-link type="primary" :underline="false">{{ row.company }}</el-link></template>
+            </el-table-column>
+            <el-table-column prop="kinds" label="物品种类" width="100" align="right" />
+            <el-table-column prop="stock" label="库存数量" width="110" align="right">
+              <template #default="{ row }"><span class="num">{{ row.stock }}</span></template>
+            </el-table-column>
+            <el-table-column prop="amount" label="库存金额(元)" width="150" align="right">
+              <template #default="{ row }"><span class="num">¥{{ row.amount.toLocaleString() }}</span></template>
+            </el-table-column>
+            <el-table-column prop="lowStock" label="低库存种类" width="110" align="right" />
+            <el-table-column prop="reqTimes" label="领用次数" width="100" align="right" />
+            <el-table-column prop="reqQuantity" label="领用数量" width="110" align="right">
+              <template #default="{ row }"><span class="num">{{ row.reqQuantity }}</span></template>
+            </el-table-column>
+            <el-table-column prop="reqAmount" label="领用金额(元)" width="150" align="right">
+              <template #default="{ row }"><span class="num">¥{{ row.reqAmount.toLocaleString() }}</span></template>
+            </el-table-column>
+            <el-table-column label="占比" min-width="200">
+              <template #default="{ row }"><el-progress :percentage="row.percentage" :stroke-width="14" /></template>
+            </el-table-column>
+            <el-table-column label="操作" width="100" fixed="right">
+              <template #default="{ row }">
+                <el-button link type="primary" size="small" @click.stop="openCompanyDetail(row)">下钻明细</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
         <!-- 部门领用统计 -->
         <el-tab-pane label="部门领用统计" name="dept">
           <el-form :inline="true" class="search-form">
@@ -258,6 +297,46 @@
         <el-button @click="detailVisible = false">关闭</el-button>
       </template>
     </el-dialog>
+
+    <!-- 公司统计下钻：库存物品 + 该公司已生效领用单，口径与统计行一致 -->
+    <el-dialog v-model="companyDetailVisible" :title="companyDetailTitle" width="1080px" top="6vh">
+      <div class="detail-toolbar">
+        <span>库存物品 {{ companyStockRows.length }} 种 · 已生效领用单 {{ companyReqRows.length }} 张</span>
+        <el-button v-if="can('lv:export')" size="small" type="primary" plain @click="exportCompanyDetail">
+          <el-icon><Download /></el-icon>
+          导出库存明细
+        </el-button>
+      </div>
+      <div class="detail-section-title">库存物品明细</div>
+      <el-table :data="companyStockRows" max-height="300" style="width: 100%">
+        <el-table-column prop="code" label="物品编号" width="130" />
+        <el-table-column prop="name" label="物品名称" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="categoryName" label="物品类别" width="110" />
+        <el-table-column prop="spec" label="规格型号" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="stock" label="库存数量" width="100" align="right" />
+        <el-table-column label="单价(元)" width="100" align="right">
+          <template #default="{ row }"><span class="num">¥{{ Number(row.price || 0).toLocaleString() }}</span></template>
+        </el-table-column>
+        <el-table-column label="库存金额(元)" width="130" align="right">
+          <template #default="{ row }"><span class="num">¥{{ row.amount.toLocaleString() }}</span></template>
+        </el-table-column>
+      </el-table>
+      <div class="detail-section-title">已生效领用单</div>
+      <el-table :data="companyReqRows" max-height="260" style="width: 100%">
+        <el-table-column prop="docNo" label="单据编号" width="140" />
+        <el-table-column prop="itemName" label="物品名称" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="receiver" label="领用人" width="100" />
+        <el-table-column prop="deptName" label="领用部门" min-width="160" show-overflow-tooltip />
+        <el-table-column prop="quantity" label="领用数量" width="110" align="right" />
+        <el-table-column label="领用金额(元)" width="140" align="right">
+          <template #default="{ row }"><span class="num">¥{{ Number(row.amount || 0).toLocaleString() }}</span></template>
+        </el-table-column>
+        <el-table-column prop="requisitionDate" label="领用日期" width="120" />
+      </el-table>
+      <template #footer>
+        <el-button @click="companyDetailVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -278,7 +357,7 @@ const activeTab = ref('category')
 /** 类别选项取自数据字典（系统管理 > 数据字典 > 低值资产类别） */
 const categoryOptions = computed(() => store.categoryOptions)
 
-const tabNames = { category: '类别统计', dept: '部门领用统计', receiver: '使用人领用统计', flow: '出入库汇总' }
+const tabNames = { category: '类别统计', company: '公司统计', dept: '部门领用统计', receiver: '使用人领用统计', flow: '出入库汇总' }
 
 // 类别统计
 const catPage = ref(1)
@@ -324,6 +403,64 @@ const receiverStats = computed(() => {
     .sort((a, b) => b.amount - a.amount)
 })
 
+/**
+ * 公司统计：库存按物品台账的 companyId 归属，领用按已生效领用单的 companyId 归属。
+ * 与类别统计共用 store.items / settledRequisitions，确保「合计 = 各公司下钻之和」。
+ */
+const round2 = n => Math.round((Number(n) || 0) * 100) / 100
+const companyStats = computed(() => {
+  const map = new Map()
+  const rowOf = id => {
+    const key = id || ''
+    let row = map.get(key)
+    if (!row) {
+      row = {
+        id: key,
+        company: orgStore.companyName(key) || (key ? key : '未分配'),
+        kinds: 0, stock: 0, amount: 0, lowStock: 0,
+        reqTimes: 0, reqQuantity: 0, reqAmount: 0
+      }
+      map.set(key, row)
+    }
+    return row
+  }
+  store.items.forEach(i => {
+    const row = rowOf(i.companyId)
+    const stock = Number(i.stock) || 0
+    row.kinds++
+    row.stock += stock
+    row.amount += stock * (Number(i.price) || 0)
+    if (stock <= (Number(i.safetyStock) || 0)) row.lowStock++
+  })
+  settledRequisitions.value.forEach(r => {
+    const row = rowOf(r.companyId)
+    row.reqTimes++
+    row.reqQuantity += Number(r.quantity) || 0
+    row.reqAmount += Number(r.amount) || 0
+  })
+  const total = [...map.values()].reduce((s, r) => s + r.amount, 0)
+  return [...map.values()]
+    .map(r => ({
+      ...r,
+      amount: round2(r.amount),
+      reqAmount: round2(r.reqAmount),
+      percentage: total ? Math.round(r.amount / total * 1000) / 10 : 0
+    }))
+    .sort((a, b) => b.amount - a.amount)
+})
+
+/** 合计行只汇总数量/金额，占比列固定 100%，避免出现无意义的百分比相加 */
+function companySummary({ columns, data }) {
+  const numeric = ['kinds', 'stock', 'amount', 'lowStock', 'reqTimes', 'reqQuantity', 'reqAmount']
+  return columns.map((col, index) => {
+    if (index === 0) return '合计'
+    if (col.label === '占比') return '100%'
+    if (!numeric.includes(col.property)) return ''
+    const sum = round2(data.reduce((s, r) => s + (Number(r[col.property]) || 0), 0))
+    return col.property === 'amount' || col.property === 'reqAmount' ? `¥${sum.toLocaleString()}` : sum
+  })
+}
+
 const receiverSearch = reactive({ name: '', department: '' })
 watch(receiverSearch, () => { receiverPage.value = 1 }, { deep: true })
 const receiverPage = ref(1)
@@ -354,8 +491,11 @@ const detailVisible = ref(false)
 const detailTitle = ref('')
 const detailRows = ref([])
 
+/** 单据快照名可能因历史录入编码问题失真，展示时以当前台账的物品名为准 */
+const itemNameOf = r => store.items.find(i => i.id === r.itemId)?.name || r.itemName
+
 function withDeptName(rows) {
-  return rows.map(r => ({ ...r, deptName: deptNameOf(r) }))
+  return rows.map(r => ({ ...r, deptName: deptNameOf(r), itemName: itemNameOf(r) }))
 }
 
 function openDeptDetail(row) {
@@ -370,6 +510,33 @@ function openReceiverDetail(row) {
   detailRows.value = withDeptName(settledRequisitions.value.filter(r => (r.receiver || '未指定') === key))
   detailTitle.value = `${key} · 领用明细`
   detailVisible.value = true
+}
+
+/** 公司统计下钻：库存明细与领用单都按同一 companyId 过滤，与统计行口径一致 */
+const companyDetailVisible = ref(false)
+const companyDetailTitle = ref('')
+const companyStockRows = ref([])
+const companyReqRows = ref([])
+
+function openCompanyDetail(row) {
+  const id = row.id || ''
+  companyStockRows.value = store.items
+    .filter(i => (i.companyId || '') === id)
+    .map(i => ({
+      ...i,
+      categoryName: store.categoryName(i.category),
+      amount: round2((Number(i.stock) || 0) * (Number(i.price) || 0))
+    }))
+  companyReqRows.value = withDeptName(settledRequisitions.value.filter(r => (r.companyId || '') === id))
+  companyDetailTitle.value = `${row.company} · 资产明细`
+  companyDetailVisible.value = true
+}
+
+function exportCompanyDetail() {
+  const headers = ['物品编号', '物品名称', '物品类别', '规格型号', '库存数量', '单价(元)', '库存金额(元)']
+  const rows = companyStockRows.value.map(r => [r.code, r.name, r.categoryName, r.spec, r.stock, r.price, r.amount])
+  const date = new Date().toISOString().slice(0, 10)
+  downloadCsv(headers, rows, `导出_${companyDetailTitle.value.replace(/[\s·]/g, '')}_${date}.csv`, '导出公司库存明细成功')
 }
 
 function exportDetail() {
@@ -425,6 +592,10 @@ function handleExport() {
     const headers = ['物品类别', '物品种类', '库存数量', '库存金额(元)', '占比(%)']
     const rows = store.categoryStats.map(r => [r.name, r.count, r.quantity, r.amount, r.percentage])
     downloadCsv(headers, rows, `导出_${tabNames.category}_${date}.csv`)
+  } else if (activeTab.value === 'company') {
+    const headers = ['所属公司', '物品种类', '库存数量', '库存金额(元)', '低库存种类', '领用次数', '领用数量', '领用金额(元)', '占比(%)']
+    const rows = companyStats.value.map(r => [r.company, r.kinds, r.stock, r.amount, r.lowStock, r.reqTimes, r.reqQuantity, r.reqAmount, r.percentage])
+    downloadCsv(headers, rows, `导出_${tabNames.company}_${date}.csv`)
   } else if (activeTab.value === 'dept') {
     const headers = ['领用部门', '领用次数', '领用数量', '领用金额(元)', '占比(%)']
     const rows = filteredDeptStats.value.map(r => [r.dept, r.times, r.quantity, r.amount, r.percentage])
@@ -455,6 +626,12 @@ function handleExport() {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+}
+
+.detail-section-title {
+  font-weight: 600;
+  color: var(--t-main);
+  margin: 12px 0 8px;
 }
 
 .stat-cards {
