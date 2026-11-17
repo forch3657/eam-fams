@@ -15,6 +15,11 @@
                 <el-option v-for="c in categoryOptions" :key="c.value" :label="c.label" :value="c.value" />
               </el-select>
             </el-form-item>
+            <el-form-item label="公司">
+              <el-select v-model="itemSearch.company" placeholder="请选择公司" clearable filterable style="width: 160px">
+                <el-option v-for="c in companyOptionList" :key="c.id" :label="c.name" :value="c.id" />
+              </el-select>
+            </el-form-item>
             <el-form-item label="关键字">
               <el-input v-model="itemSearch.keyword" placeholder="物品名称/规格型号" clearable style="width: 220px" />
             </el-form-item>
@@ -92,6 +97,11 @@
             <el-form-item label="供应商">
               <el-input v-model="inboundSearch.supplier" placeholder="请输入供应商" clearable style="width: 200px" />
             </el-form-item>
+            <el-form-item label="公司">
+              <el-select v-model="inboundSearch.company" placeholder="请选择公司" clearable filterable style="width: 160px">
+                <el-option v-for="c in companyOptionList" :key="c.id" :label="c.name" :value="c.id" />
+              </el-select>
+            </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="inboundPage = 1">
                 <el-icon><Search /></el-icon>
@@ -153,6 +163,11 @@
             </el-form-item>
             <el-form-item label="领用人">
               <el-input v-model="requisitionSearch.receiver" placeholder="请输入领用人" clearable style="width: 160px" />
+            </el-form-item>
+            <el-form-item label="公司">
+              <el-select v-model="requisitionSearch.company" placeholder="请选择公司" clearable filterable style="width: 160px">
+                <el-option v-for="c in companyOptionList" :key="c.id" :label="c.name" :value="c.id" />
+              </el-select>
             </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="requisitionPage = 1">
@@ -228,6 +243,11 @@
             </el-form-item>
             <el-form-item label="退库人">
               <el-input v-model="returnSearch.returner" placeholder="请输入退库人" clearable style="width: 160px" />
+            </el-form-item>
+            <el-form-item label="公司">
+              <el-select v-model="returnSearch.company" placeholder="请选择公司" clearable filterable style="width: 160px">
+                <el-option v-for="c in companyOptionList" :key="c.id" :label="c.name" :value="c.id" />
+              </el-select>
             </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="returnPage = 1">
@@ -542,6 +562,8 @@ const locationOptions = computed(() => store.locationOptions)
 const itemStatusOptions = computed(() => optionsOf('LOW_VALUE_ITEM_STATUS'))
 /** 部门口径取自组织架构主数据，同名部门以公司名区分 */
 const deptOptions = computed(() => orgStore.departmentOptions.map(d => ({ ...d, label: `${d.name}（${d.companyName}）` })))
+/** 公司口径取自组织架构主数据，下拉保存公司 ID */
+const companyOptionList = computed(() => orgStore.companies.map(c => ({ id: c.id, name: c.name })))
 
 /** 部门 id -> 部门名（展示用） */
 function deptNameOf(deptId) {
@@ -575,7 +597,7 @@ function today() {
 }
 
 // ---------- 库存台账 ----------
-const itemSearch = reactive({ category: '', keyword: '' })
+const itemSearch = reactive({ category: '', keyword: '', company: '' })
 watch(itemSearch, () => { itemPage.value = 1 }, { deep: true })
 
 const itemPage = ref(1)
@@ -601,8 +623,9 @@ const filteredItemList = computed(() => {
   const kw = itemSearch.keyword.trim()
   return store.itemRows.filter(i => {
     const categoryMatch = !itemSearch.category || i.category === itemSearch.category
+    const companyMatch = !itemSearch.company || i.companyId === itemSearch.company
     const kwMatch = !kw || i.name.includes(kw) || (i.spec || '').includes(kw) || i.code.includes(kw)
-    return categoryMatch && kwMatch
+    return categoryMatch && companyMatch && kwMatch
   })
 })
 
@@ -614,11 +637,12 @@ const pagedItemList = computed(() => {
 function resetItemSearch() {
   itemSearch.category = ''
   itemSearch.keyword = ''
+  itemSearch.company = ''
   itemPage.value = 1
 }
 
 // ---------- 入库 ----------
-const inboundSearch = reactive({ name: '', supplier: '' })
+const inboundSearch = reactive({ name: '', supplier: '', company: '' })
 watch(inboundSearch, () => { inboundPage.value = 1 }, { deep: true })
 
 const inboundPage = ref(1)
@@ -628,7 +652,8 @@ const filteredInboundList = computed(() => {
   return store.inboundRecords.filter(r => {
     const nameMatch = !inboundSearch.name || (r.itemName || '').includes(inboundSearch.name)
     const supplierMatch = !inboundSearch.supplier || (r.supplier || '').includes(inboundSearch.supplier)
-    return nameMatch && supplierMatch
+    const companyMatch = !inboundSearch.company || r.companyId === inboundSearch.company
+    return nameMatch && supplierMatch && companyMatch
   }).map(decorateDoc)
 })
 
@@ -640,11 +665,12 @@ const pagedInboundList = computed(() => {
 function resetInboundSearch() {
   inboundSearch.name = ''
   inboundSearch.supplier = ''
+  inboundSearch.company = ''
   inboundPage.value = 1
 }
 
 // ---------- 领用 ----------
-const requisitionSearch = reactive({ name: '', dept: '', receiver: '' })
+const requisitionSearch = reactive({ name: '', dept: '', receiver: '', company: '' })
 watch(requisitionSearch, () => { requisitionPage.value = 1 }, { deep: true })
 
 const requisitionPage = ref(1)
@@ -655,7 +681,8 @@ const filteredRequisitionList = computed(() => {
     const nameMatch = !requisitionSearch.name || (r.itemName || '').includes(requisitionSearch.name)
     const deptMatch = !requisitionSearch.dept || deptNameOf(r.deptId).includes(requisitionSearch.dept)
     const receiverMatch = !requisitionSearch.receiver || (r.receiver || '').includes(requisitionSearch.receiver)
-    return nameMatch && deptMatch && receiverMatch
+    const companyMatch = !requisitionSearch.company || r.companyId === requisitionSearch.company
+    return nameMatch && deptMatch && receiverMatch && companyMatch
   }).map(decorateDoc)
 })
 
@@ -668,11 +695,12 @@ function resetRequisitionSearch() {
   requisitionSearch.name = ''
   requisitionSearch.dept = ''
   requisitionSearch.receiver = ''
+  requisitionSearch.company = ''
   requisitionPage.value = 1
 }
 
 // ---------- 退库 ----------
-const returnSearch = reactive({ name: '', returner: '' })
+const returnSearch = reactive({ name: '', returner: '', company: '' })
 watch(returnSearch, () => { returnPage.value = 1 }, { deep: true })
 
 const returnPage = ref(1)
@@ -682,7 +710,8 @@ const filteredReturnList = computed(() => {
   return store.returnRecords.filter(r => {
     const nameMatch = !returnSearch.name || (r.itemName || '').includes(returnSearch.name)
     const returnerMatch = !returnSearch.returner || (r.returner || '').includes(returnSearch.returner)
-    return nameMatch && returnerMatch
+    const companyMatch = !returnSearch.company || r.companyId === returnSearch.company
+    return nameMatch && returnerMatch && companyMatch
   }).map(decorateDoc)
 })
 
@@ -694,6 +723,7 @@ const pagedReturnList = computed(() => {
 function resetReturnSearch() {
   returnSearch.name = ''
   returnSearch.returner = ''
+  returnSearch.company = ''
   returnPage.value = 1
 }
 
