@@ -246,7 +246,21 @@ const dialog = reactive({ visible: false, isEdit: false, form: emptyForm() })
 const rules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
-    { pattern: /^[a-zA-Z][a-zA-Z0-9_]{2,19}$/, message: '字母开头，3-20 位字母数字下划线', trigger: 'blur' }
+    // 用户名允许手机号（导入账号即以手机号为登录名），不再强制字母开头
+    { pattern: /^[a-zA-Z0-9_]{3,20}$/, message: '3-20 位字母、数字或下划线', trigger: 'blur' },
+    {
+      // 唯一性：前端即时查重（库为 utf8mb4_0900_ai_ci，忽略大小写）；
+      // 后端 RuleEngine 仍按契约 unique 兜底，重复会返回 409
+      validator: (_rule, value, cb) => {
+        const v = String(value || '').trim()
+        if (!v) return cb()
+        const dup = orgStore.users.some(u =>
+          u.id !== dialog.form.id && String(u.username || '').trim().toLowerCase() === v.toLowerCase())
+        if (dup) return cb(new Error(`用户名「${v}」已存在，请更换`))
+        cb()
+      },
+      trigger: 'blur'
+    }
   ],
   name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
   companyId: [{ required: true, message: '请选择所属公司', trigger: 'change' }],

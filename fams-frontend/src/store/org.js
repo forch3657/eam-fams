@@ -44,9 +44,10 @@ export const useOrgStore = defineStore('org', () => {
    *
    * 已加载过主数据时再次调用只补用户表，不会重复拉公司/部门/角色。
    */
-  async function loadAll({ withUsers = true } = {}) {
-    if (loaded.value && (!withUsers || usersLoaded.value)) return
-    const needBase = !loaded.value
+  async function loadAll({ withUsers = true, force = false } = {}) {
+    if (!force && loaded.value && (!withUsers || usersLoaded.value)) return
+    // force：公司视角切换后部门/人员列表会按视角收窄，必须重新拉取而不是复用缓存
+    const needBase = force || !loaded.value
     // 用 allSettled：四张表里任何一张没权限（普通角色读不到 org-users）
     // 都不能让整次加载失败，否则路由守卫拿不到 roles，权限恒为空，登录后无法跳转。
     const [c, d, u, r] = await Promise.allSettled([

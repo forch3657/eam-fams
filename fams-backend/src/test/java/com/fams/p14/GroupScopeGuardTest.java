@@ -74,7 +74,7 @@ class GroupScopeGuardTest {
         Map<String, String[]> raw = new HashMap<>();
         raw.put("companyId", new String[]{"C3"});
 
-        Map<String, String[]> scoped = guard.scopeRaw("fixed-assets", assets, raw);
+        Map<String, String[]> scoped = guard.scopeRaw("fixed-assets", assets, raw, "");
 
         assertThat(scoped.get("companyId")).containsExactly("C1", "C2");
     }
@@ -158,8 +158,95 @@ class GroupScopeGuardTest {
         Map<String, String[]> raw = new HashMap<>();
         raw.put("status", new String[]{"IN_USE"});
 
-        assertThat(guard.scopeRaw("fixed-assets", assets, raw)).isSameAs(raw);
+        assertThat(guard.scopeRaw("fixed-assets", assets, raw, "")).isSameAs(raw);
         Mockito.verifyNoInteractions(companies);
+    }
+
+    @Test
+    @DisplayName("公司视角：全集团账号选具体公司时按「本公司+下级」收窄")
+    void companyViewNarrowsForAllScope() {
+        login("ALL", "C1");
+        // 真实实现中 ALL 返回 null（全集团可见）；Mockito 对 Set 默认给空集，需显式声明
+        Mockito.when(companies.visibleCompanyIds(Mockito.any())).thenReturn(null);
+        Mockito.when(companies.visibleCompanyIdsFor(
+                        Mockito.eq("C2"), Mockito.<java.util.Collection<String>>isNull()))
+                .thenReturn(ids("C2"));
+
+        Map<String, String[]> scoped = guard.scopeRaw("fixed-assets", assets, new HashMap<>(), "C2");
+
+        assertThat(scoped.get("companyId")).containsExactly("C2");
+    }
+
+    @Test
+    @DisplayName("公司视角：集团根节点展开全集团，包含各子公司")
+    void companyViewRootMeansGroupWide() {
+        login("ALL", "ROOT");
+        Mockito.when(companies.visibleCompanyIds(Mockito.any())).thenReturn(null);
+        Mockito.when(companies.visibleCompanyIdsFor(
+                        Mockito.eq("ROOT"), Mockito.<java.util.Collection<String>>isNull()))
+                .thenReturn(ids("ROOT", "C1", "C2"));
+        Map<String, String[]> raw = new HashMap<>();
+        raw.put("status", new String[]{"IN_USE"});
+
+        Map<String, String[]> scoped = guard.scopeRaw("fixed-assets", assets, raw, "ROOT");
+
+        assertThat(scoped.get("companyId")).containsExactly("ROOT", "C1", "C2");
+        assertThat(scoped.get("status")).containsExactly("IN_USE");
+    }
+
+    @Test
+    @DisplayName("公司视角：中间层级（研究院）视角同样包含下级子公司")
+    void companyViewIncludesDescendants() {
+        login("ALL", "C1");
+        Mockito.when(companies.visibleCompanyIds(Mockito.any())).thenReturn(null);
+        Mockito.when(companies.visibleCompanyIdsFor(
+                        Mockito.eq("C1"), Mockito.<java.util.Collection<String>>isNull()))
+                .thenReturn(ids("C1", "C2", "C3"));
+
+        Map<String, String[]> scoped = guard.scopeRaw("fixed-assets", assets, new HashMap<>(), "C1");
+
+        assertThat(scoped.get("companyId")).containsExactly("C1", "C2", "C3");
+    }
+
+    @Test
+    @DisplayName("公司视角：越权视角被忽略，仍按授权集合返回")
+    void companyViewOutOfScopeIgnored() {
+        login("COMPANY", "C1");
+        Mockito.when(companies.visibleCompanyIds(Mockito.any())).thenReturn(ids("C1"));
+
+        Map<String, String[]> scoped = guard.scopeRaw("fixed-assets", assets, new HashMap<>(), "C9");
+
+        assertThat(scoped.get("companyId")).containsExactly("C1");
+        Mockito.verify(companies, Mockito.never()).visibleCompanyIdsFor(
+                Mockito.anyString(), Mockito.<java.util.Collection<String>>any());
+    }
+
+    @Test
+    @DisplayName("公司视角：授权内具体公司覆盖授权集合，收窄为单值")
+    void companyViewWithinScopeNarrows() {
+        login("COMPANY", "C1");
+        Mockito.when(companies.visibleCompanyIds(Mockito.any())).thenReturn(ids("C1", "C2"));
+        Mockito.when(companies.visibleCompanyIdsFor(
+                        Mockito.eq("C2"), Mockito.<java.util.Collection<String>>isNull()))
+                .thenReturn(ids("C2"));
+
+        Map<String, String[]> scoped = guard.scopeRaw("fixed-assets", assets, new HashMap<>(), "C2");
+
+        assertThat(scoped.get("companyId")).containsExactly("C2");
+    }
+
+    @Test
+    @DisplayName("公司视角：无 companyId 列的集合不受视角影响")
+    void companyViewSkipsCollectionsWithoutCompanyColumn() {
+        login("ALL", "C1");
+        ResourceMeta noCompany = Mockito.mock(ResourceMeta.class);
+        Mockito.when(noCompany.getAllColumns()).thenReturn(Arrays.asList("id", "code", "name"));
+
+        Map<String, String[]> scoped = guard.scopeRaw("system-dict-types", noCompany, new HashMap<>(), "C2");
+
+        assertThat(scoped.get("companyId")).isNull();
+        Mockito.verify(companies, Mockito.never()).visibleCompanyIdsFor(
+                Mockito.anyString(), Mockito.<java.util.Collection<String>>any());
     }
 
     @Test
@@ -169,7 +256,7 @@ class GroupScopeGuardTest {
         Mockito.when(companies.visibleCompanyIds(Mockito.any())).thenReturn(ids("C1"));
 
         Map<String, String[]> scoped = guard.scopeRaw(
-                "fixed-asset-doc-lists-borrow", docs, new HashMap<>());
+                "fixed-asset-doc-lists-borrow", docs, new HashMap<>(), "");
 
         assertThat(scoped.get("companyId")).containsExactly("C1");
         assertThat(scoped.get("creatorId")).isNull();

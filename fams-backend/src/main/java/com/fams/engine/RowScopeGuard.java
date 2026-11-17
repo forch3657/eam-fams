@@ -50,12 +50,25 @@ public class RowScopeGuard {
 
     private final ResourceRegistry registry;
 
-    /** 读列表：把范围条件强制写入 query，覆盖调用方传入的同名字段（无法用参数绕过） */
-    public Map<String, String[]> scopeRaw(String key, ResourceMeta meta, Map<String, String[]> raw) {
+    /**
+     * 读列表：把范围条件强制写入 query，覆盖调用方传入的同名字段（无法用参数绕过）。
+     *
+     * @param companyView 顶栏公司视角；仅由对外查询入口传入，服务内部调用传空，
+     *                    避免折旧计提、导入、数据重置等系统动作被展示视角误伤
+     */
+    public Map<String, String[]> scopeRaw(String key, ResourceMeta meta, Map<String, String[]> raw,
+                                          String companyView) {
         UserPrincipal principal = AuthContext.current();
         if (principal == null || isAll(principal.getDataScope())
                 || CONFIG_READ_UNSCOPED.contains(key) || !isBusinessCollection(key, meta)) {
-            return raw;
+            // 无视角时保持既有行为（原样返回，不做拷贝）
+            if (companyView == null || companyView.trim().isEmpty()) {
+                return raw;
+            }
+            // 全集团账号等不施加授权过滤，但仍要按公司视角收窄展示
+            Map<String, String[]> viewOnly = raw == null ? new LinkedHashMap<>() : new LinkedHashMap<>(raw);
+            applyCompanyView(principal, key, meta, viewOnly, companyView);
+            return viewOnly;
         }
         Map<String, String[]> out = raw == null ? new LinkedHashMap<>() : new LinkedHashMap<>(raw);
         String scope = principal.getDataScope();
@@ -79,8 +92,48 @@ public class RowScopeGuard {
         if (visible != null && !visible.isEmpty() && meta.getAllColumns().contains("companyId")) {
             out.put("companyId", visible.toArray(new String[0]));
         }
+        // 公司视角：在授权范围之上按所选公司再收窄，不改变授权本身
+        applyCompanyView(principal, key, meta, out, companyView);
         return out;
     }
+
+    /**
+     * 顶栏「公司视角」收窄：仅在授权公司集合内生效。
+     *
+     * <p>语义与 {@code COMPANY} 数据范围一致：<b>所选公司 + 全部下级</b>。
+     * 例如集团根 → 全集团汇总；研究院 → 本院及 3 家子公司；子公司 → 本公司。
+     * 这样各层级视角口径统一，不会出现「集团含下级、研究院不含下级」的割裂。</p>
+     *
+     * <p>安全边界：视角值不在本人可见集合内时直接忽略（不报错），
+     * 服务端仍按授权集合返回；视角子树再与授权集合取交集，永不扩大权限。</p>
+     */
+    private void applyCompanyView(UserPrincipal principal, String key, ResourceMeta meta,
+                                  Map<String, String[]> out, String companyView) {
+        if (principal == null || !meta.getAllColumns().contains("companyId")
+                || CONFIG_READ_UNSCOPED.contains(key)) {
+            return;
+        }
+        String view = companyView == null ? "" : companyView.trim();
+        if (view.isEmpty()) {
+            return;
+        }
+        Set<String> visible = companies.visibleCompanyIds(principal);
+        if (visible != null && !visible.contains(view)) {
+            log.debug("[company-view] 忽略越权视角 {}（账号 {}）", view, principal.getUsername());
+            return;
+        }
+        // 所选公司 + 全部下级：集团根自然覆盖全集团，无需特判
+        Set<String> viewIds = new java.util.LinkedHashSet<>(companies.visibleCompanyIdsFor(view, null));
+        if (visible != null) {
+            // 双保险：视角子树不得超出本人授权集合（组织数据变更/脏数据时仍不越权）
+            viewIds.retainAll(visible);
+        }
+        if (!viewIds.isEmpty()) {
+            out.put("companyId", viewIds.toArray(new String[0]));
+        }
+    }
+
+
 
     /** 详情读取 / 删除前：目标行必须落在可见公司集合内 */
     public void assertRead(String key, Map<String, Object> row) {

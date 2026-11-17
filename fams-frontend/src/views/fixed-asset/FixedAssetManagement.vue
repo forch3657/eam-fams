@@ -24,8 +24,14 @@
                 <el-option v-for="s in assetStatusOptions" :key="s.value" :label="s.label" :value="s.value" />
               </el-select>
             </el-form-item>
-            <el-form-item>
+            <!-- 两个收窄开关放在同一表单项内：表单换行时整体移动，不会被拆到两行 -->
+            <el-form-item class="asset-toggles">
               <el-checkbox v-model="assetSearch.mineOnly" border class="mine-only">只看我的资产（{{ myAssetCount }}）</el-checkbox>
+              <el-tooltip :content="`仅显示归属「${companyScope.viewName}」本级的资产`" placement="top">
+                <el-checkbox v-model="assetSearch.companyOnly" border class="mine-only">
+                  只看当前公司资产（{{ currentCompanyAssetCount }}）
+                </el-checkbox>
+              </el-tooltip>
             </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="assetPage = 1">
@@ -1052,6 +1058,7 @@ import { useFixedAssetStore } from '../../store/fixedAsset'
 import { useOrgStore } from '../../store/org'
 import { useUserStore } from '../../store/user'
 import { useApprovalStore } from '../../store/approval'
+import { useCompanyScopeStore } from '../../store/companyScope'
 import { useMock } from '../../services'
 import { optionsOf, labelOf, DOC_EDITABLE_STATUS } from '../../constants/enums'
 import { ASSET_ACTION_DEFS, DOC_WRITE_CODES, OWNER_INITIATED_DOC_KEYS } from '../../constants/assetActions'
@@ -1110,6 +1117,7 @@ const tabVisible = code => canBrowseAll.value || can(code)
 const INV_BIZ = 'INVENTORY'
 
 const orgStore = useOrgStore()
+const companyScope = useCompanyScopeStore()
 const approvalStore = useApprovalStore()
 const route = useRoute()
 
@@ -2513,10 +2521,12 @@ function rememberLocation(value) {
 /** 台账取 store 的视图模型：外键已解析为名称、状态已解析为文案 */
 const assetList = computed(() => fixedAssetStore.assetLedger)
 
-const assetSearch = reactive({ keyword: '', user: '', type: '', status: '', mineOnly: false })
+const assetSearch = reactive({ keyword: '', user: '', type: '', status: '', mineOnly: false, companyOnly: false })
 const assetPage = ref(1)
 const assetPageSize = ref(15)
 watch(assetSearch, () => { assetPage.value = 1 }, { deep: true })
+// 顶栏切换视角后台账会整体重载，页码需归零，否则停在越界页显示空表
+watch(() => companyScope.effectiveCompanyId, () => { assetPage.value = 1 })
 
 /** 当前登录人名下的资产台数，直接按台账 userId 统计，不依赖 org-users 主数据权限 */
 const myAssetCount = computed(() => {
@@ -2524,14 +2534,27 @@ const myAssetCount = computed(() => {
   return me ? assetList.value.filter(a => a.userId === me).length : 0
 })
 
+/**
+ * 当前视角公司本级的资产台数。
+ * 口径取「本级」而非子树：视角本身已按含下级收窄（后端 CompanyScopeResolver），
+ * 这里再收一级用于发起业务——单据默认归属当前公司，混入下级资产会跨归属办理。
+ */
+const currentCompanyId = computed(() => companyScope.effectiveCompanyId || '')
+const currentCompanyAssetCount = computed(() => {
+  const id = currentCompanyId.value
+  return id ? assetList.value.filter(a => a.companyId === id).length : 0
+})
+
 const filteredAssetList = computed(() => {
   const name = (assetSearch.user || '').trim()
   const me = userStore.user?.id
+  const companyId = currentCompanyId.value
   return assetList.value.filter(a =>
     (!assetSearch.keyword || a.code.includes(assetSearch.keyword) || a.name.includes(assetSearch.keyword)) &&
     // user 是台账视图解析出的姓名；若 org-users 不可读导致姓名为空，退化为按使用人 ID 匹配
     (!name || String(a.user || '').includes(name) || String(a.userId || '').includes(name)) &&
     (!assetSearch.mineOnly || (!!me && a.userId === me)) &&
+    (!assetSearch.companyOnly || (!!companyId && a.companyId === companyId)) &&
     (!assetSearch.type || a.type === assetSearch.type) &&
     (!assetSearch.status || a.statusCode === assetSearch.status || matchStatus(a, assetSearch.status))
   )
@@ -2545,7 +2568,7 @@ const pagedAssetList = computed(() => {
 const assetTotal = computed(() => filteredAssetList.value.length)
 
 function resetAssetSearch() {
-  Object.assign(assetSearch, { keyword: '', user: '', type: '', status: '', mineOnly: false })
+  Object.assign(assetSearch, { keyword: '', user: '', type: '', status: '', mineOnly: false, companyOnly: false })
   assetPage.value = 1
 }
 
@@ -2831,6 +2854,14 @@ async function loadAssetRecords(asset) {
   height: 32px;
   margin-right: 8px;
   background: #fff;
+}
+/* 两个收窄开关不拆行：作为一组整体换行，始终相邻 */
+.asset-search-form .asset-toggles :deep(.el-form-item__content) {
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+.asset-search-form .asset-toggles .mine-only {
+  margin-right: 0;
 }
 
 /* 操作列：el-dropdown 会打断 .el-button + .el-button 的间距链，统一交给 flex 排版 */

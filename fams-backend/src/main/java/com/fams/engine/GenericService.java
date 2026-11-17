@@ -640,7 +640,23 @@ public class GenericService {
      * 不再是一份只挂在列表上的私有实现；get 与全部写路径另由 {@link #scopeGuard} 直接校验。
      */
     private Map<String, String[]> scopedRaw(String key, ResourceMeta meta, Map<String, String[]> raw) {
-        return scopeGuard.scopeRaw(key, meta, raw);
+        // 公司视角标记只由 GenericController 对外查询入口注入；内部服务调用不带该键，
+        // 因此折旧计提、导入索引、数据重置等系统动作不会被顶栏展示视角影响。
+        return scopeGuard.scopeRaw(key, meta, raw, extractCompanyView(raw));
+    }
+
+    /** 顶栏公司视角的保留参数名（不作为契约字段解析，取用后立即从 query 中移除） */
+    public static final String COMPANY_VIEW_PARAM = "__companyView";
+
+    private static String extractCompanyView(Map<String, String[]> raw) {
+        if (raw == null || !raw.containsKey(COMPANY_VIEW_PARAM)) {
+            return "";
+        }
+        String[] values = raw.remove(COMPANY_VIEW_PARAM);
+        if (values == null || values.length == 0 || values[0] == null) {
+            return "";
+        }
+        return values[0].trim();
     }
 
     /**

@@ -46,14 +46,29 @@ public class GenericController {
     @GetMapping
     public R<List<Map<String, Object>>> list(@PathVariable("key") String key, HttpServletRequest request) {
         require(key, "GET");
-        return R.ok(genericService.list(key, request.getParameterMap()));
+        return R.ok(genericService.list(key, queryParams(request)));
     }
 
     /** 分页查询 */
     @GetMapping("/page")
     public R<PageResult> page(@PathVariable("key") String key, HttpServletRequest request) {
         require(key, "GET");
-        return R.ok(genericService.page(key, request.getParameterMap()));
+        return R.ok(genericService.page(key, queryParams(request)));
+    }
+
+    /**
+     * 查询参数副本 + 顶栏公司视角标记。
+     *
+     * <p>视角只在对外查询入口注入，服务内部调用 list 时不会带该键，
+     * 因而不会影响折旧计提、导入查重、数据重置等系统动作。</p>
+     */
+    private Map<String, String[]> queryParams(HttpServletRequest request) {
+        Map<String, String[]> raw = new java.util.LinkedHashMap<>(request.getParameterMap());
+        String view = request.getHeader("X-Company-View");
+        if (view != null && !view.trim().isEmpty()) {
+            raw.put(GenericService.COMPANY_VIEW_PARAM, new String[]{view.trim()});
+        }
+        return raw;
     }
 
     /** 详情 */

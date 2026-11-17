@@ -189,13 +189,15 @@ const currentCompanyView = computed({
 /** 切换公司视角：只改展示与新建默认值；重新装载各业务视图以按新视角收窄 */
 function onCompanyViewChange(id) {
   if (!companyScope.setView(id)) return
-  // 视角变化后重新拉取各业务视图；服务端按主体授权集合返回，前端再按所选公司收窄展示
-  try {
-    if (can('fa:view')) fixedAssetStore.loadAll()
-    if (can('lv:view')) lowValueAssetStore.loadAll()
-    if (can('wm:todo')) workbench.load(true)
-    if (can('sys:log')) auditStore.loadAll()
-  } catch (e) { console.error(e) }
+  // 视角变化后重新拉取各业务视图：服务端按「授权范围 ∩ 所选公司子树」返回，前端不再二次过滤
+  const jobs = []
+  if (can('fa:view')) jobs.push(fixedAssetStore.loadAll())
+  if (can('lv:view')) jobs.push(lowValueAssetStore.loadAll())
+  if (can('wm:todo')) jobs.push(workbench.load(true))
+  if (can('sys:log')) jobs.push(auditStore.loadAll())
+  // 组织数据也随视角收窄（部门树、人员列表）；force 绕过已加载缓存
+  jobs.push(orgStore.loadAll({ withUsers: can('org:user'), force: true }))
+  Promise.allSettled(jobs).catch(() => {})
 }
 /** 数据范围说明：口径来自角色的 dataScope，视角切换不改变授权 */
 const scopeTip = computed(() => {

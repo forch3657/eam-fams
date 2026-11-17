@@ -93,6 +93,8 @@ export const useCompanyScopeStore = defineStore('companyScope', () => {
     try {
       const saved = sessionStorage.getItem(COMPANY_VIEW_STORAGE_KEY) || ''
       viewCompanyId.value = saved && visibleCompanies.value.some(c => c.id === saved) ? saved : ''
+      // 失效视角（换账号 / 授权变化）同步清掉会话值，否则后续请求会一直带着被服务端忽略的头
+      persist()
     } catch (e) { console.error(e) }
   }
 
