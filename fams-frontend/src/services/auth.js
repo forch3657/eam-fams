@@ -67,6 +67,20 @@ export const authService = {
   async profile() {
     if (useMock || !getToken()) return null
     return request('/auth/profile')
+  },
+
+  /** 当前用户的全部启用岗位（顶栏切换器） */
+  async positions() {
+    if (useMock || !getToken()) return []
+    return request('/auth/positions')
+  },
+
+  /**
+   * 切换当前岗位：后端重签带新岗位 claim 的 token 并拉黑旧 token。
+   * 返回 { token, user }，调用方负责替换 token 与用户快照。
+   */
+  async switchPosition(positionId) {
+    return request('/auth/switch-position', { method: 'POST', data: { positionId } })
   }
 }
 

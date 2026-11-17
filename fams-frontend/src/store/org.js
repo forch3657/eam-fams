@@ -29,6 +29,8 @@ export const useOrgStore = defineStore('org', () => {
   const companies = ref(seedOf('companies'))
   const departments = ref(seedOf('departments'))
   const users = ref(seedOf('users'))
+  // 一人多岗：岗位子表；主职冗余字段仍在 users 上，未迁移账号无岗位数据时按主表处理
+  const positions = ref(seedOf('positions'))
   const roles = ref(seedOf('roles'))
   const loaded = ref(false)
   /** 用户表单独标记：路由守卫只读基础三张表，有权限的页面再补齐用户 */
@@ -50,10 +52,11 @@ export const useOrgStore = defineStore('org', () => {
     const needBase = force || !loaded.value
     // 用 allSettled：四张表里任何一张没权限（普通角色读不到 org-users）
     // 都不能让整次加载失败，否则路由守卫拿不到 roles，权限恒为空，登录后无法跳转。
-    const [c, d, u, r] = await Promise.allSettled([
+    const [c, d, u, p, r] = await Promise.allSettled([
       needBase ? dataService.list(COLLECTION.orgCompanies) : Promise.resolve(null),
       needBase ? dataService.list(COLLECTION.orgDepartments) : Promise.resolve(null),
       withUsers ? dataService.list(COLLECTION.orgUsers) : Promise.resolve(null),
+      withUsers ? dataService.list(COLLECTION.orgUserPositions) : Promise.resolve(null),
       needBase ? dataService.list(COLLECTION.orgRoles) : Promise.resolve(null)
     ])
     if (c.status === 'fulfilled' && Array.isArray(c.value)) companies.value = c.value
@@ -62,6 +65,7 @@ export const useOrgStore = defineStore('org', () => {
       users.value = u.value
       usersLoaded.value = true
     } else if (!withUsers && !usersLoaded.value) users.value = []
+    if (p.status === 'fulfilled' && Array.isArray(p.value)) positions.value = p.value
     if (r.status === 'fulfilled' && Array.isArray(r.value)) roles.value = r.value
     // 角色表是权限判定的唯一依据，只有它失败才算加载失败（补用户阶段不再判）
     if (needBase && r.status === 'rejected') throw r.reason
@@ -79,6 +83,7 @@ export const useOrgStore = defineStore('org', () => {
     companies.value = []
     departments.value = []
     users.value = []
+    positions.value = []
     roles.value = []
     loaded.value = false
     usersLoaded.value = false
@@ -173,6 +178,73 @@ export const useOrgStore = defineStore('org', () => {
     })
     return map
   })
+
+  // ---------------- 一人多岗 ----------------
+
+  /** 某用户的全部岗位（含停用，管理页用）；按主职优先、sort 排序 */
+  function positionsOfUser(userId) {
+    return positions.value
+      .filter(p => p.userId === userId)
+      .slice()
+      .sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0) || (a.sort || 0) - (b.sort || 0))
+  }
+
+  /** 岗位展示名：公司 / 部门 / 岗位 */
+  function positionLabel(pos) {
+    if (!pos) return '主职（未迁移）'
+    const parts = [companyName(pos.companyId)]
+    if (pos.deptId) parts.push(deptName(pos.deptId))
+    if (pos.position) parts.push(pos.position)
+    return parts.filter(Boolean).join(' / ')
+  }
+
+  /**
+   * 保存某用户的岗位集合，并把主职岗位同步回写 users 主表。
+   *
+   * 做法：先删旧岗位再建新岗位（岗位是子表、无外键业务引用，整表替换最简单可靠）。
+   * 主职岗位的 companyId/deptId/position/roleIds 回写主表，保证所有读单值字段的既有代码一致。
+   */
+  async function saveUserPositions(userId, list) {
+    const rows = list || []
+    const primary = rows.find(p => p.isPrimary) || rows[0]
+    const old = positions.value.filter(p => p.userId === userId)
+    for (const p of old) {
+      await dataService.remove(COLLECTION.orgUserPositions, p.id)
+    }
+    const saved = []
+    for (const [i, p] of rows.entries()) {
+      const payload = {
+        userId,
+        companyId: p.companyId,
+        deptId: p.deptId || '',
+        position: p.position || '',
+        roleIds: p.roleIds || [],
+        isPrimary: !!p.isPrimary,
+        status: p.status || STATUS_ENABLED,
+        sort: p.sort == null ? i : p.sort
+      }
+      const created = await dataService.create(COLLECTION.orgUserPositions, payload)
+      saved.push(created || payload)
+    }
+    positions.value = positions.value.filter(p => p.userId !== userId).concat(saved)
+
+    // 主职回写主表（无岗位时保持主表原值不变，避免误清空）
+    if (primary) {
+      const patch = {
+        companyId: primary.companyId,
+        deptId: primary.deptId || '',
+        position: primary.position || '',
+        roleIds: primary.roleIds || []
+      }
+      const idx = users.value.findIndex(u => u.id === userId)
+      if (idx !== -1) {
+        const updated = await dataService.update(COLLECTION.orgUsers, userId, { ...users.value[idx], ...patch })
+        if (updated) users.value[idx] = updated
+        else Object.assign(users.value[idx], patch)
+      }
+    }
+    return saved
+  }
 
   // ---------------- 公司 ----------------
   async function addCompany(data) {
@@ -363,6 +435,7 @@ export const useOrgStore = defineStore('org', () => {
     companies,
     departments,
     users,
+    positions,
     roles,
     loaded,
     usersLoaded,
@@ -378,6 +451,9 @@ export const useOrgStore = defineStore('org', () => {
     companyName,
     deptName,
     roleNames,
+    positionsOfUser,
+    positionLabel,
+    saveUserPositions,
     addCompany,
     updateCompany,
     removeCompany,

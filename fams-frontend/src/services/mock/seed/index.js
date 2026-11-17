@@ -51,6 +51,7 @@ export function registerAllSeeds() {
   registerSeed(COLLECTION.orgCompanies, ORG_SEEDS.companies)
   registerSeed(COLLECTION.orgDepartments, ORG_SEEDS.departments)
   registerSeed(COLLECTION.orgUsers, ORG_SEEDS.users)
+  registerSeed(COLLECTION.orgUserPositions, ORG_SEEDS.positions)
   registerSeed(COLLECTION.orgRoles, ORG_SEEDS.roles)
 
   // 系统管理

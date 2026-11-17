@@ -163,6 +163,7 @@ function collectSeeds() {
   map.set(COLLECTION.orgCompanies, org.ORG_SEEDS.companies)
   map.set(COLLECTION.orgDepartments, org.ORG_SEEDS.departments)
   map.set(COLLECTION.orgUsers, org.ORG_SEEDS.users)
+  map.set(COLLECTION.orgUserPositions, org.ORG_SEEDS.positions)
   map.set(COLLECTION.orgRoles, org.ORG_SEEDS.roles)
 
   map.set(COLLECTION.systemDictTypes, system.SYSTEM_SEEDS.dictTypes)

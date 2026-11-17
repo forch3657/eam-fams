@@ -101,10 +101,15 @@ const SEED_ROLES = [
   }
 ]
 
+// 一人多岗：演示账号均为单岗位，岗位数据由主表承载，岗位子表留空；
+// 真实兼职数据在生产库迁移脚本中维护（用户管理页也可在线新增）。
+const SEED_POSITIONS = []
+
 export const ORG_SEEDS = {
   companies: SEED_COMPANIES,
   departments: SEED_DEPARTMENTS,
   users: SEED_USERS,
+  positions: SEED_POSITIONS,
   roles: SEED_ROLES
 }
 

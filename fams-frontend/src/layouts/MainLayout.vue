@@ -131,7 +131,20 @@
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="logout">退出登录</el-dropdown-item>
+                <template v-if="myPositions.length > 1">
+                  <div class="dropdown-label">切换岗位（当前：{{ currentPositionLabel }}）</div>
+                  <el-dropdown-item
+                    v-for="p in myPositions"
+                    :key="p.id"
+                    :command="`position:${p.id}`"
+                    :disabled="p.id === userStore.user?.currentPositionId"
+                  >
+                    {{ positionItemLabel(p) }}
+                    <span v-if="p.isPrimary" class="position-badge">主职</span>
+                  </el-dropdown-item>
+                  <el-dropdown-item divided command="logout">退出登录</el-dropdown-item>
+                </template>
+                <el-dropdown-item v-else command="logout">退出登录</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -151,6 +164,7 @@
 
 <script setup>
 import { computed, ref, onMounted, watch } from 'vue'
+import { ElMessage } from 'element-plus'
 import AppBreadcrumb from '../components/AppBreadcrumb.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '../store/app'
@@ -199,10 +213,8 @@ const currentCompanyView = computed({
   get: () => companyScope.effectiveCompanyId,
   set: id => companyScope.setView(id)
 })
-/** 切换公司视角：只改展示与新建默认值；重新装载各业务视图以按新视角收窄 */
-function onCompanyViewChange(id) {
-  if (!companyScope.setView(id)) return
-  // 视角变化后重新拉取各业务视图：服务端按「授权范围 ∩ 所选公司子树」返回，前端不再二次过滤
+/** 重新装载各业务视图（公司视角 / 当前岗位变化后都要调用） */
+function reloadBusinessViews() {
   const jobs = []
   if (can('fa:view')) jobs.push(fixedAssetStore.loadAll())
   if (can('lv:view')) jobs.push(lowValueAssetStore.loadAll())
@@ -211,6 +223,38 @@ function onCompanyViewChange(id) {
   // 组织数据也随视角收窄（部门树、人员列表）；force 绕过已加载缓存
   jobs.push(orgStore.loadAll({ withUsers: can('org:user'), force: true }))
   Promise.allSettled(jobs).catch(() => {})
+}
+
+/** 切换公司视角：只改展示与新建默认值；重新装载各业务视图以按新视角收窄 */
+function onCompanyViewChange(id) {
+  if (!companyScope.setView(id)) return
+  reloadBusinessViews()
+}
+
+// ------------------------------------------------------------------ 一人多岗
+/** 当前用户的岗位列表（含主职）；单人单岗时为空，切换器隐藏 */
+const myPositions = computed(() => userStore.user?.positions || [])
+const currentPositionLabel = computed(() => {
+  const cur = myPositions.value.find(p => p.id === userStore.user?.currentPositionId)
+  return cur ? positionItemLabel(cur) : (userStore.user?.position || '主职')
+})
+function positionItemLabel(p) {
+  const parts = [p.companyName, p.deptName, p.position].filter(Boolean)
+  return parts.join(' / ') || '未命名岗位'
+}
+
+/** 切换当前岗位：重签 token → 更新用户快照 → 清空公司视角 → 重新加载全部业务视图 */
+async function onSwitchPosition(positionId) {
+  try {
+    const ok = await userStore.switchPosition(positionId)
+    if (!ok) return
+    companyScope.clear()
+    companyScope.init()
+    reloadBusinessViews()
+    ElMessage?.success?.('已切换岗位')
+  } catch (e) {
+    ElMessage?.error?.(e?.message || '切换岗位失败')
+  }
 }
 /** 数据范围说明：口径来自角色的 dataScope，视角切换不改变授权 */
 const scopeTip = computed(() => {
@@ -261,6 +305,8 @@ async function handleCommand(cmd) {
     // logout 会通知后端登出，需等其完成再跳，避免跳转打断请求
     await userStore.logout()
     router.push('/login')
+  } else if (typeof cmd === 'string' && cmd.startsWith('position:')) {
+    await onSwitchPosition(cmd.slice('position:'.length))
   }
 }
 

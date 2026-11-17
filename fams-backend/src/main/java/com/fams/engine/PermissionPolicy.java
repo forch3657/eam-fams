@@ -129,6 +129,11 @@ public class PermissionPolicy {
         WRITE.put("org-users", new String[]{"org:user"});
         DELETE.put("org-users", new String[]{"org:user"});
 
+        // 一人多岗的岗位子表：与用户表同口径
+        READ.put("org-user-positions", new String[]{"org:user", "wm:todo"});
+        WRITE.put("org-user-positions", new String[]{"org:user"});
+        DELETE.put("org-user-positions", new String[]{"org:user"});
+
         WRITE.put("org-roles", new String[]{"org:role"});
         DELETE.put("org-roles", new String[]{"org:role"});
 

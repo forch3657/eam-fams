@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -68,7 +69,12 @@ public class AuthService {
         }
         loginAttemptService.loginSucceeded(username);
         genericService.touchLastLogin(username);
-        return new LoginResponse(jwtProvider.generate(username), sanitize(user));
+        // 一人多岗：默认以主职岗位登录；无岗位数据时 positionId 为空，按主表处理
+        String primaryPositionId = primaryPositionIdOf(text(user.get("id")));
+        Map<String, Object> safe = sanitize(user);
+        safe.put("currentPositionId", primaryPositionId);
+        safe.put("positions", positionViews(genericService.positionsOfUser(text(user.get("id")))));
+        return new LoginResponse(jwtProvider.generate(username, primaryPositionId), safe);
     }
 
     @Transactional(readOnly = true)
@@ -81,7 +87,87 @@ public class AuthService {
         if (user == null) {
             throw new ApiException(ErrorCode.UNAUTHORIZED, "登录已失效");
         }
-        return sanitize(user);
+        Map<String, Object> safe = sanitize(user);
+        safe.put("currentPositionId", principal.getPositionId());
+        safe.put("positions", positionViews(genericService.positionsOfUser(text(user.get("id")))));
+        // 当前岗位覆盖主表字段：让前端权限/展示与后端同一口径
+        if (principal.getPositionId() != null && !principal.getPositionId().isEmpty()) {
+            Map<String, Object> pos = genericService.activePositionOf(text(user.get("id")), principal.getPositionId());
+            if (pos != null) {
+                safe.put("companyId", pos.get("companyId"));
+                safe.put("deptId", pos.get("deptId") == null ? "" : pos.get("deptId"));
+                safe.put("position", pos.get("position") == null ? "" : pos.get("position"));
+                safe.put("roleIds", pos.get("roleIds") == null ? java.util.Collections.emptyList() : pos.get("roleIds"));
+            }
+        }
+        return safe;
+    }
+
+    /** 当前用户的全部启用岗位（供顶栏切换器） */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> myPositions() {
+        UserPrincipal principal = AuthContext.current();
+        if (principal == null) {
+            throw new ApiException(ErrorCode.UNAUTHORIZED, "未登录");
+        }
+        Map<String, Object> user = genericService.findByUsername(principal.getUsername());
+        if (user == null) {
+            throw new ApiException(ErrorCode.UNAUTHORIZED, "登录已失效");
+        }
+        List<Map<String, Object>> views = positionViews(genericService.positionsOfUser(text(user.get("id"))));
+        return views;
+    }
+
+    /**
+     * 切换当前岗位：校验岗位属于本人且启用，重签带新岗位 claim 的 token。
+     * 旧 token 由调用方（Controller）加入黑名单，避免同时存在两种身份。
+     */
+    @Transactional(readOnly = true)
+    public LoginResponse switchPosition(String positionId) {
+        UserPrincipal principal = AuthContext.current();
+        if (principal == null) {
+            throw new ApiException(ErrorCode.UNAUTHORIZED, "未登录");
+        }
+        Map<String, Object> user = genericService.findByUsername(principal.getUsername());
+        if (user == null) {
+            throw new ApiException(ErrorCode.UNAUTHORIZED, "登录已失效");
+        }
+        String userId = text(user.get("id"));
+        Map<String, Object> pos = genericService.activePositionOf(userId, positionId);
+        if (pos == null) {
+            throw new ApiException(ErrorCode.FORBIDDEN, "岗位不存在、已停用或不属于当前用户");
+        }
+        Map<String, Object> safe = sanitize(user);
+        safe.put("companyId", pos.get("companyId"));
+        safe.put("deptId", pos.get("deptId") == null ? "" : pos.get("deptId"));
+        safe.put("position", pos.get("position") == null ? "" : pos.get("position"));
+        safe.put("roleIds", pos.get("roleIds") == null ? java.util.Collections.emptyList() : pos.get("roleIds"));
+        safe.put("currentPositionId", text(pos.get("id")));
+        safe.put("positions", positionViews(genericService.positionsOfUser(userId)));
+        return new LoginResponse(jwtProvider.generate(principal.getUsername(), text(pos.get("id"))), safe);
+    }
+
+    private String primaryPositionIdOf(String userId) {
+        for (Map<String, Object> pos : genericService.positionsOfUser(userId)) {
+            // isPrimary 从 DB 读出时可能是 TINYINT(1)=1 或 Boolean，统一按 truthy 判定
+            if (com.fams.engine.RowCodec.toBoolean(pos.get("isPrimary")) == Boolean.TRUE) {
+                return text(pos.get("id"));
+            }
+        }
+        return "";
+    }
+
+    /** 岗位视图：补公司/部门名称，供前端下拉直接展示 */
+    private List<Map<String, Object>> positionViews(List<Map<String, Object>> positions) {
+        List<Map<String, Object>> views = new java.util.ArrayList<>();
+        for (Map<String, Object> pos : positions) {
+            Map<String, Object> v = new LinkedHashMap<>(pos);
+            v.put("companyName", genericService.nameOf("org-companies", text(pos.get("companyId"))));
+            v.put("deptName", text(pos.get("deptId")).isEmpty()
+                    ? "" : genericService.nameOf("org-departments", text(pos.get("deptId"))));
+            views.add(v);
+        }
+        return views;
     }
 
     /** 对外返回的用户信息中不得包含密码 */
@@ -89,5 +175,9 @@ public class AuthService {
         Map<String, Object> safe = new LinkedHashMap<>(user);
         safe.remove("password");
         return safe;
+    }
+
+    private static String text(Object value) {
+        return value == null ? "" : String.valueOf(value).trim();
     }
 }

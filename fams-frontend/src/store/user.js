@@ -132,6 +132,28 @@ export const useUserStore = defineStore('user', () => {
     } catch (e) { console.error(e) }
   }
 
+  /**
+   * 切换当前岗位（一人多岗）：后端校验归属并重签 token，前端替换 token 与用户快照。
+   *
+   * 切换成功后调用方需重新加载业务视图：权限码、可见公司/部门、待办都随岗位变化。
+   * mock 模式无多岗位数据，直接返回 false。
+   */
+  async function switchPosition(positionId) {
+    if (useMock || !user.value) return false
+    const res = await authService.switchPosition(positionId)
+    if (!res?.token) return false
+    setToken(res.token)
+    const account = res.user || {}
+    const org = useOrgStore()
+    user.value = {
+      ...account,
+      role: (account.roleIds || []).map(rid => enabledRole(org, rid)?.name).filter(Boolean).join('、'),
+      org: org.companyName(account.companyId) || '固定资产管理中心'
+    }
+    persist()
+    return true
+  }
+
   /** 主动登出：先带 token 通知后端撤销，再清本地会话（S-03） */
   async function logout() {
     await authService.logout()
@@ -165,5 +187,5 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  return { user, isLoggedIn, permissions, can, login, logout, clearSession, restore }
+  return { user, isLoggedIn, permissions, can, login, switchPosition, logout, clearSession, restore }
 })

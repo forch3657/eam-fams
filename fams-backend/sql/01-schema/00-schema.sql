@@ -839,3 +839,22 @@ CREATE TABLE `system_dict_items` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='字典项';
 
+DROP TABLE IF EXISTS `org_user_positions`;
+CREATE TABLE `org_user_positions` (
+  `id` VARCHAR(64) NOT NULL COMMENT '主键',
+  `user_id` VARCHAR(255) COMMENT '→org-users 必填',
+  `company_id` VARCHAR(255) COMMENT '→org-companies 必填',
+  `dept_id` VARCHAR(255) COMMENT '→org-departments',
+  `position` VARCHAR(255),
+  `role_ids` TEXT,
+  `is_primary` TINYINT(1),
+  `status` VARCHAR(64) COMMENT 'ENABLE_STATUS 必填',
+  `sort` BIGINT,
+  `create_by` VARCHAR(64) COMMENT '创建人',
+  `create_time` DATETIME(3) COMMENT '创建时间',
+  `update_by` VARCHAR(64) COMMENT '更新人',
+  `update_time` DATETIME(3) COMMENT '更新时间',
+  `version` INT DEFAULT 1 COMMENT '乐观锁版本',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户岗位';
+

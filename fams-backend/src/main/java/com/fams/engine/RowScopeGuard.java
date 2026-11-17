@@ -255,6 +255,25 @@ public class RowScopeGuard {
         return visible.contains(docCompanyId);
     }
 
+    /**
+     * 岗位公司是否覆盖单据公司：岗位所在公司及其全部下级公司算覆盖。
+     *
+     * <p>用于一人多岗的审批角色池：某人在 A 公司某部门任领导岗，A 及其下级的单据
+     * 都能由该岗位身份审批；B 公司（非 A 下级）的单据则不能借用 A 的岗位角色。</p>
+     */
+    public boolean isCompanyCovered(String positionCompanyId, String docCompanyId) {
+        if (docCompanyId == null || docCompanyId.trim().isEmpty()) {
+            return true;
+        }
+        if (positionCompanyId == null || positionCompanyId.trim().isEmpty()) {
+            return false;
+        }
+        if (positionCompanyId.equals(docCompanyId)) {
+            return true;
+        }
+        return companies.visibleCompanyIdsFor(positionCompanyId, null).contains(docCompanyId);
+    }
+
     /** 角色成员池按公司过滤时使用 */
     public boolean isCompanyVisible(Object companyId) {
         UserPrincipal principal = AuthContext.current();

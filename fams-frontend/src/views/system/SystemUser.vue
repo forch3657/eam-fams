@@ -58,6 +58,12 @@
           </template>
         </el-table-column>
         <el-table-column prop="position" label="岗位" width="120" show-overflow-tooltip />
+        <el-table-column label="岗位数" width="90" align="center">
+          <template #default="{ row }">
+            <el-tag v-if="positionCount(row) > 1" type="warning" size="small" effect="light">{{ positionCount(row) }} 个岗位</el-tag>
+            <span v-else class="muted">主职</span>
+          </template>
+        </el-table-column>
         <el-table-column label="角色" min-width="160" show-overflow-tooltip>
           <template #default="{ row }">
             <el-tag v-for="id in row.roleIds || []" :key="id" size="small" effect="light" class="role-tag">
@@ -100,7 +106,7 @@
       </div>
     </el-card>
 
-    <el-dialog v-model="dialog.visible" :title="dialog.isEdit ? '编辑用户' : '新增用户'" width="560px" destroy-on-close>
+    <el-dialog v-model="dialog.visible" :title="dialog.isEdit ? '编辑用户' : '新增用户'" width="960px" destroy-on-close>
       <el-form ref="formRef" :model="dialog.form" :rules="rules" label-width="100px">
         <el-form-item label="用户名" prop="username">
           <el-input v-model="dialog.form.username" placeholder="登录账号" :disabled="dialog.isEdit" />
@@ -141,6 +147,50 @@
             <el-radio value="DISABLED">停用</el-radio>
           </el-radio-group>
         </el-form-item>
+
+        <el-divider content-position="left">岗位配置（一人多岗）</el-divider>
+        <div class="position-tip">
+          主职岗位的公司/部门/岗位/角色会自动同步到上方基本信息。可添加多个兼职岗位，每个岗位独立公司、部门与角色。
+        </div>
+        <el-table :data="dialog.form.positions" border size="small" class="position-table">
+          <el-table-column label="主职" width="62" align="center">
+            <template #default="{ row }">
+              <el-radio v-model="primaryPosId" :value="row._key" @change="setPrimary(row)">
+                <span></span>
+              </el-radio>
+            </template>
+          </el-table-column>
+          <el-table-column label="公司" min-width="150">
+            <template #default="{ row }">
+              <el-select v-model="row.companyId" placeholder="公司" size="small" style="width:100%" @change="row.deptId = ''">
+                <el-option v-for="c in orgStore.companies" :key="c.id" :label="c.name" :value="c.id" />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column label="部门" min-width="130">
+            <template #default="{ row }">
+              <el-select v-model="row.deptId" placeholder="部门" size="small" clearable style="width:100%">
+                <el-option v-for="d in deptOptionsOf(row.companyId)" :key="d.id" :label="d.name" :value="d.id" />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column label="岗位名称" min-width="150">
+            <template #default="{ row }"><el-input v-model="row.position" size="small" placeholder="如：副总经理" /></template>
+          </el-table-column>
+          <el-table-column label="角色" min-width="180">
+            <template #default="{ row }">
+              <el-select v-model="row.roleIds" multiple placeholder="角色" size="small" style="width:100%">
+                <el-option v-for="r in orgStore.roleOptions" :key="r.id" :label="r.name" :value="r.id" />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="60" align="center">
+            <template #default="{ row, $index }">
+              <el-button link type="danger" size="small" :disabled="dialog.form.positions.length <= 1" @click="dialog.form.positions.splice($index, 1)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <el-button size="small" style="margin-top:8px" @click="addPosition">+ 添加兼职岗位</el-button>
       </el-form>
       <template #footer>
         <el-button @click="dialog.visible = false">取消</el-button>
@@ -160,6 +210,10 @@ import { labelOf } from '../../constants/enums'
 
 const orgStore = useOrgStore()
 const route = useRoute()
+
+// 岗位行临时 key 序号：emptyForm() 在下方 dialog 初始化时即会调用 newPositionForm，
+// 因此本声明必须放在任何 emptyForm()/newPositionForm() 调用之前，避免 let 的暂时性死区。
+let positionKeySeq = 0
 
 const query = reactive({ keyword: '', companyId: '', deptId: '', roleId: '', status: '' })
 const page = ref(1)
@@ -279,11 +333,52 @@ const rules = {
   }]
 }
 
+function newPositionForm(p = {}) {
+  return {
+    _key: `p${++positionKeySeq}`,
+    id: p.id || '',
+    companyId: p.companyId || '',
+    deptId: p.deptId || '',
+    position: p.position || '',
+    roleIds: [...(p.roleIds || [])],
+    isPrimary: !!p.isPrimary,
+    status: p.status || 'ENABLED',
+    sort: p.sort == null ? 0 : p.sort
+  }
+}
+
 function emptyForm() {
   return {
     id: '', username: '', name: '', companyId: '', deptId: '', position: '',
-    roleIds: [], phone: '', email: '', password: '', status: 'ENABLED'
+    roleIds: [], phone: '', email: '', password: '', status: 'ENABLED',
+    positions: [newPositionForm({ isPrimary: true })]
   }
+}
+
+const primaryPosId = computed({
+  get: () => dialog.form.positions.find(p => p.isPrimary)?._key || '',
+  set: () => {}
+})
+
+function setPrimary(row) {
+  dialog.form.positions.forEach(p => { p.isPrimary = (p._key === row._key) })
+  // 上方表单始终代表主职：切换主职后把该岗位字段带入上方表单
+  dialog.form.companyId = row.companyId || ''
+  dialog.form.deptId = row.deptId || ''
+  dialog.form.position = row.position || ''
+  dialog.form.roleIds = [...(row.roleIds || [])]
+}
+
+function deptOptionsOf(companyId) {
+  return orgStore.departments.filter(d => d.companyId === companyId)
+}
+
+function addPosition() {
+  dialog.form.positions.push(newPositionForm({ companyId: dialog.form.companyId, deptId: dialog.form.deptId }))
+}
+
+function positionCount(row) {
+  return orgStore.positionsOfUser(row.id).filter(p => p.status === 'ENABLED').length
 }
 
 const deptOptions = computed(() => orgStore.departments.filter(d => d.companyId === dialog.form.companyId))
@@ -293,9 +388,18 @@ watch(() => dialog.form.companyId, () => { dialog.form.deptId = '' })
 
 function openDialog(row) {
   dialog.isEdit = !!row
-  Object.assign(dialog.form, row
-    ? { ...row, roleIds: [...(row.roleIds || [])], password: '' }
-    : emptyForm())
+  if (row) {
+    const existing = orgStore.positionsOfUser(row.id)
+    const posRows = existing.length
+      ? existing.map(newPositionForm)
+      : [newPositionForm({
+          companyId: row.companyId, deptId: row.deptId, position: row.position,
+          roleIds: row.roleIds, isPrimary: true
+        })]
+    Object.assign(dialog.form, { ...row, roleIds: [...(row.roleIds || [])], password: '', positions: posRows })
+  } else {
+    Object.assign(dialog.form, emptyForm())
+  }
   dialog.visible = true
   nextTick(() => formRef.value?.clearValidate())
 }
@@ -303,17 +407,43 @@ function openDialog(row) {
 async function submit() {
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
-  const payload = { ...dialog.form }
-  if (!payload.deptId) payload.deptId = ''
+  const positions = dialog.form.positions || []
+  if (!positions.length) {
+    ElMessage.warning('请至少配置一个岗位')
+    return
+  }
+  if (positions.some(p => !p.companyId || !(p.roleIds || []).length)) {
+    ElMessage.warning('每个岗位都需选择公司与角色')
+    return
+  }
+  // 上方「所属公司/部门/岗位/角色」是主职的编辑入口：先同步进主职岗位行，
+  // 岗位表格再负责兼职行。这样两个入口不冲突，主表字段最终由 saveUserPositions 回写。
+  const primary = positions.find(p => p.isPrimary) || positions[0]
+  primary.companyId = dialog.form.companyId
+  primary.deptId = dialog.form.deptId || ''
+  primary.position = dialog.form.position || ''
+  primary.roleIds = [...(dialog.form.roleIds || [])]
+  const payload = {
+    id: dialog.form.id, username: dialog.form.username, name: dialog.form.name,
+    companyId: primary.companyId, deptId: primary.deptId || '', position: primary.position || '',
+    roleIds: [...(primary.roleIds || [])], phone: dialog.form.phone, email: dialog.form.email,
+    status: dialog.form.status, password: dialog.form.password
+  }
   try {
+    let saved
     if (dialog.isEdit) {
       delete payload.password
-      await orgStore.updateUser(dialog.form.id, payload)
+      saved = await orgStore.updateUser(dialog.form.id, payload)
       ElMessage.success('用户已更新')
     } else {
       // 初始密码由后端 PasswordPolicy 校验并 BCrypt；留空时后端拒绝（要求设置）
-      await orgStore.addUser(payload)
+      saved = await orgStore.addUser(payload)
       ElMessage.success('用户已新增')
+    }
+    // 岗位子表与主职回写：新建用户需拿到服务端生成的用户 id
+    const userId = saved?.id || dialog.form.id
+    if (userId) {
+      await orgStore.saveUserPositions(userId, positions)
     }
     dialog.visible = false
   } catch (e) {
@@ -333,5 +463,15 @@ async function submit() {
 
 .role-tag {
   margin-right: 4px;
+}
+
+.position-tip {
+  font-size: 12px;
+  color: var(--t-weak);
+  line-height: 1.6;
+  margin-bottom: 8px;
+}
+.position-table {
+  margin-bottom: 4px;
 }
 </style>

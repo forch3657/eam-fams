@@ -843,3 +843,22 @@ CREATE TABLE `system_dict_items` (
   PRIMARY KEY (`id`)
 );
 
+DROP TABLE IF EXISTS `org_user_positions`;
+CREATE TABLE `org_user_positions` (
+  `id` VARCHAR(64) NOT NULL COMMENT '主键',
+  `user_id` VARCHAR(255),
+  `company_id` VARCHAR(255),
+  `dept_id` VARCHAR(255),
+  `position` VARCHAR(255),
+  `role_ids` TEXT,
+  `is_primary` TINYINT(1),
+  `status` VARCHAR(64),
+  `sort` BIGINT,
+  `create_by` VARCHAR(64),
+  `create_time` DATETIME(3),
+  `update_by` VARCHAR(64),
+  `update_time` DATETIME(3),
+  `version` INT DEFAULT 1,
+  PRIMARY KEY (`id`)
+);
+

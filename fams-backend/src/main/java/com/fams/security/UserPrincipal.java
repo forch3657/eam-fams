@@ -44,6 +44,9 @@ public class UserPrincipal implements UserDetails {
     /** 显式授权可访问的其它公司（跨公司兼任） */
     private final Set<String> scopeCompanyIds;
 
+    /** 当前生效岗位 id（一人多岗时由登录/切换岗位指定；空表示主职） */
+    private String positionId = "";
+
     private final Set<GrantedAuthority> authorities;
 
     public UserPrincipal(Map<String, Object> user, Set<String> permissions, String dataScope) {
@@ -112,6 +115,10 @@ public class UserPrincipal implements UserDetails {
     @Override
     public boolean isEnabled() {
         return true;
+    }
+
+    public void setPositionId(String positionId) {
+        this.positionId = positionId == null ? "" : positionId;
     }
 
     private static String text(Object value) {

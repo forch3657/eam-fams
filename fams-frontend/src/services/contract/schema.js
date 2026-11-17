@@ -591,6 +591,41 @@ const ORG_USERS = {
   }
 }
 
+/**
+ * 用户岗位：支持「一人多岗」（主职 + 多个兼职），每个岗位独立公司/部门/岗位名称/角色。
+ *
+ * 设计要点：
+ * - org-users 的 companyId/deptId/position/roleIds 保留为「主职冗余」，兼容所有既有单值代码；
+ * - 本表是权威多岗位源，主职岗位 isPrimary=true，其字段与 org-users 主表保持一致；
+ * - 登录后可通过 X-Position-Id 请求头切换「当前岗位」，权限码/数据范围按当前岗位计算；
+ * - 审批人解析按「单据归属公司/部门」匹配岗位，领导干部跨公司/部门兼任不再互串。
+ */
+const ORG_USER_POSITIONS = {
+  key: 'org-user-positions',
+  label: '用户岗位',
+  idField: 'id',
+  audit: true,
+  fields: {
+    userId: f.ref('org-users', { required: true }),
+    companyId: f.ref('org-companies', { required: true }),
+    deptId: f.ref('org-departments'),
+    position: f.str(),
+    // 该岗位对应的角色；切换岗位后权限码取这里的角色并集
+    roleIds: f.arr(),
+    isPrimary: f.bool(),
+    status: f.enum('ENABLE_STATUS', { required: true }),
+    sort: f.num()
+  },
+  query: { keyword: ['position'], filters: ['userId', 'companyId', 'deptId', 'status'], sort: ['sort'], page: false },
+  rules: {
+    refs: [
+      { field: 'userId', collection: 'org-users' },
+      { field: 'companyId', collection: 'org-companies' },
+      { field: 'deptId', collection: 'org-departments' }
+    ]
+  }
+}
+
 const ORG_ROLES = {
   key: 'org-roles',
   label: '角色',
@@ -979,7 +1014,7 @@ const CONTRACT_LIST = [
   SETTINGS_DEPRECIATION_RULES, SETTINGS_DEPRECIATION_PLANS,
   LOW_VALUE_ITEMS, LOW_VALUE_INBOUND, LOW_VALUE_REQUISITION, LOW_VALUE_RETURN,
   LOW_VALUE_LOCATIONS,
-  ORG_COMPANIES, ORG_DEPARTMENTS, ORG_USERS, ORG_ROLES,
+  ORG_COMPANIES, ORG_DEPARTMENTS, ORG_USERS, ORG_USER_POSITIONS, ORG_ROLES,
   SYSTEM_DICT_TYPES, SYSTEM_PARAMS, SYSTEM_FLOWS, DOC_APPROVALS,
   SYSTEM_DEVICES, SYSTEM_DEVICE_ABNORMAL,
   NOTIFY_MESSAGES, NOTIFY_TEMPLATES, OPERATION_LOGS

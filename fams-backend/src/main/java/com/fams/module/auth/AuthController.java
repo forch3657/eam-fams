@@ -48,4 +48,25 @@ public class AuthController {
     public R<Map<String, Object>> profile() {
         return R.ok(authService.profile());
     }
+
+    /** 当前用户的全部启用岗位（含主职），供顶栏「当前岗位」切换器 */
+    @GetMapping("/positions")
+    public R<java.util.List<Map<String, Object>>> positions() {
+        return R.ok(authService.myPositions());
+    }
+
+    /**
+     * 切换当前岗位：重签带新岗位 claim 的 token，并把旧 token 加入黑名单，
+     * 保证同一时刻只有一种岗位身份有效。
+     */
+    @PostMapping("/switch-position")
+    public R<LoginResponse> switchPosition(@RequestBody Map<String, Object> body,
+                                           @RequestHeader(value = "Authorization", required = false) String authorization) {
+        String positionId = body == null ? "" : String.valueOf(body.getOrDefault("positionId", ""));
+        LoginResponse response = authService.switchPosition(positionId);
+        if (authorization != null && authorization.startsWith(JwtAuthFilter.PREFIX)) {
+            tokenBlacklist.revoke(authorization.substring(JwtAuthFilter.PREFIX.length()).trim());
+        }
+        return R.ok(response);
+    }
 }

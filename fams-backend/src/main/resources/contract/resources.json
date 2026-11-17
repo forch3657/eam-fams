@@ -3863,6 +3863,124 @@
       "paged": true
     },
     {
+      "key": "org-user-positions",
+      "label": "用户岗位",
+      "table": "org_user_positions",
+      "fixedFilters": {},
+      "pkField": "id",
+      "idGenerated": true,
+      "audit": true,
+      "dynamic": false,
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "userId",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-users"
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-companies"
+        },
+        {
+          "name": "deptId",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": "org-departments"
+        },
+        {
+          "name": "position",
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "roleIds",
+          "type": "array",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "isPrimary",
+          "type": "boolean",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "unique": false,
+          "enumName": "ENABLE_STATUS",
+          "refCollection": null
+        },
+        {
+          "name": "sort",
+          "type": "number",
+          "required": false,
+          "unique": false,
+          "enumName": null,
+          "refCollection": null
+        }
+      ],
+      "uniqueFields": [],
+      "refs": [
+        {
+          "field": "userId",
+          "collection": "org-users"
+        },
+        {
+          "field": "companyId",
+          "collection": "org-companies"
+        },
+        {
+          "field": "deptId",
+          "collection": "org-departments"
+        }
+      ],
+      "protect": [],
+      "protectContains": [],
+      "protectSelf": null,
+      "stockGuard": [],
+      "stock": null,
+      "cascade": [],
+      "keywordFields": [
+        "position"
+      ],
+      "filterFields": [
+        "userId",
+        "companyId",
+        "deptId",
+        "status"
+      ],
+      "sortFields": [
+        "sort"
+      ],
+      "paged": false
+    },
+    {
       "key": "org-roles",
       "label": "角色",
       "table": "org_roles",

@@ -54,6 +54,9 @@ public class GenericService {
 
     private static final String ORG_ROLES = "org-roles";
 
+    /** 一人多岗：用户岗位子表（每个岗位独立公司/部门/角色） */
+    private static final String ORG_USER_POSITIONS = "org-user-positions";
+
     /**
      * 低值三类单据的单号前缀。
      *
@@ -543,6 +546,56 @@ public class GenericService {
         return rows.isEmpty() ? null : rows.get(0);
     }
 
+    // ------------------------------------------------------------------ 一人多岗
+
+    /**
+     * 读取用户某个「启用」岗位：校验岗位确实属于该用户，防止伪造 positionId 提权。
+     * 岗位不存在 / 停用 / 不属于该用户时返回 null，由调用方回落到主职。
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> activePositionOf(String userId, String positionId) {
+        if (userId == null || userId.trim().isEmpty() || positionId == null || positionId.trim().isEmpty()) {
+            return null;
+        }
+        // 直接按主键读原始行，绕开行级公司范围：切换岗位正是要从当前公司切到另一家公司，
+        // 若走 get() 的 assertRead 会拒绝读取目标岗位。归属校验由下方 userId 比对保证。
+        ResourceMeta meta = registry.resolve(ORG_USER_POSITIONS);
+        Map<String, Object> row = codec.toApiRow(meta, findById(meta, positionId.trim()));
+        if (row == null || row.isEmpty() || !"ENABLED".equalsIgnoreCase(text(row.get("status")))) {
+            return null;
+        }
+        if (!userId.equals(text(row.get("userId")))) {
+            return null;
+        }
+        return row;
+    }
+
+    /** 取主数据名称（公司/部门），内部展示用；绕开行级范围避免非管理员读不到岗位公司名 */
+    @Transactional(readOnly = true)
+    public String nameOf(String key, String id) {
+        if (id == null || id.trim().isEmpty()) {
+            return "";
+        }
+        ResourceMeta meta = registry.resolve(key);
+        Map<String, Object> row = codec.toApiRow(meta, findById(meta, id));
+        return row == null ? "" : text(row.get("name"));
+    }
+
+    /** 用户全部启用岗位（含主职），供前端切换器与审批解析使用 */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> positionsOfUser(String userId) {
+        if (userId == null || userId.trim().isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        ResourceMeta meta = registry.resolve(ORG_USER_POSITIONS);
+        Map<String, String[]> params = new java.util.LinkedHashMap<>();
+        params.put("userId", new String[]{userId});
+        return mapper.selectList(assembler.buildList(meta, params)).stream()
+                .map(row -> codec.toApiRow(meta, row))
+                .filter(row -> "ENABLED".equalsIgnoreCase(text(row.get("status"))))
+                .collect(Collectors.toList());
+    }
+
     /** 用户权限 = 各角色 permissions 的并集（契约 7.3） */
     @Transactional(readOnly = true)
     public Set<String> permissionsOf(Map<String, Object> user) {
@@ -745,17 +798,58 @@ public class GenericService {
                 ids.add(text(api.get("id")));
             }
         }
+        // 一人多岗：叠加「在单据归属公司担任该角色岗位」的用户。
+        // 主职账号（org-users.roleIds）可能不含该角色，但其在目标公司的兼职岗位持有，
+        // 领导干部跨公司兼任即可在该公司审批；无单据公司维度时不叠加，避免把兼职角色全局放大。
+        if (docCompanyId != null && !docCompanyId.trim().isEmpty()) {
+            for (Map<String, Object> pos : allActivePositions()) {
+                if (!asStringList(pos.get("roleIds")).contains(roleId)) {
+                    continue;
+                }
+                String posCompany = text(pos.get("companyId"));
+                if (posCompany.isEmpty() || !scopeGuard.isCompanyCovered(posCompany, docCompanyId)) {
+                    continue;
+                }
+                String uid = text(pos.get("userId"));
+                if (uid.isEmpty() || ids.contains(uid) || !isUserEnabled(uid)) {
+                    continue;
+                }
+                ids.add(uid);
+            }
+        }
         return ids;
     }
 
-    /** 指定用户是否持有某角色（审批权限判定用） */
+    /** 指定用户是否持有某角色（审批权限判定用）：主职角色 或 任一启用岗位角色 */
     @Transactional(readOnly = true)
     public boolean userHasRole(String userId, String roleId) {
         if (userId == null || userId.trim().isEmpty() || roleId == null || roleId.trim().isEmpty()) {
             return false;
         }
         Map<String, Object> user = get(ORG_USERS, userId);
-        return user != null && asStringList(user.get("roleIds")).contains(roleId);
+        if (user != null && asStringList(user.get("roleIds")).contains(roleId)) {
+            return true;
+        }
+        for (Map<String, Object> pos : positionsOfUser(userId)) {
+            if (asStringList(pos.get("roleIds")).contains(roleId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** 全部启用岗位（不经行级范围过滤，内部权限判定用） */
+    private List<Map<String, Object>> allActivePositions() {
+        ResourceMeta meta = registry.resolve(ORG_USER_POSITIONS);
+        return mapper.selectList(assembler.buildList(meta, Collections.emptyMap())).stream()
+                .map(row -> codec.toApiRow(meta, row))
+                .filter(row -> "ENABLED".equalsIgnoreCase(text(row.get("status"))))
+                .collect(Collectors.toList());
+    }
+
+    private boolean isUserEnabled(String userId) {
+        Map<String, Object> user = get(ORG_USERS, userId);
+        return user != null && "ENABLED".equalsIgnoreCase(text(user.get("status")));
     }
 
     /** 回填最后登录时间：直接更新列，避免触发 version 自增 */

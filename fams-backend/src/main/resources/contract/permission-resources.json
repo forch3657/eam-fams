@@ -152,6 +152,13 @@
       "delete": ["org:user"]
     },
     {
+      "resource": "org-user-positions",
+      "note": "一人多岗：读供用户管理与待办解析，写删仅限 org:user",
+      "read": ["org:user", "wm:todo"],
+      "write": ["org:user"],
+      "delete": ["org:user"]
+    },
+    {
       "resource": "org-roles",
       "write": ["org:role"],
       "delete": ["org:role"]

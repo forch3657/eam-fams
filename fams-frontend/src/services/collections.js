@@ -31,6 +31,7 @@ export const COLLECTION = {
   orgCompanies: 'org-companies',
   orgDepartments: 'org-departments',
   orgUsers: 'org-users',
+  orgUserPositions: 'org-user-positions',
   orgRoles: 'org-roles',
 
   // 系统管理
