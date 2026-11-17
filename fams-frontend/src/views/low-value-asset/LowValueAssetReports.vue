@@ -14,38 +14,49 @@
       <el-tabs v-model="activeTab">
         <!-- 类别统计 -->
         <el-tab-pane label="类别统计" name="category">
+          <el-form :inline="true" class="search-form">
+            <el-form-item label="公司">
+              <el-select v-model="categorySearch.company" placeholder="请选择公司" clearable filterable style="width: 160px">
+                <el-option v-for="c in companyOptionList" :key="c.id" :label="c.name" :value="c.id" />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="catPage = 1">查询</el-button>
+              <el-button @click="resetCategorySearch">重置</el-button>
+            </el-form-item>
+          </el-form>
           <div class="grid-auto stat-cards">
             <el-card shadow="hover" class="stat-card">
               <div class="stat-name">物品种类</div>
-              <div class="stat-value"><span class="num">{{ store.stats.total }}</span> <span class="stat-unit">种</span></div>
-              <div class="stat-amount num">库存数量 {{ store.stats.stockQuantity }}</div>
+              <div class="stat-value"><span class="num">{{ scopedStats.total }}</span> <span class="stat-unit">种</span></div>
+              <div class="stat-amount num">库存数量 {{ scopedStats.stockQuantity }}</div>
             </el-card>
             <el-card shadow="hover" class="stat-card">
               <div class="stat-name">库存金额</div>
-              <div class="stat-value"><span class="num">¥{{ store.stats.stockAmount.toLocaleString() }}</span></div>
+              <div class="stat-value"><span class="num">¥{{ scopedStats.stockAmount.toLocaleString() }}</span></div>
               <div class="stat-amount num">按当前单价估算</div>
             </el-card>
             <el-card shadow="hover" class="stat-card">
               <div class="stat-name">低库存预警</div>
-              <div class="stat-value"><span class="num">{{ store.stats.lowStock }}</span> <span class="stat-unit">种</span></div>
+              <div class="stat-value"><span class="num">{{ scopedStats.lowStock }}</span> <span class="stat-unit">种</span></div>
               <div class="stat-amount num">低于安全库存</div>
             </el-card>
             <el-card shadow="hover" class="stat-card">
               <div class="stat-name">严重低库存</div>
-              <div class="stat-value"><span class="num">{{ store.stats.warning }}</span> <span class="stat-unit">种</span></div>
-              <div class="stat-amount num">低于安全库存的 {{ Math.round((store.stats.safetyRatio || 0) * 100) }}%</div>
+              <div class="stat-value"><span class="num">{{ scopedStats.warning }}</span> <span class="stat-unit">种</span></div>
+              <div class="stat-amount num">低于安全库存的 {{ Math.round((scopedStats.safetyRatio || 0) * 100) }}%</div>
             </el-card>
             <el-card shadow="hover" class="stat-card">
               <div class="stat-name">累计领用金额</div>
-              <div class="stat-value"><span class="num">¥{{ store.stats.requisitionAmount.toLocaleString() }}</span></div>
+              <div class="stat-value"><span class="num">¥{{ scopedStats.requisitionAmount.toLocaleString() }}</span></div>
               <div class="stat-amount num">
-                领用 {{ store.stats.requisitionQuantity }} 件
-                <span v-if="store.stats.requisitionPendingQuantity > 0">（审批中 {{ store.stats.requisitionPendingQuantity }} 件未计入）</span>
+                领用 {{ scopedStats.requisitionQuantity }} 件
+                <span v-if="scopedStats.requisitionPendingQuantity > 0">（审批中 {{ scopedStats.requisitionPendingQuantity }} 件未计入）</span>
               </div>
             </el-card>
             <el-card shadow="hover" class="stat-card">
               <div class="stat-name">审批占用</div>
-              <div class="stat-value"><span class="num">{{ store.stats.reservedQuantityTotal }}</span> <span class="stat-unit">件</span></div>
+              <div class="stat-value"><span class="num">{{ scopedStats.reservedQuantityTotal }}</span> <span class="stat-unit">件</span></div>
               <div class="stat-amount num">审批中领用单占用，不计入可用库存</div>
             </el-card>
           </div>
@@ -74,7 +85,7 @@
               v-model:current-page="catPage"
               v-model:page-size="catPageSize"
               :page-sizes="[10, 20, 50, 100]"
-              :total="store.categoryStats.length"
+              :total="scopedCategoryStats.length"
               layout="total, sizes, prev, pager, next, jumper"
             />
           </div>
@@ -125,12 +136,17 @@
             <el-form-item label="部门">
               <el-input v-model="deptSearch.dept" placeholder="请输入部门名称" clearable style="width: 200px" />
             </el-form-item>
+            <el-form-item label="公司">
+              <el-select v-model="deptSearch.company" placeholder="请选择公司" clearable filterable style="width: 160px">
+                <el-option v-for="c in companyOptionList" :key="c.id" :label="c.name" :value="c.id" />
+              </el-select>
+            </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="deptPage = 1">
                 <el-icon><Search /></el-icon>
                 搜索
               </el-button>
-              <el-button @click="deptSearch.dept = ''">重置</el-button>
+              <el-button @click="resetDeptSearch">重置</el-button>
             </el-form-item>
           </el-form>
 
@@ -179,6 +195,11 @@
             </el-form-item>
             <el-form-item label="部门">
               <el-input v-model="receiverSearch.department" placeholder="请输入部门" clearable style="width: 200px" />
+            </el-form-item>
+            <el-form-item label="公司">
+              <el-select v-model="receiverSearch.company" placeholder="请选择公司" clearable filterable style="width: 160px">
+                <el-option v-for="c in companyOptionList" :key="c.id" :label="c.name" :value="c.id" />
+              </el-select>
             </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="receiverPage = 1">
@@ -229,6 +250,11 @@
             <el-form-item label="物品类别">
               <el-select v-model="flowSearch.category" placeholder="全部" clearable style="width: 140px">
                 <el-option v-for="c in categoryOptions" :key="c.value" :label="c.label" :value="c.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="公司">
+              <el-select v-model="flowSearch.company" placeholder="请选择公司" clearable filterable style="width: 160px">
+                <el-option v-for="c in companyOptionList" :key="c.id" :label="c.name" :value="c.id" />
               </el-select>
             </el-form-item>
             <el-form-item>
@@ -356,26 +382,103 @@ onMounted(() => { if (userStore.can('lv:view')) store.loadAll().catch(() => {}) 
 const activeTab = ref('category')
 /** 类别选项取自数据字典（系统管理 > 数据字典 > 低值资产类别） */
 const categoryOptions = computed(() => store.categoryOptions)
+/** 公司筛选选项取自组织主数据 */
+const companyOptionList = computed(() => orgStore.companies.map(c => ({ id: c.id, name: c.name })))
 
 const tabNames = { category: '类别统计', company: '公司统计', dept: '部门领用统计', receiver: '使用人领用统计', flow: '出入库汇总' }
 
 // 类别统计
+const categorySearch = reactive({ company: '' })
+watch(categorySearch, () => { catPage.value = 1 }, { deep: true })
 const catPage = ref(1)
 const catPageSize = ref(15)
+
+function resetCategorySearch() {
+  categorySearch.company = ''
+  catPage.value = 1
+}
+
+/** 按公司收窄物品与单据后重新计算卡片与类别统计，占比随范围重算 */
+const inCategoryCompany = r => !categorySearch.company || r.companyId === categorySearch.company
+const scopedItems = computed(() => store.items.filter(inCategoryCompany))
+const scopedStats = computed(() => {
+  const source = scopedItems.value
+  const safetyRatio = store.stats.safetyRatio
+  const settledReq = store.requisitionRecords.filter(r => r.status === 'DONE' && inCategoryCompany(r))
+  const pendingReq = store.requisitionRecords.filter(r => r.status === 'PROCESSING' && inCategoryCompany(r))
+  return {
+    total: source.length,
+    stockQuantity: source.reduce((s, i) => s + (Number(i.stock) || 0), 0),
+    stockAmount: Math.round(source.reduce((s, i) => s + (Number(i.stock) || 0) * (Number(i.price) || 0), 0) * 100) / 100,
+    lowStock: source.filter(i => (Number(i.stock) || 0) <= (Number(i.safetyStock) || 0)).length,
+    warning: source.filter(i => {
+      const safety = Number(i.safetyStock) || 0
+      return safety > 0 && (Number(i.stock) || 0) <= safety * safetyRatio
+    }).length,
+    safetyRatio,
+    requisitionQuantity: settledReq.reduce((s, r) => s + (Number(r.quantity) || 0), 0),
+    requisitionAmount: Math.round(settledReq.reduce((s, r) => s + (Number(r.amount) || 0), 0) * 100) / 100,
+    requisitionPendingQuantity: pendingReq.reduce((s, r) => s + (Number(r.quantity) || 0), 0),
+    reservedQuantityTotal: source.reduce((s, i) => s + (Number(i.reserved || 0)), 0)
+  }
+})
+
+const scopedCategoryStats = computed(() => {
+  const map = new Map()
+  scopedItems.value.forEach(i => {
+    const key = store.categoryName(i.category)
+    const cur = map.get(key) || { name: key, count: 0, quantity: 0, amount: 0 }
+    cur.count++
+    cur.quantity += Number(i.stock) || 0
+    cur.amount += (Number(i.stock) || 0) * (Number(i.price) || 0)
+    map.set(key, cur)
+  })
+  const list = [...map.values()].map(x => ({ ...x, amount: Math.round(x.amount * 100) / 100 }))
+  const totalAmount = list.reduce((s, x) => s + x.amount, 0)
+  return list.map(x => ({ ...x, percentage: totalAmount ? Math.round(x.amount / totalAmount * 1000) / 10 : 0 }))
+    .sort((a, b) => b.amount - a.amount)
+})
+
 const pagedCategoryStats = computed(() => {
   const start = (catPage.value - 1) * catPageSize.value
-  return store.categoryStats.slice(start, start + catPageSize.value)
+  return scopedCategoryStats.value.slice(start, start + catPageSize.value)
 })
 
 // 部门领用统计
-const deptSearch = reactive({ dept: '' })
+const deptSearch = reactive({ dept: '', company: '' })
 watch(deptSearch, () => { deptPage.value = 1 }, { deep: true })
 const deptPage = ref(1)
 const deptPageSize = ref(15)
 
+function resetDeptSearch() {
+  deptSearch.dept = ''
+  deptSearch.company = ''
+  deptPage.value = 1
+}
+
+/** 部门统计由已生效领用单现算，先按所选公司收窄，保证占比与下钻同源 */
+const scopedDeptRequisitions = computed(() => deptSearch.company
+  ? settledRequisitions.value.filter(r => r.companyId === deptSearch.company)
+  : settledRequisitions.value)
+const scopedDeptStats = computed(() => {
+  const map = new Map()
+  scopedDeptRequisitions.value.forEach(r => {
+    const key = deptNameOf(r)
+    const cur = map.get(key) || { dept: key, times: 0, quantity: 0, amount: 0 }
+    cur.times++
+    cur.quantity += Number(r.quantity) || 0
+    cur.amount += Number(r.amount) || 0
+    map.set(key, cur)
+  })
+  const list = [...map.values()].map(x => ({ ...x, amount: Math.round(x.amount * 100) / 100 }))
+  const total = list.reduce((s, x) => s + x.amount, 0)
+  return list.map(x => ({ ...x, percentage: total ? Math.round(x.amount / total * 1000) / 10 : 0 }))
+    .sort((a, b) => b.amount - a.amount)
+})
+
 const filteredDeptStats = computed(() => {
   const kw = deptSearch.dept.trim()
-  return kw ? store.deptStats.filter(d => d.dept.includes(kw)) : store.deptStats
+  return kw ? scopedDeptStats.value.filter(d => d.dept.includes(kw)) : scopedDeptStats.value
 })
 
 const pagedDeptStats = computed(() => {
@@ -387,8 +490,11 @@ const pagedDeptStats = computed(() => {
 const settledRequisitions = computed(() => store.requisitionRecords.filter(r => r.status === 'DONE'))
 const deptNameOf = r => (r.deptId ? (orgStore.deptName(r.deptId) || r.deptId) : '未指定')
 const receiverStats = computed(() => {
+  const source = receiverSearch.company
+    ? settledRequisitions.value.filter(r => r.companyId === receiverSearch.company)
+    : settledRequisitions.value
   const map = new Map()
-  settledRequisitions.value.forEach(r => {
+  source.forEach(r => {
     const key = r.receiver || '未指定'
     const cur = map.get(key) || { receiver: key, department: '', times: 0, quantity: 0, amount: 0 }
     cur.times += 1
@@ -461,7 +567,7 @@ function companySummary({ columns, data }) {
   })
 }
 
-const receiverSearch = reactive({ name: '', department: '' })
+const receiverSearch = reactive({ name: '', department: '', company: '' })
 watch(receiverSearch, () => { receiverPage.value = 1 }, { deep: true })
 const receiverPage = ref(1)
 const receiverPageSize = ref(15)
@@ -480,6 +586,7 @@ const pagedReceiverStats = computed(() => {
 function resetReceiverSearch() {
   receiverSearch.name = ''
   receiverSearch.department = ''
+  receiverSearch.company = ''
   receiverPage.value = 1
 }
 
@@ -500,14 +607,20 @@ function withDeptName(rows) {
 
 function openDeptDetail(row) {
   const key = row.dept || '未指定'
-  detailRows.value = withDeptName(settledRequisitions.value.filter(r => deptNameOf(r) === key))
+  const source = deptSearch.company
+    ? settledRequisitions.value.filter(r => r.companyId === deptSearch.company)
+    : settledRequisitions.value
+  detailRows.value = withDeptName(source.filter(r => deptNameOf(r) === key))
   detailTitle.value = `${key} · 领用明细`
   detailVisible.value = true
 }
 
 function openReceiverDetail(row) {
   const key = row.receiver || '未指定'
-  detailRows.value = withDeptName(settledRequisitions.value.filter(r => (r.receiver || '未指定') === key))
+  const source = receiverSearch.company
+    ? settledRequisitions.value.filter(r => r.companyId === receiverSearch.company)
+    : settledRequisitions.value
+  detailRows.value = withDeptName(source.filter(r => (r.receiver || '未指定') === key))
   detailTitle.value = `${key} · 领用明细`
   detailVisible.value = true
 }
@@ -547,13 +660,41 @@ function exportDetail() {
 }
 
 // 出入库汇总
-const flowSearch = reactive({ name: '', category: '' })
+const flowSearch = reactive({ name: '', category: '', company: '' })
 watch(flowSearch, () => { flowPage.value = 1 }, { deep: true })
 const flowPage = ref(1)
 const flowPageSize = ref(15)
 
+/** 出入库汇总按公司收窄物品与出入库单据后现算，避免对已聚合结果做假过滤 */
+const scopedFlowSummary = computed(() => {
+  const cid = flowSearch.company
+  const match = r => !cid || r.companyId === cid
+  const map = new Map()
+  store.items.filter(match).forEach(i => {
+    map.set(i.id, {
+      name: i.name,
+      category: i.category || '',
+      categoryName: store.categoryName(i.category),
+      spec: i.spec,
+      unit: i.unit,
+      inbound: 0,
+      requisition: 0,
+      return: 0,
+      stock: Number(i.stock) || 0
+    })
+  })
+  const bump = (id, field, qty) => {
+    const row = map.get(id)
+    if (row) row[field] += Number(qty) || 0
+  }
+  store.inboundRecords.filter(match).forEach(r => bump(r.itemId, 'inbound', r.quantity))
+  store.requisitionRecords.filter(r => r.status === 'DONE' && match(r)).forEach(r => bump(r.itemId, 'requisition', r.quantity))
+  store.returnRecords.filter(r => r.status === 'DONE' && match(r)).forEach(r => bump(r.itemId, 'return', r.quantity))
+  return [...map.values()].filter(r => r.inbound || r.requisition || r.return)
+})
+
 const filteredFlowSummary = computed(() => {
-  return store.flowSummary.filter(r => {
+  return scopedFlowSummary.value.filter(r => {
     const nameMatch = !flowSearch.name || r.name.includes(flowSearch.name)
     const categoryMatch = !flowSearch.category || r.category === flowSearch.category
     return nameMatch && categoryMatch
@@ -568,6 +709,7 @@ const pagedFlowSummary = computed(() => {
 function resetFlowSearch() {
   flowSearch.name = ''
   flowSearch.category = ''
+  flowSearch.company = ''
   flowPage.value = 1
 }
 
@@ -590,7 +732,7 @@ function handleExport() {
   const date = new Date().toISOString().slice(0, 10)
   if (activeTab.value === 'category') {
     const headers = ['物品类别', '物品种类', '库存数量', '库存金额(元)', '占比(%)']
-    const rows = store.categoryStats.map(r => [r.name, r.count, r.quantity, r.amount, r.percentage])
+    const rows = scopedCategoryStats.value.map(r => [r.name, r.count, r.quantity, r.amount, r.percentage])
     downloadCsv(headers, rows, `导出_${tabNames.category}_${date}.csv`)
   } else if (activeTab.value === 'company') {
     const headers = ['所属公司', '物品种类', '库存数量', '库存金额(元)', '低库存种类', '领用次数', '领用数量', '领用金额(元)', '占比(%)']

@@ -14,6 +14,17 @@
       <el-tabs v-model="activeTab">
         <!-- 分类统计 -->
         <el-tab-pane label="分类统计" name="category">
+          <el-form :inline="true" class="search-form">
+            <el-form-item label="公司">
+              <el-select v-model="categorySearch.company" placeholder="请选择公司" clearable filterable style="width: 180px">
+                <el-option v-for="c in companyOptionList" :key="c.id" :label="c.name" :value="c.id" />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="catPage = 1">查询</el-button>
+              <el-button @click="resetCategorySearch">重置</el-button>
+            </el-form-item>
+          </el-form>
           <div class="grid-4 stat-cards">
             <el-card v-for="item in categoryStats" :key="item.name" shadow="hover" class="stat-card">
               <div class="stat-name">{{ item.name }}</div>
@@ -74,6 +85,17 @@
 
         <!-- 位置统计 -->
         <el-tab-pane label="位置统计" name="location">
+          <el-form :inline="true" class="search-form">
+            <el-form-item label="公司">
+              <el-select v-model="locationSearch.company" placeholder="请选择公司" clearable filterable style="width: 180px">
+                <el-option v-for="c in companyOptionList" :key="c.id" :label="c.name" :value="c.id" />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="locPage = 1">查询</el-button>
+              <el-button @click="resetLocationSearch">重置</el-button>
+            </el-form-item>
+          </el-form>
           <el-table :data="pagedLocationStats" style="width: 100%">
             <el-table-column prop="location" label="存放位置" min-width="180" />
             <el-table-column prop="count" label="资产数量" width="120" />
@@ -101,6 +123,17 @@
 
         <!-- 部门统计 -->
         <el-tab-pane label="部门统计" name="department">
+          <el-form :inline="true" class="search-form">
+            <el-form-item label="公司">
+              <el-select v-model="departmentSearch.company" placeholder="请选择公司" clearable filterable style="width: 180px">
+                <el-option v-for="c in companyOptionList" :key="c.id" :label="c.name" :value="c.id" />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="deptPage = 1">查询</el-button>
+              <el-button @click="resetDepartmentSearch">重置</el-button>
+            </el-form-item>
+          </el-form>
           <el-table :data="pagedDepartmentStats" class="clickable-table" style="width: 100%" @row-click="openDeptDetail">
             <el-table-column prop="department" label="部门名称" min-width="150">
               <template #default="{ row }"><el-link type="primary" :underline="false">{{ row.department }}</el-link></template>
@@ -144,6 +177,11 @@
             </el-form-item>
             <el-form-item label="部门">
               <el-input v-model="userSearch.department" placeholder="请输入" clearable />
+            </el-form-item>
+            <el-form-item label="公司">
+              <el-select v-model="userSearch.company" placeholder="请选择公司" clearable filterable style="width: 180px">
+                <el-option v-for="c in companyOptionList" :key="c.id" :label="c.name" :value="c.id" />
+              </el-select>
             </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="handleUserSearch">查询</el-button>
@@ -360,9 +398,23 @@ const can = code => userStore.can(code)
 
 const activeTab = ref('category')
 
+/** 公司筛选选项取自组织主数据，与台账口径一致 */
+const companyOptionList = computed(() => orgStore.companies.map(c => ({ id: c.id, name: c.name })))
+
+const categorySearch = reactive({ company: '' })
+watch(categorySearch, () => { catPage.value = 1 }, { deep: true })
+
+function resetCategorySearch() {
+  categorySearch.company = ''
+  catPage.value = 1
+}
+
 const categoryStats = computed(() => {
+  const source = categorySearch.company
+    ? fixedAssetStore.assetLedger.filter(a => a.companyId === categorySearch.company)
+    : fixedAssetStore.assetLedger
   const grouped = {}
-  fixedAssetStore.assetLedger.forEach(a => {
+  source.forEach(a => {
     const key = a.type || '其他'
     if (!grouped[key]) grouped[key] = { name: key, count: 0, amount: 0 }
     grouped[key].count++
@@ -401,9 +453,24 @@ const companyStats = computed(() => {
   })).sort((a, b) => b.assetAmount - a.assetAmount)
 })
 
+const locationSearch = reactive({ company: '' })
+const departmentSearch = reactive({ company: '' })
+
+function resetLocationSearch() {
+  locationSearch.company = ''
+  locPage.value = 1
+}
+function resetDepartmentSearch() {
+  departmentSearch.company = ''
+  deptPage.value = 1
+}
+
 const locationStats = computed(() => {
+  const source = locationSearch.company
+    ? fixedAssetStore.assetLedger.filter(a => a.companyId === locationSearch.company)
+    : fixedAssetStore.assetLedger
   const grouped = {}
-  fixedAssetStore.assetLedger.forEach(a => {
+  source.forEach(a => {
     const key = a.location || '未指定'
     if (!grouped[key]) grouped[key] = { location: key, count: 0, amount: 0, depts: new Set() }
     grouped[key].count++
@@ -421,8 +488,11 @@ const locationStats = computed(() => {
 })
 
 const departmentStats = computed(() => {
+  const source = departmentSearch.company
+    ? fixedAssetStore.assetLedger.filter(a => a.companyId === departmentSearch.company)
+    : fixedAssetStore.assetLedger
   const grouped = {}
-  fixedAssetStore.assetLedger.forEach(a => {
+  source.forEach(a => {
     const key = a.dept || '未分配'
     if (!grouped[key]) grouped[key] = { department: key, assetCount: 0, assetAmount: 0, users: new Set() }
     grouped[key].assetCount++
@@ -444,12 +514,15 @@ const departmentStats = computed(() => {
 })
 
 // 使用人统计
-const userSearch = reactive({ name: '', department: '' })
+const userSearch = reactive({ name: '', department: '', company: '' })
 watch(userSearch, () => { userPage.value = 1 }, { deep: true })
 
 const userStats = computed(() => {
+  const source = userSearch.company
+    ? fixedAssetStore.assetLedger.filter(a => a.companyId === userSearch.company)
+    : fixedAssetStore.assetLedger
   const grouped = {}
-  fixedAssetStore.assetLedger.forEach(a => {
+  source.forEach(a => {
     const key = a.user || '未分配'
     if (!grouped[key]) grouped[key] = { name: key, department: a.dept || '未分配', assetCount: 0, assetAmount: 0, assets: [] }
     grouped[key].assetCount++
@@ -535,14 +608,20 @@ function openCompanyDetail(row) {
 
 function openDeptDetail(row) {
   const key = row.department || '未分配'
-  detailRows.value = fixedAssetStore.assetLedger.filter(a => (a.dept || '未分配') === key)
+  const source = departmentSearch.company
+    ? fixedAssetStore.assetLedger.filter(a => a.companyId === departmentSearch.company)
+    : fixedAssetStore.assetLedger
+  detailRows.value = source.filter(a => (a.dept || '未分配') === key)
   detailTitle.value = `${key} · 资产明细`
   detailVisible.value = true
 }
 
 function openUserDetail(row) {
   const key = row.name || '未分配'
-  detailRows.value = fixedAssetStore.assetLedger.filter(a => (a.user || '未分配') === key)
+  const source = userSearch.company
+    ? fixedAssetStore.assetLedger.filter(a => a.companyId === userSearch.company)
+    : fixedAssetStore.assetLedger
+  detailRows.value = source.filter(a => (a.user || '未分配') === key)
   detailTitle.value = `${key} · 资产明细`
   detailVisible.value = true
 }
@@ -564,6 +643,7 @@ const handleUserSearch = () => { userPage.value = 1 }
 const handleUserReset = () => {
   userSearch.name = ''
   userSearch.department = ''
+  userSearch.company = ''
   userPage.value = 1
 }
 
