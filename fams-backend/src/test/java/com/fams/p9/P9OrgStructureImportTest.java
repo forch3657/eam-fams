@@ -127,6 +127,55 @@ public class P9OrgStructureImportTest {
     }
 
     @Test
+    @DisplayName("一人多岗：同一登录账号多行只建一个用户，每行生成岗位，首行主职回写主表")
+    void multiplePositionsForSameLogin() throws Exception {
+        String csv = String.join("\n",
+                row("多岗测试科技有限公司", "GS-MP", "甲部", "", "多岗张三", "p9_multi_user", "Multi@2026!",
+                        "甲部经理", "13800138100", "", "ROLE_ADMIN", ""),
+                row("多岗测试科技有限公司", "GS-MP", "乙部", "", "多岗张三", "p9_multi_user", "Multi@2026!",
+                        "乙部副经理", "13800138100", "", "ROLE_LEADER", ""));
+
+        OrgStructureImportService.OrgImportResult res = importCsv(csv, true);
+
+        assertThat(res.status).isEqualTo(OrgStructureImportService.Status.OK);
+        assertThat(res.createdUsers).isEqualTo(1);
+        assertThat(res.createdPositions).isEqualTo(2);
+        assertThat(res.failures).isEmpty();
+
+        Map<String, Object> user = findOne(USERS, "username", "p9_multi_user");
+        assertThat(user).isNotNull();
+        // 主表回写首行（主职）
+        assertThat(user.get("position")).isEqualTo("甲部经理");
+        assertThat(String.valueOf(user.get("roleIds"))).contains("R1");
+
+        Map<String, Object> company = findOne(COMPANIES, "name", "多岗测试科技有限公司");
+        Map<String, Object> deptA = findOne(DEPARTMENTS, "name", "甲部", "companyId", String.valueOf(company.get("id")));
+        Map<String, Object> deptB = findOne(DEPARTMENTS, "name", "乙部", "companyId", String.valueOf(company.get("id")));
+
+        List<Map<String, Object>> positions = genericService.list("org-user-positions", new HashMap<String, String[]>());
+        List<Map<String, Object>> mine = new java.util.ArrayList<>();
+        for (Map<String, Object> p : positions) {
+            if (String.valueOf(user.get("id")).equals(String.valueOf(p.get("userId")))) mine.add(p);
+        }
+        assertThat(mine).hasSize(2);
+        Map<String, Object> primary = null;
+        Map<String, Object> second = null;
+        for (Map<String, Object> p : mine) {
+            String key = String.valueOf(p.get("isPrimary"));
+            boolean isPrimary = "true".equalsIgnoreCase(key) || "1".equals(key);
+            if (isPrimary) primary = p; else second = p;
+        }
+        assertThat(primary).isNotNull();
+        assertThat(second).isNotNull();
+        assertThat(primary.get("companyId")).isEqualTo(company.get("id"));
+        assertThat(primary.get("deptId")).isEqualTo(deptA.get("id"));
+        assertThat(primary.get("position")).isEqualTo("甲部经理");
+        assertThat(second.get("deptId")).isEqualTo(deptB.get("id"));
+        assertThat(second.get("position")).isEqualTo("乙部副经理");
+        assertThat(String.valueOf(second.get("roleIds"))).contains("R5");
+    }
+
+    @Test
     @DisplayName("重复导入同一文件：公司/部门复用，账号重复判为该行失败且不改动已有口令")
     void reimportReusesAndNeverOverwritesPassword() throws Exception {
         String csv = String.join("\n",

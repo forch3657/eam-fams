@@ -35,10 +35,13 @@ import java.util.Set;
  * <p>设计要点：
  * <ul>
  *   <li><b>一行的粒度决定建什么</b>：只填公司→建公司；公司+部门→建部门；再加姓名→建用户。</li>
+ *   <li><b>一人多岗</b>：同一「登录账号」在文件中出现多行时，只建一个用户，每行生成一个
+ *       {@code org-user-positions} 岗位；第一行作为主职并回写用户主表，其余为兼职。</li>
  *   <li><b>幂等复用</b>：以「公司名称 / 公司+部门名称」为业务键在内存索引里匹配，客户无需填写任何主键。</li>
  *   <li><b>不绕过既有校验</b>：落库统一走 {@link GenericService#create}，口令 BCrypt、唯一性、引用校验、
  *       审计戳、钩子全部生效。</li>
- *   <li><b>不覆盖既有账号</b>：登录账号重复直接判为该行失败，绝不改写他人口令。</li>
+ *   <li><b>不覆盖既有账号</b>：登录账号若已存在于系统则判失败，绝不改写他人口令；文件内同账号多行
+ *       视为多岗位而非错误。</li>
  * </ul>
  */
 @Slf4j
@@ -50,6 +53,7 @@ public class OrgStructureImportService {
     public static final String DEPARTMENTS = "org-departments";
     public static final String USERS = "org-users";
     public static final String ROLES = "org-roles";
+    public static final String POSITIONS = "org-user-positions";
 
     private static final String STATUS_ENUM = "ENABLE_STATUS";
     private static final String ENABLED = "ENABLED";
@@ -88,7 +92,7 @@ public class OrgStructureImportService {
             "部门名称，选填；留空表示该行只建公司",
             "上级部门，选填；留空为一级部门；须在本文件或系统中已存在于同一公司",
             "姓名，选填；留空表示该行只建部门",
-            "登录账号，填写姓名时必填；全局唯一，重复不会覆盖已有账号",
+            "登录账号，填写姓名时必填；同一账号多行表示一人多岗（首行主职），不会覆盖系统已存在的账号",
             "初始口令，填写姓名时必填；至少 8 位且含字母/数字/符号中两类，导入后自动加密",
             "岗位，选填",
             "手机，选填",
@@ -195,7 +199,8 @@ public class OrgStructureImportService {
 
         // 复用也是成功处理（例如重复导入同一份组织架构），不能因此把结果判为「全部失败」
         boolean wroteSomething = result.createdCompanies + result.reusedCompanies
-                + result.createdDepartments + result.reusedDepartments + result.createdUsers > 0;
+                + result.createdDepartments + result.reusedDepartments + result.createdUsers
+                + result.createdPositions > 0;
         if (result.failures.isEmpty()) {
             result.status = Status.OK;
         } else {
@@ -396,54 +401,129 @@ public class OrgStructureImportService {
         result.reusedDepartments = reused.size();
     }
 
-    // ---------------------------------------------------------------- 第 3 趟：用户
+    // ---------------------------------------------------------------- 第 3 趟：用户与岗位
 
     private void writeUsers(List<OrgRow> rows, OrgImportResult result, Index index, boolean abort) {
-        int created = 0;
+        int createdUsers = 0;
+        int createdPositions = 0;
+
+        // 按登录账号分组：同一账号的多行 = 多岗位，第一行为主职。
+        Map<String, List<OrgRow>> grouped = new LinkedHashMap<>();
         for (OrgRow row : rows) {
             if (row.invalid || row.userName.isEmpty() || row.companyId == null) {
                 continue;
             }
-            // 同一部门可能由文件中的另一行（部门行）创建，这里按业务键回查，保证人员归属正确
-            String deptId = row.deptId != null
-                    ? row.deptId
-                    : index.deptIdByKey.get(deptKey(row.companyId, row.deptName));
-            if (!row.deptName.isEmpty() && deptId == null) {
-                fail(row, "所属部门「" + row.deptName + "」未能创建，该用户未导入", result, abort);
+            grouped.computeIfAbsent(row.username, k -> new ArrayList<>()).add(row);
+        }
+
+        for (Map.Entry<String, List<OrgRow>> entry : grouped.entrySet()) {
+            List<OrgRow> group = entry.getValue();
+            OrgRow primary = group.get(0);
+
+            // 逐行回查部门 id（部门可能由本文件另一行创建）
+            for (OrgRow row : group) {
+                String deptId = row.deptId != null
+                        ? row.deptId
+                        : index.deptIdByKey.get(deptKey(row.companyId, row.deptName));
+                if (!row.deptName.isEmpty() && deptId == null) {
+                    fail(row, "所属部门「" + row.deptName + "」未能创建，该岗位未导入", result, abort);
+                    row.invalid = true;
+                    continue;
+                }
+                row.deptId = deptId;
+            }
+            List<OrgRow> valid = new ArrayList<>();
+            for (OrgRow row : group) {
+                if (!row.invalid) {
+                    valid.add(row);
+                }
+            }
+            if (valid.isEmpty()) {
                 continue;
             }
-            row.deptId = deptId;
+            primary = valid.get(0);
+
+            // 同一账号多行时校验姓名/口令一致，避免给用户建重复身份
+            for (OrgRow row : valid) {
+                if (!row.userName.equals(primary.userName)) {
+                    fail(row, "登录账号「" + row.username + "」的姓名与首行不一致（" + primary.userName + "）", result, abort);
+                    row.invalid = true;
+                } else if (!row.password.equals(primary.password)) {
+                    fail(row, "登录账号「" + row.username + "」的初始口令与首行不一致", result, abort);
+                    row.invalid = true;
+                }
+            }
+            valid.removeIf(r -> r.invalid);
+            if (valid.isEmpty()) {
+                continue;
+            }
+            primary = valid.get(0);
 
             Map<String, Object> body = new LinkedHashMap<>();
-            body.put("username", row.username);
-            body.put("password", row.password);   // 明文入参，GenericService 内部按口令策略校验并 BCrypt
-            body.put("name", row.userName);
-            body.put("companyId", row.companyId);
-            body.put("status", row.status);
+            body.put("username", primary.username);
+            body.put("password", primary.password);   // 明文入参，GenericService 内部按口令策略校验并 BCrypt
+            body.put("name", primary.userName);
+            body.put("companyId", primary.companyId);
+            body.put("status", primary.status);
             body.put("createdAt", LocalDateTime.now());
-            if (row.deptId != null) {
-                body.put("deptId", row.deptId);
+            if (primary.deptId != null) {
+                body.put("deptId", primary.deptId);
             }
-            if (!row.position.isEmpty()) {
-                body.put("position", row.position);
+            if (!primary.position.isEmpty()) {
+                body.put("position", primary.position);
             }
-            if (!row.phone.isEmpty()) {
-                body.put("phone", row.phone);
+            if (!primary.phone.isEmpty()) {
+                body.put("phone", primary.phone);
             }
-            if (!row.email.isEmpty()) {
-                body.put("email", row.email);
+            if (!primary.email.isEmpty()) {
+                body.put("email", primary.email);
             }
-            if (!row.roleIds.isEmpty()) {
-                body.put("roleIds", RowCodec.writeJson(row.roleIds));
+            if (!primary.roleIds.isEmpty()) {
+                body.put("roleIds", RowCodec.writeJson(primary.roleIds));
             }
+            String userId;
             try {
-                genericService.create(USERS, body);
-                created++;
+                Map<String, Object> saved = genericService.create(USERS, body);
+                userId = str(saved.get("id"));
+                createdUsers++;
             } catch (ApiException e) {
-                fail(row, "新建用户失败：" + e.getMessage(), result, abort);
+                fail(primary, "新建用户失败：" + e.getMessage(), result, abort);
+                continue;
+            }
+
+            if (userId.isEmpty()) {
+                fail(primary, "新建用户未返回主键，岗位未导入", result, abort);
+                continue;
+            }
+
+            // 为每一行生成一个岗位；第一行主职，其余兼职。
+            for (int i = 0; i < valid.size(); i++) {
+                OrgRow pos = valid.get(i);
+                Map<String, Object> posBody = new LinkedHashMap<>();
+                posBody.put("userId", userId);
+                posBody.put("companyId", pos.companyId);
+                if (pos.deptId != null) {
+                    posBody.put("deptId", pos.deptId);
+                }
+                if (!pos.position.isEmpty()) {
+                    posBody.put("position", pos.position);
+                }
+                if (!pos.roleIds.isEmpty()) {
+                    posBody.put("roleIds", RowCodec.writeJson(pos.roleIds));
+                }
+                posBody.put("isPrimary", i == 0);
+                posBody.put("status", pos.status);
+                posBody.put("sort", i);
+                try {
+                    genericService.create(POSITIONS, posBody);
+                    createdPositions++;
+                } catch (ApiException e) {
+                    fail(pos, "新建岗位失败：" + e.getMessage(), result, abort);
+                }
             }
         }
-        result.createdUsers = created;
+        result.createdUsers = createdUsers;
+        result.createdPositions = createdPositions;
     }
 
     // ---------------------------------------------------------------- 行解析与校验
@@ -505,9 +585,8 @@ public class OrgStructureImportService {
             throw new ApiException(ErrorCode.VALIDATION,
                     "登录账号「" + row.username + "」已存在，导入不会覆盖已有账号（如需调整请先在用户管理中处理）");
         }
-        if (!fileUsernames.add(row.username)) {
-            throw new ApiException(ErrorCode.VALIDATION, "登录账号「" + row.username + "」在文件中重复出现，请只保留一行");
-        }
+        // 一人多岗：文件内同账号多行不再报错，后续按账号分组，每行生成一个岗位。
+        fileUsernames.add(row.username);
         if (row.password.isEmpty()) {
             throw new ApiException(ErrorCode.VALIDATION, "填写「姓名」时必须填写「初始口令」");
         }
@@ -642,6 +721,7 @@ public class OrgStructureImportService {
         result.createdDepartments = 0;
         result.reusedDepartments = 0;
         result.createdUsers = 0;
+        result.createdPositions = 0;
     }
 
     private static String deptKey(String companyId, String deptName) {
@@ -741,6 +821,7 @@ public class OrgStructureImportService {
         public int createdDepartments;
         public int reusedDepartments;
         public int createdUsers;
+        public int createdPositions;
         public String status;
         public List<Failure> failures = new ArrayList<>();
 

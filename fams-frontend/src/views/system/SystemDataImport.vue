@@ -325,6 +325,10 @@
           <div class="metric-value">{{ result.createdUsers || 0 }}</div>
           <div class="metric-label">新建用户</div>
         </div>
+        <div class="metric metric-user">
+          <div class="metric-value">{{ result.createdPositions || 0 }}</div>
+          <div class="metric-label">新建岗位</div>
+        </div>
         <div class="metric metric-total">
           <div class="metric-value">{{ result.total || 0 }}</div>
           <div class="metric-label">数据行数</div>
@@ -716,8 +720,9 @@ async function downloadTemplate() {
 function notifyResult(res) {
   if (res.status === 'OK') {
     if (mode.value === 'org') {
+      const pos = res.createdPositions ? `、${res.createdPositions} 个岗位（含兼职）` : ''
       ElMessage.success(
-        `导入成功：新建 ${res.createdCompanies} 家公司、${res.createdDepartments} 个部门、${res.createdUsers} 个用户`
+        `导入成功：新建 ${res.createdCompanies} 家公司、${res.createdDepartments} 个部门、${res.createdUsers} 个用户${pos}`
       )
     } else if (mode.value === 'low') {
       ElMessage.success(
