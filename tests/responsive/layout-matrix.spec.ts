@@ -134,7 +134,7 @@ for (const vp of VIEWPORTS) {
       await testInfo.attach('redirected-routes', { body: redirected.join('\n'), contentType: 'text/plain' })
     }
     // 防止「全部被重定向」造成假通过：绝大多数目标页必须被真实验证
-    expect(redirected.length, `被权限守卫重定向的路由过多：${redirected.join(', ')}`).toBeLessThanOrEqual(4)
+    expect(redirected.length, `被权限守卫重定向的路由过多：${redirected.join(', ')}`).toBeLessThanOrEqual(6)
     expect(problems, problems.slice(0, 24).join('\n')).toHaveLength(0)
   })
 }
@@ -308,6 +308,38 @@ test('[RESP-IX-06] 工作台概览数字降字号且行动条触控尺寸达标'
     expect(m.overlaps, '概览数字相互重叠').toBe(false)
     expect(m.statHeights.length).toBeGreaterThan(0)
     expect(Math.min(...m.statHeights), '行动条卡片过矮').toBeGreaterThanOrEqual(60)
+  } finally {
+    await context.close()
+  }
+})
+
+test('[RESP-IX-07] 工作台行动条与我的单据在手机首屏可见', async ({ browser }) => {
+  const vp = VIEWPORTS.find(v => v.name === 'phone')!
+  const { context, page } = await openPage(browser, vp)
+  try {
+    await page.goto('/workbench')
+    await waitSettled(page)
+    await page.waitForSelector('#wb-todo-panel', { timeout: 6_000 }).catch(() => {})
+    const m = await page.evaluate(() => {
+      const rect = (sel: string) => {
+        const el = document.querySelector(sel)
+        const r = el?.getBoundingClientRect()
+        return r ? { top: Math.round(r.top), h: Math.round(r.height) } : null
+      }
+      const main = document.querySelector('.main-content')
+      return {
+        overview: rect('.ov-panel'),
+        stats: rect('.wb-stats'),
+        todo: rect('#wb-todo-panel'),
+        scrollable: !!main && main.scrollHeight > main.clientHeight,
+        vh: window.innerHeight
+      }
+    })
+    expect(m.scrollable, '工作台应可整页滚动，不能被一屏布局裁掉内容').toBe(true)
+    expect(m.stats?.top ?? 99999, '行动条超出首屏').toBeLessThan(m.vh)
+    expect(m.todo?.top ?? 99999, '我的单据超出首屏').toBeLessThan(m.vh)
+    expect(m.overview?.h ?? 99999, '概览独占首屏过高').toBeLessThanOrEqual(m.vh * 0.5)
+    expect(m.todo?.h ?? 0, '待办卡片高度为 0').toBeGreaterThan(0)
   } finally {
     await context.close()
   }

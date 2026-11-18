@@ -191,28 +191,49 @@ function go(path) {
 
 /* 手机：数字改两列网格并降字号，避免「总数 121 / 原值 ¥51,261,070」挤成一行顶到边缘 */
 @media (max-width: 767px) {
-  .ov-grid { gap: 10px !important; }
+  /* 概览不能吃掉首屏：压缩内边距、chips 单行截断，给行动条和待办留出空间 */
+  .ov-panel :deep(.el-card__body) { padding: 8px var(--content-px) !important; }
+  .ov-grid { gap: 6px !important; }
   .ov-cell {
-    padding: 10px 0 !important;
+    padding: 6px 0 !important;
     border-left: 0 !important;
     border-bottom: 1px solid var(--bd);
   }
+  .ov-hd { margin-bottom: 2px; }
   .ov-cell:last-child { border-bottom: 0; }
   .ov-cell:nth-child(3) {
     grid-column: auto !important;
-    padding-top: 10px !important;
+    padding-top: 6px !important;
     border-top: 0;
   }
+  /* 一行放下全部指标（字号 12px），概览从约 520px 压到约 280px，
+     让行动条与「我的单据」在手机首屏可见；数字一个都不少 */
   .ov-nums {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px 10px;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 6px;
+    margin-bottom: 4px;
   }
-  .ov-nums .n { display: block; white-space: normal; gap: 2px; }
-  .ov-nums .n .lb { display: block; font-size: 11px; }
-  .ov-nums .n b { display: block; font-size: 17px; line-height: 1.2; }
-  .ov-chips { gap: 4px; }
+  .ov-nums .n { flex: 1 1 0; min-width: 0; display: block; gap: 0; }
+  .ov-nums .n .lb {
+    display: block;
+    font-size: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ov-nums .n b {
+    display: block;
+    font-size: 12px;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ov-chips { gap: 4px; flex-wrap: nowrap; overflow: hidden; }
   .ov-chips .chip { font-size: 11px; line-height: 17px; padding: 0 6px; }
+  .ov-rate { margin: 4px 0; }
+  .ov-rate-bar { height: 4px; }
 }
 
 /* P2 轻量可视化：纯 CSS 通过率条，不引入图表库 */

@@ -309,6 +309,12 @@ onMounted(async () => {
 
 /* 手机：标题不再被角色标签挤压；行动条放大；左右分栏改为纵向流式堆叠 */
 @media (max-width: 767px) {
+  /* 桌面的「一屏锁定」会把行动条与我的单据裁掉且无法滚动，手机必须改为自然文档流 */
+  .workbench-page {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+  }
   .wb-header {
     height: auto;
     min-height: 44px;
@@ -334,7 +340,7 @@ onMounted(async () => {
     overflow: visible;
     margin-bottom: var(--sp-3);
   }
-  .wb-panel { flex: 0 0 auto; min-height: 280px; }
+  .wb-panel { flex: 0 0 auto; min-height: auto; }
   .wb-panel-todo :deep(.el-card__body),
   .wb-panel-side :deep(.el-card__body) { overflow-y: visible; }
   .wb-panel :deep(.el-card__header) { height: 40px; }
