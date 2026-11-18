@@ -428,6 +428,7 @@ DROP TABLE IF EXISTS `org_users`;
 CREATE TABLE `org_users` (
   `scope_company_ids` TEXT,
   `id` VARCHAR(64) NOT NULL COMMENT '主键',
+  `user_no` VARCHAR(255) COMMENT '用户编号 必填 唯一',
   `username` VARCHAR(255) COMMENT '必填 唯一',
   `password` VARCHAR(255),
   `password_reset_at` DATETIME(3),

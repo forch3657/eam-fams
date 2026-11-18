@@ -183,6 +183,10 @@ public class GenericService {
         if (planNoPrefix != null && isBlank(row.get("planNo"))) {
             row.put("planNo", nextDocNoByYearDash(meta, planNoPrefix));
         }
+        // 用户编号：留空时按全表 YH- 最大序号自动生成；与内部主键 id 分离
+        if ("org-users".equals(key) && meta.isKnownField("userNo") && isBlank(row.get("userNo"))) {
+            row.put("userNo", nextUserNo(meta));
+        }
 
         Object pk = row.get(meta.getPkField());
         if (isBlank(pk)) {
@@ -295,6 +299,11 @@ public class GenericService {
         scopeGuard.assertWrite(key, next, previous);
         assertStatusServerOwned(meta, next, previous);
         encodeOrgUserPasswordIfNeeded(key, next, false);
+        // 用户编号：编辑时若未带编号，沿用原值；历史数据为空则补生成（避免全量替换清空它）
+        if ("org-users".equals(key) && meta.isKnownField("userNo") && isBlank(next.get("userNo"))) {
+            Object oldNo = previous.get("userNo");
+            next.put("userNo", isBlank(oldNo) ? nextUserNo(meta) : oldNo);
+        }
 
         for (ResourceHook hook : hooks.forCollection(key)) {
             hook.beforeUpdate(meta, next, previous);
@@ -1082,6 +1091,28 @@ public class GenericService {
             }
         }
         return head + String.format("%04d", max + 1);
+    }
+
+    /**
+     * 用户编号全表自增：取所有 YH- 前缀的最大 4 位序号 +1。
+     *
+     * <p>按全表扫描而非数据范围，避免不同公司生成重复编号；序号从 0001 起。</p>
+     */
+    private String nextUserNo(ResourceMeta meta) {
+        Map<String, Object> params = new QuerySpec(meta).toParams(meta.getAllColumns(), 5000L, 0L);
+        long max = 0L;
+        for (Map<String, Object> existing : mapper.selectList(params)) {
+            // mapper 返回的 Map key 是数据库列名（user_no），不是驼峰字段名
+            String no = text(existing.get("user_no"));
+            if (!no.startsWith("YH-")) {
+                continue;
+            }
+            String tail = no.substring(3);
+            if (tail.matches("\\d+")) {
+                max = Math.max(max, Long.parseLong(tail));
+            }
+        }
+        return String.format("YH-%04d", max + 1);
     }
 
     private void applyStockOnDelete(ResourceMeta meta, Map<String, Object> row) {

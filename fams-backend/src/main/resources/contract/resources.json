@@ -3645,6 +3645,14 @@
           "refCollection": null
         },
         {
+          "name": "userNo",
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "enumName": null,
+          "refCollection": null
+        },
+        {
           "name": "username",
           "type": "string",
           "required": true,
@@ -3758,6 +3766,7 @@
         }
       ],
       "uniqueFields": [
+        "userNo",
         "username"
       ],
       "refs": [
@@ -3848,6 +3857,7 @@
       "stock": null,
       "cascade": [],
       "keywordFields": [
+        "userNo",
         "username",
         "name",
         "phone"

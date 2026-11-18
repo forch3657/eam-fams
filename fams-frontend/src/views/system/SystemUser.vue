@@ -13,7 +13,7 @@
     <el-card shadow="never" class="fill">
       <el-form :inline="true" class="search-form">
         <el-form-item label="关键字">
-          <el-input v-model="query.keyword" placeholder="用户名 / 姓名 / 手机号" clearable style="width: 200px" />
+          <el-input v-model="query.keyword" placeholder="用户编号 / 用户名 / 姓名 / 手机号" clearable style="width: 240px" />
         </el-form-item>
         <el-form-item label="所属公司">
           <el-select v-model="query.companyId" placeholder="全部" clearable style="width: 200px">
@@ -46,6 +46,11 @@
       </el-form>
 
       <el-table :data="pagedList" border stripe style="width: 100%">
+        <el-table-column prop="userNo" label="用户编号" width="110">
+          <template #default="{ row }">
+            <span class="user-no">{{ row.userNo || '—' }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="username" label="用户名" width="120" />
         <el-table-column prop="name" label="姓名" width="100" />
         <el-table-column label="所属公司" min-width="180" show-overflow-tooltip>
@@ -108,8 +113,15 @@
 
     <el-dialog v-model="dialog.visible" :title="dialog.isEdit ? '编辑用户' : '新增用户'" width="960px" destroy-on-close>
       <el-form ref="formRef" :model="dialog.form" :rules="rules" label-width="100px">
+        <el-form-item label="用户编号" prop="userNo">
+          <el-input v-model="dialog.form.userNo" placeholder="留空自动生成，如 YH-0001" style="width: 220px" />
+          <span class="form-hint">业务编号，可修改，全局唯一（内部主键不受影响）</span>
+        </el-form-item>
         <el-form-item label="用户名" prop="username">
-          <el-input v-model="dialog.form.username" placeholder="登录账号" :disabled="dialog.isEdit" />
+          <el-input v-model="dialog.form.username" placeholder="登录账号" />
+          <span v-if="dialog.isEdit && dialog.form.username !== dialog.originalUsername" class="form-hint warn">
+            已修改：保存后该用户旧登录失效，须用新用户名重新登录
+          </span>
         </el-form-item>
         <el-form-item label="姓名" prop="name">
           <el-input v-model="dialog.form.name" placeholder="请输入姓名" />
@@ -204,12 +216,15 @@
 import { ref, reactive, computed, nextTick, watch, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search } from '@element-plus/icons-vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useOrgStore } from '../../store/org'
+import { useUserStore } from '../../store/user'
 import { labelOf } from '../../constants/enums'
 
 const orgStore = useOrgStore()
+const userStore = useUserStore()
 const route = useRoute()
+const router = useRouter()
 
 // 岗位行临时 key 序号：emptyForm() 在下方 dialog 初始化时即会调用 newPositionForm，
 // 因此本声明必须放在任何 emptyForm()/newPositionForm() 调用之前，避免 let 的暂时性死区。
@@ -236,7 +251,7 @@ const filteredList = computed(() => {
     if (query.deptId && u.deptId !== query.deptId) return false
     if (query.roleId && !(u.roleIds || []).includes(query.roleId)) return false
     if (query.status && u.status !== query.status) return false
-    if (kw && !`${u.username}${u.name}${u.phone || ''}`.includes(kw)) return false
+    if (kw && !`${u.userNo || ''}${u.username}${u.name}${u.phone || ''}`.includes(kw)) return false
     return true
   })
 })
@@ -295,9 +310,21 @@ async function handleDelete(row) {
 }
 
 const formRef = ref()
-const dialog = reactive({ visible: false, isEdit: false, form: emptyForm() })
+const dialog = reactive({ visible: false, isEdit: false, originalUsername: '', form: emptyForm() })
 
 const rules = {
+  userNo: [{
+    // 留空表示交给服务端自动生成；填写则前端即时查重（忽略大小写），后端 unique 兜底
+    validator: (_rule, value, cb) => {
+      const v = String(value || '').trim()
+      if (!v) return cb()
+      const dup = orgStore.users.some(u =>
+        u.id !== dialog.form.id && String(u.userNo || '').trim().toLowerCase() === v.toLowerCase())
+      if (dup) return cb(new Error(`用户编号「${v}」已存在，请更换`))
+      cb()
+    },
+    trigger: 'blur'
+  }],
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
     // 用户名允许手机号（导入账号即以手机号为登录名），不再强制字母开头
@@ -349,7 +376,7 @@ function newPositionForm(p = {}) {
 
 function emptyForm() {
   return {
-    id: '', username: '', name: '', companyId: '', deptId: '', position: '',
+    id: '', userNo: '', username: '', name: '', companyId: '', deptId: '', position: '',
     roleIds: [], phone: '', email: '', password: '', status: 'ENABLED',
     positions: [newPositionForm({ isPrimary: true })]
   }
@@ -388,6 +415,7 @@ watch(() => dialog.form.companyId, () => { dialog.form.deptId = '' })
 
 function openDialog(row) {
   dialog.isEdit = !!row
+  dialog.originalUsername = row ? row.username : ''
   if (row) {
     const existing = orgStore.positionsOfUser(row.id)
     const posRows = existing.length
@@ -396,7 +424,7 @@ function openDialog(row) {
           companyId: row.companyId, deptId: row.deptId, position: row.position,
           roleIds: row.roleIds, isPrimary: true
         })]
-    Object.assign(dialog.form, { ...row, roleIds: [...(row.roleIds || [])], password: '', positions: posRows })
+    Object.assign(dialog.form, { userNo: '', ...row, roleIds: [...(row.roleIds || [])], password: '', positions: posRows })
   } else {
     Object.assign(dialog.form, emptyForm())
   }
@@ -416,6 +444,21 @@ async function submit() {
     ElMessage.warning('每个岗位都需选择公司与角色')
     return
   }
+
+  // 用户名改名确认：它是登录账号与 JWT 身份，改后旧登录立即失效
+  const usernameChanged = dialog.isEdit && dialog.form.username !== dialog.originalUsername
+  if (usernameChanged) {
+    try {
+      await ElMessageBox.confirm(
+        `用户名将由「${dialog.originalUsername}」改为「${dialog.form.username}」。` +
+        '该用户的旧登录会立即失效，必须用新用户名重新登录；历史记录中的操作人保留旧账号属正常留痕。确认修改？',
+        '修改登录账号', { type: 'warning', confirmButtonText: '确认修改', cancelButtonText: '取消' }
+      )
+    } catch {
+      return
+    }
+  }
+
   // 上方「所属公司/部门/岗位/角色」是主职的编辑入口：先同步进主职岗位行，
   // 岗位表格再负责兼职行。这样两个入口不冲突，主表字段最终由 saveUserPositions 回写。
   const primary = positions.find(p => p.isPrimary) || positions[0]
@@ -424,28 +467,44 @@ async function submit() {
   primary.position = dialog.form.position || ''
   primary.roleIds = [...(dialog.form.roleIds || [])]
   const payload = {
-    id: dialog.form.id, username: dialog.form.username, name: dialog.form.name,
+    id: dialog.form.id, userNo: String(dialog.form.userNo || '').trim(),
+    username: dialog.form.username, name: dialog.form.name,
     companyId: primary.companyId, deptId: primary.deptId || '', position: primary.position || '',
     roleIds: [...(primary.roleIds || [])], phone: dialog.form.phone, email: dialog.form.email,
     status: dialog.form.status, password: dialog.form.password
   }
+  const editingSelf = !!userStore.user && userStore.user.username === dialog.originalUsername
   try {
-    let saved
     if (dialog.isEdit) {
+      // 编辑：先存岗位，最后再改用户名。若改的是自己，用户名一变旧 token 立即失效，
+      // 放在最后可保证岗位写入不受影响（saveUserPositions 不再跟在 updateUser 之后）
+      if (dialog.form.id) {
+        await orgStore.saveUserPositions(dialog.form.id, positions)
+      }
       delete payload.password
-      saved = await orgStore.updateUser(dialog.form.id, payload)
+      await orgStore.updateUser(dialog.form.id, payload)
       ElMessage.success('用户已更新')
     } else {
+      // 新增：先建用户拿到服务端生成的 id 与 userNo，再建岗位
       // 初始密码由后端 PasswordPolicy 校验并 BCrypt；留空时后端拒绝（要求设置）
-      saved = await orgStore.addUser(payload)
+      const saved = await orgStore.addUser(payload)
+      const userId = saved?.id || dialog.form.id
+      if (userId) {
+        await orgStore.saveUserPositions(userId, positions)
+      }
       ElMessage.success('用户已新增')
     }
-    // 岗位子表与主职回写：新建用户需拿到服务端生成的用户 id
-    const userId = saved?.id || dialog.form.id
-    if (userId) {
-      await orgStore.saveUserPositions(userId, positions)
-    }
     dialog.visible = false
+
+    // 改的是自己：强制重新登录；改的是他人：提示通知对方
+    if (usernameChanged && editingSelf) {
+      // 用不发请求的 clearSession：旧 token 的 username 已改，再调登出接口只会吃 401
+      userStore.clearSession()
+      ElMessage.info('登录账号已修改，请用新用户名重新登录')
+      router.push('/login')
+    } else if (usernameChanged) {
+      ElMessage.warning(`已修改用户名，请通知「${dialog.form.name}」用新用户名重新登录`)
+    }
   } catch (e) {
     ElMessage.error(e.message || '保存失败')
   }
@@ -473,5 +532,17 @@ async function submit() {
 }
 .position-table {
   margin-bottom: 4px;
+}
+.user-no {
+  font-family: monospace;
+  color: var(--t-brand);
+}
+.form-hint {
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--t-weak);
+}
+.form-hint.warn {
+  color: #e6a23c;
 }
 </style>

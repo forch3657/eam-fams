@@ -548,6 +548,9 @@ const ORG_USERS = {
   idField: 'id',
   audit: true,
   fields: {
+    // 用户编号（业务标识，如 YH-0001）：新增用户留空时服务端按全表最大序号自动生成；
+    // 允许修改但全局唯一；与内部主键 id 分离，避免改动 id 破坏 25 处业务引用
+    userNo: f.str({ required: true, unique: true }),
     username: f.str({ required: true, unique: true }),
     // 登录口令（前端演示用明文存储；接入后端后由后端校验，前端不再持有）
     password: f.str(),
@@ -566,9 +569,9 @@ const ORG_USERS = {
     createdAt: f.date(),
     lastLoginAt: f.date()
   },
-  query: { keyword: ['username', 'name', 'phone'], filters: ['companyId', 'deptId', 'status'], sort: ['createdAt'], page: true },
+  query: { keyword: ['userNo', 'username', 'name', 'phone'], filters: ['companyId', 'deptId', 'status'], sort: ['createdAt'], page: true },
   rules: {
-    unique: ['username'],
+    unique: ['userNo', 'username'],
     refs: [
       { field: 'companyId', collection: 'org-companies' },
       { field: 'deptId', collection: 'org-departments' }
