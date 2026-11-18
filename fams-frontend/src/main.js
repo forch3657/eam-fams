@@ -10,6 +10,7 @@ import { useMock } from './services'
 import { registerAllSeeds } from './services/mock/seed'
 import { installA11y } from './utils/a11y'
 import { installResponsiveTable } from './utils/responsiveTable'
+import { installResponsiveEnhance } from './utils/responsiveEnhance'
 import { setErrorNotifier } from './services/http'
 import './styles/global.css'
 
@@ -29,6 +30,8 @@ useUserStore().restore()
 installA11y(router)
 // 手机端表格卡片化：只在 <=767px 注入列名，桌面 DOM 与样式不变
 installResponsiveTable(router)
+// 手机显示质量：筛选折叠 + 按路由只保留核心列（详情走页面已有入口）
+installResponsiveEnhance(router)
 // 全局错误兜底：权限 / 服务端 / 网络类失败由 http 层统一给可见提示
 setErrorNotifier(msg => ElMessage.error(msg))
 

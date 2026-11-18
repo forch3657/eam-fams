@@ -6,7 +6,7 @@
       v-for="(row, index) in rows"
       :key="keyOf(row, index)"
       class="mrl__card"
-      @click="emit('row-click', row)"
+      @click="onRowClick(row)"
     >
       <header class="mrl__head">
         <slot name="card-header" :row="row">
@@ -35,6 +35,14 @@
         <slot name="row-actions" :row="row" />
       </footer>
     </article>
+
+    <MobileDetailDrawer
+      v-if="detail"
+      v-model="detailOpen"
+      :title="detailTitle"
+      :columns="detailColumns && detailColumns.length ? detailColumns : columns"
+      :row="activeRow"
+    />
   </div>
 </template>
 
@@ -45,21 +53,41 @@
  *                 tagType?(row), hideOnMobile? }
  * 插槽：card-header / card-status / card-extra / row-actions，均带 { row }。
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import MobileDetailDrawer from './MobileDetailDrawer.vue'
 
 const props = defineProps({
   columns: { type: Array, default: () => [] },
   rows: { type: Array, default: () => [] },
   rowKey: { type: String, default: 'id' },
   emptyText: { type: String, default: '暂无数据' },
-  loading: { type: Boolean, default: false }
+  loading: { type: Boolean, default: false },
+  /** 除主字段外最多显示的字段数，避免 13 列全量堆叠成一屏一张 */
+  maxFields: { type: Number, default: 5 },
+  /** 点击卡片打开内置详情抽屉；页面已有详情入口时设 false 并监听 row-click */
+  detail: { type: Boolean, default: false },
+  detailColumns: { type: Array, default: () => [] },
+  detailTitle: { type: String, default: '详情' }
 })
 
 const emit = defineEmits(['row-click'])
 
+const detailOpen = ref(false)
+const activeRow = ref(null)
+
+function onRowClick(row) {
+  if (props.detail) {
+    activeRow.value = row
+    detailOpen.value = true
+  }
+  emit('row-click', row)
+}
+
 const usableColumns = computed(() => props.columns.filter(c => c && c.prop && !c.hideOnMobile))
 const primaryColumn = computed(() => usableColumns.value.find(c => c.primary))
-const fieldColumns = computed(() => usableColumns.value.filter(c => !c.primary))
+const fieldColumns = computed(() =>
+  usableColumns.value.filter(c => !c.primary).slice(0, props.maxFields)
+)
 
 function keyOf(row, index) {
   return row?.[props.rowKey] ?? index

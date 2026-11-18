@@ -1237,6 +1237,24 @@ body { font-size: 14px; line-height: 1.5; }
     width: 100% !important;
   }
 
+  /* EP 的 .el-form--inline .el-form-item 特异性 0,2,0 高于 .el-form-item，必须同档覆盖，
+     否则 inline-flex 会把筛选控件压成小框（手机实景：关键字输入框只剩 30px）。 */
+  .el-form--inline .el-form-item,
+  .el-form--inline .el-form-item__content {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-right: 0 !important;
+  }
+  .el-form--inline .el-form-item__label {
+    width: 100% !important;
+    max-width: 100% !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
+    padding: 0 0 4px !important;
+    line-height: 1.4;
+  }
+
   /* 表单 label 上置、控件单列全宽；覆盖 label-width 生成的内联宽度 */
   .el-form-item { display: block; }
   .el-form-item__label {
@@ -1257,14 +1275,16 @@ body { font-size: 14px; line-height: 1.5; }
   .el-dialog .el-input, .el-dialog .el-select, .el-dialog .el-date-editor,
   .el-dialog .el-input-number, .el-dialog .el-cascader,
   .filter-bar .el-input, .filter-bar .el-select, .filter-bar .el-date-editor,
+  .search-form .el-input, .search-form .el-select, .search-form .el-date-editor,
   .el-form-item__content .el-input, .el-form-item__content .el-select,
   .el-form-item__content .el-date-editor, .el-form-item__content .el-input-number,
   .el-form-item__content .el-cascader {
     width: 100% !important;
     max-width: 100% !important;
   }
-  .el-form [style*="width:"], .filter-bar [style*="width:"],
+  .el-form [style*="width:"], .search-form [style*="width:"], .filter-bar [style*="width:"],
   .el-dialog [style*="width:"], .el-drawer [style*="width:"] {
+    width: 100% !important;
     max-width: 100% !important;
   }
 
@@ -1293,6 +1313,50 @@ body { font-size: 14px; line-height: 1.5; }
   /* 分页贴底不遮挡卡片 */
   .pager, .el-pagination { flex-wrap: wrap; justify-content: center; }
   .el-pagination__total { width: 100%; text-align: center; }
+
+  /* 页面内 el-tabs：换行铺开而不是裁切末项，避免用户不知道可以横向滑 */
+  .el-tabs__nav-wrap { overflow: visible !important; }
+  .el-tabs__nav-wrap::after { display: none; }
+  .el-tabs__nav-scroll { overflow: visible; }
+  .el-tabs__nav {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    white-space: normal !important;
+    transform: none !important;
+  }
+  .el-tabs__item {
+    height: auto !important;
+    min-height: 40px;
+    padding: 8px 12px !important;
+    line-height: 1.4 !important;
+    flex: 0 0 auto;
+  }
+  .el-tabs__active-bar { display: none !important; }
+  .el-tabs__item.is-active { color: var(--c-primary) !important; font-weight: 600; }
+  .el-tabs__nav-next, .el-tabs__nav-prev { display: none !important; }
+
+  /* 全局增强（utils/responsiveEnhance.js）：筛选折叠 + 卡片只留核心列 */
+  .mobile-filter-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    min-height: var(--touch-min);
+    margin-bottom: var(--sp-2);
+    border: 1px solid var(--bd);
+    border-radius: var(--r-md);
+    background: var(--bg-card);
+    color: var(--t-main);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .mobile-filter-toggle::after { content: '⌄'; }
+  .search-form[data-mobile-filter] { margin-bottom: 0; }
+  .search-form[data-mobile-filter].is-filter-collapsed { display: none; }
+  td[data-mobile-hidden], th[data-mobile-hidden] { display: none !important; }
 }
 
 /* ---- 高度档：short=800 归并旧 720/800；veryShort=500 对应手机横屏 ---- */
@@ -1412,11 +1476,11 @@ body { font-size: 14px; line-height: 1.5; }
     display: flex !important;
     align-items: flex-start;
     flex-wrap: wrap;
-    gap: 2px var(--sp-2);
+    gap: 1px var(--sp-2);
     width: 100% !important;
     min-width: 0 !important;
     max-width: 100% !important;
-    padding: 5px 4px !important;
+    padding: 3px 2px !important;
     border: 0 !important;
     border-bottom: 1px solid var(--bd-split) !important;
     background: transparent !important;

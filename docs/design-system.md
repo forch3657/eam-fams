@@ -112,4 +112,4 @@
 - [x] 全量 E2E：224 passed / 3 failed（227 条，34.6 分钟）；3 条逐条定位后单跑 3/3 通过，其中 1 条（`SMK-04`）是账户菜单改 click 触发后的真实回归，已同步修用例
 - [x] 视觉截图与 `e2e-artifacts/ui-baseline/` 对比无意外错位（基线 / P0 / final 三组已归档）
 - [x] 生产栈按 `stop-prod.ps1 → build-prod.ps1 → start-prod.ps1` 重建后验证
-- [x] 多端响应式（R5/R6，2026-11-18）：16 个代表视口 × 21 路由的自动化巡检 **24/24 全绿**、桌面 `1440×900` 零回归（存量 36/37 通过，唯一失败为既有后端接口问题，与本次改造无关）；结论见 `docs/qa/stage-gates.md` §6 与 `docs/responsive-adaptation.md` §6.1
+- [x] 多端响应式（R5/R6 + 第二轮精修，2026-11-18）：16 个代表视口 × 21 路由的自动化巡检 **26/26 全绿**（含筛选全宽、卡片 ≤6 字段、页签末项、概览字号等质量断言）；桌面 `1440×900` 零回归（存量 36/37，唯一失败为既有 `/api/org-users` 后端接口问题）；结论见 `docs/qa/stage-gates.md` §6 与 `docs/responsive-adaptation.md` §6.1/§6.2

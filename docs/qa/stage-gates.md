@@ -553,3 +553,5 @@
 **验收结论（2026-11-18）**：R0~R6 全部完成。`npm run e2e:responsive` 全量 **24/24 通过**（16 视口 × 21 路由布局矩阵 + 4 条交互断言 + 4 条断点一致性断言）；`build-prod.ps1` 四道门禁全绿，生产栈重建后 `/api/health` UP。
 桌面存量基线：`smoke.spec.ts` + `00-auth-session.spec.ts` + `01-route-crawl.spec.ts` 共 **36 passed / 1 failed**，唯一失败 `smoke.spec.ts:290` 卡在 `/api/org-users?pageSize=500` 的 HTTP 请求（后端接口，非 DOM/样式断言），与本次纯前端显示层改造无因果关系，作为既有问题单独跟踪。
 本轮新增回归保护：设备态首帧判定收敛、`fixed` 列 sticky 解除、页面分栏单列降级、卡片单元格**几何可见性**断言（防止字段值被裁而 `textContent` 仍存在造成假通过）。
+
+**第二轮精修（同日，手机实景反馈）**：用户真机访问后反馈「能显示但不好用」——筛选控件约 30px、13 列堆成一张长卡、概览数字挤成一行、页签末项被裁。新增 `utils/responsiveEnhance.js`（筛选折叠 + 按路由隐藏次要列）、`constants/mobileColumns.js`（集中字段配置）、`MobileDetailDrawer.vue` 与 `MobileRecordList.maxFields`；固定资产管理与工作台按截图精修。巡检扩展至 **26/26 全绿**（新增 `IX-05` 筛选宽度/卡片字段数/页签末项、`IX-06` 概览字号与行动条尺寸）；桌面存量 E2E 仍为 36/37（同一条 `/api/org-users` 后端接口失败，无新增回归）；四道门禁全绿，生产栈重建后 `/api/health` UP。实景截图 `e2e-artifacts/live/round2-*.png`。

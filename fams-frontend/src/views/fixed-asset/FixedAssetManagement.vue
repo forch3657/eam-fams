@@ -7,7 +7,7 @@
 
       <el-tabs v-model="activeTab">
         <el-tab-pane v-if="tabVisible('fa:view')" label="固定资产" name="asset">
-          <el-form :inline="true" class="search-form asset-search-form">
+          <el-form v-if="!appStore.isPhone" :inline="true" class="search-form asset-search-form">
             <el-form-item label="关键字">
               <el-input v-model="assetSearch.keyword" placeholder="资产编号/资产名称" clearable style="width: 180px" />
             </el-form-item>
@@ -41,8 +41,25 @@
               </el-button>
             </el-form-item>
           </el-form>
+          <MobileFilterPanel v-else :active-count="activeFilterCount">
+            <el-input v-model="assetSearch.keyword" placeholder="资产编号/资产名称" clearable />
+            <el-input v-model="assetSearch.user" placeholder="按姓名筛选" clearable />
+            <el-select v-model="assetSearch.type" placeholder="资产类型" clearable>
+              <el-option v-for="t in assetTypeOptions" :key="t.value" :label="t.label" :value="t.value" />
+            </el-select>
+            <el-select v-model="assetSearch.status" placeholder="资产状态" clearable>
+              <el-option v-for="s in assetStatusOptions" :key="s.value" :label="s.label" :value="s.value" />
+            </el-select>
+            <el-select v-model="assetSearch.company" placeholder="请选择公司" clearable filterable>
+              <el-option v-for="c in companyOptionList" :key="c.id" :label="c.name" :value="c.id" />
+            </el-select>
+            <template #actions>
+              <el-button type="primary" :icon="Search" @click="assetPage = 1">查询</el-button>
+              <el-button @click="resetAssetSearch">重置</el-button>
+            </template>
+          </MobileFilterPanel>
 
-          <el-table :data="pagedAssetList" style="width: 100%">
+          <el-table v-if="!appStore.isPhone" :data="pagedAssetList" style="width: 100%">
             <el-table-column prop="code" label="资产编号" width="120" fixed>
               <template #default="{ row }">
                 <el-link type="primary" :underline="false" @click="openAssetDrawer(row)">{{ row.code }}</el-link>
@@ -92,6 +109,35 @@
               </template>
             </el-table-column>
           </el-table>
+          <MobileRecordList
+            v-else
+            :columns="mobileCardColumns"
+            :rows="pagedAssetList"
+            row-key="id"
+            empty-text="暂无资产"
+            @row-click="openAssetDrawer"
+          >
+            <template #row-actions="{ row }">
+              <el-button v-if="can('fa:edit')" link type="primary" size="small" @click="openAssetDialog(row)">修改</el-button>
+              <el-button link type="primary" size="small" @click="downloadAssetQr(row)">二维码</el-button>
+              <el-dropdown v-if="assetActionsOf(row).length" trigger="click" @command="cmd => startAssetAction(cmd, row)">
+                <el-button link type="primary" size="small">发起业务<el-icon class="action-caret"><ArrowDown /></el-icon></el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item v-for="act in assetActionsOf(row)" :key="act.docKey" :command="act.docKey">
+                      {{ act.label }}
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+              <el-button v-if="can('fa:delete')" link type="danger" size="small" @click="deleteAsset(row)">删除</el-button>
+            </template>
+          </MobileRecordList>
+          <MobileActionBar
+            v-if="appStore.isPhone && can('fa:add')"
+            primary-text="新增资产"
+            @primary="openAssetDialog()"
+          />
 
           <div class="pager">
             <el-pagination
@@ -1089,9 +1135,32 @@ function statusText(status) {
 }
 import { useCollection } from '../../composables/useCollection'
 import { dataService, COLLECTION } from '../../services'
+import { useAppStore } from '../../store/app'
+import MobileFilterPanel from '../../components/mobile/MobileFilterPanel.vue'
+import MobileRecordList from '../../components/mobile/MobileRecordList.vue'
+import MobileActionBar from '../../components/mobile/MobileActionBar.vue'
+import { columnsOf, toMobileColumns } from '../../constants/mobileColumns'
 
 const fixedAssetStore = useFixedAssetStore()
 const userStore = useUserStore()
+const appStore = useAppStore()
+
+/** 手机卡片只放核心字段，其余字段由页面已有的资产详情抽屉承载 */
+const mobileCardColumns = toMobileColumns(columnsOf('/fixed-assets'))
+const mobileDetailColumns = [
+  { prop: 'code', label: '资产编号' },
+  { prop: 'name', label: '资产名称' },
+  { prop: 'type', label: '资产类型' },
+  { prop: 'brand', label: '品牌' },
+  { prop: 'model', label: '型号' },
+  { prop: 'location', label: '存放地点' },
+  { prop: 'original', label: '资产原值(元)', type: 'num', formatter: (r, v) => `¥${Number(v || 0).toLocaleString()}` },
+  { prop: 'net', label: '资产净值(元)', type: 'num', formatter: (r, v) => `¥${Number(v || 0).toLocaleString()}` },
+  { prop: 'user', label: '使用人员' },
+  { prop: 'dept', label: '使用部门' },
+  { prop: 'purchaseDate', label: '购(建)时间' },
+  { prop: 'status', label: '资产状态', type: 'tag', tagType: row => assetStatusType(row.status) }
+]
 /** 各单据类型的单号前缀 */
 const dispatchPrefix = { alloc: 'FP', back: 'TK' }
 /** 信息更正（BG）子签已下架：台账字段直接在固定资产列表「修改」里改 */
@@ -2518,6 +2587,9 @@ function rememberLocation(value) {
 const assetList = computed(() => fixedAssetStore.assetLedger)
 
 const assetSearch = reactive({ keyword: '', user: '', type: '', status: '', company: '' })
+const activeFilterCount = computed(() =>
+  Object.values(assetSearch).filter(Boolean).length
+)
 const assetPage = ref(1)
 const assetPageSize = ref(15)
 watch(assetSearch, () => { assetPage.value = 1 }, { deep: true })

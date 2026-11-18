@@ -241,3 +241,74 @@ test('[RESP-IX-04] 登录页未登录态手机竖屏无溢出且提交按钮可�
     await context.close()
   }
 })
+
+test('[RESP-IX-05] 手机筛选控件全宽、卡片字段精简、页签末项可见', async ({ browser }) => {
+  const vp = VIEWPORTS.find(v => v.name === 'phone')!
+  const routes = ['/fixed-assets', '/low-value-assets', '/system/user']
+  const { context, page } = await openPage(browser, vp)
+  try {
+    for (const route of routes) {
+      await page.goto(route)
+      await waitSettled(page)
+      await page.waitForTimeout(700)
+      const toggle = page.locator('.mobile-filter-toggle, .mfp__toggle').first()
+      if (await toggle.count() && await toggle.isVisible()) await toggle.click()
+
+      const m = await page.evaluate(() => {
+        const sel = '.search-form input, .search-form .el-select, .mfp__body input, .mfp__body .el-select, .toolbar input, .toolbar .el-select'
+        const controls = Array.from(document.querySelectorAll(sel))
+          .filter(el => el.getBoundingClientRect().width > 0)
+          .map(el => Math.round(el.getBoundingClientRect().width))
+        const firstCard = document.querySelector('.mrl__card, .el-table__body-wrapper tbody tr')
+        const fields = firstCard
+          ? (firstCard.matches('.mrl__card')
+              ? firstCard.querySelectorAll('.mrl__field').length
+              : firstCard.querySelectorAll('td:not([data-mobile-hidden])').length)
+          : 0
+        const tabs = Array.from(document.querySelectorAll('.el-tabs__item'))
+        const last = tabs[tabs.length - 1]?.getBoundingClientRect()
+        return { controls, fields, lastTabRight: last ? Math.round(last.right) : null, vw: document.documentElement.clientWidth }
+      })
+
+      expect(m.controls.length, `${route} 未找到可见筛选控件`).toBeGreaterThan(0)
+      expect(m.controls.every(w => w >= 120), `${route} 筛选控件被压窄: ${m.controls.join(',')}`).toBe(true)
+      expect(m.fields, `${route} 卡片字段超过 6 个（实际 ${m.fields}）`).toBeLessThanOrEqual(6)
+      if (m.lastTabRight !== null) {
+        expect(m.lastTabRight, `${route} 页签末项被裁`).toBeLessThanOrEqual(m.vw + 1)
+      }
+    }
+  } finally {
+    await context.close()
+  }
+})
+
+test('[RESP-IX-06] 工作台概览数字降字号且行动条触控尺寸达标', async ({ browser }) => {
+  const vp = VIEWPORTS.find(v => v.name === 'phone')!
+  const { context, page } = await openPage(browser, vp)
+  try {
+    await page.goto('/workbench')
+    await waitSettled(page)
+    // 权限守卫偶发重定向、概览挂载晚于网络空闲，等它出现再断言
+    await page.waitForSelector('.ov-panel', { timeout: 6_000 }).catch(() => {})
+    const m = await page.evaluate(() => {
+      const nums = Array.from(document.querySelectorAll('.ov-nums .n b'))
+      const stats = Array.from(document.querySelectorAll('.wb-stat'))
+      return {
+        fontSizes: nums.map(el => parseFloat(getComputedStyle(el).fontSize)),
+        overlaps: nums.some((a, i) => nums.slice(i + 1).some(b => {
+          const ra = a.getBoundingClientRect()
+          const rb = b.getBoundingClientRect()
+          return ra.left < rb.right && rb.left < ra.right && ra.top < rb.bottom && rb.top < ra.bottom
+        })),
+        statHeights: stats.map(el => Math.round(el.getBoundingClientRect().height))
+      }
+    })
+    expect(m.fontSizes.length).toBeGreaterThan(0)
+    expect(Math.max(...m.fontSizes), '概览数字字号过大').toBeLessThanOrEqual(18)
+    expect(m.overlaps, '概览数字相互重叠').toBe(false)
+    expect(m.statHeights.length).toBeGreaterThan(0)
+    expect(Math.min(...m.statHeights), '行动条卡片过矮').toBeGreaterThanOrEqual(60)
+  } finally {
+    await context.close()
+  }
+})

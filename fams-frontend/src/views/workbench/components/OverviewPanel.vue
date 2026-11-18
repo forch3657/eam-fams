@@ -189,6 +189,32 @@ function go(path) {
   .ov-panel :deep(.el-card__header) { padding: 2px var(--content-px); }
 }
 
+/* 手机：数字改两列网格并降字号，避免「总数 121 / 原值 ¥51,261,070」挤成一行顶到边缘 */
+@media (max-width: 767px) {
+  .ov-grid { gap: 10px !important; }
+  .ov-cell {
+    padding: 10px 0 !important;
+    border-left: 0 !important;
+    border-bottom: 1px solid var(--bd);
+  }
+  .ov-cell:last-child { border-bottom: 0; }
+  .ov-cell:nth-child(3) {
+    grid-column: auto !important;
+    padding-top: 10px !important;
+    border-top: 0;
+  }
+  .ov-nums {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 10px;
+  }
+  .ov-nums .n { display: block; white-space: normal; gap: 2px; }
+  .ov-nums .n .lb { display: block; font-size: 11px; }
+  .ov-nums .n b { display: block; font-size: 17px; line-height: 1.2; }
+  .ov-chips { gap: 4px; }
+  .ov-chips .chip { font-size: 11px; line-height: 17px; padding: 0 6px; }
+}
+
 /* P2 轻量可视化：纯 CSS 通过率条，不引入图表库 */
 .ov-rate { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-1) 0; }
 .ov-rate-bar {

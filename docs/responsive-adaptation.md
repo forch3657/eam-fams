@@ -222,6 +222,24 @@
 
 ---
 
+## 6.2 第二轮精修（2026-11-18 · 手机实景反馈）
+
+用户用同网络手机真机访问后发现首轮改造「能显示但不好用」：筛选控件被压成约 30px 小框、13 列全量堆成一张长卡片、工作台概览数字挤成一行、页面内 `el-tabs` 末项被裁。本轮据此定向修复：
+
+| 问题 | 修复 |
+| --- | --- |
+| 筛选控件挤压 | 覆盖 Element Plus `.el-form--inline .el-form-item` 的特异性，label 上置、控件 100% 宽；`.search-form` 在手机档加折叠头（全局注入器 `src/utils/responsiveEnhance.js`） |
+| 卡片过长 | `MobileRecordList` 扩展 `maxFields`（默认 5）与内置通用详情抽屉；固定资产页用 5 字段卡片 + 既有资产详情抽屉；其余页面由全局注入器按路由只保留 4~6 个核心列 |
+| 字段口径分散 | `src/constants/mobileColumns.js` 按路由集中定义核心字段、金额/状态格式化与标签色 |
+| 工作台拥挤 | 页头隐藏问候语释放空间；概览数字改两列网格、字号 22→17px；行动条卡片高度 ≥68px；左右分栏改为纵向流式 |
+| 页签截断 | 手机档 `.el-tabs__nav` 换行铺开，隐藏滚动箭头与 active-bar |
+
+采用全局注入器而非逐页改模板，是因为待推广的 17 个页面含 40+ 张表格，逐页改动风险高；注入器沿用 `utils/a11y.js`、`utils/responsiveTable.js` 已验证的 MutationObserver 模式，桌面端不注入 DOM/属性，零回归。
+
+**验收**：`npm run e2e:responsive` 扩展为 **26/26 全绿**（原 24 条 + `IX-05` 筛选宽度/卡片字段数/页签末项 + `IX-06` 概览字号与行动条尺寸）；实景截图见 `e2e-artifacts/live/round2-*.png`。桌面存量 E2E 36/37（唯一失败仍为 `/api/org-users` 后端接口问题，与前端无关）。`build-prod.ps1` 四道门禁全绿，生产栈 `/api/health` UP。
+
+---
+
 ## 7. 风险与缓解
 
 | 风险 | 缓解 |

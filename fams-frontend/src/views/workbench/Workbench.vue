@@ -306,4 +306,37 @@ onMounted(async () => {
   .wb-panel :deep(.el-empty__image) { display: none; }
   .wb-panel :deep(.el-empty) { padding: var(--sp-1) 0; }
 }
+
+/* 手机：标题不再被角色标签挤压；行动条放大；左右分栏改为纵向流式堆叠 */
+@media (max-width: 767px) {
+  .wb-header {
+    height: auto;
+    min-height: 44px;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .wb-head-left { flex-wrap: wrap; gap: 6px; min-width: 0; }
+  .wb-head-left h2 { font-size: 18px; }
+  .wb-greet, .wb-updated { display: none; }
+  .wb-role { max-width: 100%; font-size: 11px; white-space: normal; }
+  .wb-stats { gap: 8px; }
+  .wb-stat { min-height: 68px; padding: 10px 6px; }
+  .wb-stat .v { font-size: 20px; }
+  .wb-stat .k { font-size: 11px; }
+  /* 桌面用 flex:1 + nowrap 锁定双栏等高；手机必须解除，否则两列各占 100% 会被裁 */
+  .wb-main { flex: 0 0 auto; min-height: auto; flex-wrap: wrap; }
+  .wb-main :deep(.el-col) {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+    min-height: auto;
+    overflow: visible;
+    margin-bottom: var(--sp-3);
+  }
+  .wb-panel { flex: 0 0 auto; min-height: 280px; }
+  .wb-panel-todo :deep(.el-card__body),
+  .wb-panel-side :deep(.el-card__body) { overflow-y: visible; }
+  .wb-panel :deep(.el-card__header) { height: 40px; }
+}
 </style>
