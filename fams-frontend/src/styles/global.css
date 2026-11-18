@@ -1,3 +1,13 @@
+/* ============ 响应式断点单一真源（与 src/constants/breakpoints.js 保持一致） ============
+   BREAKPOINT_SPEC: xs=0 sm=576 md=768 lg=1024 xl=1280 xxl=1600
+   HEIGHT_SPEC: short=800 veryShort=500
+
+   CSS 自定义属性不能用于 @media 条件，故断点字面量只能写在下方各 @media 中；
+   JS 侧常量在 constants/breakpoints.js。修改任一处必须同步另一处，
+   由 tests/responsive/breakpoints.spec.ts 断言一致。
+   档位语义、设备矩阵与分阶段规划见 docs/responsive-adaptation.md。
+   --------------------------------------------------------------------------------- */
+
 * {
   margin: 0;
   padding: 0;
@@ -489,6 +499,15 @@ body {
   --sp-6: 24px;
   --h-top: 56px;
   --w-side: 200px;
+
+  /* 多端补充令牌：安全区需 index.html 的 viewport-fit=cover 才生效 */
+  --touch-min: 44px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --h-top-mobile: 52px;
+  --action-bar-h: calc(56px + var(--safe-bottom));
 
   /* 结构栅格 */
   --content-px: 16px;      /* 卡片内容统一左缩进 */
@@ -1141,4 +1160,321 @@ body { font-size: 14px; line-height: 1.5; }
   border-radius: 3px;
   color: var(--t-brand, #409eff);
   background: rgba(64, 158, 255, .12);
+}
+
+/* ============ 多端响应式规则（R1，2026-11-18） ============
+   全部布局规则只在 <=1023px 生效，>=1024px 的桌面观感与 DOM 保持零回归。
+   既有 @media 1440/1280/1200/1100/900 属于 xl/lg/md 档内的页面级微调，
+   按 docs/responsive-adaptation.md §3 的归并映射保留原值，不改动以避免桌面回归。
+   P0 基线（.el-dialog flex 列 + __body 独立滚动、:focus-visible、reduced-motion）继续生效。
+   --------------------------------------------------------------------------------- */
+
+/* 桌面/手机互斥渲染的轻量工具类；组件可用自身 scoped 规则覆盖 display */
+.mobile-only { display: none; }
+
+/* ---- 非桌面：平板 md/lg + 手机 xs/sm，边界 1024 ---- */
+@media (max-width: 1023px) {
+  html, body { overflow-x: hidden; }
+  .layout-container { height: 100vh; height: 100dvh; }
+
+  .layout-header { height: var(--h-top-mobile); padding: 0 var(--sp-3); }
+  .header-left { gap: var(--sp-2); min-width: 0; }
+  .header-right { gap: var(--sp-3); }
+  .main-content { padding: var(--sp-3); }
+
+  /* 栅格统一降级为单列，避免左右分栏在窄屏被压扁 */
+  .grid-4, .grid-3, .grid-2, .grid-auto,
+  .chart-row, .chart-row-7-5, .chart-row-1-1, .chart-row-3-1,
+  .org-split {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  /* 表格只做横向滚动，不撑破页面；列宽与 fixed 列由页面自行保留 */
+  .el-table, .el-table__body-wrapper, .el-scrollbar__wrap { max-width: 100%; }
+  .el-pagination__sizes, .el-pagination__jump { display: none; }
+
+  /* 窄屏弹窗兜底沿用 P0 flex 列布局；抽屉此前没有兜底，这里补齐 */
+  .el-dialog {
+    max-width: calc(100vw - 24px);
+    max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px);
+    margin-top: 4vh !important;
+    margin-bottom: 16px;
+  }
+  .el-drawer {
+    max-width: 100vw !important;
+    max-height: 100vh;
+    max-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+  .el-dialog__body, .el-drawer__body { flex: 1; min-height: 0; overflow-y: auto; }
+}
+
+/* ---- 手机 xs/sm：完整移动体验，边界 768 ---- */
+@media (max-width: 767px) {
+  /* 侧栏由 MobileNavDrawer 取代（R2 落地），此处先移除占位宽度 */
+  .sidebar { display: none; }
+
+  .mobile-only { display: block; }
+  .desktop-only { display: none; }
+
+  .layout-header {
+    padding-left: calc(var(--sp-2) + var(--safe-left));
+    padding-right: calc(var(--sp-2) + var(--safe-right));
+  }
+  .main-content {
+    padding: var(--sp-2);
+    padding-bottom: calc(var(--action-bar-h) + var(--sp-4));
+  }
+  .main-content > * { max-width: 100%; }
+
+  /* 24 栅格固定 :span 在手机一律全宽 */
+  .el-row > .el-col,
+  .el-row > [class*="el-col-"] {
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
+    width: 100% !important;
+  }
+
+  /* 表单 label 上置、控件单列全宽；覆盖 label-width 生成的内联宽度 */
+  .el-form-item { display: block; }
+  .el-form-item__label {
+    width: 100% !important;
+    max-width: 100% !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
+    padding-bottom: 4px;
+    line-height: 1.4;
+  }
+  .el-form-item__content {
+    margin-left: 0 !important;
+    display: block;
+    width: 100%;
+  }
+
+  /* 覆盖页面模板中 style="width:NNNpx" 的固定控件宽度；作用域限定，不外溢到桌面 */
+  .el-dialog .el-input, .el-dialog .el-select, .el-dialog .el-date-editor,
+  .el-dialog .el-input-number, .el-dialog .el-cascader,
+  .filter-bar .el-input, .filter-bar .el-select, .filter-bar .el-date-editor,
+  .el-form-item__content .el-input, .el-form-item__content .el-select,
+  .el-form-item__content .el-date-editor, .el-form-item__content .el-input-number,
+  .el-form-item__content .el-cascader {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .el-form [style*="width:"], .filter-bar [style*="width:"],
+  .el-dialog [style*="width:"], .el-drawer [style*="width:"] {
+    max-width: 100% !important;
+  }
+
+  /* 弹窗近全屏：header/footer 固定、body 独立滚动，确定/取消始终可见 */
+  .el-dialog {
+    width: calc(100vw - 16px) !important;
+    max-width: calc(100vw - 16px) !important;
+    height: calc(100vh - 24px);
+    height: calc(100dvh - 24px);
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+    margin-top: 12px !important;
+    margin-bottom: 12px !important;
+    border-radius: var(--r-md);
+  }
+  .el-dialog__header, .el-dialog__footer { flex: 0 0 auto; }
+  .el-dialog__footer { padding-bottom: calc(var(--sp-2) + var(--safe-bottom)); }
+  .el-drawer { width: 100vw !important; }
+  .mobile-nav-drawer .el-drawer__body { padding-bottom: calc(var(--sp-4) + var(--safe-bottom)); }
+
+  /* 触控目标 >=44px，不放大展示型标签 */
+  .el-button, .el-pagination button, .el-pager li,
+  .collapse-btn, .hdr-badge, .tag-close, .user-info { min-height: var(--touch-min); }
+  .hdr-badge, .collapse-btn { min-width: var(--touch-min); justify-content: center; }
+
+  /* 分页贴底不遮挡卡片 */
+  .pager, .el-pagination { flex-wrap: wrap; justify-content: center; }
+  .el-pagination__total { width: 100%; text-align: center; }
+}
+
+/* ---- 高度档：short=800 归并旧 720/800；veryShort=500 对应手机横屏 ---- */
+@media (max-height: 800px) {
+  .el-dialog { margin-top: 4vh !important; margin-bottom: 16px; }
+}
+
+@media (max-height: 500px) {
+  .el-dialog {
+    margin-top: 8px !important;
+    margin-bottom: 8px !important;
+    height: calc(100vh - 16px);
+    height: calc(100dvh - 16px);
+    max-height: calc(100vh - 16px);
+    max-height: calc(100dvh - 16px);
+  }
+  .el-dialog__header { padding-top: 8px; padding-bottom: 8px; }
+  .el-dialog__body { padding-top: 8px; padding-bottom: 8px; }
+  .el-dialog__footer { padding-top: 8px; padding-bottom: calc(8px + var(--safe-bottom)); }
+  .main-content { padding-bottom: calc(var(--action-bar-h) + var(--sp-2)); }
+  .mobile-action-bar { min-height: var(--touch-min); }
+}
+
+@media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+  .layout-header { height: 44px; }
+  .layout-header .mode-tag { display: none; }
+  .main-content { padding: var(--sp-2); }
+  .el-pagination__total { display: none; }
+}
+
+/* ---- 骨架与公共组件（R2） ---- */
+@media (max-width: 767px) {
+  .layout-header { gap: var(--sp-2); }
+  .header-left { flex: 1 1 auto; min-width: 0; }
+  .header-right { flex: 0 0 auto; gap: var(--sp-1); }
+  .mobile-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  /* 抽屉宽度封顶，避免在超宽折叠屏上铺满 */
+  .mobile-nav-drawer { max-width: 320px; }
+
+  /* 页签横向滚动、隐藏「关闭全部」文字但保留可点击图标 */
+  .tags-view { height: 44px; }
+  .tags-list { gap: 4px; }
+  .tag-item { height: 36px; padding: 0 8px; font-size: 13px; }
+  .tags-clear { height: 36px; padding: 0 8px; }
+  .tags-clear > span { display: none; }
+  .tag-close { min-width: 32px; justify-content: center; }
+}
+
+/* ---- 表格卡片化（R4，全局覆盖全部 el-table，桌面 DOM 与 CSS 均不变） ----
+   列名由 utils/responsiveTable.js 注入 data-table-label；桌面不注入也不应用样式。
+   保留 el-table 组件本身与其 JS 行为（选择、排序、行点击、权限按钮），只改视觉排布。 */
+@media (max-width: 767px) {
+  .el-table {
+    height: auto !important;
+    max-height: none !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+  .el-table__header-wrapper,
+  .el-table__body colgroup,
+  .el-table__border-left-patch,
+  .el-table__fixed-right-patch,
+  .el-table__fixed,
+  .el-table__fixed-right { display: none !important; }
+
+  /* EP 的 fixed 列用 sticky 定位并带 left/right 偏移；卡片布局下必须解除，
+     否则该列仍按表格总宽排版，被推到视口右侧之外。 */
+  .el-table__cell.is-fixed-column,
+  .el-table__cell[class*="fixed-column"] {
+    position: static !important;
+    left: auto !important;
+    right: auto !important;
+  }
+
+  /* EP 会按所有列宽之和给这些容器写入 800+px 的 inline width。必须逐层压回卡片宽度，
+     否则 td 仍按表格总宽布局，右对齐的字段值会被推到视口外并被 overflow-x 裁掉。 */
+  .el-table__inner-wrapper,
+  .el-table__body-wrapper,
+  .el-table__body-wrapper .el-scrollbar,
+  .el-table__body-wrapper .el-scrollbar__wrap,
+  .el-table__body-wrapper .el-scrollbar__view,
+  .el-table__body,
+  .el-table__body tbody,
+  .el-table__row {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    box-sizing: border-box;
+  }
+  .el-table__body,
+  .el-table__body tbody,
+  .el-table__row { display: block; }
+
+  .el-table__row {
+    margin-bottom: var(--sp-2);
+    padding: var(--sp-2);
+    border: 1px solid var(--bd);
+    border-radius: var(--r-md);
+    background: var(--bg-card);
+    box-shadow: var(--shadow);
+  }
+
+  .el-table__cell {
+    display: flex !important;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 2px var(--sp-2);
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    padding: 5px 4px !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--bd-split) !important;
+    background: transparent !important;
+    box-sizing: border-box;
+  }
+  .el-table__row > .el-table__cell:last-child { border-bottom: 0 !important; }
+
+  .el-table__cell::before {
+    content: attr(data-table-label);
+    flex: 0 0 88px;
+    max-width: 40%;
+    color: var(--t-weak);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .el-table__cell:not([data-table-label])::before,
+  .el-table__cell[data-table-label=""]::before { display: none; }
+
+  .el-table .cell {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: auto !important;
+    padding: 0 !important;
+    line-height: 1.6;
+    text-align: right;
+    word-break: break-all;
+    overflow: visible !important;
+  }
+  .el-table .cell .el-button { min-height: 36px; margin: 2px 0 2px 4px; }
+  .el-table .cell .el-tag { white-space: normal; }
+
+  /* 空态与合计行保持居中，不参与卡片布局 */
+  .el-table__empty-block { min-height: 120px; width: 100% !important; }
+  .el-table__empty-text { line-height: 1.6; }
+}
+
+/* ---- 页面级栅格与工作台（R4 补充） ----
+   这些类是各页 scoped 自定义网格，统一在手机档降为单列，避免漏网的两列挤压。 */
+@media (max-width: 767px) {
+  .ov-grid, .wb-stat, .metric-row, .org-split, .dict-layout,
+  .chart-row, .chart-row-7-5, .chart-row-1-1, .chart-row-3-1,
+  .page-container > div[class*="layout"],
+  .page-container > div[class*="split"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  /* 分栏子项禁止用 min-content 撑开父级：否则整条父链都会宽于视口，
+     单元格右对齐后会被 overflow-x 裁掉（textContent 仍在，普通断言查不出）。 */
+  .dict-layout > *, .org-split > *,
+  .page-container > div[class*="layout"] > *,
+  .page-container > div[class*="split"] > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .node-box { min-width: 0 !important; }
+  .wb-header { height: auto; min-height: 36px; }
+  .page-header { flex-wrap: wrap; gap: var(--sp-2); }
+  .page-header h2 { font-size: 18px; }
+  .filter-bar, .toolbar, .search-form { flex-wrap: wrap; }
+  .el-descriptions { width: 100%; }
 }

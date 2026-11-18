@@ -73,19 +73,28 @@
 
 ## 7. 响应式
 
-| 断点 | 处理 |
-|---|---|
-| ≥1600 | 内容限宽居中 |
-| ≤1280 | 内容 padding 降至 `--sp-4`，顶栏间距收缩 |
-| ≤1100 | padding `--sp-3`，分页器隐藏每页条数与跳页 |
-| ≤800 高度 | 弹窗 `margin-top: 4vh`，配合 body 滚动保证按钮可见 |
-| 全宽 | 弹窗限宽 `100vw - 32px` |
+> 完整规划见 `docs/responsive-adaptation.md`：设备矩阵、断点取值、分阶段规划与验证矩阵的**唯一真源**。本次改造正式支持 PC / 平板 / 手机横竖屏，**已取消原「不做完整移动端」决策**。
 
-B 端以 ≥1024px 为主战场，**不做完整移动端**（见 §8）。
+| 档位 | 宽度 / 条件 | 典型设备 | 处理 |
+| --- | --- | --- | --- |
+| `xs` | `<576` | 手机竖屏、折叠外屏 | 抽屉导航、卡片列表、折叠筛选、近全屏弹窗、底部操作条 |
+| `sm` | `576~767` | 手机横屏、大屏手机 | 同上，叠加 `veryShort` 矮屏收敛 |
+| `md` | `768~1023` | 平板竖屏、分屏窗口 | 侧栏自动折叠 64px、分栏单列、表格横向滚动 |
+| `lg` | `1024~1279` | 平板横屏、小窗口 | 可折叠侧栏、栅格两列降级 |
+| `xl` | `1280~1599` | 1366/1440/1536 桌面 | 桌面完整布局，padding 与顶栏间距优化 |
+| `xxl` | `≥1600` | 1920 / 2K / 4K | 内容限宽 1600px 居中 |
+| `short` | `max-height:800px` | 笔记本、分屏 | 弹窗 `margin-top:4vh`、工作台紧凑（归并旧 720/800 两档） |
+| `veryShort` | `max-height:500px` | 手机横屏 | 底部操作条单行化、分页仅留上下页 |
+
+- JS 常量在 `src/constants/breakpoints.js`；CSS 断点字面量集中在 `global.css` 顶部注释块，由 `tests/responsive/breakpoints.spec.ts` 断言一致（CSS 变量不能用于 `@media` 条件，故双轨书写）。
+- **不使用** `el-col` 的 `:xs/:sm/:md/:lg/:xl` props：Element Plus 内置断点为 `768/992/1200/1920`，与本表不一致；响应式分栏统一走本文断点 + `useBreakpoint` 分支。
+- **桌面零回归**：`≥1024px` 的 DOM、表格列宽/`fixed`、权限渲染与深链逻辑维持原状；移动分支一律新增 `v-if="isPhone"` 且与桌面互斥渲染。
+- 保留并扩展 P0 基线：`.el-dialog` flex 列布局 + `__body` 独立滚动（确定/取消始终可见，并补 `.el-drawer`）、`:focus-visible` 焦点环、`prefers-reduced-motion`、触控目标 ≥44px、`env(safe-area-inset-*)` 安全区。
+- 横竖屏切换不重建表单 DOM，已输入内容不丢失。经全库核查本项目**无 ECharts / 任何图表库**（报表均为 `el-table`/CSS 模拟，唯一 `<canvas>` 是二维码），故不引入图表 resize 钩子；`.chart-box/.chart-row` 为遗留未使用样式，仅在断点降级规则中保留兜底。
 
 ## 8. 已知遗留项（按优先级）
 
-1. `MainLayout` 的 `el-aside` 宽度仍是 JS 硬编码 `200px/64px`，`--w-side` 未被使用；需抽共享布局常量。
+1. `MainLayout` 的 `el-aside` 宽度 JS 硬编码 `200px/64px`、`--w-side` 未使用 —— 纳入本轮 R1/R2：抽共享断点常量并按设备分支启用（进行中，见 `docs/responsive-adaptation.md` §5）。
 2. `?tab=&sub=` 深链目前只有 `FixedAssetManagement`、`LowValueAssetManagement` 读取，`TodoPanel`/`AlertPanel` 写入；其余 `el-tabs` 页（约 9 处）尚未做双向同步，建议独立专项，不要逐页临摹。
 3. `useAsyncAction` 已提供但存量页面尚未全量迁移；当前防重由 http 层兜底。
 4. 「舒适 / 紧凑」密度档与用户偏好持久化未实现。
@@ -103,3 +112,4 @@ B 端以 ≥1024px 为主战场，**不做完整移动端**（见 §8）。
 - [x] 全量 E2E：224 passed / 3 failed（227 条，34.6 分钟）；3 条逐条定位后单跑 3/3 通过，其中 1 条（`SMK-04`）是账户菜单改 click 触发后的真实回归，已同步修用例
 - [x] 视觉截图与 `e2e-artifacts/ui-baseline/` 对比无意外错位（基线 / P0 / final 三组已归档）
 - [x] 生产栈按 `stop-prod.ps1 → build-prod.ps1 → start-prod.ps1` 重建后验证
+- [x] 多端响应式（R5/R6，2026-11-18）：16 个代表视口 × 21 路由的自动化巡检 **24/24 全绿**、桌面 `1440×900` 零回归（存量 36/37 通过，唯一失败为既有后端接口问题，与本次改造无关）；结论见 `docs/qa/stage-gates.md` §6 与 `docs/responsive-adaptation.md` §6.1

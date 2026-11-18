@@ -437,6 +437,7 @@ function goPage(path) {
   margin-left: 4px;
 }
 
+/* 900px 属 md/lg 档内的既有微调，按 docs/responsive-adaptation.md §3 归并映射保留 */
 @media (max-width: 900px) {
   .help-nav {
     width: 190px;
@@ -444,5 +445,18 @@ function goPage(path) {
   .help-content {
     padding: 20px;
   }
+}
+
+/* 手机：抽屉本体已由 global.css 限为 100vw，导航改为上下分栏 */
+@media (max-width: 767px) {
+  .help-body { flex-direction: column; }
+  .help-nav {
+    width: 100%;
+    max-width: 100%;
+    max-height: 42%;
+    border-right: 0;
+    border-bottom: 1px solid #ebeef5;
+  }
+  .help-content { padding: 12px 14px calc(24px + var(--safe-bottom)); }
 }
 </style>

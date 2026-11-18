@@ -359,8 +359,36 @@ async function handleLogin() {
   to { transform: rotate(405deg); }
 }
 
+/* 1024px 属 lg 档内的既有微调，按 docs/responsive-adaptation.md §3 归并映射保留 */
 @media (max-width: 1024px) {
   .login-brand { display: none; }
   .login-right { width: 100%; }
+}
+
+/* 手机：改为可滚动的顶端对齐布局，软键盘弹出时提交按钮不会被裁掉 */
+@media (max-width: 767px) {
+  .login-page {
+    height: auto !important;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 0 !important;
+    align-items: flex-start !important;
+  }
+  .login-right {
+    width: 100% !important;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: calc(var(--sp-4) + var(--safe-top)) var(--sp-3) calc(var(--sp-4) + var(--safe-bottom)) !important;
+    overflow-y: auto;
+  }
+  .login-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: var(--sp-4) var(--sp-3) !important;
+  }
+  .login-header h1 { font-size: 22px; }
+  .login-header p { margin-bottom: var(--sp-4); }
+  .login-tip { margin-top: var(--sp-3); padding: var(--sp-2); }
+  .login-btn { min-height: 48px; }
 }
 </style>

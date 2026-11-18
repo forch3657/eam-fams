@@ -135,6 +135,21 @@ playwright-report/                   HTML 报告（截图已 attach，可逐步�
 npm run e2e:report   # http://127.0.0.1:9323，可直接在内置浏览器打开
 ```
 
+## 6. 响应式布局巡检（独立配置，2026-11-18 起）
+
+`npm run e2e:responsive` 走 `playwright.responsive.config.ts`，`testDir=tests/responsive`，与业务 E2E 的 1440×900 project 完全隔离。共 24 条：16 个代表视口 × 21 路由的只读布局矩阵 + 抽屉/弹窗/横竖屏交互断言 + 断点一致性断言。
+
+```powershell
+$env:E2E_PASSWORD = '<管理员口令>'   # 见根目录 README.md 第 8 节
+npm run e2e:responsive
+```
+
+- 视口矩阵、断点分级与逐阶段口径见 `docs/responsive-adaptation.md`；`breakpoints.spec.ts` 断言 `global.css` 规格行、`constants/breakpoints.js` 与 `viewports.ts` 三者一致，防止双轨漂移。
+- 只读：接口登录一次后逐路由导航与断言，不清库、不写业务数据、不改权限矩阵；`workers:1` 串行访问生产形态。
+- 断言覆盖：无横向溢出、手机档抽屉入口/侧栏隐藏、表格卡片化列名与**单元格几何可见性**、卡片与表格互斥、弹窗底部按钮在视口内、横竖屏切换后输入值保留、桌面零回归。
+- 既有权限守卫初始化竞态偶发把目标页重定向到 `/403`：用例重试一次，被跳过的路由写入 `redirected-routes` 附件，超过 4 条即判定失败（防止假通过）。
+- 产物：`e2e-artifacts/<runId>/responsive/<视口名>/`（各档截图）与 `raw/`（失败截图）。
+
 - `trace.zip` 含 DOM 快照与全部网络请求：`npx playwright show-trace <path>`。
 - 失败用例默认保留视频（`video: retain-on-failure`）；`trace: on` 全量开启。
 

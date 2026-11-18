@@ -5,7 +5,7 @@
     </div>
 
     <el-card shadow="never" class="fill">
-      <div class="toolbar">
+      <div v-if="!appStore.isPhone" class="toolbar">
         <el-input v-model="filter.name" placeholder="参数名称" clearable size="default" style="width:180px" />
         <el-input v-model="filter.key" placeholder="参数键名" clearable size="default" style="width:180px" />
         <el-select v-model="filter.type" placeholder="参数类型" clearable size="default" style="width:140px">
@@ -15,6 +15,17 @@
         <el-button type="primary" :icon="Search" @click="doQuery">查询</el-button>
         <el-button :icon="Plus" @click="openEdit(null)">新增</el-button>
       </div>
+      <MobileFilterPanel v-else :active-count="activeFilterCount">
+        <el-input v-model="filter.name" placeholder="参数名称" clearable style="width:100%" />
+        <el-input v-model="filter.key" placeholder="参数键名" clearable style="width:100%" />
+        <el-select v-model="filter.type" placeholder="参数类型" clearable style="width:100%">
+          <el-option label="系统内置" value="系统内置" />
+          <el-option label="自定义" value="自定义" />
+        </el-select>
+        <template #actions>
+          <el-button type="primary" :icon="Search" @click="doQuery">查询</el-button>
+        </template>
+      </MobileFilterPanel>
 
       <el-table :data="pagedRows" border stripe>
         <el-table-column prop="name" label="参数名称" min-width="160" />
@@ -72,6 +83,7 @@
         <el-button type="primary" @click="saveRow">保存</el-button>
       </template>
     </el-dialog>
+    <MobileActionBar v-if="appStore.isPhone" primary-text="新增参数" @primary="openEdit(null)" />
   </div>
 </template>
 
@@ -82,8 +94,15 @@ import { Search, Plus } from '@element-plus/icons-vue'
 import { useCollection } from '../../composables/useCollection'
 import { loadSysParams } from '../../services/sysParams'
 import { COLLECTION } from '../../services'
+import { useAppStore } from '../../store/app'
+import MobileFilterPanel from '../../components/mobile/MobileFilterPanel.vue'
+import MobileActionBar from '../../components/mobile/MobileActionBar.vue'
 
+const appStore = useAppStore()
 const filter = ref({ name: '', key: '', type: '' })
+const activeFilterCount = computed(() =>
+  [filter.value.name, filter.value.key, filter.value.type].filter(Boolean).length
+)
 const page = ref(1)
 const pageSize = ref(15)
 const showEdit = ref(false)

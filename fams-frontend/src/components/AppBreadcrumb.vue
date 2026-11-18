@@ -45,4 +45,16 @@ const crumbs = computed(() => route.matched
   color: var(--t-main);
   font-weight: 600;
 }
+
+/* 手机：单行省略，层级不撑出横向滚动 */
+@media (max-width: 767px) {
+  .app-breadcrumb {
+    margin-bottom: var(--sp-2);
+    overflow: hidden;
+  }
+  :deep(.el-breadcrumb) {
+    white-space: nowrap;
+    font-size: 12px;
+  }
+}
 </style>

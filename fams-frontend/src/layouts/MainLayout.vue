@@ -1,68 +1,44 @@
 <template>
   <el-container class="layout-container theme-ent">
-    <el-aside :width="appStore.sidebarCollapsed ? '64px' : '200px'" class="sidebar">
+    <el-aside v-if="!appStore.isPhone" :width="appStore.sidebarCollapsedEffective ? '64px' : '200px'" class="sidebar">
       <div class="logo">
         <!-- 固定资产管理系统的标识图标：用 Box（实物资产/物资箱）表达"资产"，
              折叠时只显示图标，展开时图标 + 名称 -->
         <el-icon class="logo-icon"><Box /></el-icon>
-        <span v-if="!appStore.sidebarCollapsed" class="logo-text">固定资产管理</span>
+        <span v-if="!appStore.sidebarCollapsedEffective" class="logo-text">固定资产管理</span>
       </div>
-      <el-menu :default-active="activeMenu" :collapse="appStore.sidebarCollapsed" router class="sidebar-menu">
-        <el-menu-item v-if="can('wm:view')" index="/workbench">
-          <el-icon><HomeFilled /></el-icon>
-          <span>工作台</span>
-        </el-menu-item>
-
-        <el-sub-menu v-if="groupVisible(['fa:view', 'fa:report', 'fa:settings'])" index="fixed-asset-group">
-          <template #title><el-icon><Monitor /></el-icon><span>固定资产</span></template>
-          <el-menu-item v-if="can('fa:view')" index="/fixed-assets"><el-icon><Notebook /></el-icon><span>资产管理</span></el-menu-item>
-          <el-menu-item v-if="can('fa:report')" index="/fixed-asset-reports"><el-icon><DataAnalysis /></el-icon><span>资产报表</span></el-menu-item>
-          <el-menu-item v-if="can('fa:settings')" index="/fixed-asset-settings"><el-icon><SetUp /></el-icon><span>基础设置</span></el-menu-item>
-        </el-sub-menu>
-
-        <el-sub-menu v-if="groupVisible(['lv:view', 'lv:report', 'lv:settings'])" index="low-value-asset-group">
-          <template #title><el-icon><Box /></el-icon><span>低值资产</span></template>
-          <el-menu-item v-if="can('lv:view')" index="/low-value-assets"><el-icon><Goods /></el-icon><span>资产管理</span></el-menu-item>
-          <el-menu-item v-if="can('lv:report')" index="/low-value-asset-reports"><el-icon><Histogram /></el-icon><span>资产报表</span></el-menu-item>
-          <el-menu-item v-if="can('lv:settings')" index="/low-value-asset-settings"><el-icon><SetUp /></el-icon><span>基础设置</span></el-menu-item>
-        </el-sub-menu>
-
-        <el-sub-menu v-if="groupVisible(['org:company', 'org:dept', 'org:user', 'org:role'])" index="org-group">
-          <template #title><el-icon><User /></el-icon><span>组织架构</span></template>
-          <el-menu-item v-if="can('org:company')" index="/system/company"><el-icon><OfficeBuilding /></el-icon><span>公司管理</span></el-menu-item>
-          <el-menu-item v-if="can('org:dept')" index="/system/dept"><el-icon><Connection /></el-icon><span>部门管理</span></el-menu-item>
-          <el-menu-item v-if="can('org:user')" index="/system/user"><el-icon><UserFilled /></el-icon><span>用户管理</span></el-menu-item>
-          <el-menu-item v-if="can('org:role')" index="/system/role"><el-icon><Avatar /></el-icon><span>角色管理</span></el-menu-item>
-        </el-sub-menu>
-
-        <el-sub-menu v-if="groupVisible(['sys:dict', 'sys:log', 'sys:workflow', 'sys:params', 'sys:message', 'sys:template', 'sys:terminal', 'sys:import'])" index="system-group">
-          <template #title><el-icon><Setting /></el-icon><span>系统管理</span></template>
-          <el-menu-item v-if="can('sys:dict')" index="/system/dict"><el-icon><Collection /></el-icon><span>数据字典</span></el-menu-item>
-          <el-menu-item v-if="can('sys:log')" index="/system/log"><el-icon><Document /></el-icon><span>操作日志</span></el-menu-item>
-          <el-menu-item v-if="can('sys:workflow')" index="/system/workflow"><el-icon><Share /></el-icon><span>流程配置</span></el-menu-item>
-          <el-menu-item v-if="can('sys:params')" index="/system/params"><el-icon><Operation /></el-icon><span>系统参数</span></el-menu-item>
-          <el-menu-item v-if="can('sys:message')" index="/system/message-center"><el-icon><ChatDotRound /></el-icon><span>消息中心</span></el-menu-item>
-          <el-menu-item v-if="can('sys:template')" index="/system/message-template"><el-icon><Tickets /></el-icon><span>消息模板</span></el-menu-item>
-          <el-menu-item v-if="can('sys:terminal')" index="/system/terminal"><el-icon><Cellphone /></el-icon><span>盘点终端</span></el-menu-item>
-          <el-menu-item v-if="can('sys:import')" index="/system/data-import"><el-icon><Upload /></el-icon><span>数据导入</span></el-menu-item>
-        </el-sub-menu>
-      </el-menu>
+      <SidebarMenu :collapse="appStore.sidebarCollapsedEffective" />
     </el-aside>
 
     <el-container class="main-area">
       <el-header class="layout-header">
         <div class="header-left">
           <button
+            v-if="appStore.isPhone"
+            ref="menuBtn"
+            type="button"
+            class="collapse-btn mobile-menu-btn"
+            aria-label="打开导航菜单"
+            aria-haspopup="dialog"
+            :aria-expanded="appStore.navDrawerOpen"
+            @click="appStore.openNavDrawer"
+          >
+            <el-icon><IconMenu /></el-icon>
+          </button>
+          <button
+            v-else
             type="button"
             class="collapse-btn"
-            :aria-label="appStore.sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
-            :aria-expanded="!appStore.sidebarCollapsed"
-            @click="appStore.toggleSidebar"
+            :aria-label="appStore.sidebarCollapsedEffective ? '展开侧边栏' : '收起侧边栏'"
+            :aria-expanded="!appStore.sidebarCollapsedEffective"
+            @click="onToggleSidebar"
           >
-            <el-icon><Fold v-if="!appStore.sidebarCollapsed" /><Expand v-else /></el-icon>
+            <el-icon><Fold v-if="!appStore.sidebarCollapsedEffective" /><Expand v-else /></el-icon>
           </button>
-          <!-- D2 公司视角切换器：只切换展示/默认值，授权仍由角色的 dataScope 决定 -->
-          <el-tooltip :content="scopeTip" placement="bottom">
+          <span v-if="appStore.isPhone" class="mobile-title">{{ route.meta.title || '固定资产管理' }}</span>
+          <!-- D2 公司视角切换器：只切换展示/默认值，授权仍由角色的 dataScope 决定。
+               手机端收纳进导航抽屉，保证公司视角仍可达 -->
+          <el-tooltip v-if="!appStore.isPhone" :content="scopeTip" placement="bottom">
             <el-select
               v-model="currentCompanyView"
               class="scope-select"
@@ -105,7 +81,7 @@
               </el-badge>
             </button>
           </el-tooltip>
-          <el-tooltip content="使用帮助（按角色与场景）" placement="bottom">
+          <el-tooltip v-if="!appStore.isPhone" content="使用帮助（按角色与场景）" placement="bottom">
             <button
               type="button"
               class="hdr-badge"
@@ -115,7 +91,7 @@
               <el-icon class="hdr-icon"><QuestionFilled /></el-icon>
             </button>
           </el-tooltip>
-          <el-tag v-if="dataMode === 'mock'" class="mode-tag" type="info" effect="plain" size="small">{{ modeLabel }}</el-tag>
+          <el-tag v-if="dataMode === 'mock' && !appStore.isPhone" class="mode-tag" type="info" effect="plain" size="small">{{ modeLabel }}</el-tag>
           <el-dropdown trigger="click" @command="handleCommand">
             <span
               class="user-info"
@@ -158,6 +134,22 @@
         <router-view />
       </el-main>
       <HelpCenter v-model="helpVisible" />
+      <MobileNavDrawer
+        v-model="navDrawerOpen"
+        :user-name="userStore.user?.name || ''"
+        :companies="companyScope.visibleCompanies"
+        :company-view="currentCompanyView"
+        :scope-disabled="companyScope.visibleCompanies.length <= 1"
+        :scope-tip="scopeTip"
+        :positions="myPositions"
+        :current-position-id="userStore.user?.currentPositionId"
+        :current-position-label="currentPositionLabel"
+        @company-change="onCompanyViewChange"
+        @switch-position="onSwitchPosition"
+        @open-help="helpVisible = true"
+        @logout="handleCommand('logout')"
+        @closed="focusMenuButton"
+      />
     </el-container>
   </el-container>
 </template>
@@ -166,6 +158,8 @@
 import { computed, ref, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import AppBreadcrumb from '../components/AppBreadcrumb.vue'
+import SidebarMenu from '../components/SidebarMenu.vue'
+import MobileNavDrawer from '../components/MobileNavDrawer.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '../store/app'
 import { useUserStore } from '../store/user'
@@ -182,9 +176,8 @@ import { dataMode } from '../services'
 import { loadDictEnums } from '../services/dictEnums'
 import { labelOf } from '../constants/enums'
 import { loadSysParams } from '../services/sysParams'
-import { Monitor, Setting, User, Box, Fold, Expand, OfficeBuilding, CaretBottom, HomeFilled, Bell, ChatDotRound,
-  Notebook, DataAnalysis, SetUp, Goods, Histogram, Connection, UserFilled, Avatar,
-  Collection, Document, Share, Operation, Tickets, Cellphone, Upload, QuestionFilled } from '@element-plus/icons-vue'
+import { Box, Fold, Expand, OfficeBuilding, CaretBottom, Bell, ChatDotRound,
+  QuestionFilled, Menu as IconMenu } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -198,13 +191,33 @@ const auditStore = useAuditStore()
 const workbench = useWorkbenchStore()
 const companyScope = useCompanyScopeStore()
 const helpVisible = ref(false)
+const menuBtn = ref(null)
 
-const activeMenu = computed(() => route.path)
 /** 权限判定（角色在组织架构中维护，登录后按角色解析） */
 const can = code => userStore.can(code)
-/** 分组内若没有任何可见子项，则整组隐藏，避免出现空菜单组 */
-const groupVisible = perms => perms.some(p => can(p))
 const modeLabel = computed(() => (dataMode === 'mock' ? '演示数据' : '后端接口'))
+
+/** 抽屉开合态绑定到 store，路由切换时自动收起 */
+const navDrawerOpen = computed({
+  get: () => appStore.navDrawerOpen,
+  set: value => (value ? appStore.openNavDrawer() : appStore.closeNavDrawer())
+})
+
+/** 桌面沿用原折叠语义；平板用 override 临时展开；手机打开抽屉 */
+function onToggleSidebar() {
+  if (appStore.isPhone) {
+    appStore.openNavDrawer()
+  } else if (appStore.isDesktop) {
+    appStore.toggleSidebar()
+  } else {
+    appStore.sidebarOverride = !appStore.sidebarCollapsedEffective
+  }
+}
+
+/** 抽屉关闭动画结束后把焦点还给汉堡按钮，保持键盘可达性基线 */
+function focusMenuButton() {
+  menuBtn.value?.focus?.()
+}
 
 /** D2 公司视角名（随视角切换；组织主数据现查，改名后立即可见） */
 const scopeName = computed(() => companyScope.viewName)
@@ -274,6 +287,7 @@ watch(
   () => route.path,
   () => {
     appStore.addView({ path: route.path, title: route.meta.title || '首页' })
+    appStore.closeNavDrawer()
   },
   { immediate: true }
 )

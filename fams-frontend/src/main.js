@@ -9,6 +9,7 @@ import { useUserStore } from './store/user'
 import { useMock } from './services'
 import { registerAllSeeds } from './services/mock/seed'
 import { installA11y } from './utils/a11y'
+import { installResponsiveTable } from './utils/responsiveTable'
 import { setErrorNotifier } from './services/http'
 import './styles/global.css'
 
@@ -26,6 +27,8 @@ useUserStore().restore()
 
 // 全局可访问性：表单 label 关联、动态弹窗补扫（在挂载前注册 MutationObserver）
 installA11y(router)
+// 手机端表格卡片化：只在 <=767px 注入列名，桌面 DOM 与样式不变
+installResponsiveTable(router)
 // 全局错误兜底：权限 / 服务端 / 网络类失败由 http 层统一给可见提示
 setErrorNotifier(msg => ElMessage.error(msg))
 
