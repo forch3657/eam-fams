@@ -1,6 +1,10 @@
 # 本地密钥（生产 JWT_SECRET 等，绝不入库）
 deploy/.secrets/
 
+# 内网 HTTPS 自签证书私钥与工具缓存（CA 根证书 fams-ca.crt 需分发，私钥绝不入库）
+deploy/certs/*.key
+scripts/.cert-tools/
+
 # 构建产物
 fams-backend/target/
 fams-frontend/node_modules/

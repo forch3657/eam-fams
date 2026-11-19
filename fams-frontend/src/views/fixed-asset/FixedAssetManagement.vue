@@ -301,6 +301,7 @@
               <el-table-column label="操作" width="380" fixed="right">
                 <template #default="{ row }">
                   <el-button link type="primary" size="small" @click="openCheckList(row)">盘点清单</el-button>
+                  <el-button v-if="can('fa:inventory') && isDocEditable(row)" link type="success" size="small" @click="openScanPage(row)">扫码盘点</el-button>
                   <el-button link type="primary" size="small" @click="openCounters(row)">盘点员</el-button>
                   <el-button link type="primary" size="small" @click="viewDocApproval(row)">审批信息</el-button>
                   <el-button v-if="canSubmitInvDoc(row)" link type="primary" size="small" @click="submitInvDoc(row)">提交</el-button>
@@ -1090,7 +1091,7 @@
 import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, ArrowLeft, ArrowDown, Picture } from '@element-plus/icons-vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import QRCode from 'qrcode'
 import FixedAssetDocList from './FixedAssetDocList.vue'
 import DocApprovalDialog from './DocApprovalDialog.vue'
@@ -1140,6 +1141,7 @@ import MobileFilterPanel from '../../components/mobile/MobileFilterPanel.vue'
 import MobileRecordList from '../../components/mobile/MobileRecordList.vue'
 import MobileActionBar from '../../components/mobile/MobileActionBar.vue'
 import { columnsOf, toMobileColumns } from '../../constants/mobileColumns'
+import { encodeAssetQr } from '../../utils/qrCodec'
 
 const fixedAssetStore = useFixedAssetStore()
 const userStore = useUserStore()
@@ -1185,6 +1187,21 @@ const orgStore = useOrgStore()
 const companyScope = useCompanyScopeStore()
 const approvalStore = useApprovalStore()
 const route = useRoute()
+const router = useRouter()
+
+/**
+ * 手机连续扫码盘点：只带单据 id，明细由服务端按资产编号逐条合并。
+ * 摄像头要求安全上下文：若当前是 http，直接换到 https 同源地址，避免用户手动改协议。
+ */
+function openScanPage(row) {
+  const query = { docId: row.id }
+  if (window.location.protocol !== 'https:') {
+    // http 下先走证书引导页，由它负责下载/安装 CA 并检测 https，避免直接跳到浏览器证书错误页
+    router.push({ path: '/cert-guide', query })
+    return
+  }
+  router.push({ path: '/scan', query })
+}
 
 const activeTab = ref('asset')
 const dispatchSub = ref('alloc')
@@ -2728,14 +2745,18 @@ function openAssetDrawer(row) {
   loadAssetRecords(row)
   nextTick(() => {
     if (qrCanvas.value) {
-      const qrData = `资产编号:${row.code}\n资产名称:${row.name}\n品牌型号:${row.brand || ''} ${row.model || ''}\n所属公司:${row.company}\n存放位置:${row.location}`
-      QRCode.toCanvas(qrCanvas.value, qrData, { width: 120, margin: 1, color: { dark: '#1a1a1a', light: '#ffffff' } })
+      const qrData = encodeAssetQr(row)
+      if (qrData) QRCode.toCanvas(qrCanvas.value, qrData, { width: 120, margin: 1, color: { dark: '#1a1a1a', light: '#ffffff' } })
     }
   })
 }
 
 function downloadAssetQr(row) {
-  const qrData = `资产编号:${row.code}\n资产名称:${row.name}\n品牌型号:${row.brand || ''} ${row.model || ''}\n所属公司:${row.company}\n存放位置:${row.location}`
+  const qrData = encodeAssetQr(row)
+  if (!qrData) {
+    ElMessage.warning('该资产缺少编号，无法生成二维码')
+    return
+  }
   QRCode.toDataURL(qrData, { width: 400, margin: 2, color: { dark: '#1a1a1a', light: '#ffffff' } }).then(dataUrl => {
     const a = document.createElement('a')
     a.href = dataUrl

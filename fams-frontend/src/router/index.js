@@ -17,6 +17,20 @@ const routes = [
     meta: { title: '无访问权限' }
   },
   {
+    // 证书引导页：http 下打开，引导下载/安装 CA 后再跳 https 扫码页
+    path: '/cert-guide',
+    name: 'InventoryScanCertGuide',
+    component: () => import('../views/fixed-asset/CertGuide.vue'),
+    meta: { title: '扫码盘点设置', requiresAuth: true, permission: 'fa:inventory' }
+  },
+  {
+    // 手机全屏连续扫码页：不套 MainLayout，避免侧栏/顶栏挤占摄像头取景区
+    path: '/scan',
+    name: 'InventoryScan',
+    component: () => import('../views/fixed-asset/InventoryScan.vue'),
+    meta: { title: '扫码盘点', requiresAuth: true, permission: 'fa:inventory' }
+  },
+  {
     path: '/',
     component: () => import('../layouts/MainLayout.vue'),
     meta: { requiresAuth: true },

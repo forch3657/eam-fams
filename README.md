@@ -453,13 +453,45 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 - `start-prod.bat`：自动确保 `MySQL80` 服务运行 → 启动后端 jar（`prod`）→ 启动 nginx（HTTPS）。
 - `stop-prod.bat`：停 nginx + 后端 jar。
 - **首次部署前置**：先按第 2 节建好 `fams` 库（脚本不会自动建库）。
-- 访问 `https://localhost`。自签证书浏览器会报安全警告，**点「继续 / 高级 → 继续」**即可（本机演示；正式环境换 CA 签发证书）。
+- 桌面点测走 `http://localhost/`（80 端口明文入口，保持不变）。
+- 手机扫码盘点必须走 `https://<本机内网IP>/`：`getUserMedia` 只在安全上下文可用。
+  证书由 `scripts/gen-lan-cert.cjs <内网IP>` 生成，443 server 使用完整链 `deploy/certs/lan-chain.crt`（叶子 + CA）+ `lan-server.key`（SAN = 内网 IP + `localhost` + `127.0.0.1`），签发者是本地 CA `fams-ca.crt`。
+  手机先用 `http://<本机内网IP>/fams-ca.crt` 下载并在系统里**安装且信任**该根证书（iOS 还需在「设置 → 通用 → 关于本机 → 证书信任设置」打开完全信任），之后地址栏应显示安全锁、摄像头才可用。正式对外前仍须换 CA 签发证书。
+- 换内网 IP 时重跑 `node scripts/gen-lan-cert.cjs <新IP>` 并重启 nginx；脚本依赖 `node-forge`，首次使用先执行 `npm install --prefix scripts/.cert-tools --no-save node-forge`（本机 Node 不在 PATH 时需用 `.workbuddy` 预装路径）。`deploy/certs/*.key` 与 `scripts/.cert-tools/` 已加入 `.gitignore`，私钥绝不入库。
 
 ### 构建与关键目录
 
 - 前端：`fams-frontend` 下 `.env.development`（dev 直连 8080）/ `.env.production`（`/api` 同源走 nginx）；`npm run build` 产物在 `dist/`。
 - 后端：统一用根目录 `build-prod.ps1` 构建（**先跑全量测试，通过后才产出 jar**），产物 `fams-backend/target/fams-backend-1.0.0-SNAPSHOT.jar`；`prod` profile 在 `application-prod.yml`（外部化 `JWT_SECRET`、CORS 收紧到 `https://localhost`、关 `sql.init`）。**禁止 `mvn package -DskipTests`**：历史上正是它把 9 个测试类的红灯藏了很久（详见第 9 节）。改了 `application-prod.yml` 后必须重新构建（jar 在构建时把配置打进去）。
-- nginx：`deploy/nginx/conf/nginx.conf`；证书 `deploy/certs/localhost.crt` + `localhost.key`（自签，SAN = `localhost` + `127.0.0.1`）。
+- nginx：`deploy/nginx/conf/nginx.conf`；桌面 80 明文入口 + 手机 443 HTTPS 入口并存，不做跳转。
+  现用证书 `deploy/certs/lan-chain.crt`（**完整链 = 叶子 `lan-server.crt` + CA `fams-ca.crt`**）+ `lan-server.key`（自签，SAN = 内网 IP + `localhost` + `127.0.0.1`，由 `fams-ca.crt` 签发，服务器证书有效期 365 天）。**必须发完整链**：只发叶子证书时 Android 会判定链不完整，即使装了 CA 地址栏仍红叉。`gen-lan-cert.cjs` 已自动生成 `lan-chain.crt`。仓库里原有的 `localhost.crt` / `localhost.key` 是历史遗留，已不再被 nginx 引用。
+
+### 扫码盘点（手机）
+
+- 入口：固定资产 → 资产盘点 → 盘点单列表 →「扫码盘点」，或直接访问 `https://<内网IP>/scan`（需 `fa:inventory` 权限）。
+- 只有**草稿 / 已驳回**且分派给当前账号的盘点单可扫码登记；审批中与已完结的明细只读。系统管理员 R1 走维护通道可盘任意未送审单据。
+- 点一次「开始盘点」后摄像头常驻，识别到标签即逐条提交，直到「结束盘点」；同一标签停在镜头前不会重复上报。
+- 二维码内容升级为短码 `FAMS|1|<资产编号>`（`FixedAssetManagement.vue` 的下载/详情二维码已统一），解码兼容旧版 5 行纯文本标签与扫码枪输入的 URL。历史标签无需重印。
+- 后端 `POST /api/inventory-scan/{docId}/record` 按 `assetNo` 只改一条明细，携带 `version` 走乐观锁、`clientScanId` 保证幂等，多人扫同一单不会互相覆盖；盘盈/盘亏/异常原因与异常去向的校验与「盘点清单」保存同源。
+- 无摄像头或权限被拒时，页面保留「扫码枪 / 手动输入」入口，回车提交、不跳页可连续录。
+
+#### 手机首次配置清单（安卓实战踩通，2026-11-19）
+
+摄像头扫码的前置条件是「安全上下文 + 信任自签 CA + 浏览器摄像头权限」，三缺一不可。团队其他手机首次使用按下面顺序做一遍：
+
+1. **进引导页**：盘点单列表点「扫码盘点」，http 下会自动进 `/cert-guide`（含证书下载按钮与自动检测）。不要在地址栏手输证书地址。
+2. **装 CA 证书**：点引导页的下载按钮拿到 `fams-ca.crt`，打开安装时类型必须选 **「CA 证书」**；不要选「VPN 和应用用户证书」或「WLAN 证书」。
+   - 注意：装好后系统「设置 → 安全 → 用户凭据」里会显示 `fams local ca`、标注「用于 VPN 和应用」并带 `user:` 前缀——**这是 Android 对用户 CA 的统一显示，不代表装错**，点进详情显示「包含 1 个 CA 证书」即正确。
+3. **重启手机**（关键）：Flyme 等国产 ROM 装完 CA 后**必须重启**才会真正信任，否则地址栏仍红叉。重启后打开 `https://<内网IP>/`，地址栏红叉变成锁/无警告才算证书生效。
+4. **浏览器允许摄像头**：Chrome → 设置 → 网站设置 → 摄像头 → 把 `https://<内网IP>` 设为「允许」。若授权弹窗被系统的「气泡 / 叠加层」拦截（Flyme 提示"网站无法请求您授权，请关闭气泡或叠加层"），先划掉所有通知、关闭悬浮球，再直接到设置里手动授权。
+5. 回到扫码页点「开始盘点」，出现取景框和绿色「正在连续识别」即全部打通。
+
+排障备忘：
+- 装了 CA 仍是红叉 → ① 确认服务器发的是完整链 `lan-chain.crt`（可用 `tls.connect` 检查链长应为 2）；② 确认手机时间是当天（时间偏差会导致证书校验失败）；③ 重启手机。
+- 地址栏 https 无红叉但点开始报"权限被拒绝" → 走第 4 步手动授权，与证书无关。
+- `chrome://net-internals/#hsts` 在手机 Chrome 上通常打不开，**不要用它清 HSTS**；改清浏览数据 + 重启浏览器。
+- 实在过不了证书这关（个别 ROM 完全不认用户 CA）→ 直接用页面底部「扫码枪 / 手动输入」，回车提交、不跳页可连续录，功能等价。
+- 换内网 IP 后证书要重签、手机要重装新 CA 并重启。
 
 ### dev 联调 vs 生产形态
 
@@ -468,7 +500,7 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/fixed-assets?pageSize=3" -Head
 | 后端 | `mvn spring-boot:run`（h2 / dev profile） | `java -jar`（prod profile） |
 | 前端 | `npm run dev`（vite :5174） | `npm run build` 静态化由 nginx 托管 |
 | 数据库 | H2 内存 / MySQL（专用 fams 账号） | MySQL（专用 fams 账号） |
-| 协议 | http | https（自签证书） |
+| 协议 | http | http（桌面）+ https（手机扫码，自签证书） |
 | 启动脚本 | `start-dev.bat` / `start-dev-mysql.bat` | `start-prod.bat` |
 
 > 本机生产形态已端到端冒烟通过（HTTPS 登录、中文无乱码、折旧方案启停持久化、领用默认本人+部门过滤代申请、前端资源加载）。数据范围隔离已于 2026-11-02 落地（见第 7 节）。后续未覆盖项（按落地顺序）：审批协作（加签/转办/抄送，见 `docs/e2e/test-plan-p1-p5.md` 的 P3-D3）、折旧合规口径、审计日志。
