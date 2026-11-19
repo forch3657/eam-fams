@@ -415,3 +415,39 @@ test('[RESP-IX-08] 低值资产多页签、两个报表与资产详情字段完�
     await context.close()
   }
 })
+
+test('[RESP-IX-09] 人员与主字段类列表卡片保留可识别记录的关键字段', async ({ browser }) => {
+  const vp = VIEWPORTS.find(v => v.name === 'phone')!
+  const cases = [
+    { path: '/system/user', label: /姓名|用户名/, name: '用户管理' },
+    { path: '/system/message-center', label: /标题/, name: '消息中心' },
+    { path: '/system/message-template', label: /标题模板/, name: '消息模板' },
+    { path: '/system/dict', label: /字典名称|标签/, name: '数据字典' },
+    { path: '/system/log', label: /操作内容|操作人/, name: '操作日志' }
+  ]
+  const { context, page } = await openPage(browser, vp)
+  try {
+    for (const item of cases) {
+      await page.goto(item.path)
+      await waitSettled(page)
+      await page.waitForTimeout(1200)
+      const fields = await page.evaluate(() => {
+        const pane = Array.from(document.querySelectorAll('.el-tab-pane'))
+          .find(p => getComputedStyle(p).display !== 'none')
+        const row = (pane || document).querySelector('.el-table__body-wrapper tbody tr')
+        return row
+          ? Array.from(row.querySelectorAll('td:not([data-mobile-hidden])'))
+              .map(td => (td.getAttribute('data-table-label') || '').trim())
+          : []
+      })
+      // 空列表（如无操作日志）没有卡片可验，跳过；有数据则必须保留主字段
+      if (!fields.length) continue
+      expect(
+        fields.some(f => item.label.test(f)),
+        `${item.name} 卡片缺少主字段 ${item.label}，实际字段: ${fields.join('/')}`
+      ).toBe(true)
+    }
+  } finally {
+    await context.close()
+  }
+})
