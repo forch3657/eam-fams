@@ -7,9 +7,14 @@ https://git.ds.fidt/
 服务端git: https://git.ds.fidt/im/third-party/EamFamsSv.git 
 前端git:  https://git.ds.fidt/im/third-party/EamFamsWeb.git
 
-1.先实现 多公司的管理
+内网部署测试：
+http://localhost/
+摄像头扫码盘点需https，ca证书服务端和设备端同时支持
+https://192.168.60.66  
+
+1.先实现 多公司的管理 Y
 18120648615 + Fzidt@2026!  admin FAMSadmin@2026! 口令已轮换，见 README.md 第 8 节。
-2.对接人员的组织架构调整，接口对接工作联系陈国；人员组织架构信息予以保留，对接角色的权限需重新梳理与调整。
+2.对接人员的组织架构调整，接口对接工作联系陈国。
 3.对接流程引擎 接口找术欢 (提供流程给杜娟配置)
 
 4. 对接PC端，迁入柳讯

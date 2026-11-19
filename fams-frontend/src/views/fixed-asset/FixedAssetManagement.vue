@@ -1103,7 +1103,7 @@ import { useUserStore } from '../../store/user'
 import { useApprovalStore } from '../../store/approval'
 import { useCompanyScopeStore } from '../../store/companyScope'
 import { useMock } from '../../services'
-import { optionsOf, labelOf, DOC_EDITABLE_STATUS } from '../../constants/enums'
+import { optionsOf, labelOf, codeOf, DOC_EDITABLE_STATUS } from '../../constants/enums'
 import { ASSET_ACTION_DEFS, DOC_WRITE_CODES, OWNER_INITIATED_DOC_KEYS } from '../../constants/assetActions'
 import { formatDateTime } from '../../utils/format'
 import {
@@ -2615,12 +2615,19 @@ watch(() => companyScope.effectiveCompanyId, () => { assetPage.value = 1 })
 
 const filteredAssetList = computed(() => {
   const name = (assetSearch.user || '').trim()
+  // 分类下拉的 value 是编码（如 ELECTRONIC），而台账视图的 a.type 是中文标签（电子设备）。
+  // 统一归一化到编码再比，并同时兼容数据里直接存中文的情况，避免口径不一致导致筛选恒为空。
+  const typeCode = assetSearch.type ? codeOf('ASSET_CATEGORY', assetSearch.type) : ''
+  const typeLabel = assetSearch.type ? labelOf('ASSET_CATEGORY', typeCode || assetSearch.type) : ''
   return assetList.value.filter(a =>
     (!assetSearch.keyword || a.code.includes(assetSearch.keyword) || a.name.includes(assetSearch.keyword)) &&
     // user 是台账视图解析出的姓名；若 org-users 不可读导致姓名为空，退化为按使用人 ID 匹配
     (!name || String(a.user || '').includes(name) || String(a.userId || '').includes(name)) &&
     (!assetSearch.company || a.companyId === assetSearch.company) &&
-    (!assetSearch.type || a.type === assetSearch.type) &&
+    (!assetSearch.type ||
+      a.category === (typeCode || assetSearch.type) ||
+      a.type === (typeLabel || assetSearch.type) ||
+      a.type === assetSearch.type) &&
     (!assetSearch.status || a.statusCode === assetSearch.status || matchStatus(a, assetSearch.status))
   )
 })
