@@ -13,6 +13,7 @@ const SCAN_DELAY = 80
 
 let observer = null
 let timer = 0
+let followTimer = 0
 let stopWatch = null
 let stopRouterHook = null
 
@@ -49,6 +50,13 @@ function scan() {
     return
   }
   document.querySelectorAll('.el-table').forEach(decorate)
+  // 数据异步晚到时首轮可能扫到空 tbody；只要还有未标注单元格就再补扫一次
+  if (!followTimer && document.querySelector('.el-table__body-wrapper tbody tr td:not([data-table-label])')) {
+    followTimer = setTimeout(() => {
+      followTimer = 0
+      scan()
+    }, 800)
+  }
 }
 
 /** 只监听 childList：注入的是 attribute，不会触发自身 observer 造成循环 */
@@ -80,6 +88,10 @@ export function uninstallResponsiveTable() {
   if (timer) {
     clearTimeout(timer)
     timer = 0
+  }
+  if (followTimer) {
+    clearTimeout(followTimer)
+    followTimer = 0
   }
   if (stopWatch) {
     stopWatch()

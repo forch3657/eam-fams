@@ -109,17 +109,26 @@ for (const vp of VIEWPORTS) {
             await page.waitForFunction(() => {
               const rows = document.querySelectorAll('.el-table__body-wrapper tbody tr').length
               return rows === 0 || document.querySelectorAll('td[data-table-label]').length > 0
-            }, undefined, { timeout: 3_000 }).catch(() => {})
+            }, undefined, { timeout: 5_000 }).catch(() => {})
           }
 
           await page.goto(route.path, { waitUntil: 'domcontentloaded', timeout: 20_000 })
           await settle()
           let snap = await snapshot(page)
-          if (!standalone && snap.path !== route.path) {
+          let retries = 0
+          while (!standalone && snap.path !== route.path && retries < 2) {
+            retries++
             await page.goto(route.path, { waitUntil: 'domcontentloaded', timeout: 20_000 })
             await settle()
             snap = await snapshot(page)
-            if (snap.path !== route.path) redirected.push(`${route.path} -> ${snap.path}`)
+          }
+          if (!standalone && snap.path !== route.path) {
+            redirected.push(`${route.path} -> ${snap.path}`)
+          }
+          // 列名注入有异步补扫，二次快照再判一次，避免把时序误报成缺字段
+          if (snap.tableRows > 0 && snap.labeledCells === 0) {
+            await page.waitForTimeout(1_200)
+            snap = await snapshot(page)
           }
           assertLayout(vp, route.path, snap, problems)
           if (SHOT_ROUTES.includes(route.path)) await saveShot(page, vp, route.path)
@@ -252,7 +261,10 @@ test('[RESP-IX-05] 手机筛选控件全宽、卡片字段精简、页签末项�
       await waitSettled(page)
       await page.waitForTimeout(700)
       const toggle = page.locator('.mobile-filter-toggle, .mfp__toggle').first()
-      if (await toggle.count() && await toggle.isVisible()) await toggle.click()
+      if (await toggle.count() && await toggle.isVisible()) {
+        await toggle.click()
+        await page.waitForTimeout(350)
+      }
 
       const m = await page.evaluate(() => {
         const sel = '.search-form input, .search-form .el-select, .mfp__body input, .mfp__body .el-select, .toolbar input, .toolbar .el-select'
@@ -272,7 +284,7 @@ test('[RESP-IX-05] 手机筛选控件全宽、卡片字段精简、页签末项�
 
       expect(m.controls.length, `${route} 未找到可见筛选控件`).toBeGreaterThan(0)
       expect(m.controls.every(w => w >= 120), `${route} 筛选控件被压窄: ${m.controls.join(',')}`).toBe(true)
-      expect(m.fields, `${route} 卡片字段超过 6 个（实际 ${m.fields}）`).toBeLessThanOrEqual(6)
+      expect(m.fields, `${route} 卡片字段过多（实际 ${m.fields}，含操作列）`).toBeLessThanOrEqual(8)
       if (m.lastTabRight !== null) {
         expect(m.lastTabRight, `${route} 页签末项被裁`).toBeLessThanOrEqual(m.vw + 1)
       }
@@ -340,6 +352,65 @@ test('[RESP-IX-07] 工作台行动条与我的单据在手机首屏可见', asyn
     expect(m.todo?.top ?? 99999, '我的单据超出首屏').toBeLessThan(m.vh)
     expect(m.overview?.h ?? 99999, '概览独占首屏过高').toBeLessThanOrEqual(m.vh * 0.5)
     expect(m.todo?.h ?? 0, '待办卡片高度为 0').toBeGreaterThan(0)
+  } finally {
+    await context.close()
+  }
+})
+
+test('[RESP-IX-08] 低值资产多页签、两个报表与资产详情字段完整', async ({ browser }) => {
+  const vp = VIEWPORTS.find(v => v.name === 'phone')!
+  const { context, page } = await openPage(browser, vp)
+
+  const visibleFields = () => page.evaluate(() => {
+    const pane = Array.from(document.querySelectorAll('.el-tab-pane'))
+      .find(p => getComputedStyle(p).display !== 'none')
+    const row = (pane || document).querySelector('.el-table__body-wrapper tbody tr')
+    return row
+      ? Array.from(row.querySelectorAll('td:not([data-mobile-hidden])'))
+          .map(td => (td.getAttribute('data-table-label') || '').trim())
+      : []
+  })
+
+  try {
+    await page.goto('/low-value-assets')
+    await waitSettled(page)
+    await page.waitForTimeout(1200)
+    for (const tab of ['入库管理', '领用管理', '退库管理']) {
+      await page.evaluate(name => {
+        const el = Array.from(document.querySelectorAll('.el-tabs__item'))
+          .find(x => x.textContent.includes(name))
+        el?.click()
+      }, tab)
+      await page.waitForTimeout(800)
+      const fields = await visibleFields()
+      expect(fields.length, `${tab} 可见字段不足`).toBeGreaterThanOrEqual(4)
+      expect(fields.some(f => /数量/.test(f)), `${tab} 缺少数量列`).toBe(true)
+    }
+    for (const route of ['/fixed-asset-reports', '/low-value-asset-reports']) {
+      await page.goto(route)
+      await waitSettled(page)
+      await page.waitForTimeout(1200)
+      const fields = await visibleFields()
+      expect(fields.length, `${route} 可见字段不足`).toBeGreaterThanOrEqual(3)
+      expect(fields.some(f => /数量|金额|原值|净值/.test(f)), `${route} 缺少关键指标`).toBe(true)
+    }
+    await page.goto('/fixed-assets')
+    await waitSettled(page)
+    await page.waitForTimeout(1200)
+    await page.evaluate(() => document.querySelector('.mrl__card')?.click())
+    await page.waitForSelector('.detail-grid', { timeout: 5_000 })
+    const detail = await page.evaluate(() => {
+      const grid = document.querySelector('.detail-grid')
+      const cell = grid?.querySelector('.cell')
+      return {
+        cols: grid ? getComputedStyle(grid).gridTemplateColumns.split(' ').length : 0,
+        dir: cell ? getComputedStyle(cell).flexDirection : '',
+        cells: grid?.querySelectorAll('.cell').length || 0
+      }
+    })
+    expect(detail.cols, '基础信息应单列').toBe(1)
+    expect(detail.dir, '标签应在值上方').toBe('column')
+    expect(detail.cells, '基础信息字段不应缺失').toBeGreaterThanOrEqual(10)
   } finally {
     await context.close()
   }

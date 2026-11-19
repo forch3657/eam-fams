@@ -89,3 +89,42 @@ export function toMobileColumns(config) {
   const primary = config.primary ? { ...config.primary, primary: true } : null
   return primary ? [primary, ...(config.fields || [])] : (config.fields || [])
 }
+
+/**
+ * 按表格自身的表头识别核心列，供全局注入器使用。
+ *
+ * 不能按路由写死一套 label：低值资产「入库/领用/退库」页签的数量列分别是
+ * 入库数量/领用数量/退库数量，状态列叫「单据状态」；报表页各表头也完全不同。
+ * 这里按「标识 → 名称 → 数量 → 状态 → 金额 → 人员/组织」的优先级从实际表头挑选，
+ * 保证每张表（含弹窗内表格）都能保留 4~6 条关键信息。
+ */
+const CORE_GROUPS = [
+  { patterns: [/编号$/, /编码$/], limit: 1 },
+  { patterns: [/名称$/, /^资产分类$/, /^物品类别$/, /^单据$/], limit: 2 },
+  { patterns: [/数量/], limit: 1 },
+  { patterns: [/状态$/], limit: 1 },
+  { patterns: [/金额|原值|净值|总值|单价|占比|人数|次数/], limit: 2 },
+  { patterns: [/人员$|人$|部门$|公司$|日期$|时间$|供应商|位置$/], limit: 1 }
+]
+
+export function pickCoreLabels(labels, max = 6) {
+  const clean = (labels || []).map(l => String(l || '').trim()).filter(Boolean)
+  const chosen = []
+  const add = label => {
+    if (!label || /操作/.test(label) || chosen.includes(label) || chosen.length >= max) return
+    chosen.push(label)
+  }
+  for (const group of CORE_GROUPS) {
+    let hit = 0
+    for (const label of clean) {
+      if (hit >= group.limit) break
+      if (group.patterns.some(p => p.test(label))) {
+        add(label)
+        hit++
+      }
+    }
+  }
+  // 极端表头（如只有「序号/说明」）至少留两列，避免卡片空掉
+  if (!chosen.length) clean.filter(l => !/操作|序号/.test(l)).slice(0, 2).forEach(add)
+  return chosen
+}

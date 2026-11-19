@@ -1335,6 +1335,26 @@ body { font-size: 14px; line-height: 1.5; }
   .el-tabs__item.is-active { color: var(--c-primary) !important; font-weight: 600; }
   .el-tabs__nav-next, .el-tabs__nav-prev { display: none !important; }
 
+  /* 资产详情「基础信息」桌面是 3 列 + 110px 标签，手机会把值挤没；改单列上下排 */
+  .detail-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  .detail-grid .cell {
+    flex-direction: column;
+    align-items: stretch;
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--bd-split);
+  }
+  .detail-grid .cell:last-child { border-bottom: 0; }
+  .detail-grid .cell .label {
+    width: 100% !important;
+    padding: 6px 8px 2px;
+    font-size: 11px;
+  }
+  .detail-grid .cell .value {
+    width: 100%;
+    padding: 2px 8px 8px;
+    font-size: 14px;
+  }
+
   /* 全局增强（utils/responsiveEnhance.js）：筛选折叠 + 卡片只留核心列 */
   .mobile-filter-toggle {
     display: flex;
