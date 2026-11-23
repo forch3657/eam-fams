@@ -32,9 +32,13 @@ fams:
       - /health
       - /version
       - /auth/login
+      - /auth/liuxun/**
   cors:
     # 本地开发 / CI E2E 来源：localhost 与 127.0.0.1 都放行（避免绑定差异导致 403）
     allowed-origins: http://localhost:5174,http://127.0.0.1:5174
+  # H2 默认 mock 模式：无需柳讯配置即可跑通免登与待办数据结构
+  liuxun:
+    mock: true
 
 logging:
   level:

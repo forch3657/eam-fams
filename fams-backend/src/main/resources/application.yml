@@ -48,8 +48,27 @@ fams:
       - /auth/login
       # D3 探活端点：nginx/监控无需登录即可读取健康状态（仅 health，指标仍需认证）
       - /actuator/health
+      # 柳讯免登：回调换 token 时尚无本地 JWT（SecurityConfig 会自动前置 /api）
+      - /auth/liuxun/**
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5174}
+  # 柳讯开放能力平台对接。默认 mock=true，联调时按 profile 覆盖为 false。
+  liuxun:
+    mock: ${LIUXUN_MOCK:true}
+    base-url: ${LIUXUN_BASE_URL:http://172.19.19.16:31460}
+    client-id: ${LIUXUN_CLIENT_ID:}
+    client-secret: ${LIUXUN_CLIENT_SECRET:}
+    app-id: ${LIUXUN_APP_ID:}
+    redirect-uri: ${LIUXUN_REDIRECT_URI:http://192.168.60.66/oauth/callback}
+    connect-timeout: 5000
+    read-timeout: 10000
+    mock-user-phone: ${LIUXUN_MOCK_PHONE:13625070487}
+    mock-user-id: ${LIUXUN_MOCK_USER_ID:157}
+    mock-user-name: ${LIUXUN_MOCK_NAME:测试用户}
+    default-role-code: ${LIUXUN_DEFAULT_ROLE:ROLE_USER}
+    default-position: ${LIUXUN_DEFAULT_POSITION:职员}
+    default-company-id: ${LIUXUN_DEFAULT_COMPANY:C1}
+    default-dept-id: ${LIUXUN_DEFAULT_DEPT:D1}
 
 # D3 可观测性：actuator 指标与探活
 management:

@@ -152,6 +152,67 @@ function userById(org, id) {
   return (org.users || []).find(u => u.id === id) || null
 }
 
+/** 单据归属公司：单据 companyId → 资产 companyId → 创建人公司（与后端 ApproverResolver 对齐） */
+export function docCompanyId(doc, org, assets = []) {
+  const orgStore = org || useOrgStore()
+  if (!doc) return ''
+  if (doc.companyId) return doc.companyId
+  const asset = (assets || []).find(a => a && a.id === doc.assetId)
+  if (asset && asset.companyId) return asset.companyId
+  const creator = userById(orgStore, doc.creatorId)
+  return (creator && creator.companyId) || ''
+}
+
+/** 用户公司是否覆盖单据公司：本公司/下级子公司/显式授权公司（与 RowScopeGuard.isUserCompanyEligible 对齐） */
+function userCompanyEligible(user, docCompany) {
+  if (!docCompany) return true
+  const org = useOrgStore()
+  let scope = user.dataScope || ''
+  if (!scope) {
+    // 数据范围可能在角色上（seed 里用户对象不带 dataScope，角色带）
+    for (const rid of user.roleIds || []) {
+      const role = (org.roles || []).find(r => r.id === rid)
+      if (role?.dataScope) { scope = role.dataScope; break }
+      if ((role?.dataScope || '').toUpperCase() === 'ALL') break
+    }
+  }
+  if (scope.toUpperCase() === 'ALL') return true
+  if (user.companyId === docCompany) return true
+  const extras = Array.isArray(user.scopeCompanyIds)
+    ? user.scopeCompanyIds
+    : (typeof user.scopeCompanyIds === 'string' ? safeParseArray(user.scopeCompanyIds) : [])
+  if (extras.includes(docCompany)) return true
+  // 用户公司是单据公司的祖先时可见（集团 → 子公司）
+  return isAncestorCompany(user.companyId, docCompany)
+}
+
+/** 岗位公司是否覆盖单据公司 */
+function companyCovered(posCompany, docCompany) {
+  if (!docCompany) return true
+  if (!posCompany) return false
+  if (posCompany === docCompany) return true
+  return isAncestorCompany(posCompany, docCompany)
+}
+
+/** ancestorId 是否为 childId 的祖先（含自身），沿 parentId 向上找 */
+function isAncestorCompany(ancestorId, childId) {
+  if (!ancestorId || !childId) return false
+  const companies = (useOrgStore().companies || [])
+  let cursor = childId
+  const seen = new Set()
+  while (cursor && !seen.has(cursor)) {
+    if (cursor === ancestorId) return true
+    seen.add(cursor)
+    const c = companies.find(x => x.id === cursor)
+    cursor = c ? (c.parentId || '') : ''
+  }
+  return false
+}
+
+function safeParseArray(json) {
+  try { const v = JSON.parse(json); return Array.isArray(v) ? v : [] } catch (e) { return [] }
+}
+
 /**
  * 单据归属部门：单据 deptId → 资产 deptId → 创建人所属部门。
  *
@@ -222,7 +283,32 @@ export function stepApprovers(step, org, doc = null, assets = []) {
   }
   const roleId = stepRoleId(step, orgStore)
   if (!roleId) return []
-  return orgStore.users.filter(u => (u.roleIds || []).includes(roleId) && u.status === 'ENABLED')
+  const docCompany = docCompanyId(doc, orgStore, assets)
+  const result = []
+  const seen = new Set()
+  // 1) 主职角色持有者：按单据公司维度过滤（本公司/下级/授权/全集团）
+  for (const u of orgStore.users || []) {
+    if (u.status !== 'ENABLED' || !(u.roleIds || []).includes(roleId)) continue
+    if (!userCompanyEligible(u, docCompany)) continue
+    result.push(u)
+    seen.add(u.id)
+  }
+  // 2) 一人多岗：叠加在单据公司担任该角色岗位的启用用户（与 GenericService.userIdsOfRole 对齐）
+  if (docCompany) {
+    for (const pos of orgStore.positions || []) {
+      if (pos.status && pos.status !== 'ENABLED') continue
+      if (!(pos.roleIds || []).includes(roleId)) continue
+      if (!companyCovered(pos.companyId, docCompany)) continue
+      const uid = pos.userId
+      if (!uid || seen.has(uid)) continue
+      const user = userById(orgStore, uid)
+      if (user && user.status === 'ENABLED') {
+        result.push(user)
+        seen.add(uid)
+      }
+    }
+  }
+  return result
 }
 
 /** 环节可审批的账号清单（用于界面提示"该环节由谁审"，传入 records 时按加签/转办后的实际审批人） */

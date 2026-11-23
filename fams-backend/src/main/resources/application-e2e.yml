@@ -32,6 +32,7 @@ fams:
       - /health
       - /version
       - /auth/login
+      - /auth/liuxun/**
   cors:
     # vite preview 默认 4173；同时放行 127.0.0.1 与 localhost 两种写法
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://127.0.0.1:4173,http://localhost:4173}

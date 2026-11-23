@@ -330,6 +330,16 @@ export const useOrgStore = defineStore('org', () => {
       const saved = await dataService.update(COLLECTION.orgUsers, u.id, u)
       // 写回服务端返回（含自增 version），避免本地版本落后导致下次更新被判乐观锁冲突
       if (saved) Object.assign(u, saved)
+      // 同步主职岗位 roleIds：后端按「当前岗位」覆盖主表算权限，
+      // 若只改用户表不改岗位，用户重新登录后仍按旧岗位角色鉴权（分配角色不生效）。
+      const primary = positions.value.find(p => p.userId === u.id && p.isPrimary)
+        || positions.value.find(p => p.userId === u.id)
+      if (primary) {
+        const nextRoles = (u.roleIds || []).slice()
+        const posSaved = await dataService.update(COLLECTION.orgUserPositions, primary.id, { ...primary, roleIds: nextRoles })
+        if (posSaved) Object.assign(primary, posSaved)
+        else primary.roleIds = nextRoles
+      }
     }
     return touched.length
   }

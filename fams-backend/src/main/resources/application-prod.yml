@@ -34,6 +34,7 @@ fams:
       - /auth/login
       # D3 探活端点免登录（仅 health，指标端点仍需认证）
       - /actuator/health
+      - /auth/liuxun/**
   cors:
     # 前端由 nginx 在 https://localhost 托管，/api 反代到本服务，同源即可；
     # 如需跨域再放开，用环境变量 CORS_ALLOWED_ORIGINS 覆盖

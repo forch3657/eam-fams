@@ -26,8 +26,15 @@ fams:
       - /health
       - /auth/login
       - /actuator/health
+      - /auth/liuxun/**
   cors:
     allowed-origins: http://localhost:5174
+  # 柳讯对接：测试固定 mock，零外部依赖
+  liuxun:
+    mock: true
+    client-id: '100000050'
+    app-id: 'f5f2b942-4044-4791-8424-53b82bc99758'
+    redirect-uri: http://192.168.60.66/oauth/callback
 
 management:
   endpoints:

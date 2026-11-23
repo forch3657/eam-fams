@@ -60,6 +60,11 @@
           <el-button type="primary" size="large" class="login-btn" :loading="loading" @click="handleLogin">
             登 录
           </el-button>
+          <div class="liuxun-login">
+            <el-button text type="primary" class="liuxun-btn" @click="handleLiuxunLogin">
+              使用柳讯账号登录
+            </el-button>
+          </div>
         </el-form>
 
         <div class="login-tip">
@@ -119,6 +124,14 @@ async function handleLogin() {
   // 401 跳登录时带了 redirect，登录后回到原来要去的页面
   const redirect = String(route.query.redirect || '').trim()
   router.replace(redirect && redirect.startsWith('/') ? redirect : '/workbench')
+}
+
+function handleLiuxunLogin() {
+  const redirect = String(route.query.redirect || '').trim()
+  router.push({
+    path: '/oauth/entry',
+    query: { target: redirect && redirect.startsWith('/') ? redirect : '/workbench' }
+  })
 }
 </script>
 
@@ -291,6 +304,16 @@ async function handleLogin() {
   margin-top: 8px;
   letter-spacing: 4px;
   font-weight: 600;
+}
+
+.liuxun-login {
+  text-align: center;
+  margin-top: 2px;
+}
+
+.liuxun-btn {
+  font-size: 13px;
+  letter-spacing: 1px;
 }
 
 .login-tip {

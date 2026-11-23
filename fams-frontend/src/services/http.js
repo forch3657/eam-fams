@@ -228,8 +228,8 @@ async function downloadBlob(path, fallbackName) {
 }
 
 export const httpService = {
-  async list(key, params) {
-    const rows = await request(`/${key}`, { params })
+  async list(key, params, options = {}) {
+    const rows = await request(`/${key}`, { params, silent: options.silent === true })
     return Array.isArray(rows) ? rows : []
   },
 

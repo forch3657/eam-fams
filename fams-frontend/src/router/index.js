@@ -17,6 +17,20 @@ const routes = [
     meta: { title: '无访问权限' }
   },
   {
+    // 柳讯免登入口：无会话跳授权，有会话直达 target
+    path: '/oauth/entry',
+    name: 'OAuthEntry',
+    component: () => import('../views/OAuthEntry.vue'),
+    meta: { title: '柳讯登录' }
+  },
+  {
+    // 柳讯授权回调：code 换本地 JWT，复用登录态写入
+    path: '/oauth/callback',
+    name: 'OAuthCallback',
+    component: () => import('../views/OAuthCallback.vue'),
+    meta: { title: '登录中' }
+  },
+  {
     // 证书引导页：http 下打开，引导下载/安装 CA 后再跳 https 扫码页
     path: '/cert-guide',
     name: 'InventoryScanCertGuide',

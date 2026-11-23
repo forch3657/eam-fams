@@ -22,7 +22,13 @@ deploy/nginx/logs/
 
 # 日志与临时脚本
 *.log
+*.log.gz
 *.err
+scripts/tmp-*.ps1
+
+# 第三方安装包 / 本地工具二进制（体积大且非源码）
+*.exe
+liuxun/
 
 # 发布脚本的本地缓存（内网仓 clone，不入库）
 .publish-cache/
