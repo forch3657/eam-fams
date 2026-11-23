@@ -278,7 +278,7 @@ Spring Security + BCrypt + 统一异常信封 + 参数化 SQL 与标识符白名
 | 源码/测试规模 | 递归统计 `*.java` / `*.js` / `*.vue` / `*.spec.ts` | main 69、test 17、前端 76、E2E spec 23 |
 | 契约与权限覆盖 | 解析 `contract/resources.json` + `permission-resources.json`，模拟「精确优先 + 最长前缀」匹配 | 68 集合 / 36 规则；`fixed-asset-report-depreciation-details`、`fixed-asset-report-depreciation-plan-details` 无写/删规则 |
 | 状态机可利用性 | 解析 `low-value-requisition` 契约 | `stock.settleOn=DONE`、`status` 为可写 enum，且不在 `assertDocMutable` 守卫集合内 |
-| 生产凭据是否外泄 | 全文检索 + `git ls-files` | `dist/assets/Login-y7d4cQ-u.js` 含 `Fzidt@123`；`deploy/certs/localhost.key` 已被 git 跟踪 |
+| 生产凭据是否外泄 | 全文检索 + `git ls-files` | `dist/assets/Login-y7d4cQ-u.js` 含管理员口令明文（值见本地 `deploy/.secrets/db-admin.txt`，已 gitignore）；`deploy/certs/localhost.key` 已被 git 跟踪 |
 | 数据范围覆盖面 | 检索 `scopedRaw(` 调用点 | 仅 `list`（:109）与 `page`（:132），其余端点无 |
 | 环境差异实证 | 对照缺陷台账与部署手册 | `test-plan-p1-p5.md:372`、`deployment.md:242` 记录契约/列漂移导致生产 500 |
 

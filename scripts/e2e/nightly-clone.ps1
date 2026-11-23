@@ -50,12 +50,24 @@ if (-not (Test-Path $jar)) { throw ('jar missing: ' + $jar + '  (run build-prod.
 $distIndex = Join-Path $root 'fams-frontend/dist/index.html'
 if (-not (Test-Path $distIndex)) { throw ('dist missing: ' + $distIndex + '  (run build-prod.ps1 first)') }
 
+# Credentials come from env vars, falling back to local gitignored secrets files.
+# NEVER hard-code passwords in this script (it lives in the repo).
+#   deploy/.secrets/db-password  -> fams application account (DML only)
+#   deploy/.secrets/db-admin.txt -> root/localhost (DDL). Format: password=... line.
+function Read-Secret([string]$file, [string]$key = '') {
+    $path = Join-Path $root $file
+    if (-not (Test-Path $path)) { return '' }
+    if ($key) {
+        $line = Get-Content $path | Where-Object { $_ -match "^$key=" } | Select-Object -First 1
+        return if ($line) { ($line -replace "^$key=", '').Trim() } else { '' }
+    }
+    return (Get-Content $path -Raw).Trim()
+}
 $appUser = if ($env:DB_USER) { $env:DB_USER } else { 'fams' }
-$appPwd = if ($env:DB_PASSWORD) { $env:DB_PASSWORD } else { 'ZgM8Zg9PKm2CYyeYzdNs' }
+$appPwd = if ($env:DB_PASSWORD) { $env:DB_PASSWORD } else { Read-Secret 'deploy/.secrets/db-password' }
 # The application account only has DML; creating/dropping the clone needs an admin.
-# Keep the password in MYSQL_ADMIN_PWD for unattended runs; the fallback is the
-# local dev admin account documented in docs/qa (change it before real deployment).
-$adminPwd = if ($env:MYSQL_ADMIN_PWD) { $env:MYSQL_ADMIN_PWD } else { 'Fzidt@123' }
+$adminPwd = if ($env:MYSQL_ADMIN_PWD) { $env:MYSQL_ADMIN_PWD } else { Read-Secret 'deploy/.secrets/db-admin.txt' 'password' }
+if (-not $appPwd -or -not $adminPwd) { throw 'DB credentials missing: set DB_PASSWORD/MYSQL_ADMIN_PWD or populate deploy/.secrets/ (gitignored).' }
 
 Write-Host ('=== [1/5] cloning ' + $ProdDb + ' -> ' + $CloneDb + ' (read-only snapshot) ===')
 if (-not $SkipClone) {

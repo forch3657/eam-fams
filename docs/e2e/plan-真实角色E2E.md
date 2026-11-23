@@ -22,7 +22,7 @@
 - 后端：Spring Boot 2.7 + MyBatis `SqlProvider` 动态 SQL，契约驱动 CRUD（`GenericService` / `GenericController`），MySQL 8 生产库、H2 内存库单测。
 - 前端：Vue 3 + Element Plus + Pinia + Vite，契约单一真源为 `fams-frontend/src/services/contract/schema.js`，经 `npm run export:contract` 生成后端 `contract/*.json`。
 - 测试：后端 JUnit + MockMvc（`P5InventoryDepreciationTest` 等共 127 条）；E2E 复用项目既有 `@playwright/test` 与 `tests/e2e/fixtures/*`，不使用外部浏览器 CLI，避免破坏既有运行方式。
-- 部署：`stop-prod.ps1` → `build-prod.ps1` → `start-prod.ps1`；DDL 与字典迁移用 `root@localhost` / `Fzidt@123`，`fams` 只有 DML。
+- 部署：`stop-prod.ps1` → `build-prod.ps1` → `start-prod.ps1`；DDL 与字典迁移用 `root@localhost`（密码见本地 `deploy/.secrets/db-admin.txt`，文件已 gitignore），`fams` 只有 DML（应用密码见 `deploy/.secrets/db-password`）。
 
 ## 实现策略
 按「一期盘点闭环 → 二期数据闭环 → 三期口径边界 → 四期真实组织回归」串行推进。一期与二期都改 `ApprovalService.java`、`schema.js`，串行可避免同文件冲突；四期必须在功能冻结、生产栈重建后执行，保证断言针对最终行为。

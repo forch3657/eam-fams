@@ -121,7 +121,7 @@
 | 后端全量 JUnit | `mvn clean package`（build-prod.ps1 第 1 步） | 通过：149 用例，0 失败；含新增 `p14/GroupScopeGuardTest` 10 用例 |
 | 前端 4 组单测 | `npm test` | 通过：审批 211 / 低值 66 / 工作台 121 / 认证 20 |
 | 权限契约 | `npm run check:perm` | 通过：40 权限码、36 映射、68 集合 |
-| 前端构建 | `npm run build` | 通过；`dist` 检索 `Fzidt@2026!` / `Fzidt@123` / 真实手机号 **0 命中**（S-01 前端项关闭） |
+| 前端构建 | `npm run build` | 通过；`dist` 检索已知口令字样（见 `deploy/.secrets/db-admin.txt`，已 gitignore）/ 真实手机号 **0 命中**（S-01 前端项关闭） |
 | 重建生产栈 | `stop-prod.ps1 → build-prod.ps1 → start-prod.ps1` | 成功；`/api/health` 返回 `status=UP`（2026-11-16 11:11） |
 | 统一断言 | `GenericService` 16 处接入 `RowScopeGuard` | 编译通过；list/page/listInternal/get/create/update/updateQuietly/remove/batch/clear/deleteByIdQuietly/patchField/userIdsOfRole 全覆盖 |
 | 三级组织树 | `org.js` deptTree 递归 + `SystemCompany.vue` parentId 归一 | 前端单测与构建通过，待用户点测确认 |
@@ -166,7 +166,7 @@
 | 前端单测 | `npm test` | **通过**：审批 211 / 低值 66 / 工作台 121 / 认证 20 / 组织树 12，共 430 项、0 失败 |
 | 权限契约 | `npm run check:perm` | **通过**：40 权限码、36 映射、68 集合 |
 | 生产构建 | `npm run build` | **通过**（18.58s） |
-| 生产产物 | `dist` 检索 `Fzidt@2026!` / `Fzidt@123` / 真实手机号 | **0 命中** |
+| 生产产物 | `dist` 检索已知口令字样（见 `deploy/.secrets/db-admin.txt`，已 gitignore）/ 真实手机号 | **0 命中** |
 | 健康检查 | `/api/health` | **UP** |
 
 #### 数据基线只读复核

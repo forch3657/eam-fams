@@ -191,8 +191,11 @@ npm run e2e:responsive
   按依赖顺序删掉 E2E 前缀的临时账号、单据、台账资产、审批轨迹、站内信与操作日志，
   可重复执行（删干净后再跑为 0 影响）。用于「只想清测试垃圾、不想整体清空重导」的场景：
   ```powershell
-  & "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -uroot -pFzidt@123 -D fams `
+  # 管理员密码取自本地 deploy/.secrets/db-admin.txt（已 gitignore），不写入本仓库
+  $env:MYSQL_PWD = (Get-Content 'deploy/.secrets/db-admin.txt' | Where-Object { $_ -match '^password=' } | ForEach-Object { $_ -replace '^password=','' }).Trim()
+  & "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -uroot -D fams `
     -e "source F:/work/EAM-FAMS/fams-backend/sql/04-maintenance/05-cleanup-e2e-data.sql"
+  Remove-Item Env:MYSQL_PWD
   ```
   注意：删账号必须在删审批轨迹之后，否则会被「该用户已有审批记录，不能删除」拦下。
   2026-11-04 首次清理结果：删 19 账号 / 189 单据 / 189 资产 / 340 轨迹 / 38 站内信 / 4975 操作日志，
