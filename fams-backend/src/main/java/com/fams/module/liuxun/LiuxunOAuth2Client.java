@@ -77,7 +77,13 @@ public class LiuxunOAuth2Client {
             ResponseEntity<String> ar = template().exchange(authorize, HttpMethod.GET, null, String.class,
                     properties.getRedirectUri());
             collect(ar, cookies);
-            // 表单提交端点是 /login/custom/form；authorize 的 302 Location(/login/custom) 只是展示页
+            // 必须先 GET 一次登录页建立完整 session，否则柳讯登录成功但响应里没有 redirectUrl
+            HttpHeaders ph = new HttpHeaders();
+            applyCookies(ph, cookies);
+            ResponseEntity<String> page = template().exchange(properties.getBaseUrl() + "/login/custom",
+                    HttpMethod.GET, new HttpEntity<>(ph), String.class);
+            collect(page, cookies);
+
             String loginUrl = properties.getBaseUrl() + "/login/custom/form";
             Map<String, Object> loginBody = new LinkedHashMap<>();
             loginBody.put("username", phone.trim());
@@ -89,17 +95,26 @@ public class LiuxunOAuth2Client {
             ResponseEntity<String> lr = template().exchange(loginUrl, HttpMethod.POST,
                     new HttpEntity<>(objectMapper.writeValueAsString(loginBody), lh), String.class);
             collect(lr, cookies);
-            JsonNode lj = objectMapper.readTree(lr.getBody());
-            if (!lj.path("success").asBoolean(false) || lj.path("redirectUrl").asText("").isEmpty()) {
+            JsonNode lj = objectMapper.readTree(lr.getBody() == null ? "{}" : lr.getBody());
+            // 只认 success；redirectUrl 有无都不影响——登录后重新访问 authorize 即可拿到授权码
+            if (!lj.path("success").asBoolean(false)) {
                 throw new IllegalStateException("柳讯账号登录失败：" + lr.getBody());
             }
+            String redirectUrl = lj.path("redirectUrl").asText("");
 
-            String target = properties.getBaseUrl() + lj.path("redirectUrl").asText();
+            String target = redirectUrl.isEmpty() ? null
+                    : (redirectUrl.startsWith("http") ? redirectUrl : properties.getBaseUrl() + redirectUrl);
             String code = null;
             for (int i = 0; i < 5 && code == null; i++) {
                 HttpHeaders h = new HttpHeaders();
                 applyCookies(h, cookies);
-                ResponseEntity<String> rr = template().exchange(target, HttpMethod.GET, new HttpEntity<>(h), String.class);
+                ResponseEntity<String> rr;
+                if (target == null) {
+                    rr = template().exchange(authorize, HttpMethod.GET, new HttpEntity<>(h), String.class,
+                            properties.getRedirectUri());
+                } else {
+                    rr = template().exchange(target, HttpMethod.GET, new HttpEntity<>(h), String.class);
+                }
                 collect(rr, cookies);
                 java.net.URI loc = rr.getHeaders().getLocation();
                 if (loc == null) break;

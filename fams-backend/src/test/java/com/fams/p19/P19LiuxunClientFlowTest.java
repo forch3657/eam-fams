@@ -64,6 +64,8 @@ class P19LiuxunClientFlowTest {
         server.expect(requestTo(base + "/oauth/authorize?client_id=" + cp
                         + "&response_type=code&redirect_uri=" + ru))
                 .andRespond(redirect(base + "/login/custom"));
+        server.expect(requestTo(base + "/login/custom"))
+                .andRespond(withSuccess("<html>login</html>", MediaType.TEXT_HTML));
         server.expect(requestTo(base + "/login/custom/form"))
                 .andRespond(withSuccess("{\"success\":true,\"redirectUrl\":\"/oauth/authorize?step=2\"}",
                         MediaType.APPLICATION_JSON));
@@ -87,6 +89,45 @@ class P19LiuxunClientFlowTest {
             assertThatThrownBy(() -> client.userToken("", ""))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("请填写柳讯手机号和密码");
+        } finally {
+            properties.setMock(originalMock);
+        }
+    }
+
+    @Test
+    @DisplayName("登录成功但柳讯不返回 redirectUrl 时仍能拿授权码（真实复现场景）")
+    void loginSuccessWithoutRedirectUrl() throws Exception {
+        boolean originalMock = properties.isMock();
+        try {
+            properties.setMock(false);
+            Field f = LiuxunOAuth2Client.class.getDeclaredField("restTemplate");
+            f.setAccessible(true);
+            original = (RestTemplate) f.get(client);
+            RestTemplate mt = new RestTemplate();
+            f.set(client, mt);
+            MockRestServiceServer server = MockRestServiceServer.createServer(mt);
+            String base = properties.getBaseUrl();
+            String cp = properties.getClientId();
+            String ru = properties.getRedirectUri();
+
+            server.expect(requestTo(base + "/oauth/authorize?client_id=" + cp
+                            + "&response_type=code&redirect_uri=" + ru))
+                    .andRespond(redirect(base + "/login/custom"));
+            server.expect(requestTo(base + "/login/custom"))
+                    .andRespond(withSuccess("<html>login</html>", MediaType.TEXT_HTML));
+            server.expect(requestTo(base + "/login/custom/form"))
+                    .andRespond(withSuccess("{\"success\":true,\"message\":\"登录成功\"}", MediaType.APPLICATION_JSON));
+            // 无 redirectUrl：代码回退到重新请求 authorize
+            server.expect(requestTo(base + "/oauth/authorize?client_id=" + cp
+                            + "&response_type=code&redirect_uri=" + ru))
+                    .andRespond(redirect("http://192.168.60.66/oauth/callback?code=NO-REDIRECT-CODE"));
+            server.expect(requestTo(base + "/oauth/token"))
+                    .andRespond(withSuccess("{\"access_token\":\"USER-TOKEN-2\",\"token_type\":\"bearer\","
+                            + "\"expires_in\":7199,\"scope\":\"contact\",\"jti\":\"x\"}",
+                            MediaType.APPLICATION_JSON));
+
+            assertThat(client.userToken("13900000001", "Pass@2026!ab")).isEqualTo("USER-TOKEN-2");
+            server.verify();
         } finally {
             properties.setMock(originalMock);
         }
