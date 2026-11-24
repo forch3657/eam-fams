@@ -50,15 +50,8 @@ public class LiuxunProperties {
     /** mock 模式返回的姓名 */
     private String mockUserName = "测试用户";
 
-    /** 自动建号：默认角色编码（按 org-roles.code 解析），待业务确认 */
-    private String defaultRoleCode = "ROLE_USER";
-
-    /** 自动建号：默认岗位名称（org-user-positions.position 自由文本），待业务确认 */
-    private String defaultPosition = "职员";
-
-    /** 自动建号：默认归属公司 ID，待业务确认 */
-    private String defaultCompanyId = "C1";
-
-    /** 自动建号：默认归属部门 ID，待业务确认 */
-    private String defaultDeptId = "D1";
+    // 说明（2026-11-24）：已取消自动建号。柳讯用户必须先在用户管理里预置
+    // （配好公司/部门/角色），未预置账号一律拒绝登录。原来的
+    // defaultRoleCode/defaultPosition/defaultCompanyId/defaultDeptId 四项
+    // 自动建号配置已移除，避免误以为新用户会落到某个默认组织。
 }

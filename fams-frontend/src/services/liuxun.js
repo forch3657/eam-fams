@@ -40,7 +40,7 @@ export function applySession(res) {
   return res.user || {}
 }
 
-/** mock 自检：验证自动建号 + 待办 CRUD 链路 */
+/** mock 自检：验证预置账号免登 + 待办 CRUD 链路（未预置账号应被拒绝） */
 export async function mockSelfTest() {
   return request('/auth/liuxun/mock-selftest', { method: 'POST', data: {} })
 }

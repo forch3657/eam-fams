@@ -38,10 +38,6 @@ if (-not $env:LIUXUN_CLIENT_SECRET -and (Test-Path $liuxunSecretFile)) {
 if (-not $env:LIUXUN_CLIENT_ID) { $env:LIUXUN_CLIENT_ID = '100000050' }
 if (-not $env:LIUXUN_APP_ID) { $env:LIUXUN_APP_ID = 'f5f2b942-4044-4791-8424-53b82bc99758' }
 if (-not $env:LIUXUN_REDIRECT_URI) { $env:LIUXUN_REDIRECT_URI = 'http://192.168.60.66/oauth/callback' }
-if (-not $env:LIUXUN_DEFAULT_ROLE) { $env:LIUXUN_DEFAULT_ROLE = 'ROLE_USER' }
-if (-not $env:LIUXUN_DEFAULT_POSITION) { $env:LIUXUN_DEFAULT_POSITION = '职员' }
-if (-not $env:LIUXUN_DEFAULT_COMPANY) { $env:LIUXUN_DEFAULT_COMPANY = 'C1' }
-if (-not $env:LIUXUN_DEFAULT_DEPT) { $env:LIUXUN_DEFAULT_DEPT = 'D1' }
 Write-Host ('LiuXun mode: mock=' + $env:LIUXUN_MOCK + ' client=' + $env:LIUXUN_CLIENT_ID)
 $java = 'java'
 if ($env:JAVA_HOME) { $java = Join-Path $env:JAVA_HOME 'bin/java.exe' }

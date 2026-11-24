@@ -39,8 +39,8 @@ public class LiuxunController {
     }
 
     /**
-     * 授权码换本地会话：code → 柳讯 token + account_info → 本地用户映射/建号 → 自有 JWT。
-     * 返回结构与 /api/auth/login 完全一致，前端可直接复用登录态写入逻辑。
+     * 授权码换本地会话：code → 柳讯 token + account_info → 映射既有本地账号 → 自有 JWT。
+     * 未预置账号直接拒绝（不自动建号），返回结构与 /api/auth/login 一致，前端可复用登录态写入。
      */
     @PostMapping("/token")
     public R<LoginResponse> token(@RequestBody(required = false) Map<String, Object> body) {
@@ -54,7 +54,7 @@ public class LiuxunController {
             if (account == null || (account.getUserName() == null && account.getTelephone() == null)) {
                 return R.fail(ErrorCode.UNAUTHORIZED, "柳讯未返回用户手机号，无法映射本地账号");
             }
-            Map<String, Object> local = userService.resolveOrCreate(account);
+            Map<String, Object> local = userService.resolveExisting(account);
             String username = String.valueOf(local.get("username"));
             String positionId = userService.primaryPositionIdOf(String.valueOf(local.get("id")));
             String jwt = jwtProvider.generate(username, positionId);
@@ -70,7 +70,7 @@ public class LiuxunController {
         }
     }
 
-    /** mock 自检：走一遍建号 + 待办 CRUD，不依赖柳讯配置 */
+    /** mock 自检：走一遍预置账号免登 + 待办 CRUD，不依赖柳讯配置 */
     @PostMapping("/mock-selftest")
     public R<Map<String, Object>> mockSelfTest(@RequestBody(required = false) Map<String, Object> body) {
         if (!oauth2Client.publicConfig().get("mock").equals(Boolean.TRUE)) {
@@ -79,7 +79,7 @@ public class LiuxunController {
         Map<String, Object> report = new LinkedHashMap<>();
         try {
             LiuxunAccount account = new LiuxunAccount(157L, "13625070487", "测试用户", "13625070487", "", "");
-            Map<String, Object> local = userService.resolveOrCreate(account);
+            Map<String, Object> local = userService.resolveExisting(account);
             report.put("username", local.get("username"));
             report.put("name", local.get("name"));
             report.put("roleIds", local.get("roleIds"));

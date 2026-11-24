@@ -65,10 +65,8 @@ fams:
     mock-user-phone: ${LIUXUN_MOCK_PHONE:13625070487}
     mock-user-id: ${LIUXUN_MOCK_USER_ID:157}
     mock-user-name: ${LIUXUN_MOCK_NAME:测试用户}
-    default-role-code: ${LIUXUN_DEFAULT_ROLE:ROLE_USER}
-    default-position: ${LIUXUN_DEFAULT_POSITION:职员}
-    default-company-id: ${LIUXUN_DEFAULT_COMPANY:C1}
-    default-dept-id: ${LIUXUN_DEFAULT_DEPT:D1}
+    # 已取消自动建号：柳讯用户必须先在用户管理预置，未预置账号拒绝登录。
+    # （原 LIUXUN_DEFAULT_ROLE/POSITION/COMPANY/DEPT 已移除）
 
 # D3 可观测性：actuator 指标与探活
 management:
