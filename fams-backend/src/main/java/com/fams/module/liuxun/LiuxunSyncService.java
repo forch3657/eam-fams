@@ -4,6 +4,8 @@ import com.fams.common.ErrorCode;
 import com.fams.engine.GenericService;
 import com.fams.engine.RowCodec;
 import com.fams.common.ApiException;
+import com.fams.imports.OrgStructureImportService;
+import org.springframework.web.multipart.MultipartFile;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -58,6 +60,7 @@ public class LiuxunSyncService {
     private final LiuxunProperties properties;
     private final LiuxunOAuth2Client oauth2Client;
     private final ObjectMapper objectMapper;
+    private final OrgStructureImportService orgImportService;
     private volatile RestTemplate restTemplate;
 
     /** 拉取通讯录并解析为「待预置」计划，不写库。 */
@@ -227,6 +230,124 @@ public class LiuxunSyncService {
         result.put("errors", errors);
         result.put("ok", errors.isEmpty());
         return result;
+    }
+
+    /**
+     * 只预置组织（公司/部门），不建用户、不建岗位。
+     *
+     * <p>数据源：{@code GET /api/user/organization/tree}（用户 token，当前可用）。
+     * 注意该接口只返回当前同步账号所在公司的组织链，不是全量组织——用户已知悉并接受先建可见部分。
+     * 写入不自己实现：生成一份「只含公司/部门列」的 CSV，交给现成的
+     * {@link OrgStructureImportService#doImport}，复用其多级层级解析、按名称幂等复用、
+     * genericService.create 全部校验与审计，不重复造轮子、不覆盖手工数据。</p>
+     */
+    public Map<String, Object> applyOrganizationsOnly(String userToken) {
+        List<ContactNode> tree = fetchOrganizationTree(userToken);
+        List<String[]> orgRows = new ArrayList<>();
+        for (ContactNode root : tree) {
+            walkOrg(root, null, null, orgRows);
+        }
+        if (orgRows.isEmpty()) {
+            throw new IllegalStateException("柳讯组织树为空，未创建任何组织");
+        }
+
+        StringBuilder csv = new StringBuilder();
+        csv.append(String.join(",", OrgStructureImportService.COLUMNS)).append('\n');
+        for (String[] r : orgRows) {
+            for (int i = 0; i < r.length; i++) {
+                if (i > 0) csv.append(',');
+                csv.append(csvCell(r[i]));
+            }
+            csv.append('\n');
+        }
+        MultipartFile file = new CsvMultipartFile(
+                ("\uFEFF" + csv.toString()).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        try {
+            OrgStructureImportService.OrgImportResult result =
+                    orgImportService.doImport(file, true); // 任一非法整批回滚，避免建一半
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("status", result.status);
+            out.put("rows", result.total);
+            out.put("createdCompanies", result.createdCompanies);
+            out.put("reusedCompanies", result.reusedCompanies);
+            out.put("createdDepartments", result.createdDepartments);
+            out.put("reusedDepartments", result.reusedDepartments);
+            out.put("createdUsers", result.createdUsers);
+            out.put("createdPositions", result.createdPositions);
+            List<String> failures = new ArrayList<>();
+            for (OrgStructureImportService.OrgImportResult.Failure f : result.failures) {
+                failures.add("第" + f.row + "行：" + f.message);
+            }
+            out.put("failures", failures);
+            out.put("ok", failures.isEmpty()
+                    && !"REJECTED_INVALID".equalsIgnoreCase(String.valueOf(result.status))
+                    && !"FAILED".equalsIgnoreCase(String.valueOf(result.status)));
+            out.put("note", "只建公司/部门，未建用户与岗位；已存在组织按名称复用，不覆盖本地数据。");
+            return out;
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("组织 CSV 生成失败：" + e.getMessage(), e);
+        }
+    }
+
+    /** 拉取组织树（用户级接口，当前 /api/contacts 500 时的可用数据源） */
+    private List<ContactNode> fetchOrganizationTree(String userToken) {
+        if (properties.isMock()) return mockTree();
+        if (userToken == null || userToken.trim().isEmpty()) {
+            throw new IllegalStateException("请先从柳讯 Swagger 页面 Authorize 登录后复制 access_token，粘贴到页面上");
+        }
+        String token = userToken.trim().replaceFirst("^Bearer\\s+", "");
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        try {
+            ResponseEntity<String> response = template().exchange(
+                    properties.getBaseUrl() + "/api/user/organization/tree", HttpMethod.GET,
+                    new HttpEntity<>(headers), String.class);
+            JsonNode root = objectMapper.readTree(response.getBody());
+            JsonNode result = root.path("result");
+            List<ContactNode> nodes = new ArrayList<>();
+            if (result.isArray()) {
+                for (JsonNode n : result) nodes.add(toNode(n));
+            }
+            if (nodes.isEmpty()) {
+                throw new IllegalStateException("柳讯组织树为空；请检查同步账号是否配置了组织");
+            }
+            return nodes;
+        } catch (RestClientException e) {
+            throw new IllegalStateException("柳讯组织树接口不可用：" + e.getMessage(), e);
+        } catch (Exception e) {
+            if (e instanceof IllegalStateException) throw (IllegalStateException) e;
+            throw new IllegalStateException("柳讯组织树解析失败：" + e.getMessage(), e);
+        }
+    }
+
+    /** 把组织节点树展开为「只含公司/部门列」的导入行：公司/上级公司/部门/上级部门 */
+    private void walkOrg(ContactNode node, String companyName, String parentDeptName, List<String[]> rows) {
+        if (node.type == 1) {
+            String[] row = new String[OrgStructureImportService.COLUMNS.size()];
+            row[0] = node.name;                 // 公司名称
+            row[1] = "";                        // 公司编码：留空由导入器生成 GS-xxxx
+            row[2] = "";                        // 部门名称：空 = 本行只建公司
+            row[3] = "";                        // 上级部门
+            row[12] = companyName == null ? "" : companyName; // 上级公司
+            rows.add(row);
+            for (ContactNode child : node.children) walkOrg(child, node.name, null, rows);
+        } else if (node.type == 2) {
+            String[] row = new String[OrgStructureImportService.COLUMNS.size()];
+            row[0] = companyName == null ? "" : companyName;
+            row[2] = node.name;                 // 部门名称
+            row[3] = parentDeptName == null ? "" : parentDeptName; // 上级部门
+            row[12] = "";                       // 部门行的上级公司留空（公司由第 0 列指定）
+            rows.add(row);
+            for (ContactNode child : node.children) {
+                walkOrg(child, companyName, child.type == 2 ? node.name : null, rows);
+            }
+        }
+    }
+
+    private static String csvCell(String s) {
+        String v = s == null ? "" : s;
+        return v.contains(",") || v.contains("\"") || v.contains("\n")
+                ? "\"" + v.replace("\"", "\"\"") + "\"" : v;
     }
 
     /** 按公司批量启用：status != ENABLED 的用户置为 ENABLED。 */
@@ -516,6 +637,24 @@ public class LiuxunSyncService {
         final Set<String> deptKeys = new LinkedHashSet<>();
         final List<ContactPerson> people = new ArrayList<>();
         final List<ContactPerson> uniquePeople = new ArrayList<>();
+    }
+
+    /** 仅内存使用的 CSV MultipartFile，专供复用组织导入服务 */
+    private static class CsvMultipartFile implements MultipartFile {
+        private final byte[] bytes;
+
+        CsvMultipartFile(byte[] bytes) { this.bytes = bytes; }
+
+        public String getName() { return "file"; }
+        public String getOriginalFilename() { return "liuxun-org.csv"; }
+        public String getContentType() { return "text/plain"; }
+        public boolean isEmpty() { return bytes.length == 0; }
+        public long getSize() { return bytes.length; }
+        public byte[] getBytes() { return bytes; }
+        public java.io.InputStream getInputStream() { return new java.io.ByteArrayInputStream(bytes); }
+        public void transferTo(java.io.File dest) throws java.io.IOException {
+            java.nio.file.Files.write(dest.toPath(), bytes);
+        }
     }
 
     private static class LocalIndex {

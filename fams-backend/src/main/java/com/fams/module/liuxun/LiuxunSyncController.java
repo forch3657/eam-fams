@@ -61,6 +61,25 @@ public class LiuxunSyncController {
         }
     }
 
+    /**
+     * 只预置组织（公司/部门）：柳讯组织树 → 现成组织架构导入服务。
+     * 不建用户/岗位、按名称幂等复用、多级层级完整保留。
+     */
+    @PostMapping("/apply-organizations")
+    public R<Map<String, Object>> applyOrganizations(@RequestBody(required = false) Map<String, Object> body) {
+        requireOrgWrite();
+        String token = body == null ? "" : String.valueOf(body.getOrDefault("userToken", ""));
+        try {
+            return R.ok(syncService.applyOrganizationsOnly(token));
+        } catch (IllegalStateException e) {
+            log.warn("[liuxun-sync] 组织预置失败: {}", e.getMessage());
+            return R.fail(ErrorCode.SERVER, e.getMessage());
+        } catch (Exception e) {
+            log.error("[liuxun-sync] 组织预置异常", e);
+            return R.fail(ErrorCode.SERVER, "组织预置失败：" + e.getMessage());
+        }
+    }
+
     /** 按公司批量启用该公司下所有未启用的用户 */
     @PostMapping("/enable-by-company")
     public R<Map<String, Object>> enableByCompany(@RequestBody(required = false) Map<String, Object> body) {

@@ -101,6 +101,39 @@ class P19LiuxunSyncTest {
     }
 
     @Test
+    @DisplayName("只预置组织：走现成导入服务，多级层级正确、重复执行不产生重复公司/部门、不建用户")
+    void applyOrganizationsOnlyIsIdempotentAndNoUsers() throws Exception {
+        JsonNode first = call("/api/liuxun-sync/apply-organizations").path("data");
+        assertThat(first.path("ok").asBoolean()).as(first.path("failures").toString()).isTrue();
+        assertThat(first.path("createdCompanies").asInt() + first.path("reusedCompanies").asInt())
+                .isGreaterThanOrEqualTo(2);
+        assertThat(first.path("createdDepartments").asInt() + first.path("reusedDepartments").asInt())
+                .isGreaterThanOrEqualTo(2);
+        assertThat(first.path("createdUsers").asInt()).isEqualTo(0);
+        assertThat(first.path("createdPositions").asInt()).isEqualTo(0);
+
+        // 层级：示例研究院的上级为示例集团（mock 树为 集团→研究院→两个部门）
+        Map<String, String[]> q = new HashMap<>();
+        q.put("name", new String[]{"示例研究院（mock）"});
+        List<Map<String, Object>> subs = genericService.listInternal("org-companies", q);
+        assertThat(subs).hasSize(1);
+        // 若该公司由本组织导入路径创建（GS- 前缀），必须带上 parentId；
+        // 若由前序全量预置测试创建（LX- 前缀），复用不覆盖属预期行为，不校验层级。
+        if (str(subs.get(0).get("code")).startsWith("GS-")) {
+            assertThat(str(subs.get(0).get("parentId"))).isNotBlank();
+            assertThat(str(subs.get(0).get("parentId"))).isNotEqualTo("0");
+        }
+
+        // 再跑一次：全部复用，不新建
+        JsonNode second = call("/api/liuxun-sync/apply-organizations").path("data");
+        assertThat(second.path("ok").asBoolean()).as(second.path("failures").toString()).isTrue();
+        assertThat(second.path("createdCompanies").asInt()).as("重复执行不应新建公司").isEqualTo(0);
+        assertThat(second.path("createdDepartments").asInt()).as("重复执行不应新建部门").isEqualTo(0);
+        assertThat(second.path("reusedCompanies").asInt()).isGreaterThanOrEqualTo(2);
+        assertThat(second.path("reusedDepartments").asInt()).isGreaterThanOrEqualTo(2);
+    }
+
+    @Test
     @DisplayName("预览 / 预置 / 批量启用要求登录态")
     void endpointsRequireAuth() throws Exception {
         mockMvc.perform(post("/api/liuxun-sync/preview").contentType(MediaType.APPLICATION_JSON).content("{}"))
@@ -108,6 +141,8 @@ class P19LiuxunSyncTest {
         mockMvc.perform(post("/api/liuxun-sync/apply").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isUnauthorized());
         mockMvc.perform(post("/api/liuxun-sync/enable-by-company").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/liuxun-sync/apply-organizations").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isUnauthorized());
     }
 
