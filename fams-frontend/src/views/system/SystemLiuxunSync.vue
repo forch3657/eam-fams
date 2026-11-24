@@ -16,7 +16,29 @@
       description="预置只建人员档案并默认启用，不分配任何角色；新用户在「用户管理」中补配角色后才能看到数据。已存在的公司/部门/用户一律跳过，不覆盖本地维护。"
     />
 
-    <!-- 功能一（当前可用）：只预置组织 -->
+    <!-- 柳讯账号：两个同步功能共用，现场换 token 不落库 -->
+    <el-card shadow="never" class="panel org-panel">
+      <template #header>
+        <div class="card-header">
+          <span>柳讯账号（下方两个同步功能共用）</span>
+        </div>
+      </template>
+      <p class="org-hint">
+        柳讯通讯录接口已恢复，可拉取<b>全量公司 / 部门 / 人员</b>。两个同步功能都需要用户登录态，请填写柳讯账号密码。
+      </p>
+      <div class="token-row">
+        <span class="token-label">柳讯账号</span>
+        <el-input v-model="liuxunPhone" size="small" clearable placeholder="柳讯手机号，如 18695732703" style="width: 200px" />
+        <span class="token-label">密码</span>
+        <el-input v-model="liuxunPassword" type="password" show-password size="small" clearable
+          placeholder="柳讯账号密码" style="width: 200px" @keyup.enter="loadPreview" />
+      </div>
+      <div class="token-help">
+        账号密码只在本次请求中用于换取用户 token，<b>不保存、不写日志、不进数据库</b>。
+      </div>
+    </el-card>
+
+    <!-- 功能一（备选）：只预置组织 -->
     <el-card shadow="never" class="panel org-panel">
       <template #header>
         <div class="card-header">
@@ -24,21 +46,13 @@
         </div>
       </template>
       <p class="org-hint">
-        从柳讯「用户所在部门组织架构树」拉取可见的公司/部门，交给系统现成的组织导入逻辑创建：
-        <b>按名称复用、不重复、保留多级上下级、不建用户不改账号</b>。柳讯通讯录接口恢复后，再用下方「批量预置」补人员。
+        从上方账号「所在部门组织架构树」拉取可见的公司/部门，交给系统现成的组织导入逻辑创建：
+        <b>按名称复用、不重复、保留多级上下级、不建用户不改账号</b>。此功能只建组织、范围仅限该账号可见链路；要拿全量组织+人员请用下方「批量预置」。
       </p>
       <div class="token-row">
-        <span class="token-label">柳讯账号</span>
-        <el-input v-model="liuxunPhone" size="small" clearable placeholder="柳讯手机号，如 18695732703" style="width: 200px" />
-        <span class="token-label">密码</span>
-        <el-input v-model="liuxunPassword" type="password" show-password size="small" clearable
-          placeholder="柳讯账号密码" style="width: 200px" @keyup.enter="confirmOrgApply" />
         <el-button type="primary" size="small" :loading="orgApplying" :disabled="!liuxunPhone || !liuxunPassword" @click="confirmOrgApply">
           从柳讯组织树创建组织
         </el-button>
-      </div>
-      <div class="token-help">
-        填任意一个有组织配置的柳讯账号即可（如 18695732703）。账号密码只在本次请求中用于换取 token，<b>不保存、不写日志、不进数据库</b>。
       </div>
       <el-alert v-if="orgResult" :type="orgResult.ok ? 'success' : 'warning'" :closable="false" show-icon class="org-result">
         <template #title>
@@ -52,7 +66,7 @@
       </el-alert>
     </el-card>
 
-    <!-- 功能二：批量预置（通讯录接口 500 期间不可用） -->
+    <!-- 功能二（主力）：批量预置，通讯录恢复后可拉全量公司/部门/人员 -->
     <el-card shadow="never" class="panel">
       <template #header>
         <div class="card-header">
@@ -90,7 +104,8 @@
         <el-tabs v-model="activeTab" class="preview-tabs">
           <el-tab-pane label="公司" name="companies">
             <el-table :data="previewData.companies" border stripe size="small" max-height="360">
-              <el-table-column prop="name" label="公司名称" min-width="240" />
+              <el-table-column prop="name" label="公司名称" min-width="220" />
+              <el-table-column prop="parentName" label="上级公司" min-width="180" />
               <el-table-column prop="action" label="处理" width="110">
                 <template #default="{ row }">
                   <el-tag :type="row.action === 'CREATE' ? 'success' : 'info'" size="small" effect="light">
@@ -102,8 +117,9 @@
           </el-tab-pane>
           <el-tab-pane label="部门" name="departments">
             <el-table :data="previewData.departments" border stripe size="small" max-height="360">
-              <el-table-column prop="companyName" label="所属公司" min-width="200" />
-              <el-table-column prop="name" label="部门名称" min-width="180" />
+              <el-table-column prop="companyName" label="所属公司" min-width="180" />
+              <el-table-column prop="name" label="部门名称" min-width="150" />
+              <el-table-column prop="parentName" label="上级部门" min-width="150" />
               <el-table-column prop="action" label="处理" width="110">
                 <template #default="{ row }">
                   <el-tag :type="row.action === 'CREATE' ? 'success' : 'info'" size="small" effect="light">
@@ -180,7 +196,7 @@
         <li><b>不创建用户、不创建岗位、不改任何账号</b></li>
       </ul>
       <el-alert type="info" :closable="false" show-icon
-        title="当前柳讯组织树接口只返回该账号所在链路，不是全量组织；如需全量请等通讯录接口恢复。" />
+        title="此功能只建组织、范围仅限该账号可见链路；全量组织+人员请用下方「批量预置」。" />
       <template #footer>
         <el-button @click="orgDialog = false">取消</el-button>
         <el-button type="primary" :loading="orgApplying" @click="doOrgApply">确认创建</el-button>
@@ -195,6 +211,8 @@
         <li>用户 <b>{{ previewData?.stats.createUsers || 0 }}</b> 个（去重后）</li>
       </ul>
       <el-alert type="info" :closable="false" show-icon title="新用户默认启用，但未分配角色，登录后暂无可见数据；请到用户管理补配角色。" />
+      <el-alert type="warning" :closable="false" show-icon
+        title="首次全量写入约 2000+ 条，需数分钟，请耐心等待、不要关闭页面或重复点击；重复执行是安全的（已存在自动跳过）。" />
       <template #footer>
         <el-button @click="applyDialog = false">取消</el-button>
         <el-button type="primary" :loading="applying" @click="doApply">确认预置</el-button>
@@ -279,13 +297,20 @@ async function doOrgApply() {
 }
 
 async function loadPreview() {
+  if (!liuxunPhone.value || !liuxunPassword.value) {
+    ElMessage.warning('请先在上方填写柳讯手机号和密码（通讯录接口需要用户登录态）')
+    return
+  }
   previewing.value = true
   try {
-    const res = await syncPreview()
+    const res = await syncPreview(liuxunPhone.value, liuxunPassword.value)
     previewData.value = res
     activeTab.value = 'users'
   } catch (e) {
-    ElMessage.error(typeof e === 'string' ? e : (e?.message || '拉取通讯录失败'))
+    const msg = typeof e === 'string' ? e : (e?.message || '拉取通讯录失败')
+    ElMessage.error(msg.includes('超时')
+      ? '拉取通讯录超时：请稍后重试；若已开始写入请勿重复点击'
+      : msg)
   } finally {
     previewing.value = false
   }
@@ -298,7 +323,7 @@ function confirmApply() {
 async function doApply() {
   applying.value = true
   try {
-    const res = await syncApply()
+    const res = await syncApply(liuxunPhone.value, liuxunPassword.value)
     applyDialog.value = false
     const errors = res.errors || []
     if (errors.length) {
@@ -315,7 +340,10 @@ async function doApply() {
     orgStore.loadAll()
     previewData.value = null
   } catch (e) {
-    ElMessage.error(typeof e === 'string' ? e : (e?.message || '批量预置失败'))
+    const msg = typeof e === 'string' ? e : (e?.message || '批量预置失败')
+    ElMessage.error(msg.includes('超时')
+      ? '前端等待超时，但后端可能仍在写入：请稍后刷新「公司管理」确认结果，切勿重复点击（重复执行安全但耗时）'
+      : msg)
   } finally {
     applying.value = false
   }

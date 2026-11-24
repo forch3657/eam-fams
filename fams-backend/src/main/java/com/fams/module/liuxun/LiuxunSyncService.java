@@ -42,8 +42,9 @@ import java.util.Set;
  * </ul>
  * </p>
  *
- * <p>真实模式从 {@code GET /api/contacts} 拉组织树、{@code GET /api/user/all} 取手机号；
- * 当前柳讯通讯录接口服务端 500（见文档），会抛出带明确提示的异常。mock 模式返回内置样本。</p>
+ * <p>真实模式从 {@code GET /api/contacts} 拉组织树（柳讯 2026-11-24 修复后可用，
+     * 但需用户 token，见 {@link #fetchContacts}）、{@code GET /api/user/all} 取手机号。
+     * mock 模式返回内置样本。</p>
  */
 @Slf4j
 @Service
@@ -64,22 +65,25 @@ public class LiuxunSyncService {
     private volatile RestTemplate restTemplate;
 
     /** 拉取通讯录并解析为「待预置」计划，不写库。 */
-    public Map<String, Object> preview() {
-        List<ContactNode> tree = fetchContacts();
+    public Map<String, Object> preview(String liuxunPhone, String liuxunPassword) {
+        List<ContactNode> tree = fetchContacts(liuxunPhone, liuxunPassword);
         Map<Integer, String> phoneById = loadLiuxunUserPhones();
         ParseResult parsed = flatten(tree, null, null, phoneById);
 
         LocalIndex local = loadLocalIndex();
         List<Map<String, Object>> companyRows = new ArrayList<>();
         for (String name : parsed.companies) {
-            companyRows.add(row("name", name, "action",
-                    local.companyIdByName.containsKey(name) ? "SKIP" : "CREATE"));
+            companyRows.add(row("name", name,
+                    "parentName", isEmpty(parsed.companyParent.get(name)) ? "（集团本级）" : parsed.companyParent.get(name),
+                    "action", local.companyIdByName.containsKey(name) ? "SKIP" : "CREATE"));
         }
         List<Map<String, Object>> deptRows = new ArrayList<>();
         for (String key : parsed.deptKeys) {
             String[] p = key.split("\\|\\|", -1);
-            deptRows.add(row("companyName", p[0], "name", p[1], "action",
-                    local.deptIdByKey.containsKey(key) ? "SKIP" : "CREATE"));
+            String parentKey = parsed.deptParent.get(key);
+            String parentName = isEmpty(parentKey) ? "" : parentKey.split("\\|\\|", -1)[1];
+            deptRows.add(row("companyName", p[0], "name", p[1], "parentName", parentName,
+                    "action", local.deptIdByCompanyNameKey.containsKey(key) ? "SKIP" : "CREATE"));
         }
         List<Map<String, Object>> userRows = new ArrayList<>();
         for (ContactPerson person : parsed.uniquePeople) {
@@ -117,8 +121,8 @@ public class LiuxunSyncService {
     }
 
     /** 执行预置：重新拉一次通讯录（避免用过期预览），公司→部门→用户→岗位顺序写入。 */
-    public Map<String, Object> apply() {
-        List<ContactNode> tree = fetchContacts();
+    public Map<String, Object> apply(String liuxunPhone, String liuxunPassword) {
+        List<ContactNode> tree = fetchContacts(liuxunPhone, liuxunPassword);
         Map<Integer, String> phoneById = loadLiuxunUserPhones();
         ParseResult parsed = flatten(tree, null, null, phoneById);
         LocalIndex local = loadLocalIndex();
@@ -133,6 +137,15 @@ public class LiuxunSyncService {
                 body.put("name", name);
                 body.put("code", "LX-" + nextSuffix("LX-", local.companyCodes));
                 body.put("status", ENABLED);
+                String parentName = parsed.companyParent.get(name);
+                if (!isEmpty(parentName)) {
+                    String parentId = local.companyIdByName.get(parentName);
+                    if (isEmpty(parentId)) {
+                        errors.add("公司「" + name + "」跳过：上级公司「" + parentName + "」未就绪");
+                        continue;
+                    }
+                    body.put("parentId", parentId);
+                }
                 Map<String, Object> saved = genericService.create(COMPANIES, body);
                 local.companyIdByName.put(name, str(saved.get("id")));
                 local.companyCodes.add(str(body.get("code")));
@@ -145,7 +158,8 @@ public class LiuxunSyncService {
         for (String key : parsed.deptKeys) {
             String[] p = key.split("\\|\\|", -1);
             String companyName = p[0], name = p[1];
-            if (local.deptIdByKey.containsKey(key)) continue;
+            // 幂等判断必须和通讯录树同口径（公司名||部门名），否则每次都重复建
+            if (local.deptIdByCompanyNameKey.containsKey(key)) continue;
             String companyId = local.companyIdByName.get(companyName);
             if (companyId == null) {
                 errors.add("部门「" + name + "」跳过：公司「" + companyName + "」未就绪");
@@ -157,8 +171,18 @@ public class LiuxunSyncService {
                 body.put("code", "LXD-" + nextSuffix("LXD-", local.deptCodes));
                 body.put("companyId", companyId);
                 body.put("status", ENABLED);
+                String parentKey = parsed.deptParent.get(key);
+                if (!isEmpty(parentKey)) {
+                    String parentId = local.deptIdByCompanyNameKey.get(parentKey);
+                    if (isEmpty(parentId)) {
+                        errors.add("部门「" + companyName + "/" + name + "」跳过：上级部门未就绪");
+                        continue;
+                    }
+                    body.put("parentId", parentId);
+                }
                 Map<String, Object> saved = genericService.create(DEPARTMENTS, body);
-                local.deptIdByKey.put(key, str(saved.get("id")));
+                local.deptIdByCompanyNameKey.put(key, str(saved.get("id")));
+                local.deptIdByKey.put(companyId + "||" + name, str(saved.get("id")));
                 local.deptCodes.add(str(body.get("code")));
                 createdDepartments++;
             } catch (Exception e) {
@@ -383,9 +407,18 @@ public class LiuxunSyncService {
 
     // ------------------------------------------------------------------ 通讯录获取
 
-    private List<ContactNode> fetchContacts() {
+    /**
+     * 拉取柳讯全量通讯录。2026-11-24 柳讯修复服务端后，该接口可用，但仅接受
+     * <b>用户 token</b>（client token 即便含 contact scope 仍 403），因此需账号密码
+     * 现场换 token；响应体是 {@code {code, result:{allOrgStructureVOs,...}}}，
+     * 组织树在 result 下（旧实现误读顶层字段，导致空树）。
+     */
+    private List<ContactNode> fetchContacts(String phone, String password) {
         if (properties.isMock()) return mockTree();
-        String token = oauth2Client.clientToken().getAccessToken();
+        if (phone == null || phone.trim().isEmpty() || password == null || password.isEmpty()) {
+            throw new IllegalStateException("请填写柳讯手机号和密码（通讯录接口需要用户登录态）");
+        }
+        String token = oauth2Client.userToken(phone, password);
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(token);
         try {
@@ -393,18 +426,21 @@ public class LiuxunSyncService {
                     properties.getBaseUrl() + "/api/contacts", HttpMethod.GET,
                     new HttpEntity<>(headers), String.class);
             JsonNode root = objectMapper.readTree(response.getBody());
-            JsonNode all = root.path("allOrgStructureVOs");
+            int code = root.path("code").asInt(-1);
+            if (code != 0) {
+                throw new IllegalStateException("柳讯通讯录返回错误 code=" + code + "：" + response.getBody());
+            }
+            JsonNode all = root.path("result").path("allOrgStructureVOs");
             List<ContactNode> nodes = new ArrayList<>();
             if (all.isArray()) {
                 for (JsonNode n : all) nodes.add(toNode(n));
             }
             if (nodes.isEmpty()) {
-                throw new IllegalStateException("柳讯通讯录返回空组织树；请确认账号权限");
+                throw new IllegalStateException("柳讯通讯录返回空组织树；请确认同步账号的通讯录权限");
             }
             return nodes;
         } catch (RestClientException e) {
-            throw new IllegalStateException("柳讯通讯录接口不可用（" + e.getMessage()
-                    + "）：实测客户端 token 403 / 用户 token 500，需柳讯方修复该接口", e);
+            throw new IllegalStateException("柳讯通讯录接口不可用：" + e.getMessage(), e);
         } catch (Exception e) {
             if (e instanceof IllegalStateException) throw (IllegalStateException) e;
             throw new IllegalStateException("柳讯通讯录解析失败：" + e.getMessage(), e);
@@ -515,15 +551,18 @@ public class LiuxunSyncService {
                 out.companies.add(n.name);
                 for (ContactNode c : n.children) {
                     if (c.type == 1) {
+                        out.companyParent.put(c.name, n.name); // 子公司记住上级公司
                         walk(Collections.singletonList(c), c.name, null, phoneById, out);
                     } else {
                         walk(Collections.singletonList(c), n.name, null, phoneById, out);
                     }
                 }
             } else if (n.type == 2) {
-                out.deptKeys.add(companyName + "||" + n.name);
+                String key = companyName + "||" + n.name;
+                out.deptKeys.add(key);
                 for (ContactNode c : n.children) {
                     if (c.type == 2) {
+                        out.deptParent.put(companyName + "||" + c.name, key); // 子部门记住上级部门
                         walk(Collections.singletonList(c), companyName, c.name, phoneById, out);
                     } else {
                         walk(Collections.singletonList(c), companyName, n.name, phoneById, out);
@@ -550,8 +589,18 @@ public class LiuxunSyncService {
             index.companyIdByName.put(str(c.get("name")), str(c.get("id")));
             index.companyCodes.add(str(c.get("code")));
         }
+        Map<String, String> companyNameById = new LinkedHashMap<>();
+        for (Map<String, Object> c : genericService.listInternal(COMPANIES, Collections.emptyMap())) {
+            companyNameById.put(str(c.get("id")), str(c.get("name")));
+        }
         for (Map<String, Object> d : genericService.listInternal(DEPARTMENTS, Collections.emptyMap())) {
             index.deptIdByKey.put(str(d.get("companyId")) + "||" + str(d.get("name")), str(d.get("id")));
+            // 通讯录树里的部门 key 用「公司名||部门名」，必须建同名索引做幂等判断，
+            // 否则 containsKey 永远 false，每次 apply 都会重复创建全部部门（2026-11-24 事故根因）
+            String companyName = companyNameById.get(str(d.get("companyId")));
+            if (!isEmpty(companyName)) {
+                index.deptIdByCompanyNameKey.put(companyName + "||" + str(d.get("name")), str(d.get("id")));
+            }
             index.deptCodes.add(str(d.get("code")));
         }
         for (Map<String, Object> u : genericService.listInternal(USERS, Collections.emptyMap())) {
@@ -634,6 +683,10 @@ public class LiuxunSyncService {
 
     private static class ParseResult {
         final Set<String> companies = new LinkedHashSet<>();
+        /** 公司名 → 上级公司名；根公司不在表里 */
+        final Map<String, String> companyParent = new LinkedHashMap<>();
+        /** 部门 key(公司||部门) → 上级部门 key(公司||上级部门) */
+        final Map<String, String> deptParent = new LinkedHashMap<>();
         final Set<String> deptKeys = new LinkedHashSet<>();
         final List<ContactPerson> people = new ArrayList<>();
         final List<ContactPerson> uniquePeople = new ArrayList<>();
@@ -660,6 +713,8 @@ public class LiuxunSyncService {
     private static class LocalIndex {
         final Map<String, String> companyIdByName = new LinkedHashMap<>();
         final Map<String, String> deptIdByKey = new LinkedHashMap<>();
+        /** 公司名||部门名 → 部门 id，与通讯录树 deptKey 同口径，用于幂等判断 */
+        final Map<String, String> deptIdByCompanyNameKey = new LinkedHashMap<>();
         final Map<String, String> userByPhone = new LinkedHashMap<>();
         final Set<String> companyCodes = new LinkedHashSet<>();
         final Set<String> deptCodes = new LinkedHashSet<>();

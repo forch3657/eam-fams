@@ -50,14 +50,19 @@ export function syncApplyOrganizations(phone, password) {
   return request('/liuxun-sync/apply-organizations', { method: 'POST', data: { phone, password } })
 }
 
-/** 通讯录批量预置：预览待建数据（不写库） */
-export function syncPreview() {
-  return request('/liuxun-sync/preview', { method: 'POST', data: {} })
+// 通讯录全量写入最多约 2300 条（35 公司/241 部门/837 用户/1235 岗位），
+// 逐条走 genericService.create 的事务与校验，首次可能耗时数分钟，远超默认 15s。
+// 这两个端点单独放宽超时；错误提示由调用组件统一弹，避免 http.js + 组件双提示。
+const SYNC_TIMEOUT = 300000
+
+/** 通讯录批量预置：预览待建数据（不写库）。通讯录接口需用户 token，传柳讯账号密码现场换 token */
+export function syncPreview(phone, password) {
+  return request('/liuxun-sync/preview', { method: 'POST', data: { phone, password }, timeout: SYNC_TIMEOUT, silent: true })
 }
 
 /** 通讯录批量预置：执行写入（只建档案、默认启用、不赋角色） */
-export function syncApply() {
-  return request('/liuxun-sync/apply', { method: 'POST', data: {} })
+export function syncApply(phone, password) {
+  return request('/liuxun-sync/apply', { method: 'POST', data: { phone, password }, timeout: SYNC_TIMEOUT, silent: true })
 }
 
 /** 按公司批量启用未启用的用户 */

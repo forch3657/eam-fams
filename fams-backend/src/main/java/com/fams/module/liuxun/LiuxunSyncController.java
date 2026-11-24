@@ -31,12 +31,13 @@ public class LiuxunSyncController {
     private final LiuxunSyncService syncService;
     private final PermissionPolicy permissionPolicy;
 
-    /** 拉取通讯录并给出「待预置」计划，不写库 */
+    /** 拉取通讯录并给出「待预置」计划，不写库。通讯录接口需用户 token，故现场用账号密码换 token。 */
     @PostMapping("/preview")
-    public R<Map<String, Object>> preview() {
+    public R<Map<String, Object>> preview(@RequestBody(required = false) Map<String, Object> body) {
         requireOrgWrite();
+        String[] cred = credentials(body);
         try {
-            return R.ok(syncService.preview());
+            return R.ok(syncService.preview(cred[0], cred[1]));
         } catch (IllegalStateException e) {
             log.warn("[liuxun-sync] 预览失败: {}", e.getMessage());
             return R.fail(ErrorCode.SERVER, e.getMessage());
@@ -48,10 +49,11 @@ public class LiuxunSyncController {
 
     /** 批量预置：只建档案、默认启用、不赋角色；已存在的一律跳过 */
     @PostMapping("/apply")
-    public R<Map<String, Object>> apply() {
+    public R<Map<String, Object>> apply(@RequestBody(required = false) Map<String, Object> body) {
         requireOrgWrite();
+        String[] cred = credentials(body);
         try {
-            return R.ok(syncService.apply());
+            return R.ok(syncService.apply(cred[0], cred[1]));
         } catch (IllegalStateException e) {
             log.warn("[liuxun-sync] 预置失败: {}", e.getMessage());
             return R.fail(ErrorCode.SERVER, e.getMessage());
@@ -59,6 +61,15 @@ public class LiuxunSyncController {
             log.error("[liuxun-sync] 预置异常", e);
             return R.fail(ErrorCode.SERVER, "通讯录预置失败：" + e.getMessage());
         }
+    }
+
+    /** 从请求体提取柳讯账号密码，缺字段时返回空串由服务层给出明确提示 */
+    private static String[] credentials(Map<String, Object> body) {
+        if (body == null) return new String[]{"", ""};
+        return new String[]{
+                String.valueOf(body.getOrDefault("phone", "")),
+                String.valueOf(body.getOrDefault("password", ""))
+        };
     }
 
     /**

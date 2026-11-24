@@ -67,6 +67,16 @@ class P19LiuxunSyncTest {
         assertThat(stats.path("peopleNodes").asInt()).isEqualTo(3);
         assertThat(stats.path("uniquePeople").asInt()).isEqualTo(2);
 
+        // 公司层级：示例研究院的上级应为示例集团；集团本级标记明确
+        JsonNode companies = data.path("companies");
+        String researchParent = "", groupParent = "";
+        for (JsonNode c : companies) {
+            if ("示例研究院（mock）".equals(c.path("name").asText())) researchParent = c.path("parentName").asText();
+            if ("示例集团（mock）".equals(c.path("name").asText())) groupParent = c.path("parentName").asText();
+        }
+        assertThat(researchParent).isEqualTo("示例集团（mock）");
+        assertThat(groupParent).isEqualTo("（集团本级）");
+
         // 李四同一手机号两条岗位记录：一条主职、一条兼职
         JsonNode positions = data.path("positions");
         int partTime = 0, primary = 0;
@@ -85,6 +95,7 @@ class P19LiuxunSyncTest {
         assertThat(first.path("ok").asBoolean()).as(first.path("errors").toString()).isTrue();
         assertThat(first.path("createdUsers").asInt()).isEqualTo(2);
         assertThat(first.path("createdPositions").asInt()).isEqualTo(3);
+        int departmentsAfterFirst = genericService.listInternal("org-departments", Collections.emptyMap()).size();
 
         Map<String, String[]> query = new HashMap<>();
         query.put("username", new String[]{"13900003002"});
@@ -94,10 +105,27 @@ class P19LiuxunSyncTest {
         assertThat(str(users.get(0).get("roleIds"))).contains("[]");
         assertThat(str(users.get(0).get("phone"))).isEqualTo("13900003002");
 
+        // 公司层级写入：示例研究院的 parentId 必须指向示例集团，不能平铺
+        Map<String, String[]> cq = new HashMap<>();
+        cq.put("name", new String[]{"示例研究院（mock）"});
+        List<Map<String, Object>> research = genericService.listInternal("org-companies", cq);
+        assertThat(research).hasSize(1);
+        String researchParentId = str(research.get(0).get("parentId"));
+        assertThat(researchParentId).as("子公司必须挂到集团下").isNotBlank();
+        assertThat(str(genericService.get("org-companies", researchParentId).get("name"))).isEqualTo("示例集团（mock）");
+
         JsonNode second = call("/api/liuxun-sync/apply").path("data");
         assertThat(second.path("ok").asBoolean()).isTrue();
         assertThat(second.path("createdUsers").asInt()).isEqualTo(0);
         assertThat(second.path("skippedExistingUsers").asInt()).isEqualTo(2);
+        // 回归：重复 apply 不得重建部门（公司名||部门名 口径的幂等判断）
+        assertThat(second.path("createdDepartments").asInt()).as("重复执行不得重建部门").isEqualTo(0);
+        assertThat(genericService.listInternal("org-departments", Collections.emptyMap()).size())
+                .as("部门总数不应因重复预置增加").isEqualTo(departmentsAfterFirst);
+
+        // 预览也不得再把这些部门误报为待建
+        JsonNode preview = call("/api/liuxun-sync/preview").path("data");
+        assertThat(preview.path("stats").path("createDepartments").asInt()).as("预览不应误报部门待建").isEqualTo(0);
     }
 
     @Test
