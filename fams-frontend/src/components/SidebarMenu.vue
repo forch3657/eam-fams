@@ -30,6 +30,7 @@
       <el-menu-item v-if="can('org:company')" index="/system/company"><el-icon><OfficeBuilding /></el-icon><span>公司管理</span></el-menu-item>
       <el-menu-item v-if="can('org:dept')" index="/system/dept"><el-icon><Connection /></el-icon><span>部门管理</span></el-menu-item>
       <el-menu-item v-if="can('org:user')" index="/system/user"><el-icon><UserFilled /></el-icon><span>用户管理</span></el-menu-item>
+      <el-menu-item v-if="can('org:user')" index="/system/liuxun-sync"><el-icon><Refresh /></el-icon><span>柳讯通讯录同步</span></el-menu-item>
       <el-menu-item v-if="can('org:role')" index="/system/role"><el-icon><Avatar /></el-icon><span>角色管理</span></el-menu-item>
     </el-sub-menu>
 
@@ -58,7 +59,7 @@ import { useUserStore } from '../store/user'
 import {
   HomeFilled, Monitor, Notebook, DataAnalysis, SetUp, Box, Goods, Histogram,
   User, OfficeBuilding, Connection, UserFilled, Avatar, Setting, Collection,
-  Document, Share, Operation, ChatDotRound, Tickets, Cellphone, Upload
+  Document, Share, Operation, ChatDotRound, Tickets, Cellphone, Upload, Refresh
 } from '@element-plus/icons-vue'
 
 defineProps({ collapse: { type: Boolean, default: false } })

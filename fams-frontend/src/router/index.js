@@ -115,6 +115,12 @@ const routes = [
         meta: { title: '用户管理', permission: 'org:user' }
       },
       {
+        path: 'system/liuxun-sync',
+        name: 'SystemLiuxunSync',
+        component: () => import('../views/system/SystemLiuxunSync.vue'),
+        meta: { title: '柳讯通讯录同步', permission: 'org:user' }
+      },
+      {
         path: 'system/role',
         name: 'SystemRole',
         component: () => import('../views/system/SystemRole.vue'),

@@ -44,3 +44,18 @@ export function applySession(res) {
 export async function mockSelfTest() {
   return request('/auth/liuxun/mock-selftest', { method: 'POST', data: {} })
 }
+
+/** 通讯录批量预置：预览待建数据（不写库） */
+export function syncPreview() {
+  return request('/liuxun-sync/preview', { method: 'POST', data: {} })
+}
+
+/** 通讯录批量预置：执行写入（只建档案、默认启用、不赋角色） */
+export function syncApply() {
+  return request('/liuxun-sync/apply', { method: 'POST', data: {} })
+}
+
+/** 按公司批量启用未启用的用户 */
+export function syncEnableByCompany(companyId) {
+  return request('/liuxun-sync/enable-by-company', { method: 'POST', data: { companyId } })
+}

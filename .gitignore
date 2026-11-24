@@ -28,7 +28,8 @@ scripts/tmp-*.ps1
 
 # 第三方安装包 / 本地工具二进制（体积大且非源码）
 *.exe
-liuxun/
+# 仅忽略仓库根目录的柳讯安装包目录；后端 module/liuxun/ 是源码，必须入库
+/liuxun/
 
 # 发布脚本的本地缓存（内网仓 clone，不入库）
 .publish-cache/
