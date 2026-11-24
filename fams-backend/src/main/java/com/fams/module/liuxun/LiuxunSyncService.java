@@ -241,8 +241,8 @@ public class LiuxunSyncService {
      * {@link OrgStructureImportService#doImport}，复用其多级层级解析、按名称幂等复用、
      * genericService.create 全部校验与审计，不重复造轮子、不覆盖手工数据。</p>
      */
-    public Map<String, Object> applyOrganizationsOnly(String userToken) {
-        List<ContactNode> tree = fetchOrganizationTree(userToken);
+    public Map<String, Object> applyOrganizationsOnly(String phone, String password) {
+        List<ContactNode> tree = fetchOrganizationTree(phone, password);
         List<String[]> orgRows = new ArrayList<>();
         for (ContactNode root : tree) {
             walkOrg(root, null, null, orgRows);
@@ -290,12 +290,12 @@ public class LiuxunSyncService {
     }
 
     /** 拉取组织树（用户级接口，当前 /api/contacts 500 时的可用数据源） */
-    private List<ContactNode> fetchOrganizationTree(String userToken) {
+    private List<ContactNode> fetchOrganizationTree(String phone, String password) {
         if (properties.isMock()) return mockTree();
-        if (userToken == null || userToken.trim().isEmpty()) {
-            throw new IllegalStateException("请先从柳讯 Swagger 页面 Authorize 登录后复制 access_token，粘贴到页面上");
+        if (phone == null || phone.trim().isEmpty() || password == null || password.isEmpty()) {
+            throw new IllegalStateException("请填写柳讯手机号和密码");
         }
-        String token = userToken.trim().replaceFirst("^Bearer\\s+", "");
+        String token = oauth2Client.userToken(phone, password);
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(token);
         try {

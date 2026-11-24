@@ -18,6 +18,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -58,6 +59,93 @@ public class LiuxunOAuth2Client {
         log.info("[liuxun] code exchanged: scope={} accountInfo={}", result.getScope(),
                 result.getAccountInfo() == null ? "null" : result.getAccountInfo().keySet().toString());
         return result;
+    }
+
+    /**
+     * 用柳讯账号密码走一次「授权页会话登录 → 授权码 → token」换用户 token。
+     * 密码只在本次 HTTP 请求体里出现，不落库、不进配置、不缓存；仅供组织树同步这类用户级接口使用。
+     */
+    public String userToken(String phone, String password) {
+        if (properties.isMock()) return mockToken(false).getAccessToken();
+        if (phone == null || phone.trim().isEmpty() || password == null || password.isEmpty()) {
+            throw new IllegalStateException("请填写柳讯手机号和密码");
+        }
+        Map<String, String> cookies = new HashMap<>();
+        try {
+            String authorize = properties.getBaseUrl() + "/oauth/authorize?client_id=" + properties.getClientId()
+                    + "&response_type=code&redirect_uri={redirect}";
+            ResponseEntity<String> ar = template().exchange(authorize, HttpMethod.GET, null, String.class,
+                    properties.getRedirectUri());
+            collect(ar, cookies);
+            java.net.URI loginLoc = ar.getHeaders().getLocation();
+            String loginUrl = properties.getBaseUrl()
+                    + (loginLoc != null && loginLoc.getPath() != null ? loginLoc.getPath() : "/login/custom");
+            Map<String, Object> loginBody = new LinkedHashMap<>();
+            loginBody.put("username", phone.trim());
+            loginBody.put("password", password);
+            loginBody.put("remember", false);
+            HttpHeaders lh = new HttpHeaders();
+            lh.setContentType(MediaType.APPLICATION_JSON);
+            applyCookies(lh, cookies);
+            ResponseEntity<String> lr = template().exchange(loginUrl, HttpMethod.POST,
+                    new HttpEntity<>(objectMapper.writeValueAsString(loginBody), lh), String.class);
+            collect(lr, cookies);
+            JsonNode lj = objectMapper.readTree(lr.getBody());
+            if (!lj.path("success").asBoolean(false) || lj.path("redirectUrl").asText("").isEmpty()) {
+                throw new IllegalStateException("柳讯账号登录失败：" + lr.getBody());
+            }
+
+            String target = properties.getBaseUrl() + lj.path("redirectUrl").asText();
+            String code = null;
+            for (int i = 0; i < 5 && code == null; i++) {
+                HttpHeaders h = new HttpHeaders();
+                applyCookies(h, cookies);
+                ResponseEntity<String> rr = template().exchange(target, HttpMethod.GET, new HttpEntity<>(h), String.class);
+                collect(rr, cookies);
+                java.net.URI loc = rr.getHeaders().getLocation();
+                if (loc == null) break;
+                String q = loc.getQuery();
+                if (q != null && q.contains("code=")) {
+                    for (String part : q.split("&")) {
+                        if (part.startsWith("code=")) code = java.net.URLDecoder.decode(part.substring(5), "UTF-8");
+                    }
+                    break;
+                }
+                target = loc.isAbsolute() ? loc.toString() : properties.getBaseUrl() + loc.toString();
+            }
+            if (code == null) throw new IllegalStateException("柳讯授权码获取失败，请确认账号可用");
+            MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+            form.add("client_id", properties.getClientId());
+            form.add("client_secret", properties.getClientSecret());
+            form.add("grant_type", "authorization_code");
+            form.add("redirect_uri", properties.getRedirectUri());
+            form.add("code", code);
+            return postForm("/oauth/token", form, LiuxunTokenResponse.class).getAccessToken();
+        } catch (IllegalStateException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("柳讯用户 token 获取异常：" + e.getMessage(), e);
+        }
+    }
+
+    private void applyCookies(HttpHeaders headers, Map<String, String> cookies) {
+        if (cookies.isEmpty()) return;
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<String, String> e : cookies.entrySet()) {
+            if (sb.length() > 0) sb.append("; ");
+            sb.append(e.getKey()).append('=').append(e.getValue());
+        }
+        headers.add(HttpHeaders.COOKIE, sb.toString());
+    }
+
+    private void collect(ResponseEntity<?> response, Map<String, String> cookies) {
+        java.util.List<String> values = response.getHeaders().get(HttpHeaders.SET_COOKIE);
+        if (values == null) return;
+        for (String value : values) {
+            String kv = value.split(";", 2)[0];
+            int i = kv.indexOf('=');
+            if (i > 0) cookies.put(kv.substring(0, i), kv.substring(i + 1));
+        }
     }
 
     /** 客户端模式 token（缓存到 expires_in 到期前 30 秒） */

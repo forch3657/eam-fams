@@ -68,9 +68,10 @@ public class LiuxunSyncController {
     @PostMapping("/apply-organizations")
     public R<Map<String, Object>> applyOrganizations(@RequestBody(required = false) Map<String, Object> body) {
         requireOrgWrite();
-        String token = body == null ? "" : String.valueOf(body.getOrDefault("userToken", ""));
+        String phone = body == null ? "" : String.valueOf(body.getOrDefault("phone", ""));
+        String password = body == null ? "" : String.valueOf(body.getOrDefault("password", ""));
         try {
-            return R.ok(syncService.applyOrganizationsOnly(token));
+            return R.ok(syncService.applyOrganizationsOnly(phone, password));
         } catch (IllegalStateException e) {
             log.warn("[liuxun-sync] 组织预置失败: {}", e.getMessage());
             return R.fail(ErrorCode.SERVER, e.getMessage());

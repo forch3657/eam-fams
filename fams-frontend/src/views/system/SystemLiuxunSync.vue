@@ -28,24 +28,17 @@
         <b>按名称复用、不重复、保留多级上下级、不建用户不改账号</b>。柳讯通讯录接口恢复后，再用下方「批量预置」补人员。
       </p>
       <div class="token-row">
-        <span class="token-label">柳讯 access_token</span>
-        <el-input
-          v-model="liuxunToken"
-          type="password"
-          show-password
-          size="small"
-          clearable
-          placeholder="在柳讯 Swagger 页面点 Authorize 登录任意账号后，复制 access_token 粘贴到这里（不含 Bearer 前缀也可）"
-          style="flex: 1"
-        />
-        <el-button type="primary" size="small" :loading="orgApplying" :disabled="!liuxunToken" @click="confirmOrgApply">
+        <span class="token-label">柳讯账号</span>
+        <el-input v-model="liuxunPhone" size="small" clearable placeholder="柳讯手机号，如 18695732703" style="width: 200px" />
+        <span class="token-label">密码</span>
+        <el-input v-model="liuxunPassword" type="password" show-password size="small" clearable
+          placeholder="柳讯账号密码" style="width: 200px" @keyup.enter="confirmOrgApply" />
+        <el-button type="primary" size="small" :loading="orgApplying" :disabled="!liuxunPhone || !liuxunPassword" @click="confirmOrgApply">
           从柳讯组织树创建组织
         </el-button>
       </div>
       <div class="token-help">
-        获取方式：打开
-        <a href="http://172.19.19.16:31460/swagger-ui.html" target="_blank" rel="noopener">柳讯 Swagger</a>
-        → 右上「Authorize」→ 输入柳讯账号登录后，复制生成的 access_token。token 只在本次请求中使用，不保存。
+        填任意一个有组织配置的柳讯账号即可（如 18695732703）。账号密码只在本次请求中用于换取 token，<b>不保存、不写日志、不进数据库</b>。
       </div>
       <el-alert v-if="orgResult" :type="orgResult.ok ? 'success' : 'warning'" :closable="false" show-icon class="org-result">
         <template #title>
@@ -187,7 +180,7 @@
         <li><b>不创建用户、不创建岗位、不改任何账号</b></li>
       </ul>
       <el-alert type="info" :closable="false" show-icon
-        title="当前柳讯组织树接口只返回该 token 对应账号所在链路，不是全量组织；如需全量请等通讯录接口恢复。" />
+        title="当前柳讯组织树接口只返回该账号所在链路，不是全量组织；如需全量请等通讯录接口恢复。" />
       <template #footer>
         <el-button @click="orgDialog = false">取消</el-button>
         <el-button type="primary" :loading="orgApplying" @click="doOrgApply">确认创建</el-button>
@@ -231,7 +224,8 @@ const orgStore = useOrgStore()
 const orgApplying = ref(false)
 const orgDialog = ref(false)
 const orgResult = ref(null)
-const liuxunToken = ref('')
+const liuxunPhone = ref('')
+const liuxunPassword = ref('')
 
 const previewing = ref(false)
 const previewData = ref(null)
@@ -267,9 +261,9 @@ function confirmOrgApply() {
 async function doOrgApply() {
   orgApplying.value = true
   try {
-    const res = await syncApplyOrganizations(liuxunToken.value)
+    const res = await syncApplyOrganizations(liuxunPhone.value, liuxunPassword.value)
     orgResult.value = res
-    liuxunToken.value = ''
+    liuxunPassword.value = ''
     orgDialog.value = false
     if (res.ok) {
       ElMessage.success('组织预置完成，可在「公司管理 / 部门管理」查看')

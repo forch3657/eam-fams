@@ -45,9 +45,9 @@ export async function mockSelfTest() {
   return request('/auth/liuxun/mock-selftest', { method: 'POST', data: {} })
 }
 
-/** 只预置组织（公司/部门）：走现成组织导入，按名称复用不重复。userToken 从柳讯 Swagger Authorize 后复制 */
-export function syncApplyOrganizations(userToken) {
-  return request('/liuxun-sync/apply-organizations', { method: 'POST', data: { userToken } })
+/** 只预置组织（公司/部门）：走现成组织导入，按名称复用不重复。传柳讯账号密码，仅本次使用不保存 */
+export function syncApplyOrganizations(phone, password) {
+  return request('/liuxun-sync/apply-organizations', { method: 'POST', data: { phone, password } })
 }
 
 /** 通讯录批量预置：预览待建数据（不写库） */
