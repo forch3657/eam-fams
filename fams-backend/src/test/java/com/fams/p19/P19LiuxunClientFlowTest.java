@@ -64,7 +64,7 @@ class P19LiuxunClientFlowTest {
         server.expect(requestTo(base + "/oauth/authorize?client_id=" + cp
                         + "&response_type=code&redirect_uri=" + ru))
                 .andRespond(redirect(base + "/login/custom"));
-        server.expect(requestTo(base + "/login/custom"))
+        server.expect(requestTo(base + "/login/custom/form"))
                 .andRespond(withSuccess("{\"success\":true,\"redirectUrl\":\"/oauth/authorize?step=2\"}",
                         MediaType.APPLICATION_JSON));
         server.expect(requestTo(base + "/oauth/authorize?step=2"))

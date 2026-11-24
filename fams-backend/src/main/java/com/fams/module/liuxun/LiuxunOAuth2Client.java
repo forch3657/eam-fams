@@ -77,9 +77,8 @@ public class LiuxunOAuth2Client {
             ResponseEntity<String> ar = template().exchange(authorize, HttpMethod.GET, null, String.class,
                     properties.getRedirectUri());
             collect(ar, cookies);
-            java.net.URI loginLoc = ar.getHeaders().getLocation();
-            String loginUrl = properties.getBaseUrl()
-                    + (loginLoc != null && loginLoc.getPath() != null ? loginLoc.getPath() : "/login/custom");
+            // 表单提交端点是 /login/custom/form；authorize 的 302 Location(/login/custom) 只是展示页
+            String loginUrl = properties.getBaseUrl() + "/login/custom/form";
             Map<String, Object> loginBody = new LinkedHashMap<>();
             loginBody.put("username", phone.trim());
             loginBody.put("password", password);
@@ -232,7 +231,15 @@ public class LiuxunOAuth2Client {
         if (restTemplate == null) {
             synchronized (this) {
                 if (restTemplate == null) {
-                    SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+                    SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory() {
+                        @Override
+                        protected void prepareConnection(java.net.HttpURLConnection connection, String httpMethod)
+                                throws java.io.IOException {
+                            super.prepareConnection(connection, httpMethod);
+                            // 授权码流程必须自己处理 302 的 Location，不能被自动跟随
+                            connection.setInstanceFollowRedirects(false);
+                        }
+                    };
                     factory.setConnectTimeout(properties.getConnectTimeout());
                     factory.setReadTimeout(properties.getReadTimeout());
                     restTemplate = new RestTemplate(factory);
