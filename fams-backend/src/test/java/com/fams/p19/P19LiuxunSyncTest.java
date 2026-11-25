@@ -18,6 +18,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -129,6 +130,40 @@ class P19LiuxunSyncTest {
         // 预览也不得再把这些部门误报为待建
         JsonNode preview = call("/api/liuxun-sync/preview").path("data");
         assertThat(preview.path("stats").path("createDepartments").asInt()).as("预览不应误报部门待建").isEqualTo(0);
+
+        // 调岗同步：本地岗位名改成旧的 + 打上 R3，再 apply 应"更新"而非"新增"，且角色保留
+        Map<String, String[]> pq = new HashMap<>();
+        pq.put("position", new String[]{"研发工程师"});
+        List<Map<String, Object>> zhang = genericService.listInternal("org-user-positions", pq);
+        assertThat(zhang).hasSize(1);
+        String zhangId = str(zhang.get(0).get("id"));
+        Map<String, Object> pz = new LinkedHashMap<>(genericService.get("org-user-positions", zhangId));
+        pz.put("position", "旧工程师岗");
+        pz.put("roleIds", "[\"R3\"]");
+        pz.remove("id");
+        genericService.update("org-user-positions", zhangId, pz);
+
+        Map<String, String[]> pq2 = new HashMap<>();
+        pq2.put("position", new String[]{"市场经理"});
+        List<Map<String, Object>> lisi = genericService.listInternal("org-user-positions", pq2);
+        assertThat(lisi).hasSize(1);
+        String lisiId = str(lisi.get(0).get("id"));
+        Map<String, Object> pl = new LinkedHashMap<>(genericService.get("org-user-positions", lisiId));
+        pl.put("position", ""); // 空岗位名
+        pl.put("roleIds", "[\"R3\"]");
+        pl.remove("id");
+        genericService.update("org-user-positions", lisiId, pl);
+
+        JsonNode third = call("/api/liuxun-sync/apply").path("data");
+        assertThat(third.path("ok").asBoolean()).as(third.path("errors").toString()).isTrue();
+        assertThat(third.path("createdPositions").asInt()).as("调岗/补名不得新增岗位").isEqualTo(0);
+        assertThat(third.path("updatedPositions").asInt()).as("应更新调岗+空岗位两条").isEqualTo(2);
+        assertThat(genericService.listInternal("org-user-positions", Collections.emptyMap()).size())
+                .as("岗位总数不因调岗增加").isEqualTo(positionsAfterFirst);
+        assertThat(str(genericService.get("org-user-positions", zhangId).get("position"))).isEqualTo("研发工程师");
+        assertThat(str(genericService.get("org-user-positions", lisiId).get("position"))).isEqualTo("市场经理");
+        assertThat(str(genericService.get("org-user-positions", zhangId).get("roleIds"))).as("调岗保留角色").contains("R3");
+        assertThat(str(genericService.get("org-user-positions", lisiId).get("roleIds"))).as("补名保留角色").contains("R3");
     }
 
     @Test

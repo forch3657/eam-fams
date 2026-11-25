@@ -94,10 +94,16 @@ public class LiuxunSyncService {
                     "action", local.userByPhone.containsKey(person.phone) ? "SKIP" : "CREATE"));
         }
         List<Map<String, Object>> positionRows = new ArrayList<>();
-        for (ContactPerson person : parsed.people) {
-            positionRows.add(row("phone", person.phone, "name", person.name,
-                    "companyName", person.company, "deptName", person.dept,
-                    "position", person.position, "primary", person.primary));
+        for (Map<String, Object> act : planPositions(parsed, local)) {
+            String oldPosition = "";
+            if ("UPDATE".equals(act.get("action"))) {
+                Map<String, Object> current = genericService.get(POSITIONS, str(act.get("updateId")));
+                oldPosition = current == null ? "" : str(current.get("position"));
+            }
+            positionRows.add(row("phone", act.get("phone"), "name", act.get("name"),
+                    "companyName", act.get("companyName"), "deptName", act.get("deptName"),
+                    "position", act.get("position"), "primary", act.get("primary"),
+                    "action", act.get("action"), "oldPosition", oldPosition));
         }
 
         Map<String, Object> stats = new LinkedHashMap<>();
@@ -109,6 +115,9 @@ public class LiuxunSyncService {
         stats.put("createDepartments", countAction(deptRows, "CREATE"));
         stats.put("createUsers", countAction(userRows, "CREATE"));
         stats.put("skipExistingUsers", countAction(userRows, "SKIP"));
+        stats.put("createPositions", countAction(positionRows, "CREATE"));
+        stats.put("updatePositions", countAction(positionRows, "UPDATE"));
+        stats.put("skipPositions", countAction(positionRows, "SKIP"));
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("mock", properties.isMock());
@@ -119,6 +128,83 @@ public class LiuxunSyncService {
         result.put("positions", positionRows);
         result.put("note", "只建档案并默认启用；角色未分配，需管理员在用户管理中补配角色后才能看到数据。已存在的公司/部门/用户一律跳过。");
         return result;
+    }
+
+    /**
+     * 岗位动作计划：按 (手机号,公司,部门) 分组决定每条柳讯岗位节点是 CREATE / UPDATE / SKIP。
+     * <ul>
+     *   <li>本地同组已有同名岗位 → SKIP；</li>
+     *   <li>本地同组有空岗位名或不同岗位名（同部门调岗）→ UPDATE 复用该条（保留其角色）；</li>
+     *   <li>本地同组岗位都被占用/不存在 → CREATE（跨部门=兼职、首次岗位）。</li>
+     * </ul>
+     * 本地多出来的岗位一律保留不动，避免误删人工配置。
+     */
+    private List<Map<String, Object>> planPositions(ParseResult parsed, LocalIndex local) {
+        Map<String, List<ContactPerson>> groups = new LinkedHashMap<>();
+        for (ContactPerson p : parsed.people) {
+            String key = p.phone + "||" + p.company + "||" + p.dept;
+            groups.computeIfAbsent(key, k -> new ArrayList<>()).add(p);
+        }
+        List<Map<String, Object>> actions = new ArrayList<>();
+        for (Map.Entry<String, List<ContactPerson>> e : groups.entrySet()) {
+            ContactPerson sample = e.getValue().get(0);
+            String companyId = local.companyIdByName.get(sample.company);
+            String deptId = local.deptIdByCompanyNameKey.get(sample.company + "||" + sample.dept);
+            // 本地该组岗位：companyId/deptId 都匹配（空部门用空串口径）
+            List<Map<String, Object>> localRows = new ArrayList<>();
+            for (Map<String, Object> row : local.positionRowsByPhone.getOrDefault(sample.phone, Collections.emptyList())) {
+                if (str(row.get("companyId")).equals(companyId == null ? "" : companyId)
+                        && str(row.get("deptId")).equals(deptId == null ? "" : deptId)) {
+                    localRows.add(row);
+                }
+            }
+            List<Map<String, Object>> available = new ArrayList<>(localRows);
+
+            // 柳讯岗位名（非空）去重保序
+            List<String> names = new ArrayList<>();
+            for (ContactPerson p : e.getValue()) {
+                String pos = isEmpty(p.position) ? "" : p.position;
+                if (!isEmpty(pos) && !names.contains(pos)) names.add(pos);
+            }
+            for (String name : names) {
+                // 1) 本地已有同名 → SKIP
+                Map<String, Object> exact = null;
+                for (Map<String, Object> row : available) {
+                    if (name.equals(str(row.get("position")))) { exact = row; break; }
+                }
+                if (exact != null) {
+                    available.remove(exact);
+                    actions.add(row("action", "SKIP", "position", name, "phone", sample.phone,
+                            "name", sample.name, "companyName", sample.company, "deptName", sample.dept,
+                            "primary", sample.primary));
+                    continue;
+                }
+                // 2) 复用本地一条（优先空岗位名）→ UPDATE，保留角色
+                Map<String, Object> reuse = null;
+                for (Map<String, Object> row : available) {
+                    if (isEmpty(str(row.get("position")))) { reuse = row; break; }
+                }
+                if (reuse == null && !available.isEmpty()) reuse = available.get(0);
+                if (reuse != null) {
+                    available.remove(reuse);
+                    actions.add(row("action", "UPDATE", "updateId", str(reuse.get("id")),
+                            "position", name, "phone", sample.phone, "name", sample.name,
+                            "companyName", sample.company, "deptName", sample.dept, "primary", sample.primary));
+                } else {
+                    actions.add(row("action", "CREATE", "position", name, "phone", sample.phone,
+                            "name", sample.name, "companyName", sample.company, "deptName", sample.dept,
+                            "primary", sample.primary));
+                }
+            }
+            // 柳讯该组只有空岗位名节点且本地无任何岗位 → 建一条空岗位（信息缺失，保留历史行为）
+            boolean onlyEmpty = names.isEmpty();
+            if (onlyEmpty && localRows.isEmpty()) {
+                actions.add(row("action", "CREATE", "position", "", "phone", sample.phone,
+                        "name", sample.name, "companyName", sample.company, "deptName", sample.dept,
+                        "primary", sample.primary));
+            }
+        }
+        return actions;
     }
 
     /** 执行预置：重新拉一次通讯录（避免用过期预览），公司→部门→用户→岗位顺序写入。 */
@@ -222,38 +308,46 @@ public class LiuxunSyncService {
             }
         }
 
-        // 每个人员节点一条岗位；兼职（同手机号多节点）会生成多条，第一条为主职
-        for (ContactPerson person : parsed.people) {
-            String userId = local.userByPhone.get(person.phone);
+        // 岗位：按(用户,公司,部门)分组决定 SKIP / UPDATE（调岗，保留角色）/ CREATE（跨部门兼职）
+        int updatedPositions = 0, skippedPositions = 0;
+        for (Map<String, Object> action : planPositions(parsed, local)) {
+            String act = str(action.get("action"));
+            String phone = str(action.get("phone"));
+            String userId = local.userByPhone.get(phone);
             if (userId == null) {
-                errors.add("岗位「" + person.position + "」跳过：用户「" + person.phone + "」未就绪");
+                errors.add("岗位「" + str(action.get("position")) + "」跳过：用户「" + phone + "」未就绪");
                 continue;
             }
-            String companyId = local.companyIdByName.get(person.company);
-            String deptId = local.deptIdByCompanyNameKey.get(person.company + "||" + person.dept);
-            String position = isEmpty(person.position) ? "" : person.position;
-            String deptPart = positionKey(userId, companyId == null ? "" : companyId,
-                    isEmpty(deptId) ? "" : deptId, "");
-            // 岗位幂等：同一(用户,公司,部门,岗位名)只建一条；重复 apply 不得产生兼职副本
-            String posKey = positionKey(userId, companyId == null ? "" : companyId,
-                    isEmpty(deptId) ? "" : deptId, position);
-            if (local.positionKeys.contains(posKey)) continue;
-            // 柳讯同一人同部门会有多个节点，其中一个没填岗位名；已有该部门岗位时不再建空岗位名副本
-            if (isEmpty(position) && local.positionDeptKeys.contains(deptPart)) continue;
+            if ("SKIP".equals(act)) { skippedPositions++; continue; }
+            String companyId = local.companyIdByName.get(str(action.get("companyName")));
+            String deptId = local.deptIdByCompanyNameKey.get(str(action.get("companyName")) + "||" + str(action.get("deptName")));
+            String position = str(action.get("position"));
             try {
-                Map<String, Object> body = new LinkedHashMap<>();
-                body.put("userId", userId);
-                if (companyId != null) body.put("companyId", companyId);
-                if (!isEmpty(deptId)) body.put("deptId", deptId);
-                if (!isEmpty(position)) body.put("position", position);
-                body.put("isPrimary", person.primary);
-                body.put("status", ENABLED);
-                genericService.create(POSITIONS, body);
-                local.positionKeys.add(posKey);
-                local.positionDeptKeys.add(deptPart);
-                createdPositions++;
+                if ("UPDATE".equals(act)) {
+                    // 调岗/空岗位补名：只改 position，整行回传保留原有 role_ids 等
+                    String updateId = str(action.get("updateId"));
+                    Map<String, Object> current = genericService.get(POSITIONS, updateId);
+                    if (current == null || current.isEmpty()) continue;
+                    Map<String, Object> patch = new LinkedHashMap<>(current);
+                    patch.put("position", position);
+                    Object version = patch.get("version");
+                    if (version != null) patch.put("version", version);
+                    patch.remove("id");
+                    genericService.update(POSITIONS, updateId, patch);
+                    updatedPositions++;
+                } else {
+                    Map<String, Object> body = new LinkedHashMap<>();
+                    body.put("userId", userId);
+                    if (companyId != null) body.put("companyId", companyId);
+                    if (!isEmpty(deptId)) body.put("deptId", deptId);
+                    if (!isEmpty(position)) body.put("position", position);
+                    body.put("isPrimary", Boolean.TRUE.equals(action.get("primary")));
+                    body.put("status", ENABLED);
+                    genericService.create(POSITIONS, body);
+                    createdPositions++;
+                }
             } catch (Exception e) {
-                errors.add("岗位「" + person.position + "」创建失败：" + e.getMessage());
+                errors.add("岗位「" + position + "」" + act + "失败：" + e.getMessage());
             }
         }
 
@@ -262,6 +356,8 @@ public class LiuxunSyncService {
         result.put("createdDepartments", createdDepartments);
         result.put("createdUsers", createdUsers);
         result.put("createdPositions", createdPositions);
+        result.put("updatedPositions", updatedPositions);
+        result.put("skippedPositions", skippedPositions);
         result.put("skippedExistingUsers", skipped);
         result.put("errors", errors);
         result.put("ok", errors.isEmpty());
@@ -734,16 +830,24 @@ public class LiuxunSyncService {
             }
             index.deptCodes.add(str(d.get("code")));
         }
+        Map<String, String> phoneByUserId = new LinkedHashMap<>();
         for (Map<String, Object> u : genericService.listInternal(USERS, Collections.emptyMap())) {
             String phone = normalizePhone(str(u.get("phone")));
             if (isEmpty(phone)) phone = normalizePhone(str(u.get("username")));
-            if (!isEmpty(phone)) index.userByPhone.put(phone, str(u.get("id")));
+            if (!isEmpty(phone)) {
+                index.userByPhone.put(phone, str(u.get("id")));
+                phoneByUserId.put(str(u.get("id")), phone);
+            }
         }
         for (Map<String, Object> pos : genericService.listInternal(POSITIONS, Collections.emptyMap())) {
             String u = str(pos.get("userId")), c = str(pos.get("companyId")),
                     d = str(pos.get("deptId")), p = str(pos.get("position"));
             index.positionKeys.add(positionKey(u, c, d, p));
             index.positionDeptKeys.add(positionKey(u, c, d, ""));
+            String phone = phoneByUserId.get(u);
+            if (!isEmpty(phone)) {
+                index.positionRowsByPhone.computeIfAbsent(phone, k -> new ArrayList<>()).add(pos);
+            }
         }
         return index;
     }
@@ -867,6 +971,8 @@ public class LiuxunSyncService {
         final Set<String> positionKeys = new LinkedHashSet<>();
         /** 岗位所在部门 key：userId||companyId||deptId（用于跳过空岗位名的重复节点） */
         final Set<String> positionDeptKeys = new LinkedHashSet<>();
+        /** 归一化手机号 → 该用户全部岗位行（用于按人+公司+部门分组决定更新/新增） */
+        final Map<String, List<Map<String, Object>>> positionRowsByPhone = new LinkedHashMap<>();
         final Set<String> companyCodes = new LinkedHashSet<>();
         final Set<String> deptCodes = new LinkedHashSet<>();
     }

@@ -99,6 +99,7 @@
           <div class="stat"><span class="stat-num">{{ previewData.stats.peopleNodes }}</span><span class="stat-label">人员节点</span></div>
           <div class="stat highlight"><span class="stat-num">{{ previewData.stats.uniquePeople }}</span><span class="stat-label">去重后人员</span></div>
           <div class="stat"><span class="stat-num">{{ previewData.stats.skipExistingUsers }}</span><span class="stat-label">已存在跳过</span></div>
+          <div class="stat highlight"><span class="stat-num">{{ previewData.stats.updatePositions || 0 }}</span><span class="stat-label">岗位待更新</span></div>
         </div>
 
         <div class="preview-filter">
@@ -175,6 +176,18 @@
                   <span v-else class="muted">兼职</span>
                 </template>
               </el-table-column>
+              <el-table-column prop="oldPosition" label="原岗位" min-width="120">
+                <template #default="{ row }">{{ row.oldPosition || '—' }}</template>
+              </el-table-column>
+              <el-table-column prop="action" label="处理" width="120" column-key="posAction"
+                :filters="[{ text: '新建', value: 'CREATE' }, { text: '更新（调岗）', value: 'UPDATE' }, { text: '跳过', value: 'SKIP' }]"
+                :filter-method="(value, row) => row.action === value">
+                <template #default="{ row }">
+                  <el-tag v-if="row.action === 'CREATE'" type="success" size="small" effect="light">新建</el-tag>
+                  <el-tag v-else-if="row.action === 'UPDATE'" type="warning" size="small" effect="light">更新</el-tag>
+                  <el-tag v-else type="info" size="small" effect="light">跳过</el-tag>
+                </template>
+              </el-table-column>
             </el-table>
           </el-tab-pane>
         </el-tabs>
@@ -236,8 +249,10 @@
         <li>公司 <b>{{ previewData?.stats.createCompanies || 0 }}</b> 个</li>
         <li>部门 <b>{{ previewData?.stats.createDepartments || 0 }}</b> 个</li>
         <li>用户 <b>{{ previewData?.stats.createUsers || 0 }}</b> 个（去重后）</li>
+        <li>岗位新建 <b>{{ previewData?.stats.createPositions || 0 }}</b> 条、更新（调岗）<b>{{ previewData?.stats.updatePositions || 0 }}</b> 条</li>
       </ul>
-      <el-alert type="info" :closable="false" show-icon title="新用户默认启用，但未分配角色，登录后暂无可见数据；请到用户管理补配角色。" />
+      <el-alert type="info" :closable="false" show-icon
+        title="同部门调岗/空岗位补名会更新原岗位并保留已配角色；跨部门按兼职新增。新用户默认启用但未分配角色，登录后暂无可见数据。" />
       <el-alert type="warning" :closable="false" show-icon
         title="首次全量写入约 2000+ 条，需数分钟，请耐心等待、不要关闭页面或重复点击；重复执行是安全的（已存在自动跳过）。" />
       <template #footer>
