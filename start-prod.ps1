@@ -38,7 +38,14 @@ if (-not $env:LIUXUN_CLIENT_SECRET -and (Test-Path $liuxunSecretFile)) {
 if (-not $env:LIUXUN_CLIENT_ID) { $env:LIUXUN_CLIENT_ID = '100000050' }
 if (-not $env:LIUXUN_APP_ID) { $env:LIUXUN_APP_ID = 'f5f2b942-4044-4791-8424-53b82bc99758' }
 if (-not $env:LIUXUN_REDIRECT_URI) { $env:LIUXUN_REDIRECT_URI = 'http://192.168.60.66/oauth/callback' }
+# CORS allowed origins: keep https://localhost for the desktop entry; the mobile LiuXun
+# WebView loads the app from the LiuXun gateway origin below (captured from access.log).
+# Do NOT widen to '*' - credentials are enabled and this must stay an explicit allowlist.
+if (-not $env:CORS_ALLOWED_ORIGINS) {
+    $env:CORS_ALLOWED_ORIGINS = 'https://localhost,https://syy50-zcgl-testsafeapp.liuxun.fzidt.com:44330'
+}
 Write-Host ('LiuXun mode: mock=' + $env:LIUXUN_MOCK + ' client=' + $env:LIUXUN_CLIENT_ID)
+Write-Host ('CORS allowed origins: ' + $env:CORS_ALLOWED_ORIGINS)
 $java = 'java'
 if ($env:JAVA_HOME) { $java = Join-Path $env:JAVA_HOME 'bin/java.exe' }
 $jar = Join-Path $root 'fams-backend/target/fams-backend-1.0.0-SNAPSHOT.jar'
