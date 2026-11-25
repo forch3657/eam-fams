@@ -49,7 +49,7 @@
           <span v-else>-</span>
         </template>
       </el-table-column>
-      <el-table-column label="创建时间" width="150">
+      <el-table-column prop="createTime" label="创建时间" width="150" sortable>
         <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
       </el-table-column>
       <el-table-column label="完结时间" width="150">
@@ -334,7 +334,7 @@ const filteredRows = computed(() => items.value.filter(d =>
   (!search.docNo || (d.code || '').includes(search.docNo)) &&
   (!search.company || d.companyId === search.company) &&
   (!search.status || d.status === search.status)
-))
+).sort(byDateDesc('createTime')))
 const total = computed(() => filteredRows.value.length)
 const pagedRows = computed(() => {
   const start = (page.value - 1) * pageSize.value
@@ -342,6 +342,17 @@ const pagedRows = computed(() => {
   // 造副本会出现「审批完结了列表还是旧状态 / 删除后行还在」；公司名改由列模板解析。
   return filteredRows.value.slice(start, start + pageSize.value)
 })
+
+/** 日期逆序（新单据在前）；兼容 ISO 时间戳与 YYYY-MM-DD，空值排末尾 */
+function byDateDesc(field) {
+  return (a, b) => {
+    const av = String(a?.[field] || ''), bv = String(b?.[field] || '')
+    if (!av && !bv) return 0
+    if (!av) return 1
+    if (!bv) return -1
+    return bv.localeCompare(av)
+  }
+}
 
 function statusText(status) {
   return labelOf('DOC_STATUS', status)

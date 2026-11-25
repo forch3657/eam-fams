@@ -45,6 +45,11 @@
               <template #default="{ $index }">{{ (itemPage - 1) * itemPageSize + $index + 1 }}</template>
             </el-table-column>
             <el-table-column prop="code" label="物品编码" width="120" />
+            <el-table-column prop="createTime" label="登记日期" width="120" sortable show-overflow-tooltip>
+              <template #default="{ row }">
+                <span :title="row.createTime || ''">{{ row.createTime ? String(row.createTime).slice(0, 10) : '—' }}</span>
+              </template>
+            </el-table-column>
             <el-table-column prop="categoryName" label="物品类别" width="110" />
             <el-table-column prop="name" label="物品名称" min-width="200" show-overflow-tooltip />
             <el-table-column prop="spec" label="规格型号" min-width="220" show-overflow-tooltip />
@@ -136,7 +141,7 @@
               <template #default="{ row }"><span class="num">{{ Number(row.amount || 0).toLocaleString() }}</span></template>
             </el-table-column>
             <el-table-column prop="supplier" label="供应商" min-width="180" show-overflow-tooltip />
-            <el-table-column prop="inboundDate" label="入库日期" width="120" />
+            <el-table-column prop="inboundDate" label="入库日期" width="120" sortable />
             <el-table-column prop="operator" label="经办人" width="100" />
             <el-table-column prop="remark" label="备注" min-width="160" show-overflow-tooltip />
           </el-table>
@@ -203,7 +208,7 @@
             <el-table-column label="领用部门" width="140">
               <template #default="{ row }">{{ deptNameOf(row.deptId) }}</template>
             </el-table-column>
-            <el-table-column prop="requisitionDate" label="领用日期" width="120" />
+            <el-table-column prop="requisitionDate" label="领用日期" width="120" sortable />
             <el-table-column prop="purpose" label="用途" min-width="160" show-overflow-tooltip />
             <el-table-column prop="operator" label="经办人" width="100" />
             <el-table-column label="单据状态" width="100">
@@ -283,7 +288,7 @@
             <el-table-column label="退库部门" width="140">
               <template #default="{ row }">{{ deptNameOf(row.deptId) }}</template>
             </el-table-column>
-            <el-table-column prop="returnDate" label="退库日期" width="120" />
+            <el-table-column prop="returnDate" label="退库日期" width="120" sortable />
             <el-table-column prop="reason" label="退库原因" min-width="180" show-overflow-tooltip />
             <el-table-column prop="operator" label="经办人" width="100" />
             <el-table-column label="单据状态" width="100">
@@ -618,6 +623,17 @@ function decorateDoc(r) {
   }
 }
 
+/** 日期逆序（新单据在前）；兼容 ISO 时间戳与 YYYY-MM-DD，空值排末尾 */
+function byDateDesc(field) {
+  return (a, b) => {
+    const av = String(a?.[field] || ''), bv = String(b?.[field] || '')
+    if (!av && !bv) return 0
+    if (!av) return 1
+    if (!bv) return -1
+    return bv.localeCompare(av)
+  }
+}
+
 /** 台账用 store 的视图模型：已带出类别名与状态文案 */
 const filteredItemList = computed(() => {
   const kw = itemSearch.keyword.trim()
@@ -626,7 +642,7 @@ const filteredItemList = computed(() => {
     const companyMatch = !itemSearch.company || i.companyId === itemSearch.company
     const kwMatch = !kw || i.name.includes(kw) || (i.spec || '').includes(kw) || i.code.includes(kw)
     return categoryMatch && companyMatch && kwMatch
-  })
+  }).sort(byDateDesc('createTime'))
 })
 
 const pagedItemList = computed(() => {
@@ -654,7 +670,7 @@ const filteredInboundList = computed(() => {
     const supplierMatch = !inboundSearch.supplier || (r.supplier || '').includes(inboundSearch.supplier)
     const companyMatch = !inboundSearch.company || r.companyId === inboundSearch.company
     return nameMatch && supplierMatch && companyMatch
-  }).map(decorateDoc)
+  }).map(decorateDoc).sort(byDateDesc('inboundDate'))
 })
 
 const pagedInboundList = computed(() => {
@@ -683,7 +699,7 @@ const filteredRequisitionList = computed(() => {
     const receiverMatch = !requisitionSearch.receiver || (r.receiver || '').includes(requisitionSearch.receiver)
     const companyMatch = !requisitionSearch.company || r.companyId === requisitionSearch.company
     return nameMatch && deptMatch && receiverMatch && companyMatch
-  }).map(decorateDoc)
+  }).map(decorateDoc).sort(byDateDesc('requisitionDate'))
 })
 
 const pagedRequisitionList = computed(() => {
@@ -712,7 +728,7 @@ const filteredReturnList = computed(() => {
     const returnerMatch = !returnSearch.returner || (r.returner || '').includes(returnSearch.returner)
     const companyMatch = !returnSearch.company || r.companyId === returnSearch.company
     return nameMatch && returnerMatch && companyMatch
-  }).map(decorateDoc)
+  }).map(decorateDoc).sort(byDateDesc('returnDate'))
 })
 
 const pagedReturnList = computed(() => {
@@ -910,8 +926,8 @@ function downloadCsv(headers, rows, filename) {
 }
 
 function exportItems() {
-  const headers = ['物品编码', '物品类别', '物品名称', '规格型号', '单位', '物品单价(元)', '物品数量', '审批占用', '可用数量', '安全库存', '存放位置', '状态']
-  const rows = filteredItemList.value.map(i => [i.code, i.categoryName, i.name, i.spec, i.unit, i.price, i.stock, i.reservedQty, i.availableQty, i.safetyStock, i.location, i.statusText])
+  const headers = ['物品编码', '登记日期', '物品类别', '物品名称', '规格型号', '单位', '物品单价(元)', '物品数量', '审批占用', '可用数量', '安全库存', '存放位置', '状态']
+  const rows = filteredItemList.value.map(i => [i.code, i.createTime ? String(i.createTime).slice(0, 10) : '', i.categoryName, i.name, i.spec, i.unit, i.price, i.stock, i.reservedQty, i.availableQty, i.safetyStock, i.location, i.statusText])
   downloadCsv(headers, rows, `导出_低值资产台账_${today()}.csv`)
 }
 

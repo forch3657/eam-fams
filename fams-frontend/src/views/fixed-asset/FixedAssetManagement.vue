@@ -78,7 +78,7 @@
             </el-table-column>
             <el-table-column prop="user" label="使用人员" width="90" />
             <el-table-column prop="dept" label="使用部门" width="100" />
-            <el-table-column prop="purchaseDate" label="购(建)时间" width="110" />
+            <el-table-column prop="purchaseDate" label="购(建)时间" width="110" sortable />
             <el-table-column prop="status" label="资产状态" width="90">
               <template #default="{ row }">
                 <el-tag :type="assetStatusType(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
@@ -268,7 +268,7 @@
               <el-table-column label="所属公司" min-width="180" show-overflow-tooltip>
                 <template #default="{ row }">{{ orgStore.companyName(row.companyId) || row.companyId || '' }}</template>
               </el-table-column>
-              <el-table-column label="创建时间" width="160" ><template #default="{ row }">{{ formatDateTime(row.createTime) }}</template></el-table-column>
+              <el-table-column prop="createTime" label="创建时间" width="160" sortable><template #default="{ row }">{{ formatDateTime(row.createTime) }}</template></el-table-column>
               <el-table-column label="完结时间" width="160">
                 <template #default="{ row }">{{ row.finishTime ? formatDateTime(row.finishTime) : '-' }}</template>
               </el-table-column>
@@ -341,12 +341,12 @@
             </el-button>
           </div>
 
-          <el-table :data="inventoryPlans" style="width: 100%">
+          <el-table :data="sortedInventoryPlans" style="width: 100%">
             <el-table-column prop="planNo" label="计划编号" width="130" />
             <el-table-column prop="planName" label="盘点计划" min-width="160" show-overflow-tooltip />
             <el-table-column prop="scope" label="盘点范围" width="130" />
             <el-table-column prop="counter" label="盘点人" width="90" />
-            <el-table-column prop="planDate" label="盘点日期" width="110" />
+            <el-table-column prop="planDate" label="盘点日期" width="110" sortable />
             <el-table-column label="盘点提醒" width="120">
               <template #default="{ row }">
                 <el-tag :type="remindTagType(row)" size="small">{{ remindText(row) }}</el-tag>
@@ -1120,6 +1120,17 @@ const STATUS_ENUM_ORDER = [
   'DISPOSE_STATUS', 'INVENTORY_ITEM_STATUS', 'INVENTORY_COUNTER_STATUS', 'ENABLE_STATUS',
   'CHANGE_TYPE', 'DISPOSE_TYPE', 'PURCHASE_MODE', 'ASSET_CATEGORY'
 ]
+/** 日期逆序（新单据在前）；兼容 ISO 时间戳与 YYYY-MM-DD，空值排末尾 */
+function byDateDesc(field) {
+  return (a, b) => {
+    const av = String(a?.[field] || ''), bv = String(b?.[field] || '')
+    if (!av && !bv) return 0
+    if (!av) return 1
+    if (!bv) return -1
+    return bv.localeCompare(av)
+  }
+}
+
 /** 状态筛选：支持按编码或按文案匹配 */
 function matchStatus(row, value) {
   if (!value) return true
@@ -1532,6 +1543,8 @@ const canReadInventory = computed(() =>
 )
 const inventoryPlanCol = useCollection(COLLECTION.inventoryPlans, { enabled: () => canReadInventory.value })
 const inventoryPlans = inventoryPlanCol.items
+/** 盘点计划按盘点日期逆序；排序副本不影响原数组引用（原对象仍需用于编辑/删除） */
+const sortedInventoryPlans = computed(() => [...inventoryPlans.value].sort(byDateDesc('planDate')))
 
 /**
  * 盘点明细结果统一存 INVENTORY_RESULT 编码：
@@ -1949,7 +1962,7 @@ const filteredInvDocs = computed(() => {
     (!invSearch.status || matchStatus(d, invSearch.status)) &&
     (!cr || cr.length !== 2 || (d.createTime.slice(0, 10) >= cr[0] && d.createTime.slice(0, 10) <= cr[1])) &&
     (!fr || fr.length !== 2 || (!!d.finishTime && d.finishTime.slice(0, 10) >= fr[0] && d.finishTime.slice(0, 10) <= fr[1]))
-  )
+  ).sort(byDateDesc('createTime'))
 })
 
 const pagedInvDocs = computed(() => {
@@ -2629,7 +2642,7 @@ const filteredAssetList = computed(() => {
       a.type === (typeLabel || assetSearch.type) ||
       a.type === assetSearch.type) &&
     (!assetSearch.status || a.statusCode === assetSearch.status || matchStatus(a, assetSearch.status))
-  )
+  ).sort(byDateDesc('purchaseDate'))
 })
 
 const pagedAssetList = computed(() => {
