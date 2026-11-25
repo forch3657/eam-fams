@@ -101,12 +101,23 @@
           <div class="stat"><span class="stat-num">{{ previewData.stats.skipExistingUsers }}</span><span class="stat-label">已存在跳过</span></div>
         </div>
 
+        <div class="preview-filter">
+          <el-input v-model="previewKeyword" size="small" clearable placeholder="在当前页内搜索（公司/部门/姓名/手机号/岗位/处理结果）"
+            style="width: 420px" prefix-icon="Search" />
+          <span class="filter-hint">
+            当前页 {{ activeTab === 'companies' ? filteredCompanies.length : activeTab === 'departments' ? filteredDepartments.length : activeTab === 'users' ? filteredUsers.length : filteredPositions.length }} 条
+          </span>
+          <span class="filter-hint">点击列头可排序；「处理 / 主职」列可筛选</span>
+        </div>
+
         <el-tabs v-model="activeTab" class="preview-tabs">
           <el-tab-pane label="公司" name="companies">
-            <el-table :data="previewData.companies" border stripe size="small" max-height="360">
-              <el-table-column prop="name" label="公司名称" min-width="220" />
-              <el-table-column prop="parentName" label="上级公司" min-width="180" />
-              <el-table-column prop="action" label="处理" width="110">
+            <el-table :data="filteredCompanies" border stripe size="small" max-height="360">
+              <el-table-column prop="name" label="公司名称" min-width="220" sortable />
+              <el-table-column prop="parentName" label="上级公司" min-width="180" sortable />
+              <el-table-column prop="action" label="处理" width="130" column-key="action"
+                :filters="[{ text: '新建', value: 'CREATE' }, { text: '跳过（已存在）', value: 'SKIP' }]"
+                :filter-method="(value, row) => row.action === value">
                 <template #default="{ row }">
                   <el-tag :type="row.action === 'CREATE' ? 'success' : 'info'" size="small" effect="light">
                     {{ row.action === 'CREATE' ? '新建' : '跳过（已存在）' }}
@@ -116,11 +127,13 @@
             </el-table>
           </el-tab-pane>
           <el-tab-pane label="部门" name="departments">
-            <el-table :data="previewData.departments" border stripe size="small" max-height="360">
-              <el-table-column prop="companyName" label="所属公司" min-width="180" />
-              <el-table-column prop="name" label="部门名称" min-width="150" />
-              <el-table-column prop="parentName" label="上级部门" min-width="150" />
-              <el-table-column prop="action" label="处理" width="110">
+            <el-table :data="filteredDepartments" border stripe size="small" max-height="360">
+              <el-table-column prop="companyName" label="所属公司" min-width="180" sortable />
+              <el-table-column prop="name" label="部门名称" min-width="150" sortable />
+              <el-table-column prop="parentName" label="上级部门" min-width="150" sortable />
+              <el-table-column prop="action" label="处理" width="130" column-key="action"
+                :filters="[{ text: '新建', value: 'CREATE' }, { text: '跳过（已存在）', value: 'SKIP' }]"
+                :filter-method="(value, row) => row.action === value">
                 <template #default="{ row }">
                   <el-tag :type="row.action === 'CREATE' ? 'success' : 'info'" size="small" effect="light">
                     {{ row.action === 'CREATE' ? '新建' : '跳过（已存在）' }}
@@ -130,13 +143,15 @@
             </el-table>
           </el-tab-pane>
           <el-tab-pane label="人员（按手机号去重）" name="users">
-            <el-table :data="previewData.users" border stripe size="small" max-height="360">
-              <el-table-column prop="phone" label="手机号（唯一键）" width="150" />
-              <el-table-column prop="name" label="姓名" width="120" />
-              <el-table-column prop="companyName" label="公司" min-width="180" />
-              <el-table-column prop="deptName" label="部门" min-width="150" />
-              <el-table-column prop="position" label="主职岗位" min-width="150" />
-              <el-table-column prop="action" label="处理" width="110">
+            <el-table :data="filteredUsers" border stripe size="small" max-height="360">
+              <el-table-column prop="phone" label="手机号（唯一键）" width="150" sortable />
+              <el-table-column prop="name" label="姓名" width="120" sortable />
+              <el-table-column prop="companyName" label="公司" min-width="180" sortable />
+              <el-table-column prop="deptName" label="部门" min-width="150" sortable />
+              <el-table-column prop="position" label="主职岗位" min-width="150" sortable />
+              <el-table-column prop="action" label="处理" width="130" column-key="action"
+                :filters="[{ text: '新建', value: 'CREATE' }, { text: '跳过（已存在）', value: 'SKIP' }]"
+                :filter-method="(value, row) => row.action === value">
                 <template #default="{ row }">
                   <el-tag :type="row.action === 'CREATE' ? 'success' : 'info'" size="small" effect="light">
                     {{ row.action === 'CREATE' ? '新建' : '跳过（已存在）' }}
@@ -146,13 +161,15 @@
             </el-table>
           </el-tab-pane>
           <el-tab-pane label="岗位（含兼职）" name="positions">
-            <el-table :data="previewData.positions" border stripe size="small" max-height="360">
-              <el-table-column prop="phone" label="手机号" width="150" />
-              <el-table-column prop="name" label="姓名" width="120" />
-              <el-table-column prop="companyName" label="公司" min-width="180" />
-              <el-table-column prop="deptName" label="部门" min-width="150" />
-              <el-table-column prop="position" label="岗位" min-width="150" />
-              <el-table-column label="主职" width="80" align="center">
+            <el-table :data="filteredPositions" border stripe size="small" max-height="360">
+              <el-table-column prop="phone" label="手机号" width="150" sortable />
+              <el-table-column prop="name" label="姓名" width="120" sortable />
+              <el-table-column prop="companyName" label="公司" min-width="180" sortable />
+              <el-table-column prop="deptName" label="部门" min-width="150" sortable />
+              <el-table-column prop="position" label="岗位" min-width="150" sortable />
+              <el-table-column label="主职" width="100" align="center" column-key="primary"
+                :filters="[{ text: '主职', value: '1' }, { text: '兼职', value: '0' }]"
+                :filter-method="(value, row) => String(row.primary ? '1' : '0') === value">
                 <template #default="{ row }">
                   <el-tag v-if="row.primary" type="warning" size="small" effect="light">主职</el-tag>
                   <span v-else class="muted">兼职</span>
@@ -164,10 +181,10 @@
       </template>
     </el-card>
 
-    <!-- 功能三：按公司批量启用 -->
+    <!-- 功能三：按公司批量运维（启用/停用/预置角色） -->
     <el-card shadow="never" class="panel">
       <template #header>
-        <div class="card-header"><span>按公司批量启用</span></div>
+        <div class="card-header"><span>按公司批量运维（启用 / 停用 / 预置角色）</span></div>
       </template>
       <el-form :inline="true" label-width="100px" size="small">
         <el-form-item label="选择公司">
@@ -176,14 +193,24 @@
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :disabled="!selectedCompanyId" :loading="enabling" @click="confirmEnable">
-            启用该公司未启用账号
+          <el-button type="primary" plain :disabled="!selectedCompanyId || !disabledCount" :loading="enabling" @click="confirmEnable">
+            批量启用
+          </el-button>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="warning" plain :disabled="!selectedCompanyId || !enabledCount" :loading="disabling" @click="confirmDisable">
+            批量停用
+          </el-button>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="success" plain :disabled="!selectedCompanyId || !companyUserCount" :loading="assigning" @click="confirmAssign">
+            批量预置角色（资产使用人）
           </el-button>
         </el-form-item>
       </el-form>
       <div v-if="selectedCompanyId" class="company-hint">
-        当前公司共 <b>{{ companyUserCount }}</b> 个本地账号，其中未启用 <b class="warn">{{ disabledCount }}</b> 个。
-        为避免误操作，仅启用「当前公司」下账号，不含下级公司。
+        当前公司共 <b>{{ companyUserCount }}</b> 个本地账号（启用 <b>{{ enabledCount }}</b> / 未启用 <b class="warn">{{ disabledCount }}</b>）。
+        仅处理「当前公司」下账号，不含下级公司；停用会跳过系统管理员(R1)与当前登录账号。
       </div>
       <div v-else class="company-hint muted">选择公司后显示该公司本地账号统计。</div>
     </el-card>
@@ -228,6 +255,29 @@
         <el-button type="primary" :loading="enabling" @click="doEnable">确认启用</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="disableDialog" title="确认批量停用" width="480px">
+      <p>将停用「<b>{{ selectedCompanyName }}</b>」下 <b>{{ enabledCount }}</b> 个启用中的账号（不含下级公司）。</p>
+      <el-alert type="warning" :closable="false" show-icon
+        title="系统管理员(R1)和当前登录账号将自动跳过，不会被停用。" />
+      <template #footer>
+        <el-button @click="disableDialog = false">取消</el-button>
+        <el-button type="warning" :loading="disabling" @click="doDisable">确认停用</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="assignDialog" title="确认批量预置角色" width="500px">
+      <p>
+        将把「<b>{{ selectedCompanyName }}</b>」下全部 <b>{{ companyUserCount }}</b> 个账号及其岗位，
+        统一预置为 <b>资产使用人（R3）</b>——包括没写岗位的岗位记录。
+      </p>
+      <el-alert type="info" :closable="false" show-icon
+        title="已设为 R3 的会跳过；系统管理员(R1)自动跳过，不会被降级。仅处理当前公司，不含下级。" />
+      <template #footer>
+        <el-button @click="assignDialog = false">取消</el-button>
+        <el-button type="success" :loading="assigning" @click="doAssign">确认预置角色</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -235,7 +285,10 @@
 import { computed, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useOrgStore } from '../../store/org'
-import { syncPreview, syncApply, syncApplyOrganizations, syncEnableByCompany } from '../../services/liuxun'
+import {
+  syncPreview, syncApply, syncApplyOrganizations,
+  syncEnableByCompany, syncDisableByCompany, syncAssignRolesByCompany
+} from '../../services/liuxun'
 
 const orgStore = useOrgStore()
 
@@ -250,10 +303,26 @@ const previewData = ref(null)
 const applying = ref(false)
 const applyDialog = ref(false)
 const activeTab = ref('users')
+const previewKeyword = ref('')
+
+function matchKeyword(row, keyword) {
+  if (!keyword) return true
+  const k = keyword.trim().toLowerCase()
+  if (!k) return true
+  return Object.values(row || {}).some(v => String(v ?? '').toLowerCase().includes(k))
+}
+const filteredCompanies = computed(() => (previewData.value?.companies || []).filter(r => matchKeyword(r, previewKeyword.value)))
+const filteredDepartments = computed(() => (previewData.value?.departments || []).filter(r => matchKeyword(r, previewKeyword.value)))
+const filteredUsers = computed(() => (previewData.value?.users || []).filter(r => matchKeyword(r, previewKeyword.value)))
+const filteredPositions = computed(() => (previewData.value?.positions || []).filter(r => matchKeyword(r, previewKeyword.value)))
 
 const selectedCompanyId = ref('')
 const enabling = ref(false)
 const enableDialog = ref(false)
+const disabling = ref(false)
+const disableDialog = ref(false)
+const assigning = ref(false)
+const assignDialog = ref(false)
 
 const hasCreate = computed(() => {
   const s = previewData.value?.stats
@@ -270,6 +339,9 @@ const companyUsers = computed(() =>
 const companyUserCount = computed(() => companyUsers.value.length)
 const disabledCount = computed(() =>
   companyUsers.value.filter(u => u.status !== 'ENABLED').length
+)
+const enabledCount = computed(() =>
+  companyUsers.value.filter(u => u.status === 'ENABLED').length
 )
 
 function confirmOrgApply() {
@@ -370,6 +442,53 @@ async function doEnable() {
     enabling.value = false
   }
 }
+
+function confirmDisable() {
+  if (enabledCount.value === 0) {
+    ElMessage.info('该公司没有启用中的账号')
+    return
+  }
+  disableDialog.value = true
+}
+
+async function doDisable() {
+  disabling.value = true
+  try {
+    const res = await syncDisableByCompany(selectedCompanyId.value)
+    disableDialog.value = false
+    ElMessage.success(`已停用 ${res.disabled} 个账号（跳过管理员 ${res.skippedAdmin}、当前账号 ${res.skippedSelf}）`)
+    orgStore.loadAll()
+  } catch (e) {
+    ElMessage.error(typeof e === 'string' ? e : (e?.message || '批量停用失败'))
+  } finally {
+    disabling.value = false
+  }
+}
+
+function confirmAssign() {
+  if (companyUserCount.value === 0) {
+    ElMessage.info('该公司没有本地账号')
+    return
+  }
+  assignDialog.value = true
+}
+
+async function doAssign() {
+  assigning.value = true
+  try {
+    const res = await syncAssignRolesByCompany(selectedCompanyId.value)
+    assignDialog.value = false
+    ElMessage.success(
+      `已预置角色：用户 ${res.usersUpdated} 个（跳过 ${res.usersSkipped}）、岗位 ${res.positionsUpdated} 条（跳过 ${res.positionsSkipped}）` +
+      (res.skippedAdmin ? `；跳过管理员 ${res.skippedAdmin}` : '')
+    )
+    orgStore.loadAll()
+  } catch (e) {
+    ElMessage.error(typeof e === 'string' ? e : (e?.message || '批量预置角色失败'))
+  } finally {
+    assigning.value = false
+  }
+}
 </script>
 
 <style scoped>
@@ -390,6 +509,8 @@ async function doEnable() {
 .stat.highlight { border-color: var(--el-color-primary-light-5); background: var(--el-color-primary-light-9); }
 .stat-num { display: block; font-size: 22px; font-weight: 600; color: var(--el-text-color-primary); }
 .stat-label { display: block; font-size: 12px; color: var(--el-text-color-secondary); margin-top: 4px; }
+.preview-filter { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.filter-hint { font-size: 12px; color: var(--el-text-color-secondary); }
 .preview-tabs :deep(.el-tabs__header) { margin-bottom: 8px; }
 .company-hint { margin-top: 10px; font-size: 13px; color: var(--el-text-color-regular); }
 .company-hint b { color: var(--el-text-color-primary); }

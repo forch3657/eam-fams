@@ -96,6 +96,7 @@ class P19LiuxunSyncTest {
         assertThat(first.path("createdUsers").asInt()).isEqualTo(2);
         assertThat(first.path("createdPositions").asInt()).isEqualTo(3);
         int departmentsAfterFirst = genericService.listInternal("org-departments", Collections.emptyMap()).size();
+        int positionsAfterFirst = genericService.listInternal("org-user-positions", Collections.emptyMap()).size();
 
         Map<String, String[]> query = new HashMap<>();
         query.put("username", new String[]{"13900003002"});
@@ -122,6 +123,8 @@ class P19LiuxunSyncTest {
         assertThat(second.path("createdDepartments").asInt()).as("重复执行不得重建部门").isEqualTo(0);
         assertThat(genericService.listInternal("org-departments", Collections.emptyMap()).size())
                 .as("部门总数不应因重复预置增加").isEqualTo(departmentsAfterFirst);
+        assertThat(genericService.listInternal("org-user-positions", Collections.emptyMap()).size())
+                .as("岗位总数不应因重复预置增加（兼职副本）").isEqualTo(positionsAfterFirst);
 
         // 预览也不得再把这些部门误报为待建
         JsonNode preview = call("/api/liuxun-sync/preview").path("data");
@@ -170,6 +173,10 @@ class P19LiuxunSyncTest {
                 .andExpect(status().isUnauthorized());
         mockMvc.perform(post("/api/liuxun-sync/enable-by-company").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/liuxun-sync/disable-by-company").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/liuxun-sync/assign-roles-by-company").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isUnauthorized());
         mockMvc.perform(post("/api/liuxun-sync/apply-organizations").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isUnauthorized());
     }
@@ -205,10 +212,111 @@ class P19LiuxunSyncTest {
         assertThat(str(genericService.get("org-users", str(savedUser.get("id"))).get("status"))).isEqualTo("ENABLED");
     }
 
+    @Test
+    @DisplayName("按公司批量停用：启用账号被停用，系统管理员R1跳过")
+    void disableByCompany() throws Exception {
+        Map<String, Object> company = new HashMap<>();
+        company.put("name", "PU19-批量停用测试公司");
+        company.put("code", "PU19-DISABLE");
+        company.put("status", "ENABLED");
+        Map<String, Object> savedCompany = genericService.create("org-companies", company);
+
+        Map<String, Object> normal = new HashMap<>();
+        normal.put("username", "pu19_disable_normal");
+        normal.put("password", "Pu19@2026!ok");
+        normal.put("name", "停用普通用户");
+        normal.put("companyId", String.valueOf(savedCompany.get("id")));
+        normal.put("status", "ENABLED");
+        Map<String, Object> savedNormal = genericService.create("org-users", normal);
+
+        Map<String, Object> admin = new HashMap<>();
+        admin.put("username", "pu19_disable_admin");
+        admin.put("password", "Pu19@2026!ok");
+        admin.put("name", "停用管理员测试");
+        admin.put("companyId", String.valueOf(savedCompany.get("id")));
+        admin.put("status", "ENABLED");
+        admin.put("roleIds", "[\"R1\"]");
+        Map<String, Object> savedAdmin = genericService.create("org-users", admin);
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("companyId", String.valueOf(savedCompany.get("id")));
+        String response = mockMvc.perform(post("/api/liuxun-sync/disable-by-company")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        JsonNode result = objectMapper.readTree(response).path("data");
+        assertThat(result.path("disabled").asInt()).isGreaterThanOrEqualTo(1);
+        assertThat(result.path("skippedAdmin").asInt()).isGreaterThanOrEqualTo(1);
+        assertThat(str(genericService.get("org-users", str(savedNormal.get("id"))).get("status"))).isEqualTo("DISABLED");
+        assertThat(str(genericService.get("org-users", str(savedAdmin.get("id"))).get("status"))).isEqualTo("ENABLED");
+    }
+
+    @Test
+    @DisplayName("按公司批量预置角色：用户主表与岗位都写R3，空岗位也写，管理员跳过")
+    void assignRolesByCompany() throws Exception {
+        Map<String, Object> company = new HashMap<>();
+        company.put("name", "PU19-预置角色测试公司");
+        company.put("code", "PU19-ROLE");
+        company.put("status", "ENABLED");
+        Map<String, Object> savedCompany = genericService.create("org-companies", company);
+        String companyId = String.valueOf(savedCompany.get("id"));
+
+        Map<String, Object> user = new HashMap<>();
+        user.put("username", "pu19_role_user");
+        user.put("password", "Pu19@2026!ok");
+        user.put("name", "角色预置用户");
+        user.put("companyId", companyId);
+        user.put("status", "ENABLED");
+        Map<String, Object> savedUser = genericService.create("org-users", user);
+        String userId = String.valueOf(savedUser.get("id"));
+
+        Map<String, Object> pos = new HashMap<>();
+        pos.put("userId", userId);
+        pos.put("companyId", companyId);
+        pos.put("position", "职员");
+        pos.put("isPrimary", true);
+        pos.put("status", "ENABLED");
+        genericService.create("org-user-positions", pos);
+        Map<String, Object> emptyPos = new HashMap<>();
+        emptyPos.put("userId", userId);
+        emptyPos.put("companyId", companyId);
+        emptyPos.put("status", "ENABLED");
+        Map<String, Object> savedEmpty = genericService.create("org-user-positions", emptyPos);
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("companyId", companyId);
+        String response = mockMvc.perform(post("/api/liuxun-sync/assign-roles-by-company")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        JsonNode result = objectMapper.readTree(response).path("data");
+        assertThat(result.path("usersUpdated").asInt()).isGreaterThanOrEqualTo(1);
+        assertThat(result.path("positionsUpdated").asInt()).isGreaterThanOrEqualTo(2);
+        assertThat(str(genericService.get("org-users", userId).get("roleIds"))).contains("R3");
+        assertThat(str(genericService.get("org-user-positions", str(savedEmpty.get("id"))).get("roleIds")))
+                .as("空岗位也必须预置 R3").contains("R3");
+
+        // 重复执行：全部跳过
+        JsonNode second = callWithBody("/api/liuxun-sync/assign-roles-by-company", body);
+        assertThat(second.path("data").path("usersUpdated").asInt()).isEqualTo(0);
+        assertThat(second.path("data").path("positionsUpdated").asInt()).isEqualTo(0);
+    }
+
     private JsonNode call(String path) throws Exception {
+        return callWithBody(path, new HashMap<>());
+    }
+
+    private JsonNode callWithBody(String path, Object body) throws Exception {
         String response = mockMvc.perform(post(path)
                         .header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);

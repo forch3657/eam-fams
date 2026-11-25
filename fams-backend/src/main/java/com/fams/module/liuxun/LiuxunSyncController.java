@@ -107,6 +107,36 @@ public class LiuxunSyncController {
         }
     }
 
+    /** 按公司批量停用：跳过系统管理员(R1)和当前登录账号 */
+    @PostMapping("/disable-by-company")
+    public R<Map<String, Object>> disableByCompany(@RequestBody(required = false) Map<String, Object> body) {
+        requireOrgWrite();
+        String companyId = body == null ? "" : String.valueOf(body.getOrDefault("companyId", ""));
+        try {
+            return R.ok(syncService.disableByCompany(companyId));
+        } catch (ApiException e) {
+            return R.fail(ErrorCode.BAD_REQUEST, e.getMessage());
+        } catch (Exception e) {
+            log.error("[liuxun-sync] 批量停用异常", e);
+            return R.fail(ErrorCode.SERVER, "批量停用失败：" + e.getMessage());
+        }
+    }
+
+    /** 按公司批量预置角色：全部岗位(含空岗位)与用户主表统一设为 R3 资产使用人 */
+    @PostMapping("/assign-roles-by-company")
+    public R<Map<String, Object>> assignRolesByCompany(@RequestBody(required = false) Map<String, Object> body) {
+        requireOrgWrite();
+        String companyId = body == null ? "" : String.valueOf(body.getOrDefault("companyId", ""));
+        try {
+            return R.ok(syncService.assignRolesByCompany(companyId));
+        } catch (ApiException e) {
+            return R.fail(ErrorCode.BAD_REQUEST, e.getMessage());
+        } catch (Exception e) {
+            log.error("[liuxun-sync] 批量预置角色异常", e);
+            return R.fail(ErrorCode.SERVER, "批量预置角色失败：" + e.getMessage());
+        }
+    }
+
     /** 公司/部门/用户三项写权限同时具备才允许同步，口径同组织架构导入 */
     private void requireOrgWrite() {
         for (String key : new String[]{"org-companies", "org-departments", "org-users"}) {

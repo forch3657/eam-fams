@@ -3,6 +3,7 @@ package com.fams.module.liuxun;
 import com.fams.common.ErrorCode;
 import com.fams.engine.GenericService;
 import com.fams.engine.RowCodec;
+import com.fams.security.AuthContext;
 import com.fams.common.ApiException;
 import com.fams.imports.OrgStructureImportService;
 import org.springframework.web.multipart.MultipartFile;
@@ -207,8 +208,8 @@ public class LiuxunSyncService {
                 body.put("password", randomPassword());
                 body.put("name", person.name);
                 body.put("companyId", companyId);
-                String deptId = local.deptIdByKey.get(person.company + "||" + person.dept);
-                if (deptId != null) body.put("deptId", deptId);
+                String deptId = local.deptIdByCompanyNameKey.get(person.company + "||" + person.dept);
+                if (!isEmpty(deptId)) body.put("deptId", deptId);
                 if (!isEmpty(person.position)) body.put("position", person.position);
                 body.put("phone", phone);
                 body.put("status", ENABLED);
@@ -229,16 +230,27 @@ public class LiuxunSyncService {
                 continue;
             }
             String companyId = local.companyIdByName.get(person.company);
+            String deptId = local.deptIdByCompanyNameKey.get(person.company + "||" + person.dept);
+            String position = isEmpty(person.position) ? "" : person.position;
+            String deptPart = positionKey(userId, companyId == null ? "" : companyId,
+                    isEmpty(deptId) ? "" : deptId, "");
+            // 岗位幂等：同一(用户,公司,部门,岗位名)只建一条；重复 apply 不得产生兼职副本
+            String posKey = positionKey(userId, companyId == null ? "" : companyId,
+                    isEmpty(deptId) ? "" : deptId, position);
+            if (local.positionKeys.contains(posKey)) continue;
+            // 柳讯同一人同部门会有多个节点，其中一个没填岗位名；已有该部门岗位时不再建空岗位名副本
+            if (isEmpty(position) && local.positionDeptKeys.contains(deptPart)) continue;
             try {
                 Map<String, Object> body = new LinkedHashMap<>();
                 body.put("userId", userId);
                 if (companyId != null) body.put("companyId", companyId);
-                String deptId = local.deptIdByKey.get(person.company + "||" + person.dept);
-                if (deptId != null) body.put("deptId", deptId);
-                if (!isEmpty(person.position)) body.put("position", person.position);
+                if (!isEmpty(deptId)) body.put("deptId", deptId);
+                if (!isEmpty(position)) body.put("position", position);
                 body.put("isPrimary", person.primary);
                 body.put("status", ENABLED);
                 genericService.create(POSITIONS, body);
+                local.positionKeys.add(posKey);
+                local.positionDeptKeys.add(deptPart);
                 createdPositions++;
             } catch (Exception e) {
                 errors.add("岗位「" + person.position + "」创建失败：" + e.getMessage());
@@ -405,6 +417,123 @@ public class LiuxunSyncService {
         return result;
     }
 
+    /** roleIds 读回是 List、写入是 JSON 字符串，统一取文本判断 */
+    private static String roleText(Map<String, Object> row) {
+        Object v = row.get("roleIds");
+        if (v == null) return "";
+        if (v instanceof Collection) {
+            StringBuilder sb = new StringBuilder("[");
+            int i = 0;
+            for (Object o : (Collection<?>) v) {
+                if (i++ > 0) sb.append(',');
+                sb.append('"').append(o).append('"');
+            }
+            return sb.append(']').toString();
+        }
+        return String.valueOf(v);
+    }
+
+    /** 是否系统管理员（roleIds 含 R1） */
+    private static boolean isAdmin(Map<String, Object> row) {
+        return roleText(row).contains("\"R1\"");
+    }
+
+    /** 是否已只含指定角色（用于幂等跳过） */
+    private static boolean hasOnlyRole(Map<String, Object> row, String code) {
+        return ("[\"" + code + "\"]").equals(roleText(row));
+    }
+
+    /** 按公司批量停用：ENABLED → DISABLED，跳过系统管理员(R1)和当前登录账号。 */
+    public Map<String, Object> disableByCompany(String companyId) {
+        if (isEmpty(companyId)) {
+            throw new ApiException(ErrorCode.BAD_REQUEST, "请选择公司");
+        }
+        Map<String, String[]> query = new LinkedHashMap<>();
+        query.put("companyId", new String[]{companyId});
+        List<Map<String, Object>> users = genericService.listInternal(USERS, query);
+        String currentUserId = AuthContext.currentUserId();
+        int disabled = 0, skippedAdmin = 0, skippedSelf = 0, skippedAlready = 0;
+        for (Map<String, Object> u : users) {
+            String id = str(u.get("id"));
+            if (isAdmin(u)) { skippedAdmin++; continue; }
+            if (id.equals(currentUserId)) { skippedSelf++; continue; }
+            if (!ENABLED.equalsIgnoreCase(str(u.get("status")))) { skippedAlready++; continue; }
+            Map<String, Object> patch = new LinkedHashMap<>(u);
+            patch.put("status", "DISABLED");
+            Object version = u.get("version");
+            if (version != null) patch.put("version", version);
+            patch.remove("id");
+            genericService.update(USERS, id, patch);
+            disabled++;
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("companyId", companyId.trim());
+        result.put("total", users.size());
+        result.put("disabled", disabled);
+        result.put("skippedAdmin", skippedAdmin);
+        result.put("skippedSelf", skippedSelf);
+        result.put("skippedAlready", skippedAlready);
+        return result;
+    }
+
+    /**
+     * 按公司批量预置角色：该公司全部岗位 roleIds=["R3"]（含空岗位），并同步用户主表 roleIds=["R3"]。
+     * 跳过系统管理员(R1)，避免把管理员降级。已为 R3 的不重复写。
+     */
+    public Map<String, Object> assignRolesByCompany(String companyId) {
+        if (isEmpty(companyId)) {
+            throw new ApiException(ErrorCode.BAD_REQUEST, "请选择公司");
+        }
+        String roles = RowCodec.writeJson(Collections.singletonList("R3"));
+        Map<String, String[]> query = new LinkedHashMap<>();
+        query.put("companyId", new String[]{companyId});
+        List<Map<String, Object>> users = genericService.listInternal(USERS, query);
+        // 岗位可能挂在别的公司（跨公司兼职），管理员判断必须查用户主表，不能只看岗位自身 roleIds
+        Map<String, Map<String, Object>> userById = new LinkedHashMap<>();
+        for (Map<String, Object> u : genericService.listInternal(USERS, Collections.emptyMap())) {
+            userById.put(str(u.get("id")), u);
+        }
+        int usersUpdated = 0, usersSkipped = 0, skippedAdmin = 0;
+        for (Map<String, Object> u : users) {
+            String id = str(u.get("id"));
+            if (isAdmin(u)) { skippedAdmin++; continue; }
+            if (hasOnlyRole(u, "R3")) { usersSkipped++; continue; }
+            Map<String, Object> patch = new LinkedHashMap<>(u);
+            patch.put("roleIds", roles);
+            Object version = u.get("version");
+            if (version != null) patch.put("version", version);
+            patch.remove("id");
+            genericService.update(USERS, id, patch);
+            usersUpdated++;
+        }
+        List<Map<String, Object>> positions = genericService.listInternal(POSITIONS, query);
+        int positionsUpdated = 0, positionsSkipped = 0, positionsSkippedAdmin = 0;
+        for (Map<String, Object> p : positions) {
+            Map<String, Object> owner = userById.get(str(p.get("userId")));
+            if (owner == null) continue; // 用户不存在，跳过
+            if (isAdmin(owner)) { positionsSkippedAdmin++; continue; } // 按用户主表判断 R1
+            if (hasOnlyRole(p, "R3")) { positionsSkipped++; continue; }
+            Map<String, Object> patch = new LinkedHashMap<>(p);
+            patch.put("roleIds", roles);
+            Object version = p.get("version");
+            if (version != null) patch.put("version", version);
+            patch.remove("id");
+            genericService.update(POSITIONS, str(p.get("id")), patch);
+            positionsUpdated++;
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("companyId", companyId.trim());
+        result.put("role", "R3");
+        result.put("userTotal", users.size());
+        result.put("usersUpdated", usersUpdated);
+        result.put("usersSkipped", usersSkipped);
+        result.put("positionTotal", positions.size());
+        result.put("positionsUpdated", positionsUpdated);
+        result.put("positionsSkipped", positionsSkipped);
+        result.put("skippedAdmin", skippedAdmin + positionsSkippedAdmin);
+        return result;
+    }
+
     // ------------------------------------------------------------------ 通讯录获取
 
     /**
@@ -485,8 +614,10 @@ public class LiuxunSyncService {
         node.id = n.path("id").asInt();
         node.objectId = n.path("objectId").asInt();
         node.type = n.path("type").asInt();
-        node.name = n.path("name").asText("");
-        node.postName = n.path("postName").asText("");
+        // 柳讯数据里存在「综合管理部 （党群工作部）」这类括号内多空格的脏数据，
+        // 不规范化会建成同名部门、产生重复岗位（2026-11-24 事故）
+        node.name = normalizeName(n.path("name").asText(""));
+        node.postName = normalizeName(n.path("postName").asText(""));
         JsonNode children = n.path("childrenOrgStructures");
         if (children.isArray()) {
             for (JsonNode c : children) node.children.add(toNode(c));
@@ -608,7 +739,18 @@ public class LiuxunSyncService {
             if (isEmpty(phone)) phone = normalizePhone(str(u.get("username")));
             if (!isEmpty(phone)) index.userByPhone.put(phone, str(u.get("id")));
         }
+        for (Map<String, Object> pos : genericService.listInternal(POSITIONS, Collections.emptyMap())) {
+            String u = str(pos.get("userId")), c = str(pos.get("companyId")),
+                    d = str(pos.get("deptId")), p = str(pos.get("position"));
+            index.positionKeys.add(positionKey(u, c, d, p));
+            index.positionDeptKeys.add(positionKey(u, c, d, ""));
+        }
         return index;
+    }
+
+    /** 岗位幂等 key（与 SQLite/MySQL GROUP BY 的 NULL 口径一致：空串等同空） */
+    private static String positionKey(String userId, String companyId, String deptId, String position) {
+        return str(userId) + "||" + str(companyId) + "||" + str(deptId) + "||" + str(position);
     }
 
     private RestTemplate template() {
@@ -629,6 +771,11 @@ public class LiuxunSyncService {
 
     private static String normalizePhone(String s) {
         return String.valueOf(s == null ? "" : s).replaceAll("^\\+86[- ]?", "").trim();
+    }
+
+    /** 名称规范化：去除所有空白（含全角空格），避免「综合管理部 （党群工作部）」这类脏数据建成同名组织 */
+    private static String normalizeName(String s) {
+        return String.valueOf(s == null ? "" : s).replaceAll("\\s+", "");
     }
 
     private static String str(Object o) {
@@ -716,6 +863,10 @@ public class LiuxunSyncService {
         /** 公司名||部门名 → 部门 id，与通讯录树 deptKey 同口径，用于幂等判断 */
         final Map<String, String> deptIdByCompanyNameKey = new LinkedHashMap<>();
         final Map<String, String> userByPhone = new LinkedHashMap<>();
+        /** 岗位幂等 key：userId||companyId||deptId||position */
+        final Set<String> positionKeys = new LinkedHashSet<>();
+        /** 岗位所在部门 key：userId||companyId||deptId（用于跳过空岗位名的重复节点） */
+        final Set<String> positionDeptKeys = new LinkedHashSet<>();
         final Set<String> companyCodes = new LinkedHashSet<>();
         final Set<String> deptCodes = new LinkedHashSet<>();
     }

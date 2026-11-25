@@ -69,3 +69,13 @@ export function syncApply(phone, password) {
 export function syncEnableByCompany(companyId) {
   return request('/liuxun-sync/enable-by-company', { method: 'POST', data: { companyId } })
 }
+
+/** 按公司批量停用（跳过系统管理员和当前账号） */
+export function syncDisableByCompany(companyId) {
+  return request('/liuxun-sync/disable-by-company', { method: 'POST', data: { companyId } })
+}
+
+/** 按公司批量预置角色：全部岗位与用户主表统一设为 R3 资产使用人 */
+export function syncAssignRolesByCompany(companyId) {
+  return request('/liuxun-sync/assign-roles-by-company', { method: 'POST', data: { companyId } })
+}
